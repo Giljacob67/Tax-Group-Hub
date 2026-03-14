@@ -151,7 +151,7 @@ export default function KnowledgeBase() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {docsData?.documents?.map((doc: any, i: number) => (
+              {docsData?.documents?.map((doc, i) => (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}

@@ -389,7 +389,7 @@ export default function AgentChat() {
             )}
 
             <AnimatePresence>
-              {activeConv?.messages?.map((msg: any) => (
+              {activeConv?.messages?.map((msg) => (
                 <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] flex ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end gap-3`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 ${msg.role === 'user' ? 'bg-secondary' : 'bg-primary/20 border border-primary/30'}`}>

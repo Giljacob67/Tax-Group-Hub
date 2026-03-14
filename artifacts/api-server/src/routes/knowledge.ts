@@ -57,7 +57,7 @@ router.get("/knowledge", async (req, res) => {
 
 router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
   try {
-    const file = (req as any).file as Express.Multer.File | undefined;
+    const file = (req as Record<string, unknown>).file as Express.Multer.File | undefined;
     const agentId = req.body?.agentId || "global";
 
     if (!file) {

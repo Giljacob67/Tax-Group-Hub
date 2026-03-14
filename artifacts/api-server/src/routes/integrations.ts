@@ -43,8 +43,10 @@ router.post("/integrations/generate-image", async (req, res) => {
             }),
           }
         );
-        const data = (await response.json()) as any;
-        const imagePart = data?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+        interface GeminiPart { inlineData?: { mimeType: string; data: string }; text?: string }
+        interface GeminiResponse { candidates?: Array<{ content?: { parts?: GeminiPart[] } }> }
+        const data = (await response.json()) as GeminiResponse;
+        const imagePart = data?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
         if (imagePart?.inlineData) {
           imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
         } else {
@@ -136,7 +138,8 @@ router.post("/integrations/search-knowledge", async (req, res) => {
             body: JSON.stringify({ model: "models/text-embedding-004", content: { parts: [{ text: query }] } }),
           }
         );
-        const embeddingData = (await embeddingResponse.json()) as any;
+        interface EmbeddingResponse { error?: { message: string }; embedding?: { values: number[] } }
+        const embeddingData = (await embeddingResponse.json()) as EmbeddingResponse;
         if (embeddingData.error) throw new Error(embeddingData.error.message);
         res.json({
           query,
