@@ -37,5 +37,6 @@ export * from "./searchKnowledgeResponse";
 export * from "./searchKnowledgeResponseResultsItem";
 export * from "./sendMessageRequest";
 export * from "./successResponse";
+export * from "./uploadKnowledgeDocumentBody";
 export * from "./uploadUrlRequest";
 export * from "./uploadUrlResponse";

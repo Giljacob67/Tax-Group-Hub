@@ -208,6 +208,14 @@ export const ListKnowledgeDocumentsResponse = zod.object({
 });
 
 /**
+ * @summary Upload a knowledge document with text extraction
+ */
+export const UploadKnowledgeDocumentBody = zod.object({
+  file: zod.instanceof(File),
+  agentId: zod.string(),
+});
+
+/**
  * @summary Request a presigned upload URL for knowledge base document (legacy)
  */
 export const RequestUploadUrlBody = zod.object({

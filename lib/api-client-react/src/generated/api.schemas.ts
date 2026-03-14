@@ -215,3 +215,8 @@ export type ListKnowledgeDocumentsParams = {
 export type ListKnowledgeDocuments200 = {
   documents: KnowledgeDocument[];
 };
+
+export type UploadKnowledgeDocumentBody = {
+  file: Blob;
+  agentId: string;
+};

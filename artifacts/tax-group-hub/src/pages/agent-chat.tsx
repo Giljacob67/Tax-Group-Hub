@@ -192,9 +192,10 @@ export default function AgentChat() {
   };
 
   const handleSaveSystemPrompt = () => {
-    setCustomSystemPrompt(editingPrompt || null);
+    const newPrompt = editingPrompt || null;
+    setCustomSystemPrompt(newPrompt);
     setShowSystemPrompt(false);
-    toast({ title: customSystemPrompt ? "System prompt atualizado" : "System prompt restaurado" });
+    toast({ title: newPrompt ? "System prompt atualizado" : "System prompt restaurado" });
   };
 
   const filteredConversations = conversations?.conversations?.filter(

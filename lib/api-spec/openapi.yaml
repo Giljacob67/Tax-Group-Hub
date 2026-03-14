@@ -264,6 +264,32 @@ paths:
                       $ref: "#/components/schemas/KnowledgeDocument"
                 required: [documents]
 
+  /knowledge/upload:
+    post:
+      operationId: uploadKnowledgeDocument
+      tags: [knowledge]
+      summary: Upload a knowledge document with text extraction
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                agentId:
+                  type: string
+              required: [file, agentId]
+      responses:
+        "201":
+          description: Document uploaded and processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeDocument"
+
   /knowledge/upload-url:
     post:
       operationId: requestUploadUrl

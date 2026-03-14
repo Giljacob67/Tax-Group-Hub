@@ -28,6 +28,7 @@ import type {
   GenerateImageResponse,
   HealthStatus,
   ImageGalleryResponse,
+  KnowledgeDocument,
   ListAgents200,
   ListConversations200,
   ListConversationsParams,
@@ -40,6 +41,7 @@ import type {
   SearchKnowledgeResponse,
   SendMessageRequest,
   SuccessResponse,
+  UploadKnowledgeDocumentBody,
   UploadUrlRequest,
   UploadUrlResponse,
 } from "./api.schemas";
@@ -1022,6 +1024,96 @@ export function useListKnowledgeDocuments<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Upload a knowledge document with text extraction
+ */
+export const getUploadKnowledgeDocumentUrl = () => {
+  return `/api/knowledge/upload`;
+};
+
+export const uploadKnowledgeDocument = async (
+  uploadKnowledgeDocumentBody: UploadKnowledgeDocumentBody,
+  options?: RequestInit,
+): Promise<KnowledgeDocument> => {
+  const formData = new FormData();
+  formData.append(`file`, uploadKnowledgeDocumentBody.file);
+  formData.append(`agentId`, uploadKnowledgeDocumentBody.agentId);
+
+  return customFetch<KnowledgeDocument>(getUploadKnowledgeDocumentUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getUploadKnowledgeDocumentMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadKnowledgeDocument>>,
+    TError,
+    { data: BodyType<UploadKnowledgeDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadKnowledgeDocument>>,
+  TError,
+  { data: BodyType<UploadKnowledgeDocumentBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadKnowledgeDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadKnowledgeDocument>>,
+    { data: BodyType<UploadKnowledgeDocumentBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadKnowledgeDocument(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadKnowledgeDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadKnowledgeDocument>>
+>;
+export type UploadKnowledgeDocumentMutationBody =
+  BodyType<UploadKnowledgeDocumentBody>;
+export type UploadKnowledgeDocumentMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Upload a knowledge document with text extraction
+ */
+export const useUploadKnowledgeDocument = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadKnowledgeDocument>>,
+    TError,
+    { data: BodyType<UploadKnowledgeDocumentBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadKnowledgeDocument>>,
+  TError,
+  { data: BodyType<UploadKnowledgeDocumentBody> },
+  TContext
+> => {
+  return useMutation(getUploadKnowledgeDocumentMutationOptions(options));
+};
 
 /**
  * @summary Request a presigned upload URL for knowledge base document (legacy)
