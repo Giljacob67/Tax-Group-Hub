@@ -1,8 +1,8 @@
-# Workspace
+# Tax Group AI Hub
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+Full-stack AI platform for Tax Group — Brazil's largest tax consultancy. Features 11 specialized AI agents organized in 3 operational blocks, with chat via LLM (OpenRouter), persistent conversation history, knowledge base upload, image generation, Canva deep links, and Google Embeddings for semantic search.
 
 ## Stack
 
@@ -10,10 +10,12 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Node.js version**: 24
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
-- **API framework**: Express 5
+- **Frontend**: React + Vite (artifacts/tax-group-hub), Tailwind CSS v4, Shadcn/UI, Framer Motion
+- **API framework**: Express 5 (artifacts/api-server)
 - **Database**: PostgreSQL + Drizzle ORM
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
+- **LLM**: OpenRouter (compatible with OpenAI SDK), model: google/gemini-flash-1.5
 - **Build**: esbuild (CJS bundle)
 
 ## Structure
@@ -21,76 +23,104 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server (port 8080)
+│   │   └── src/
+│   │       ├── lib/agents-data.ts  # All 11 agent definitions + system prompts
+│   │       └── routes/
+│   │           ├── agents.ts         # GET /api/agents, GET /api/agents/:id
+│   │           ├── conversations.ts  # Chat conversations + message sending via LLM
+│   │           ├── knowledge.ts      # Knowledge base document management
+│   │           └── integrations.ts   # Image gen, Canva links, semantic search
+│   └── tax-group-hub/      # React + Vite frontend (port 25986)
+│       └── src/
+│           ├── App.tsx               # Main app with wouter routing
+│           ├── components/app-sidebar.tsx  # Sidebar with 11 agents
+│           └── pages/
+│               ├── dashboard.tsx     # Main dashboard with blocks and stats
+│               ├── agent-chat.tsx    # Chat interface per agent
+│               ├── knowledge-base.tsx # Document upload/management
+│               └── integrations.tsx  # Image gen, Canva, semantic search
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+│       └── src/schema/
+│           └── agents.ts   # conversations, messages, knowledge_documents tables
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── tsconfig.json
+└── package.json
 ```
 
-## TypeScript & Composite Projects
+## 11 AI Agents
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+### BLOCO 1 — Prospecção e Operação Comercial
+1. **prospeccao-tax-group** — Scripts de abordagem, SPIN Selling, cold outreach
+2. **qualificacao-leads-tax-group** — Scoring HOT/WARM/COLD, ICP analysis
+3. **objecoes-tax-group** — Reversão de objeções em tempo real (playbooks AFD/REP/RTI)
+4. **followup-tax-group** — Cadência D1/D3/D7/D15 por canal
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+### BLOCO 2 — Agência Virtual de Marketing
+5. **conteudo-linkedin-tax-group** — Posts LinkedIn educativos, provocativos, storytelling
+6. **email-marketing-tax-group** — Cold email, nurturing, reativação
+7. **materiais-comerciais-tax-group** — One-pagers, pitches, PDFs de ROI
+8. **reformatributaria-insight** — CBS, IBS, Split Payment, IVA Dual, RTI
 
-## Root Scripts
+### BLOCO 3 — Gestão e Operação Interna
+9. **gestao-pipeline-tax-group** — Diagnóstico de funil, gargalos, revisão semanal
+10. **roteiro-reuniao-tax-group** — Roteiro completo SPIN para reuniões comerciais
+11. **proposta-comercial-tax-group** — Estrutura de proposta para CFO/diretoria
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+## Database Schema
 
-## Packages
+- **conversations** — id, agentId, title, createdAt, updatedAt
+- **messages** — id, conversationId, role (user/assistant/system), content, metadata, createdAt
+- **knowledge_documents** — id, agentId, filename, fileType, fileSize, storageKey, status, createdAt
 
-### `artifacts/api-server` (`@workspace/api-server`)
+## Environment Variables Required
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+- `DATABASE_URL` — PostgreSQL connection (auto-provisioned by Replit)
+- `OPENROUTER_API_KEY` — For LLM chat (OpenRouter API key)
+- `GEMINI_API_KEY` — For Gemini image generation and Google Embeddings (optional)
+- `GOOGLE_API_KEY` — For Google Embeddings RAG search (optional, same as Gemini key)
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+## API Endpoints
 
-### `lib/db` (`@workspace/db`)
+- `GET /api/healthz` — Health check
+- `GET /api/agents` — List all 11 agents
+- `GET /api/agents/:id` — Agent details
+- `GET /api/conversations?agentId=X` — List conversations
+- `POST /api/conversations` — Create conversation
+- `GET /api/conversations/:id` — Get conversation with messages
+- `DELETE /api/conversations/:id` — Delete conversation
+- `POST /api/conversations/:id/messages` — Send message (LLM response)
+- `GET /api/knowledge?agentId=X` — List knowledge documents
+- `POST /api/knowledge/upload-url` — Request upload URL
+- `DELETE /api/knowledge/:id` — Delete document
+- `POST /api/integrations/generate-image` — Generate image (Gemini/OpenRouter)
+- `POST /api/integrations/canva-link` — Generate Canva deep link
+- `POST /api/integrations/search-knowledge` — Semantic search with embeddings
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+## Key Integrations
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
+1. **OpenRouter LLM** — Chat completions via `/api/conversations/:id/messages`
+2. **Google Gemini Nano** — Image generation via Gemini 2.0 Flash Preview
+3. **Google Embeddings** — RAG semantic search with text-embedding-004 model
+4. **Canva Deep Links** — Content creation for presentations, social posts, documents, flyers
 
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+## Tax Group Products Knowledge Base
 
-### `lib/api-spec` (`@workspace/api-spec`)
+The agents are pre-configured with knowledge about:
+- **AFD** — Análise Fiscal Digital (PIS, COFINS, ICMS, IRPJ, CSLL, 60 months, R$14B recovered)
+- **REP** — Revisão dos Encargos Previdenciários
+- **RTI** — Reforma Tributária Inteligente (CBS, IBS, Split Payment, 2026-2033 timeline)
+- **TTR** — Tratamentos e Tributos Recuperáveis
+- Full service catalog and sector expertise
 
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
+## Development Commands
 
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+- `pnpm --filter @workspace/api-server run dev` — Start API server
+- `pnpm --filter @workspace/tax-group-hub run dev` — Start frontend
+- `pnpm --filter @workspace/api-spec run codegen` — Regenerate API types
+- `pnpm --filter @workspace/db run push` — Push DB schema changes

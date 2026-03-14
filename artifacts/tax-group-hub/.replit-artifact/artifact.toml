@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Tax Group AI Hub"
+version = "1.0.0"
+id = "artifacts/tax-group-hub"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 25986
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/tax-group-hub run dev"
+
+[services.env]
+PORT = "25986"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/tax-group-hub", "run", "build"]
+publicDir = "artifacts/tax-group-hub/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

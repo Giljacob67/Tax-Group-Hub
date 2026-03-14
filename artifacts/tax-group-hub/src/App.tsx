@@ -1,0 +1,84 @@
+import { Switch, Route, Router as WouterRouter } from "wouter";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import NotFound from "@/pages/not-found";
+
+import { AppSidebar } from "./components/app-sidebar";
+import Dashboard from "./pages/dashboard";
+import AgentChat from "./pages/agent-chat";
+import KnowledgeBase from "./pages/knowledge-base";
+import Integrations from "./pages/integrations";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+function Layout({ children }: { children: React.ReactNode }) {
+  const style = {
+    "--sidebar-width": "18rem",
+    "--sidebar-width-icon": "4rem",
+  } as React.CSSProperties;
+
+  return (
+    <SidebarProvider style={style}>
+      <div className="flex h-screen w-full bg-background overflow-hidden selection:bg-primary/30">
+        <AppSidebar />
+        <div className="flex flex-col flex-1 relative w-full">
+          <div className="absolute top-4 left-4 z-50 md:hidden">
+            <SidebarTrigger className="bg-background/80 backdrop-blur border border-border shadow-md" />
+          </div>
+          <main className="flex-1 overflow-hidden flex flex-col w-full h-full">
+            {children}
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
+  );
+}
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/">
+        <Layout><Dashboard /></Layout>
+      </Route>
+      <Route path="/agent/:id">
+        <Layout><AgentChat /></Layout>
+      </Route>
+      <Route path="/knowledge">
+        <Layout><KnowledgeBase /></Layout>
+      </Route>
+      <Route path="/integrations">
+        <Layout><Integrations /></Layout>
+      </Route>
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function App() {
+  // Force dark mode on mount for the corporate aesthetic
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.add('dark');
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Router />
+        </WouterRouter>
+        <Toaster />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

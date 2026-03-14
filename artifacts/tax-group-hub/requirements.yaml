@@ -1,0 +1,20 @@
+packages:
+  "framer-motion": "For smooth page transitions, stagger animations, and polished UI interactions"
+  "react-markdown": "To properly render Markdown formatting from the AI agent responses"
+  "date-fns": "For elegant date and time formatting in chat and document lists"
+  "react-dropzone": "For robust drag-and-drop file upload capabilities in the knowledge base"
+  "clsx": "Utility for conditionally joining classNames"
+  "tailwind-merge": "Utility to flawlessly merge Tailwind CSS classes"
+
+images:
+  - path: "artifacts/tax-group-hub/public/images/logo.png"
+    description: "Minimalist modern corporate logo featuring a geometric stylized chevron mark in bright glowing royal blue, set on a completely transparent background. Professional, fintech, consulting aesthetic."
+    aspect_ratio: "1:1"
+  - path: "artifacts/tax-group-hub/public/images/hero-bg.png"
+    description: "Deep dark corporate abstract background with navy blue and pure black gradients. Features subtle, elegant glowing royal blue chevron lines cutting across the composition. High-end technology consulting vibe."
+    aspect_ratio: "16:9"
+
+notes:
+  - Importing fully typed hooks from @workspace/api-client-react as per monorepo structure.
+  - Applying 'dark' mode globally to achieve the requested corporate dark professional style.
+  - Implemented seamless optimistic UI updates for chat messages.

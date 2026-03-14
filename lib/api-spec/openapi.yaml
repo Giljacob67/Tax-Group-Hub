@@ -1,22 +1,29 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Tax Group AI Hub API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: agents
+    description: AI Agents
+  - name: conversations
+    description: Chat conversations and messages
+  - name: knowledge
+    description: Knowledge base management
+  - name: integrations
+    description: External integrations (image generation, Canva, embeddings)
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +31,280 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      summary: List all AI agents
+      responses:
+        "200":
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Agent"
+                required: [agents]
+
+  /agents/{agentId}:
+    get:
+      operationId: getAgent
+      tags: [agents]
+      summary: Get agent details
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "404":
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /conversations:
+    get:
+      operationId: listConversations
+      tags: [conversations]
+      summary: List conversations
+      parameters:
+        - name: agentId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Conversation"
+                required: [conversations]
+    post:
+      operationId: createConversation
+      tags: [conversations]
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConversationRequest"
+      responses:
+        "201":
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+
+  /conversations/{conversationId}:
+    get:
+      operationId: getConversation
+      tags: [conversations]
+      summary: Get conversation with messages
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteConversation
+      tags: [conversations]
+      summary: Delete a conversation
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /conversations/{conversationId}/messages:
+    post:
+      operationId: sendMessage
+      tags: [conversations]
+      summary: Send a message and get AI response
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /knowledge:
+    get:
+      operationId: listKnowledgeDocuments
+      tags: [knowledge]
+      summary: List knowledge base documents
+      parameters:
+        - name: agentId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/KnowledgeDocument"
+                required: [documents]
+
+  /knowledge/upload-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [knowledge]
+      summary: Request a presigned upload URL for knowledge base document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+
+  /knowledge/{documentId}:
+    delete:
+      operationId: deleteKnowledgeDocument
+      tags: [knowledge]
+      summary: Delete a knowledge document
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /integrations/generate-image:
+    post:
+      operationId: generateImage
+      tags: [integrations]
+      summary: Generate an image using AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateImageRequest"
+      responses:
+        "200":
+          description: Generated image URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateImageResponse"
+
+  /integrations/canva-link:
+    post:
+      operationId: getCanvaLink
+      tags: [integrations]
+      summary: Generate a Canva deep link for editing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CanvaLinkRequest"
+      responses:
+        "200":
+          description: Canva deep link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CanvaLinkResponse"
+
+  /integrations/search-knowledge:
+    post:
+      operationId: searchKnowledge
+      tags: [integrations]
+      summary: Semantic search in knowledge base using embeddings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchKnowledgeRequest"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchKnowledgeResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +312,257 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required: [success]
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        block:
+          type: string
+          enum: [prospeccao, marketing, gestao]
+        blockLabel:
+          type: string
+        icon:
+          type: string
+        systemPrompt:
+          type: string
+        suggestedPrompts:
+          type: array
+          items:
+            type: string
+        priority:
+          type: integer
+        color:
+          type: string
+      required: [id, name, slug, description, block, blockLabel, icon, systemPrompt, suggestedPrompts, priority, color]
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+        agentId:
+          type: string
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        messageCount:
+          type: integer
+      required: [id, agentId, title, createdAt, updatedAt, messageCount]
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        conversationId:
+          type: string
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [id, conversationId, role, content, createdAt]
+
+    ConversationWithMessages:
+      type: object
+      properties:
+        id:
+          type: string
+        agentId:
+          type: string
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+      required: [id, agentId, title, createdAt, updatedAt, messages]
+
+    CreateConversationRequest:
+      type: object
+      properties:
+        agentId:
+          type: string
+        title:
+          type: string
+      required: [agentId]
+
+    SendMessageRequest:
+      type: object
+      properties:
+        content:
+          type: string
+        useKnowledgeBase:
+          type: boolean
+      required: [content]
+
+    MessageResponse:
+      type: object
+      properties:
+        userMessage:
+          $ref: "#/components/schemas/Message"
+        assistantMessage:
+          $ref: "#/components/schemas/Message"
+      required: [userMessage, assistantMessage]
+
+    KnowledgeDocument:
+      type: object
+      properties:
+        id:
+          type: string
+        agentId:
+          type: string
+        filename:
+          type: string
+        fileType:
+          type: string
+        fileSize:
+          type: integer
+        storageKey:
+          type: string
+        status:
+          type: string
+          enum: [pending, processed, error]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, agentId, filename, fileType, fileSize, storageKey, status, createdAt]
+
+    UploadUrlRequest:
+      type: object
+      properties:
+        agentId:
+          type: string
+        filename:
+          type: string
+        fileType:
+          type: string
+        fileSize:
+          type: integer
+      required: [agentId, filename, fileType, fileSize]
+
+    UploadUrlResponse:
+      type: object
+      properties:
+        uploadUrl:
+          type: string
+        documentId:
+          type: string
+        storageKey:
+          type: string
+      required: [uploadUrl, documentId, storageKey]
+
+    GenerateImageRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+        style:
+          type: string
+        agentId:
+          type: string
+      required: [prompt]
+
+    GenerateImageResponse:
+      type: object
+      properties:
+        imageUrl:
+          type: string
+        prompt:
+          type: string
+      required: [imageUrl, prompt]
+
+    CanvaLinkRequest:
+      type: object
+      properties:
+        contentType:
+          type: string
+          enum: [presentation, social_post, document, flyer]
+        title:
+          type: string
+        description:
+          type: string
+      required: [contentType]
+
+    CanvaLinkResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        contentType:
+          type: string
+      required: [url, contentType]
+
+    SearchKnowledgeRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        agentId:
+          type: string
+        limit:
+          type: integer
+      required: [query]
+
+    SearchKnowledgeResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              documentId:
+                type: string
+              filename:
+                type: string
+              content:
+                type: string
+              score:
+                type: number
+            required: [documentId, filename, content, score]
+        query:
+          type: string
+      required: [results, query]

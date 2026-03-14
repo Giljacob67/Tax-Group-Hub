@@ -1,0 +1,112 @@
+Tax Group — Mapa de Desenvolvimento
+BLOCO 1 — PROSPECÇÃO E OPERAÇÃO COMERCIAL
+
+1. prospeccao-tax-group
+Agente de qualificação e abordagem ativa de prospects.
+
+Recebe nome/CNPJ/segmento do lead e gera script de abordagem personalizado
+Identifica produto Tax Group mais aderente ao perfil (AFD, REP, RTI, TTR)
+Gera perguntas SPIN adaptadas ao setor
+Responde objeções com base nos playbooks
+Produz email/mensagem de primeiro contato
+Trigger: qualquer menção a prospect, lead, cold outreach, script de abordagem, lista de prospecção
+
+
+2. qualificacao-leads-tax-group
+Agente de scoring e priorização de pipeline.
+
+Recebe dados de um lead (setor, regime, tamanho, histórico fiscal) e calcula score de aderência
+Classifica como: hot / warm / cold / fora do ICP
+Indica qual produto faz mais sentido e por quê
+Gera perguntas de qualificação complementares
+Trigger: qualificação, scoring, ICP, priorização de lista, pipeline
+
+
+3. objecoes-tax-group
+Agente de reversão de objeções em tempo real.
+
+Recebe a objeção do prospect e entrega reversão calibrada ao produto/contexto
+Baseado nos playbooks AFD, REP, RTI + script CFD
+Vai além do genérico: considera o momento da conversa, o perfil do decisor e o produto em pauta
+Trigger: objeção, reversão, "o cliente disse que...", resistência, dúvida do prospect
+
+
+4. followup-tax-group
+Agente de sequência de follow-up pós-contato.
+
+Gera cadência de follow-up (D1, D3, D7, D15) com mensagens diferentes
+Personaliza por canal (email, WhatsApp, LinkedIn)
+Mantém tom consultivo, sem parecer vendedor insistente
+Trigger: follow-up, cadência, prospect não respondeu, retomar contato
+
+
+BLOCO 2 — AGÊNCIA VIRTUAL DE MARKETING
+
+5. conteudo-linkedin-tax-group
+Agente criador de conteúdo institucional e educativo para LinkedIn.
+
+Gera posts com base em: produto Tax Group, pauta tributária, reforma tributária, case, dado de mercado
+Estilos disponíveis: educativo, provocativo, autoridade técnica, dado + insight, storytelling
+Calibrado para perfil de unidade Tax Group Maringá / Gilberto
+Respeita tom institucional sem ser genérico
+Trigger: post, LinkedIn, conteúdo, publicação, reforma tributária, autoridade
+
+
+6. email-marketing-tax-group
+Agente de copy para email de prospecção e nutrição.
+
+Gera emails frios (cold outreach), nurturing e reativação
+Segmentado por: setor, produto, momento da jornada
+Estrutura: gancho → dor → prova → CTA objetivo
+Trigger: email, campanha, cold email, nurturing, lista de contatos
+
+
+7. materiais-comerciais-tax-group
+Agente de criação de materiais de apoio à venda.
+
+Gera one-pagers, apresentações resumidas, pitches para WhatsApp, PDFs de ROI simplificado
+Para uso em reuniões, aprovação interna pelo cliente, envio pós-reunião
+Trigger: material, apresentação, one-pager, enviar para o cliente, aprovação interna, decisor
+
+
+8. reformatributaria-insight
+Agente especialista em conteúdo sobre a Reforma Tributária aplicada a negócios.
+
+Gera insights, análises e alertas sobre impactos da reforma por setor
+Traduz legislação em linguagem executiva / CFO / diretoria
+Serve tanto para conteúdo público (LinkedIn) quanto para reuniões comerciais
+Alimenta o RTI comercialmente
+Trigger: reforma tributária, IBS, CBS, Split Payment, alíquota, transição, IVA dual
+
+
+BLOCO 3 — GESTÃO E OPERAÇÃO INTERNA
+
+9. gestao-pipeline-tax-group
+Agente de acompanhamento do funil comercial.
+
+Dado o estágio atual do pipeline, gera diagnóstico de gargalos
+Sugere ações prioritárias por estágio (prospecção, qualificação, proposta, fechamento)
+Ajuda a estruturar revisão semanal de pipeline
+Trigger: pipeline, funil, conversão, gargalo comercial, meta, CRM
+
+
+10. roteiro-reuniao-tax-group
+Agente de preparação para reuniões comerciais.
+
+Recebe: nome da empresa, setor, tamanho aproximado, produto pretendido
+Entrega: roteiro completo da reunião com abertura, perguntas SPIN, conexão dor-solução, fechamento e próximos passos
+Trigger: vou ter reunião, preparar reunião, cliente X amanhã, apresentação
+
+
+11. proposta-comercial-tax-group
+Agente de estruturação de propostas.
+
+Recebe dados coletados na reunião e gera estrutura da proposta
+Inclui: contexto do cliente, diagnóstico, solução recomendada, ROI estimado, próximos passos
+Calibrado para linguagem de aprovação por CFO/diretoria
+Trigger: proposta, enviar proposta, formalizar, orçamento
+
+
+PRIORIZAÇÃO DE DESENVOLVIMENTO
+Considerando zero base de clientes e fase de ativação:
+PrioridadeSkillMotivo🔴 1prospeccao-tax-groupGera pipeline agora🔴 2roteiro-reuniao-tax-groupAumenta conversão imediata🔴 3objecoes-tax-groupDestrava vendas travadas🟡 4conteudo-linkedin-tax-groupConstrói autoridade local🟡 5qualificacao-leads-tax-groupEficiência de prospecção🟡 6followup-tax-groupReduz perda de leads quentes🟢 7materiais-comerciais-tax-groupApoio à aprovação interna🟢 8proposta-comercial-tax-groupProfissionaliza o fechamento🟢 9reformatributaria-insightAutoridade + RTI⚪ 10email-marketing-tax-groupEscala quando tiver lista⚪ 11gestao-pipeline-tax-groupÚtil quando pipeline existir
