@@ -263,10 +263,11 @@ router.delete("/conversations/:conversationId", async (req, res) => {
 router.post("/conversations/:conversationId/messages", async (req, res) => {
   try {
     const conversationId = Number(req.params.conversationId);
-    const { content, useKnowledgeBase, customSystemPrompt } = req.body as {
+    const { content, useKnowledgeBase, customSystemPrompt, model: modelOverride } = req.body as {
       content?: string;
       useKnowledgeBase?: boolean;
       customSystemPrompt?: string;
+      model?: string;
     };
 
     if (!content?.trim()) {
@@ -349,6 +350,9 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     const llmConfig = getLLMConfig();
 
     if (llmConfig) {
+      if (modelOverride && llmConfig.provider === "OpenRouter") {
+        llmConfig.model = modelOverride;
+      }
       try {
         const completion = await llmConfig.client.chat.completions.create({
           model: llmConfig.model,

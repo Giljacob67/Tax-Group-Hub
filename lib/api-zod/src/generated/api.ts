@@ -153,6 +153,7 @@ export const SendMessageBody = zod.object({
   content: zod.string(),
   useKnowledgeBase: zod.boolean().optional(),
   customSystemPrompt: zod.string().optional(),
+  model: zod.string().optional(),
 });
 
 export const SendMessageResponse = zod.object({
@@ -317,6 +318,21 @@ export const SearchKnowledgeResponse = zod.object({
     }),
   ),
   query: zod.string(),
+});
+
+/**
+ * @summary Get curated list of available OpenRouter models
+ */
+export const GetAvailableModelsResponse = zod.object({
+  models: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      description: zod.string(),
+    }),
+  ),
+  defaultModel: zod.string(),
+  provider: zod.string().nullish(),
 });
 
 /**

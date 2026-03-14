@@ -100,6 +100,7 @@ export interface SendMessageRequest {
   content: string;
   useKnowledgeBase?: boolean;
   customSystemPrompt?: string;
+  model?: string;
 }
 
 export interface MessageResponse {
@@ -211,6 +212,18 @@ export interface IntegrationSettingsResponse {
   activeLLM?: string | null;
   ollamaModel: string;
   openrouterModel: string;
+}
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface AvailableModelsResponse {
+  models: ModelOption[];
+  defaultModel: string;
+  provider?: string | null;
 }
 
 export type ListAgents200 = {

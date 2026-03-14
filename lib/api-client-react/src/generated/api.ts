@@ -18,6 +18,7 @@ import type {
 
 import type {
   Agent,
+  AvailableModelsResponse,
   CanvaLinkRequest,
   CanvaLinkResponse,
   Conversation,
@@ -1634,6 +1635,81 @@ export const useSearchKnowledge = <
 > => {
   return useMutation(getSearchKnowledgeMutationOptions(options));
 };
+
+/**
+ * @summary Get curated list of available OpenRouter models
+ */
+export const getGetAvailableModelsUrl = () => {
+  return `/api/settings/models`;
+};
+
+export const getAvailableModels = async (
+  options?: RequestInit,
+): Promise<AvailableModelsResponse> => {
+  return customFetch<AvailableModelsResponse>(getGetAvailableModelsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAvailableModelsQueryKey = () => {
+  return [`/api/settings/models`] as const;
+};
+
+export const getGetAvailableModelsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAvailableModels>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAvailableModels>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAvailableModelsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAvailableModels>>
+  > = ({ signal }) => getAvailableModels({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAvailableModels>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAvailableModelsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAvailableModels>>
+>;
+export type GetAvailableModelsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get curated list of available OpenRouter models
+ */
+
+export function useGetAvailableModels<
+  TData = Awaited<ReturnType<typeof getAvailableModels>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAvailableModels>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAvailableModelsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get status of all platform integrations

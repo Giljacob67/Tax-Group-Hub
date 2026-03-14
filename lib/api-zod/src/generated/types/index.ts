@@ -8,6 +8,7 @@
 
 export * from "./agent";
 export * from "./agentBlock";
+export * from "./availableModelsResponse";
 export * from "./canvaLinkRequest";
 export * from "./canvaLinkResponse";
 export * from "./conversation";
@@ -32,6 +33,7 @@ export * from "./message";
 export * from "./messageMetadata";
 export * from "./messageResponse";
 export * from "./messageRole";
+export * from "./modelOption";
 export * from "./renameConversationRequest";
 export * from "./renameConversationResponse";
 export * from "./searchKnowledgeRequest";

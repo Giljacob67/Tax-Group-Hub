@@ -10,4 +10,5 @@ export interface SendMessageRequest {
   content: string;
   useKnowledgeBase?: boolean;
   customSystemPrompt?: string;
+  model?: string;
 }

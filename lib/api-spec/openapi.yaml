@@ -406,6 +406,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/SearchKnowledgeResponse"
 
+  /settings/models:
+    get:
+      operationId: getAvailableModels
+      tags: [settings]
+      summary: Get curated list of available OpenRouter models
+      responses:
+        "200":
+          description: Available models
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailableModelsResponse"
+
   /settings/integrations:
     get:
       operationId: getIntegrationSettings
@@ -578,6 +591,8 @@ components:
         useKnowledgeBase:
           type: boolean
         customSystemPrompt:
+          type: string
+        model:
           type: string
       required: [content]
 
@@ -778,3 +793,28 @@ components:
         openrouterModel:
           type: string
       required: [integrations, ollamaModel, openrouterModel]
+
+    ModelOption:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+      required: [id, name, description]
+
+    AvailableModelsResponse:
+      type: object
+      properties:
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelOption"
+        defaultModel:
+          type: string
+        provider:
+          type: string
+          nullable: true
+      required: [models, defaultModel]

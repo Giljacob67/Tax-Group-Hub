@@ -105,6 +105,7 @@ artifacts-monorepo/
 - `POST /api/integrations/canva-link` — Generate Canva deep link (10 template types)
 - `POST /api/integrations/search-knowledge` — Semantic search with embeddings
 - `GET /api/settings/integrations` — Get integration status (no secrets exposed)
+- `GET /api/settings/models` — List available LLM models with names/descriptions
 
 ## Key Features (v2)
 
@@ -114,6 +115,7 @@ artifacts-monorepo/
 - **Conversation Management** — Rename (double-click), search/filter, export to .md, delete with confirmation dialog
 - **System Prompt Editor** — Per-session editable system prompts via settings dialog
 - **Model/Provider Display** — Header and footer show active LLM model and provider
+- **OpenRouter Model Selector** — Clickable model badge in chat header opens dropdown with 10 curated models; selection persisted in localStorage and sent as model override in message requests
 - **Confirmation Dialogs** — All destructive actions (delete conversation, delete document) require explicit confirmation via AlertDialog
 
 ## LLM Provider Configuration
