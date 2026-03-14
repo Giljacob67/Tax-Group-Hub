@@ -136,7 +136,7 @@ router.get("/settings/ollama", async (_req, res) => {
 
 router.put("/settings/ollama", async (req, res) => {
   try {
-    const { url } = req.body as { url?: string };
+    const { url, model } = req.body as { url?: string; model?: string };
     if (url !== undefined && url !== null && url !== "") {
       try {
         new URL(url);
@@ -149,13 +149,25 @@ router.put("/settings/ollama", async (req, res) => {
         .insert(appConfigTable)
         .values({ key: "OLLAMA_URL", value: cleanUrl, updatedAt: new Date() })
         .onConflictDoUpdate({ target: appConfigTable.key, set: { value: cleanUrl, updatedAt: new Date() } });
-    } else {
+    } else if (url === "" || url === null) {
       await db.delete(appConfigTable).where(eq(appConfigTable.key, "OLLAMA_URL"));
     }
+    if (model !== undefined) {
+      const trimmed = model.trim();
+      if (trimmed) {
+        await db
+          .insert(appConfigTable)
+          .values({ key: "OLLAMA_MODEL", value: trimmed, updatedAt: new Date() })
+          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: trimmed, updatedAt: new Date() } });
+      } else {
+        await db.delete(appConfigTable).where(eq(appConfigTable.key, "OLLAMA_MODEL"));
+      }
+    }
     const { url: newUrl, source } = await getEffectiveOllamaUrl();
-    res.json({ url: newUrl, source, saved: true });
+    const newModel = await getEffectiveOllamaModel();
+    res.json({ url: newUrl, source, model: newModel, saved: true });
   } catch (err) {
-    console.error("Error saving ollama URL:", err);
+    console.error("Error saving ollama settings:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

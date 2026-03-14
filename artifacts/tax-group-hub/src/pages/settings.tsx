@@ -63,6 +63,7 @@ function OllamaCard({ integration, onSettingsChange }: {
   const [ollamaSettings, setOllamaSettings] = useState<OllamaSettings | null>(null);
   const [showUrl, setShowUrl] = useState(false);
   const [editUrl, setEditUrl] = useState("");
+  const [editModel, setEditModel] = useState("");
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState<OllamaTestResult | null>(null);
@@ -79,6 +80,7 @@ function OllamaCard({ integration, onSettingsChange }: {
         const data = await res.json();
         setOllamaSettings(data);
         setEditUrl(data.url || "");
+        setEditModel(data.model || "");
       }
     } catch {}
   };
@@ -108,12 +110,12 @@ function OllamaCard({ integration, onSettingsChange }: {
       const res = await fetch("/api/settings/ollama", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: editUrl || "" }),
+        body: JSON.stringify({ url: editUrl || "", model: editModel || "" }),
       });
       if (res.ok) {
         const data = await res.json();
-        setOllamaSettings(prev => prev ? { ...prev, url: data.url, source: data.source } : prev);
-        setSaveMessage("URL salva com sucesso!");
+        setOllamaSettings(prev => prev ? { ...prev, url: data.url, source: data.source, model: data.model } : prev);
+        setSaveMessage("Configuracoes salvas com sucesso!");
         onSettingsChange();
         setTimeout(() => setSaveMessage(null), 3000);
       } else {
@@ -136,7 +138,7 @@ function OllamaCard({ integration, onSettingsChange }: {
     }
   };
 
-  const hasUnsavedChanges = editUrl !== (ollamaSettings?.url || "");
+  const hasUnsavedChanges = editUrl !== (ollamaSettings?.url || "") || editModel !== (ollamaSettings?.model || "");
 
   return (
     <motion.div
@@ -210,16 +212,11 @@ function OllamaCard({ integration, onSettingsChange }: {
             ) : (
               <p className="text-xs text-muted-foreground italic">Nenhuma URL configurada</p>
             )}
-            {ollamaSettings.model && (
-              <p className="text-[10px] text-muted-foreground mt-2">
-                Modelo: <code className="text-primary">{ollamaSettings.model}</code>
-              </p>
-            )}
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-foreground">Nova URL do Ollama</label>
-            <div className="flex gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground">URL do Ollama</label>
               <input
                 type="text"
                 value={editUrl}
@@ -229,7 +226,20 @@ function OllamaCard({ integration, onSettingsChange }: {
                   setSaveMessage(null);
                 }}
                 placeholder="http://seu-host:11434"
-                className="flex-1 px-3 py-2 text-sm rounded-lg bg-background border border-border/50 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 font-mono placeholder:text-muted-foreground/50"
+                className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-border/50 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 font-mono placeholder:text-muted-foreground/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-foreground">Modelo</label>
+              <input
+                type="text"
+                value={editModel}
+                onChange={(e) => {
+                  setEditModel(e.target.value);
+                  setSaveMessage(null);
+                }}
+                placeholder="qwen3.5"
+                className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-border/50 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 font-mono placeholder:text-muted-foreground/50"
               />
             </div>
           </div>
@@ -259,10 +269,11 @@ function OllamaCard({ integration, onSettingsChange }: {
               )}
               Salvar
             </button>
-            {editUrl.trim() && (
+            {(editUrl.trim() || editModel.trim()) && (
               <button
                 onClick={() => {
                   setEditUrl("");
+                  setEditModel("");
                   setTestResult(null);
                   setSaveMessage(null);
                 }}
