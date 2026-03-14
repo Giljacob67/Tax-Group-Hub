@@ -79,6 +79,7 @@ router.get("/settings/models", (_req, res) => {
     { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B", description: "Open source Meta. Forte em raciocinio e codigo." },
     { id: "deepseek/deepseek-chat", name: "DeepSeek V3", description: "Open source. Excelente em raciocinio e tarefas tecnicas." },
     { id: "qwen/qwen-2.5-72b-instruct", name: "Qwen 2.5 72B", description: "Open source Alibaba. Forte em multilingual e codigo." },
+    { id: "openrouter/hunter-alpha", name: "Hunter Alpha", description: "Modelo OpenRouter otimizado. Versatil e de alta qualidade." },
   ];
 
   res.json({
