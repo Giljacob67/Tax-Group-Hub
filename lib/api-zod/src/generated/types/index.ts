@@ -3,21 +3,22 @@
  * Do not edit manually.
  * Api
  * Tax Group AI Hub API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
 export * from "./agent";
 export * from "./agentBlock";
 export * from "./canvaLinkRequest";
-export * from "./canvaLinkRequestContentType";
 export * from "./canvaLinkResponse";
 export * from "./conversation";
 export * from "./conversationWithMessages";
 export * from "./createConversationRequest";
 export * from "./errorResponse";
+export * from "./galleryImage";
 export * from "./generateImageRequest";
 export * from "./generateImageResponse";
 export * from "./healthStatus";
+export * from "./imageGalleryResponse";
 export * from "./knowledgeDocument";
 export * from "./knowledgeDocumentStatus";
 export * from "./listAgents200";
@@ -29,6 +30,8 @@ export * from "./message";
 export * from "./messageMetadata";
 export * from "./messageResponse";
 export * from "./messageRole";
+export * from "./renameConversationRequest";
+export * from "./renameConversationResponse";
 export * from "./searchKnowledgeRequest";
 export * from "./searchKnowledgeResponse";
 export * from "./searchKnowledgeResponseResultsItem";

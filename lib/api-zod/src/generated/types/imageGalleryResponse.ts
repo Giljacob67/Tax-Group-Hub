@@ -5,8 +5,8 @@
  * Tax Group AI Hub API
  * OpenAPI spec version: 0.2.0
  */
+import type { GalleryImage } from "./galleryImage";
 
-export interface SuccessResponse {
-  success: boolean;
-  message?: string;
+export interface ImageGalleryResponse {
+  images: GalleryImage[];
 }

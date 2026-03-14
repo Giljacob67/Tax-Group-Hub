@@ -13,7 +13,7 @@ export default function Integrations() {
   const imageMutation = useGenerateImage();
 
   // Canva State
-  const [canvaType, setCanvaType] = useState<"presentation" | "social_post" | "document">("presentation");
+  const [canvaType, setCanvaType] = useState("presentation");
   const canvaMutation = useGetCanvaLink();
 
   const handleGenerateImage = async (e: React.FormEvent) => {
@@ -119,7 +119,7 @@ export default function Integrations() {
                   ].map((t) => (
                     <button
                       key={t.id}
-                      onClick={() => setCanvaType(t.id as any)}
+                      onClick={() => setCanvaType(t.id)}
                       className={`p-3 rounded-xl border text-sm font-medium transition-all ${
                         canvaType === t.id 
                           ? 'bg-purple-500/10 border-purple-500 text-purple-400' 

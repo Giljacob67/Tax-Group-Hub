@@ -14,10 +14,13 @@ import {
   useCreateConversation,
   useGetConversation,
   useSendMessage,
-  useDeleteConversation
+  useDeleteConversation,
+  useRenameConversation,
+  useHealthCheck,
+  getListConversationsQueryKey,
+  getGetConversationQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getListConversationsQueryKey, getGetConversationQueryKey } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -72,10 +75,15 @@ export default function AgentChat() {
   const createMutation = useCreateConversation();
   const sendMutation = useSendMessage();
   const deleteMutation = useDeleteConversation();
+  const renameMutation = useRenameConversation();
+  const { data: healthData, isError: healthError } = useHealthCheck({
+    query: { refetchInterval: 30000 }
+  });
 
   const isMarketingAgent = MARKETING_AGENTS.includes(agentId || "");
-  const model = (activeConv as any)?.model || "google/gemini-flash-1.5";
-  const provider = (activeConv as any)?.provider || "OpenRouter";
+  const model = activeConv?.model || "google/gemini-flash-1.5";
+  const provider = activeConv?.provider || "OpenRouter";
+  const isApiOnline = !!healthData?.status && !healthError;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -111,10 +119,10 @@ export default function AgentChat() {
         data: {
           content: text,
           useKnowledgeBase: true,
-          ...(customSystemPrompt ? { customSystemPrompt } : {}),
-        } as any
+          customSystemPrompt: customSystemPrompt || undefined,
+        }
       });
-      if ((res as any).autoTitle) {
+      if (res.autoTitle) {
         queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
       }
       queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(convId) });
@@ -144,12 +152,10 @@ export default function AgentChat() {
       return;
     }
     try {
-      const res = await fetch(`/api/conversations/${convId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: renameValue.trim() }),
+      await renameMutation.mutateAsync({
+        conversationId: convId,
+        data: { title: renameValue.trim() },
       });
-      if (!res.ok) throw new Error("Rename failed");
       queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
       if (activeConvId === convId) {
         queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(convId) });
@@ -310,6 +316,14 @@ export default function AgentChat() {
               <h2 className="font-bold text-foreground">{agent.name}</h2>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-muted-foreground">{agent.blockLabel}</p>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 border ${
+                  isApiOnline
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : 'bg-red-500/10 text-red-400 border-red-500/20'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isApiOnline ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
+                  {isApiOnline ? 'Online' : 'Offline'}
+                </span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
                   <Cpu className="w-2.5 h-2.5" /> {model}
                 </span>

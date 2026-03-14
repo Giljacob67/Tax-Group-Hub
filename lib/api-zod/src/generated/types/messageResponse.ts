@@ -3,11 +3,14 @@
  * Do not edit manually.
  * Api
  * Tax Group AI Hub API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import type { Message } from "./message";
 
 export interface MessageResponse {
   userMessage: Message;
   assistantMessage: Message;
+  autoTitle?: string | null;
+  model: string;
+  provider: string;
 }

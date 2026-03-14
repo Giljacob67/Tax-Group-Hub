@@ -3,10 +3,12 @@
  * Do not edit manually.
  * Api
  * Tax Group AI Hub API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
+import type { GalleryImage } from "./galleryImage";
 
 export interface GenerateImageResponse {
   imageUrl: string;
   prompt: string;
+  gallery?: GalleryImage[];
 }

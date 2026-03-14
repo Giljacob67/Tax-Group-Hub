@@ -5,7 +5,8 @@ import {
   Loader2, Download, ExternalLink, X, Sparkles
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useGenerateImage, useGetCanvaLink } from "@workspace/api-client-react";
+import { useGenerateImage, useGetCanvaLink, useGetImageGallery } from "@workspace/api-client-react";
+import type { GalleryImage } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
 const CANVA_TEMPLATES = [
@@ -16,12 +17,6 @@ const CANVA_TEMPLATES = [
   { id: "one-pager", label: "One-Pager", icon: "📄", desc: "Resumo executivo" },
   { id: "banner", label: "Banner", icon: "🖼️", desc: "Capa / banner" },
 ];
-
-interface GalleryImage {
-  url: string;
-  prompt: string;
-  createdAt: string;
-}
 
 export function DesignStudioPanel({
   agentId,
@@ -40,13 +35,11 @@ export function DesignStudioPanel({
 
   const generateMutation = useGenerateImage();
   const canvaMutation = useGetCanvaLink();
+  const { data: galleryData } = useGetImageGallery(agentId);
 
   useEffect(() => {
-    fetch(`/api/integrations/image-gallery/${agentId}`)
-      .then(r => r.json())
-      .then(data => { if (data.images) setGallery(data.images); })
-      .catch(() => {});
-  }, [agentId]);
+    if (galleryData?.images) setGallery(galleryData.images);
+  }, [galleryData]);
 
   const handleGenerateImage = async () => {
     if (!imagePrompt.trim()) return;
@@ -54,7 +47,7 @@ export function DesignStudioPanel({
       const res = await generateMutation.mutateAsync({
         data: { prompt: imagePrompt, style: imageStyle, agentId }
       });
-      if (res.gallery) setGallery(res.gallery as unknown as GalleryImage[]);
+      if (res.gallery) setGallery(res.gallery);
       toast({ title: "Imagem gerada com sucesso!" });
     } catch {
       toast({ title: "Erro ao gerar imagem", variant: "destructive" });

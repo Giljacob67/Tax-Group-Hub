@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * Tax Group AI Hub API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import * as zod from "zod";
 
@@ -97,6 +97,9 @@ export const GetConversationResponse = zod.object({
   title: zod.string(),
   createdAt: zod.date(),
   updatedAt: zod.date(),
+  model: zod.string(),
+  provider: zod.string(),
+  agentName: zod.string(),
   messages: zod.array(
     zod.object({
       id: zod.string(),
@@ -107,6 +110,24 @@ export const GetConversationResponse = zod.object({
       metadata: zod.record(zod.string(), zod.unknown()).optional(),
     }),
   ),
+});
+
+/**
+ * @summary Rename a conversation
+ */
+export const RenameConversationParams = zod.object({
+  conversationId: zod.coerce.string(),
+});
+
+export const RenameConversationBody = zod.object({
+  title: zod.string(),
+});
+
+export const RenameConversationResponse = zod.object({
+  id: zod.string(),
+  agentId: zod.string(),
+  title: zod.string(),
+  updatedAt: zod.date(),
 });
 
 /**
@@ -131,6 +152,7 @@ export const SendMessageParams = zod.object({
 export const SendMessageBody = zod.object({
   content: zod.string(),
   useKnowledgeBase: zod.boolean().optional(),
+  customSystemPrompt: zod.string().optional(),
 });
 
 export const SendMessageResponse = zod.object({
@@ -150,6 +172,16 @@ export const SendMessageResponse = zod.object({
     createdAt: zod.date(),
     metadata: zod.record(zod.string(), zod.unknown()).optional(),
   }),
+  autoTitle: zod.string().nullish(),
+  model: zod.string(),
+  provider: zod.string(),
+});
+
+/**
+ * @summary Export conversation as Markdown
+ */
+export const ExportConversationParams = zod.object({
+  conversationId: zod.coerce.string(),
 });
 
 /**
@@ -169,13 +201,14 @@ export const ListKnowledgeDocumentsResponse = zod.object({
       fileSize: zod.number(),
       storageKey: zod.string(),
       status: zod.enum(["pending", "processed", "error"]),
+      hasContent: zod.boolean().optional(),
       createdAt: zod.date(),
     }),
   ),
 });
 
 /**
- * @summary Request a presigned upload URL for knowledge base document
+ * @summary Request a presigned upload URL for knowledge base document (legacy)
  */
 export const RequestUploadUrlBody = zod.object({
   agentId: zod.string(),
@@ -214,13 +247,39 @@ export const GenerateImageBody = zod.object({
 export const GenerateImageResponse = zod.object({
   imageUrl: zod.string(),
   prompt: zod.string(),
+  gallery: zod
+    .array(
+      zod.object({
+        url: zod.string(),
+        prompt: zod.string(),
+        createdAt: zod.string(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Get generated images for an agent
+ */
+export const GetImageGalleryParams = zod.object({
+  agentId: zod.coerce.string(),
+});
+
+export const GetImageGalleryResponse = zod.object({
+  images: zod.array(
+    zod.object({
+      url: zod.string(),
+      prompt: zod.string(),
+      createdAt: zod.string(),
+    }),
+  ),
 });
 
 /**
  * @summary Generate a Canva deep link for editing
  */
 export const GetCanvaLinkBody = zod.object({
-  contentType: zod.enum(["presentation", "social_post", "document", "flyer"]),
+  contentType: zod.string(),
   title: zod.string().optional(),
   description: zod.string().optional(),
 });
@@ -228,6 +287,7 @@ export const GetCanvaLinkBody = zod.object({
 export const GetCanvaLinkResponse = zod.object({
   url: zod.string(),
   contentType: zod.string(),
+  label: zod.string().optional(),
 });
 
 /**

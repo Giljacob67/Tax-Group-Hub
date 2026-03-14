@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * Tax Group AI Hub API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
@@ -27,12 +27,15 @@ import type {
   GenerateImageRequest,
   GenerateImageResponse,
   HealthStatus,
+  ImageGalleryResponse,
   ListAgents200,
   ListConversations200,
   ListConversationsParams,
   ListKnowledgeDocuments200,
   ListKnowledgeDocumentsParams,
   MessageResponse,
+  RenameConversationRequest,
+  RenameConversationResponse,
   SearchKnowledgeRequest,
   SearchKnowledgeResponse,
   SendMessageRequest,
@@ -561,6 +564,97 @@ export function useGetConversation<
 }
 
 /**
+ * @summary Rename a conversation
+ */
+export const getRenameConversationUrl = (conversationId: string) => {
+  return `/api/conversations/${conversationId}`;
+};
+
+export const renameConversation = async (
+  conversationId: string,
+  renameConversationRequest: RenameConversationRequest,
+  options?: RequestInit,
+): Promise<RenameConversationResponse> => {
+  return customFetch<RenameConversationResponse>(
+    getRenameConversationUrl(conversationId),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(renameConversationRequest),
+    },
+  );
+};
+
+export const getRenameConversationMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renameConversation>>,
+    TError,
+    { conversationId: string; data: BodyType<RenameConversationRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof renameConversation>>,
+  TError,
+  { conversationId: string; data: BodyType<RenameConversationRequest> },
+  TContext
+> => {
+  const mutationKey = ["renameConversation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof renameConversation>>,
+    { conversationId: string; data: BodyType<RenameConversationRequest> }
+  > = (props) => {
+    const { conversationId, data } = props ?? {};
+
+    return renameConversation(conversationId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RenameConversationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renameConversation>>
+>;
+export type RenameConversationMutationBody =
+  BodyType<RenameConversationRequest>;
+export type RenameConversationMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Rename a conversation
+ */
+export const useRenameConversation = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof renameConversation>>,
+    TError,
+    { conversationId: string; data: BodyType<RenameConversationRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof renameConversation>>,
+  TError,
+  { conversationId: string; data: BodyType<RenameConversationRequest> },
+  TContext
+> => {
+  return useMutation(getRenameConversationMutationOptions(options));
+};
+
+/**
  * @summary Delete a conversation
  */
 export const getDeleteConversationUrl = (conversationId: string) => {
@@ -735,6 +829,98 @@ export const useSendMessage = <
 };
 
 /**
+ * @summary Export conversation as Markdown
+ */
+export const getExportConversationUrl = (conversationId: string) => {
+  return `/api/conversations/${conversationId}/export`;
+};
+
+export const exportConversation = async (
+  conversationId: string,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getExportConversationUrl(conversationId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getExportConversationQueryKey = (conversationId: string) => {
+  return [`/api/conversations/${conversationId}/export`] as const;
+};
+
+export const getExportConversationQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportConversation>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  conversationId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportConversation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getExportConversationQueryKey(conversationId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof exportConversation>>
+  > = ({ signal }) =>
+    exportConversation(conversationId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!conversationId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportConversation>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportConversationQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportConversation>>
+>;
+export type ExportConversationQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Export conversation as Markdown
+ */
+
+export function useExportConversation<
+  TData = Awaited<ReturnType<typeof exportConversation>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  conversationId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportConversation>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportConversationQueryOptions(
+    conversationId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary List knowledge base documents
  */
 export const getListKnowledgeDocumentsUrl = (
@@ -838,7 +1024,7 @@ export function useListKnowledgeDocuments<
 }
 
 /**
- * @summary Request a presigned upload URL for knowledge base document
+ * @summary Request a presigned upload URL for knowledge base document (legacy)
  */
 export const getRequestUploadUrlUrl = () => {
   return `/api/knowledge/upload-url`;
@@ -901,7 +1087,7 @@ export type RequestUploadUrlMutationBody = BodyType<UploadUrlRequest>;
 export type RequestUploadUrlMutationError = ErrorType<unknown>;
 
 /**
- * @summary Request a presigned upload URL for knowledge base document
+ * @summary Request a presigned upload URL for knowledge base document (legacy)
  */
 export const useRequestUploadUrl = <
   TError = ErrorType<unknown>,
@@ -1095,6 +1281,94 @@ export const useGenerateImage = <
 > => {
   return useMutation(getGenerateImageMutationOptions(options));
 };
+
+/**
+ * @summary Get generated images for an agent
+ */
+export const getGetImageGalleryUrl = (agentId: string) => {
+  return `/api/integrations/image-gallery/${agentId}`;
+};
+
+export const getImageGallery = async (
+  agentId: string,
+  options?: RequestInit,
+): Promise<ImageGalleryResponse> => {
+  return customFetch<ImageGalleryResponse>(getGetImageGalleryUrl(agentId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetImageGalleryQueryKey = (agentId: string) => {
+  return [`/api/integrations/image-gallery/${agentId}`] as const;
+};
+
+export const getGetImageGalleryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getImageGallery>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getImageGallery>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetImageGalleryQueryKey(agentId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getImageGallery>>> = ({
+    signal,
+  }) => getImageGallery(agentId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!agentId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getImageGallery>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetImageGalleryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getImageGallery>>
+>;
+export type GetImageGalleryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get generated images for an agent
+ */
+
+export function useGetImageGallery<
+  TData = Awaited<ReturnType<typeof getImageGallery>>,
+  TError = ErrorType<unknown>,
+>(
+  agentId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getImageGallery>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetImageGalleryQueryOptions(agentId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Generate a Canva deep link for editing

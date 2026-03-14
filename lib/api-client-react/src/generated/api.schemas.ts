@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * Tax Group AI Hub API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 export interface HealthStatus {
   status: string;
@@ -74,6 +74,9 @@ export interface ConversationWithMessages {
   title: string;
   createdAt: string;
   updatedAt: string;
+  model: string;
+  provider: string;
+  agentName: string;
   messages: Message[];
 }
 
@@ -82,14 +85,29 @@ export interface CreateConversationRequest {
   title?: string;
 }
 
+export interface RenameConversationRequest {
+  title: string;
+}
+
+export interface RenameConversationResponse {
+  id: string;
+  agentId: string;
+  title: string;
+  updatedAt: string;
+}
+
 export interface SendMessageRequest {
   content: string;
   useKnowledgeBase?: boolean;
+  customSystemPrompt?: string;
 }
 
 export interface MessageResponse {
   userMessage: Message;
   assistantMessage: Message;
+  autoTitle?: string | null;
+  model: string;
+  provider: string;
 }
 
 export type KnowledgeDocumentStatus =
@@ -109,6 +127,7 @@ export interface KnowledgeDocument {
   fileSize: number;
   storageKey: string;
   status: KnowledgeDocumentStatus;
+  hasContent?: boolean;
   createdAt: string;
 }
 
@@ -131,23 +150,24 @@ export interface GenerateImageRequest {
   agentId?: string;
 }
 
+export interface GalleryImage {
+  url: string;
+  prompt: string;
+  createdAt: string;
+}
+
 export interface GenerateImageResponse {
   imageUrl: string;
   prompt: string;
+  gallery?: GalleryImage[];
 }
 
-export type CanvaLinkRequestContentType =
-  (typeof CanvaLinkRequestContentType)[keyof typeof CanvaLinkRequestContentType];
-
-export const CanvaLinkRequestContentType = {
-  presentation: "presentation",
-  social_post: "social_post",
-  document: "document",
-  flyer: "flyer",
-} as const;
+export interface ImageGalleryResponse {
+  images: GalleryImage[];
+}
 
 export interface CanvaLinkRequest {
-  contentType: CanvaLinkRequestContentType;
+  contentType: string;
   title?: string;
   description?: string;
 }
@@ -155,6 +175,7 @@ export interface CanvaLinkRequest {
 export interface CanvaLinkResponse {
   url: string;
   contentType: string;
+  label?: string;
 }
 
 export interface SearchKnowledgeRequest {
