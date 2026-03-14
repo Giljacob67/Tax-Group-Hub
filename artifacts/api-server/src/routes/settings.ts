@@ -34,21 +34,12 @@ router.get("/settings/integrations", (_req, res) => {
     },
     {
       id: "gemini",
-      name: "Gemini API",
-      description: "Geracao de imagens com IA usando Google Gemini. Usado no Design Studio dos agentes de marketing.",
+      name: "Google AI (Gemini)",
+      description: "Plataforma Google AI unificada. Geracao de imagens (Gemini 2.0 Flash) no Design Studio e busca semantica (Text Embeddings 004) na base de conhecimento. Uma unica chave para ambas as funcionalidades.",
       envVar: "GEMINI_API_KEY",
       configured: !!process.env.GEMINI_API_KEY,
       active: !!process.env.GEMINI_API_KEY,
-      category: "media",
-    },
-    {
-      id: "google-embeddings",
-      name: "Google Embeddings",
-      description: "Busca semantica na base de conhecimento usando Google Text Embeddings.",
-      envVar: "GOOGLE_API_KEY",
-      configured: !!(process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY),
-      active: !!(process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY),
-      category: "search",
+      category: "google",
     },
   ];
 

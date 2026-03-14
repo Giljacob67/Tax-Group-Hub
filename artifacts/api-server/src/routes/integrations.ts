@@ -127,7 +127,7 @@ router.post("/integrations/search-knowledge", async (req, res) => {
       return;
     }
 
-    const googleApiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    const googleApiKey = process.env.GEMINI_API_KEY;
     if (googleApiKey) {
       try {
         const embeddingResponse = await fetch(
@@ -161,7 +161,7 @@ router.post("/integrations/search-knowledge", async (req, res) => {
       results: [{
         documentId: "demo",
         filename: "Demo",
-        content: `Busca por: "${query}". Configure GEMINI_API_KEY ou GOOGLE_API_KEY para busca semântica com embeddings reais.`,
+        content: `Busca por: "${query}". Configure GEMINI_API_KEY para busca semântica com embeddings reais.`,
         score: 0.5,
       }],
     });

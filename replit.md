@@ -82,8 +82,7 @@ artifacts-monorepo/
 
 - `DATABASE_URL` — PostgreSQL connection (auto-provisioned by Replit)
 - `OPENROUTER_API_KEY` — For LLM chat (OpenRouter API key)
-- `GEMINI_API_KEY` — For Gemini image generation and Google Embeddings (optional)
-- `GOOGLE_API_KEY` — For Google Embeddings RAG search (optional, same as Gemini key)
+- `GEMINI_API_KEY` — For Google AI: image generation (Gemini 2.0 Flash) and semantic search embeddings (Text Embeddings 004)
 
 ## API Endpoints
 
@@ -128,9 +127,8 @@ The platform supports multiple LLM providers with automatic fallback:
 
 1. **Ollama** — Local LLM via OpenAI-compatible API at `OLLAMA_URL`
 2. **OpenRouter LLM** — Cloud LLM chat completions via `/api/conversations/:id/messages`
-3. **Google Gemini** — Image generation via Gemini 2.0 Flash Preview (`GEMINI_API_KEY`)
-4. **Google Embeddings** — RAG semantic search with text-embedding-004 (`GOOGLE_API_KEY`)
-5. **Canva Deep Links** — Content creation for presentations, social posts, documents, flyers
+3. **Google AI (Gemini)** — Single `GEMINI_API_KEY` for both image generation (Gemini 2.0 Flash) and RAG semantic search (Text Embeddings 004)
+4. **Canva Deep Links** — Content creation for presentations, social posts, documents, flyers
 
 ## Tax Group Products Knowledge Base
 

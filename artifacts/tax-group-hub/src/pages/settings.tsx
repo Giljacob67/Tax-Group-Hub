@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Settings, CheckCircle2, XCircle, Server,
-  Cloud, Image as ImageIcon, Search, Loader2,
-  ExternalLink, RefreshCw, Cpu, Zap
+  Cloud, Loader2, ExternalLink, RefreshCw, Cpu, Zap
 } from "lucide-react";
 
 interface IntegrationStatus {
@@ -25,15 +24,13 @@ interface SettingsData {
 
 const CATEGORY_META: Record<string, { label: string; icon: typeof Cloud }> = {
   llm: { label: "Modelos de Linguagem (LLM)", icon: Cpu },
-  media: { label: "Geracao de Midia", icon: ImageIcon },
-  search: { label: "Busca e Embeddings", icon: Search },
+  google: { label: "Google AI (Imagens + Embeddings)", icon: Zap },
 };
 
 const INTEGRATION_ICONS: Record<string, typeof Cloud> = {
   ollama: Server,
   openrouter: Cloud,
   gemini: Zap,
-  "google-embeddings": Search,
 };
 
 export default function SettingsPage() {
