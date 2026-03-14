@@ -115,6 +115,8 @@ function OllamaCard({ integration, onSettingsChange }: {
       if (res.ok) {
         const data = await res.json();
         setOllamaSettings(prev => prev ? { ...prev, url: data.url, source: data.source, model: data.model } : prev);
+        setEditUrl(data.url || "");
+        setEditModel(data.model || "");
         setSaveMessage("Configuracoes salvas com sucesso!");
         onSettingsChange();
         setTimeout(() => setSaveMessage(null), 3000);
