@@ -8,6 +8,7 @@ import {
 import { eq, desc, count, and, isNotNull } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
 import OpenAI from "openai";
+import { getEffectiveOllamaUrl, getEffectiveOllamaModel } from "./settings.js";
 
 const router: IRouter = Router();
 
@@ -17,9 +18,9 @@ interface LLMConfig {
   provider: string;
 }
 
-function getLLMConfig(): LLMConfig | null {
-  const ollamaUrl = process.env.OLLAMA_URL;
-  const ollamaModel = process.env.OLLAMA_MODEL || "llama3.2";
+async function getLLMConfig(): Promise<LLMConfig | null> {
+  const { url: ollamaUrl } = await getEffectiveOllamaUrl();
+  const ollamaModel = await getEffectiveOllamaModel();
 
   if (ollamaUrl) {
     const baseURL = ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`;
@@ -153,7 +154,7 @@ router.get("/conversations/:conversationId", async (req, res) => {
     }
     const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
     const agent = getAgentById(conv.agentId);
-    const llmConfig = getLLMConfig();
+    const llmConfig = await getLLMConfig();
 
     res.json({
       id: String(conv.id),
@@ -347,7 +348,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     llmMessages.push({ role: "user", content: content.trim() });
 
     let assistantContent: string;
-    const llmConfig = getLLMConfig();
+    const llmConfig = await getLLMConfig();
 
     if (llmConfig) {
       if (modelOverride && llmConfig.provider === "OpenRouter") {
