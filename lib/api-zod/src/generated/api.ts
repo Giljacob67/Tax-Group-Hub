@@ -318,3 +318,24 @@ export const SearchKnowledgeResponse = zod.object({
   ),
   query: zod.string(),
 });
+
+/**
+ * @summary Get status of all platform integrations
+ */
+export const GetIntegrationSettingsResponse = zod.object({
+  integrations: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      description: zod.string(),
+      envVar: zod.string(),
+      configured: zod.boolean(),
+      active: zod.boolean(),
+      category: zod.string(),
+    }),
+  ),
+  activeLLM: zod.string().nullish(),
+  ollamaModel: zod.string(),
+  openrouterModel: zod.string(),
+  ollamaUrl: zod.string().nullish(),
+});

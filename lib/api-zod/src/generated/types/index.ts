@@ -19,6 +19,8 @@ export * from "./generateImageRequest";
 export * from "./generateImageResponse";
 export * from "./healthStatus";
 export * from "./imageGalleryResponse";
+export * from "./integrationItem";
+export * from "./integrationSettingsResponse";
 export * from "./knowledgeDocument";
 export * from "./knowledgeDocumentStatus";
 export * from "./listAgents200";

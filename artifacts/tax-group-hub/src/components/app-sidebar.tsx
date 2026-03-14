@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { 
   MessageSquare, Briefcase, Megaphone, 
   Settings2, FileText, LayoutDashboard, ChevronRight, 
-  Image as ImageIcon, Loader2
+  Image as ImageIcon, Loader2, Cog
 } from "lucide-react";
 import { useListAgents } from "@workspace/api-client-react";
 import {
@@ -125,6 +125,16 @@ export function AppSidebar() {
             >
               <FileText className="w-4 h-4 mr-2 text-emerald-400" />
               <span className="font-medium">Knowledge Base</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              isActive={location === "/settings"} 
+              onClick={() => navigate("/settings")} 
+              className="cursor-pointer"
+            >
+              <Cog className="w-4 h-4 mr-2 text-muted-foreground" />
+              <span className="font-medium">Configuracoes</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

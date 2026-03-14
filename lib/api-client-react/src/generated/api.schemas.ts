@@ -196,6 +196,24 @@ export interface SearchKnowledgeResponse {
   query: string;
 }
 
+export interface IntegrationItem {
+  id: string;
+  name: string;
+  description: string;
+  envVar: string;
+  configured: boolean;
+  active: boolean;
+  category: string;
+}
+
+export interface IntegrationSettingsResponse {
+  integrations: IntegrationItem[];
+  activeLLM?: string | null;
+  ollamaModel: string;
+  openrouterModel: string;
+  ollamaUrl?: string | null;
+}
+
 export type ListAgents200 = {
   agents: Agent[];
 };

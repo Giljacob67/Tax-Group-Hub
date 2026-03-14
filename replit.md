@@ -105,6 +105,7 @@ artifacts-monorepo/
 - `GET /api/integrations/image-gallery/:agentId` — Get generated images for agent
 - `POST /api/integrations/canva-link` — Generate Canva deep link (10 template types)
 - `POST /api/integrations/search-knowledge` — Semantic search with embeddings
+- `GET /api/settings/integrations` — Get integration status (no secrets exposed)
 
 ## Key Features (v2)
 
@@ -116,12 +117,20 @@ artifacts-monorepo/
 - **Model/Provider Display** — Header and footer show active LLM model and provider
 - **Confirmation Dialogs** — All destructive actions (delete conversation, delete document) require explicit confirmation via AlertDialog
 
+## LLM Provider Configuration
+
+The platform supports multiple LLM providers with automatic fallback:
+- **Ollama (priority 1)** — Set `OLLAMA_URL` (e.g. ngrok URL pointing to local Ollama). Model via `OLLAMA_MODEL` (default: llama3.2). Falls back to OpenRouter on connection error.
+- **OpenRouter (priority 2)** — Set `OPENROUTER_API_KEY`. Model via `OPENROUTER_MODEL` (default: google/gemini-flash-1.5).
+- **Demo mode** — If neither is configured, agents respond with demo messages explaining how to configure.
+
 ## Key Integrations
 
-1. **OpenRouter LLM** — Chat completions via `/api/conversations/:id/messages`
-2. **Google Gemini Nano** — Image generation via Gemini 2.0 Flash Preview
-3. **Google Embeddings** — RAG semantic search with text-embedding-004 model
-4. **Canva Deep Links** — Content creation for presentations, social posts, documents, flyers
+1. **Ollama** — Local LLM via OpenAI-compatible API at `OLLAMA_URL`
+2. **OpenRouter LLM** — Cloud LLM chat completions via `/api/conversations/:id/messages`
+3. **Google Gemini** — Image generation via Gemini 2.0 Flash Preview (`GEMINI_API_KEY`)
+4. **Google Embeddings** — RAG semantic search with text-embedding-004 (`GOOGLE_API_KEY`)
+5. **Canva Deep Links** — Content creation for presentations, social posts, documents, flyers
 
 ## Tax Group Products Knowledge Base
 

@@ -28,6 +28,7 @@ import type {
   GenerateImageResponse,
   HealthStatus,
   ImageGalleryResponse,
+  IntegrationSettingsResponse,
   KnowledgeDocument,
   ListAgents200,
   ListConversations200,
@@ -1633,3 +1634,82 @@ export const useSearchKnowledge = <
 > => {
   return useMutation(getSearchKnowledgeMutationOptions(options));
 };
+
+/**
+ * @summary Get status of all platform integrations
+ */
+export const getGetIntegrationSettingsUrl = () => {
+  return `/api/settings/integrations`;
+};
+
+export const getIntegrationSettings = async (
+  options?: RequestInit,
+): Promise<IntegrationSettingsResponse> => {
+  return customFetch<IntegrationSettingsResponse>(
+    getGetIntegrationSettingsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetIntegrationSettingsQueryKey = () => {
+  return [`/api/settings/integrations`] as const;
+};
+
+export const getGetIntegrationSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getIntegrationSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getIntegrationSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetIntegrationSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getIntegrationSettings>>
+  > = ({ signal }) => getIntegrationSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getIntegrationSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetIntegrationSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getIntegrationSettings>>
+>;
+export type GetIntegrationSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get status of all platform integrations
+ */
+
+export function useGetIntegrationSettings<
+  TData = Awaited<ReturnType<typeof getIntegrationSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getIntegrationSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetIntegrationSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

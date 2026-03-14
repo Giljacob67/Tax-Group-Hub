@@ -11,13 +11,36 @@ import OpenAI from "openai";
 
 const router: IRouter = Router();
 
-function getLLMClient() {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) return null;
-  return new OpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey });
+interface LLMConfig {
+  client: OpenAI;
+  model: string;
+  provider: string;
 }
 
-const LLM_MODEL = "google/gemini-flash-1.5";
+function getLLMConfig(): LLMConfig | null {
+  const ollamaUrl = process.env.OLLAMA_URL;
+  const ollamaModel = process.env.OLLAMA_MODEL || "llama3.2";
+
+  if (ollamaUrl) {
+    const baseURL = ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`;
+    return {
+      client: new OpenAI({ baseURL, apiKey: "ollama" }),
+      model: ollamaModel,
+      provider: "Ollama",
+    };
+  }
+
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (apiKey) {
+    return {
+      client: new OpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey }),
+      model: process.env.OPENROUTER_MODEL || "google/gemini-flash-1.5",
+      provider: "OpenRouter",
+    };
+  }
+
+  return null;
+}
 
 function buildRAGContext(docs: Array<{ filename: string; extractedContent: string | null }>, userMessage: string): string {
   const keywords = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 3);
@@ -130,6 +153,7 @@ router.get("/conversations/:conversationId", async (req, res) => {
     }
     const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
     const agent = getAgentById(conv.agentId);
+    const llmConfig = getLLMConfig();
 
     res.json({
       id: String(conv.id),
@@ -137,8 +161,8 @@ router.get("/conversations/:conversationId", async (req, res) => {
       title: conv.title,
       createdAt: conv.createdAt.toISOString(),
       updatedAt: conv.updatedAt.toISOString(),
-      model: LLM_MODEL,
-      provider: "OpenRouter",
+      model: llmConfig?.model || "nenhum",
+      provider: llmConfig?.provider || "Nenhum",
       agentName: agent?.name || conv.agentId,
       messages: messages.map((m) => ({
         id: String(m.id),
@@ -208,7 +232,7 @@ router.get("/conversations/:conversationId/export", async (req, res) => {
     md += `**Data:** ${conv.createdAt.toISOString().split("T")[0]}\n\n---\n\n`;
 
     for (const msg of messages) {
-      const role = msg.role === "user" ? "👤 Você" : "🤖 Assistente";
+      const role = msg.role === "user" ? "Voce" : "Assistente";
       md += `### ${role}\n\n${msg.content}\n\n---\n\n`;
     }
 
@@ -322,54 +346,105 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     llmMessages.push({ role: "user", content: content.trim() });
 
     let assistantContent: string;
-    const client = getLLMClient();
+    const llmConfig = getLLMConfig();
 
-    if (client) {
+    if (llmConfig) {
       try {
-        const completion = await client.chat.completions.create({
-          model: LLM_MODEL,
+        const completion = await llmConfig.client.chat.completions.create({
+          model: llmConfig.model,
           messages: llmMessages,
           max_tokens: 2000,
         });
-        assistantContent = completion.choices[0]?.message?.content || "Desculpe, não consegui gerar uma resposta. Tente novamente.";
+        assistantContent = completion.choices[0]?.message?.content || "Desculpe, nao consegui gerar uma resposta. Tente novamente.";
       } catch (llmErr) {
         console.error("LLM error:", llmErr);
-        assistantContent = `⚠️ Erro ao conectar com a IA. Verifique se a chave OPENROUTER_API_KEY está configurada.\n\nMensagem recebida: "${content.trim()}"`;
+        const providerName = llmConfig.provider;
+        let usedFallback = false;
+        if (providerName === "Ollama") {
+          const fallback = getLLMConfigFallback();
+          if (fallback) {
+            try {
+              const fallbackCompletion = await fallback.client.chat.completions.create({
+                model: fallback.model,
+                messages: llmMessages,
+                max_tokens: 2000,
+              });
+              assistantContent = fallbackCompletion.choices[0]?.message?.content || "Desculpe, nao consegui gerar uma resposta.";
+              usedFallback = true;
+              llmConfig.model = fallback.model;
+              llmConfig.provider = `${fallback.provider} (fallback)`;
+            } catch {
+              assistantContent = `Erro ao conectar com Ollama e o fallback OpenRouter tambem falhou. Verifique se o Ollama esta rodando e acessivel.`;
+            }
+          } else {
+            assistantContent = `Erro ao conectar com Ollama. Verifique se o Ollama esta rodando e acessivel, ou configure OPENROUTER_API_KEY como fallback.`;
+          }
+        } else {
+          assistantContent = `Erro ao conectar com a IA. Verifique as configuracoes do provedor ${providerName}.`;
+        }
+        if (!usedFallback) {
+          console.error(`LLM provider ${providerName} failed. OLLAMA_URL=${process.env.OLLAMA_URL ? "set" : "unset"}, OPENROUTER_API_KEY=${process.env.OPENROUTER_API_KEY ? "set" : "unset"}`);
+        }
       }
     } else {
-      assistantContent = `🤖 **Modo Demo** — Configure a chave OPENROUTER_API_KEY para respostas reais da IA.\n\n**Agente:** ${agent.name}\n**Sua mensagem:** ${content.trim()}\n\nEste agente está configurado para: ${agent.description}\n\n*Para ativar a IA, adicione sua chave OpenRouter nas configurações do projeto.*`;
+      assistantContent = `**Modo Demo** — Nenhum provedor de IA configurado.\n\n**Agente:** ${agent.name}\n**Sua mensagem:** ${content.trim()}\n\nConfigure OLLAMA_URL (para LLM local) ou OPENROUTER_API_KEY (para LLM na nuvem) nas variaveis de ambiente.`;
     }
 
-    const [assistantMsg] = await db
-      .insert(messagesTable)
-      .values({ conversationId, role: "assistant", content: assistantContent })
-      .returning();
+    const assistantMsg = await insertAssistantMessage(conversationId, assistantContent);
 
     await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
 
-    res.json({
-      userMessage: {
-        id: String(userMsg.id),
-        conversationId: String(userMsg.conversationId),
-        role: userMsg.role,
-        content: userMsg.content,
-        createdAt: userMsg.createdAt.toISOString(),
-      },
-      assistantMessage: {
-        id: String(assistantMsg.id),
-        conversationId: String(assistantMsg.conversationId),
-        role: assistantMsg.role,
-        content: assistantMsg.content,
-        createdAt: assistantMsg.createdAt.toISOString(),
-      },
-      autoTitle,
-      model: LLM_MODEL,
-      provider: "OpenRouter",
-    });
+    res.json(buildMessageResponse(userMsg, assistantMsg, autoTitle, llmConfig?.model || "nenhum", llmConfig?.provider || "Nenhum"));
   } catch (err) {
     console.error("Error sending message:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+async function insertAssistantMessage(conversationId: number, content: string) {
+  const [msg] = await db
+    .insert(messagesTable)
+    .values({ conversationId, role: "assistant", content })
+    .returning();
+  return msg;
+}
+
+function buildMessageResponse(
+  userMsg: typeof messagesTable.$inferSelect,
+  assistantMsg: typeof messagesTable.$inferSelect,
+  autoTitle: string | null,
+  model: string,
+  provider: string
+) {
+  return {
+    userMessage: {
+      id: String(userMsg.id),
+      conversationId: String(userMsg.conversationId),
+      role: userMsg.role,
+      content: userMsg.content,
+      createdAt: userMsg.createdAt.toISOString(),
+    },
+    assistantMessage: {
+      id: String(assistantMsg.id),
+      conversationId: String(assistantMsg.conversationId),
+      role: assistantMsg.role,
+      content: assistantMsg.content,
+      createdAt: assistantMsg.createdAt.toISOString(),
+    },
+    autoTitle,
+    model,
+    provider,
+  };
+}
+
+function getLLMConfigFallback(): LLMConfig | null {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+  return {
+    client: new OpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey }),
+    model: process.env.OPENROUTER_MODEL || "google/gemini-flash-1.5",
+    provider: "OpenRouter",
+  };
+}
 
 export default router;

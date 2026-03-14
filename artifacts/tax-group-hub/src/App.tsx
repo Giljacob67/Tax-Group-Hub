@@ -10,6 +10,7 @@ import Dashboard from "./pages/dashboard";
 import AgentChat from "./pages/agent-chat";
 import KnowledgeBase from "./pages/knowledge-base";
 import Integrations from "./pages/integrations";
+import SettingsPage from "./pages/settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,6 +58,9 @@ function Router() {
       </Route>
       <Route path="/integrations">
         <Layout><Integrations /></Layout>
+      </Route>
+      <Route path="/settings">
+        <Layout><SettingsPage /></Layout>
       </Route>
       <Route component={NotFound} />
     </Switch>

@@ -17,6 +17,8 @@ tags:
     description: Knowledge base management
   - name: integrations
     description: External integrations (image generation, Canva, embeddings)
+  - name: settings
+    description: Platform settings and integration status
 
 paths:
   /healthz:
@@ -404,6 +406,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/SearchKnowledgeResponse"
 
+  /settings/integrations:
+    get:
+      operationId: getIntegrationSettings
+      tags: [settings]
+      summary: Get status of all platform integrations
+      responses:
+        "200":
+          description: Integration settings and status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationSettingsResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -728,3 +743,41 @@ components:
         query:
           type: string
       required: [results, query]
+
+    IntegrationItem:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        envVar:
+          type: string
+        configured:
+          type: boolean
+        active:
+          type: boolean
+        category:
+          type: string
+      required: [id, name, description, envVar, configured, active, category]
+
+    IntegrationSettingsResponse:
+      type: object
+      properties:
+        integrations:
+          type: array
+          items:
+            $ref: "#/components/schemas/IntegrationItem"
+        activeLLM:
+          type: string
+          nullable: true
+        ollamaModel:
+          type: string
+        openrouterModel:
+          type: string
+        ollamaUrl:
+          type: string
+          nullable: true
+      required: [integrations, ollamaModel, openrouterModel]
