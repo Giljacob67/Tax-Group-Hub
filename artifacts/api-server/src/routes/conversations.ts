@@ -25,7 +25,7 @@ async function getLLMConfig(): Promise<LLMConfig | null> {
   if (ollamaUrl) {
     const baseURL = ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`;
     return {
-      client: new OpenAI({ baseURL, apiKey: "ollama" }),
+      client: new OpenAI({ baseURL, apiKey: "ollama", defaultHeaders: { "ngrok-skip-browser-warning": "true" } }),
       model: ollamaModel,
       provider: "Ollama",
     };
@@ -378,7 +378,8 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
               usedFallback = true;
               llmConfig.model = fallback.model;
               llmConfig.provider = `${fallback.provider} (fallback)`;
-            } catch {
+            } catch (fallbackErr) {
+              console.error("OpenRouter fallback error:", fallbackErr);
               assistantContent = `Erro ao conectar com Ollama e o fallback OpenRouter tambem falhou. Verifique se o Ollama esta rodando e acessivel.`;
             }
           } else {
