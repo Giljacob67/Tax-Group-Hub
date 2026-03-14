@@ -41,7 +41,7 @@ export default function Dashboard() {
             Tax Group <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">AI Hub</span>
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Welcome to the intelligent core of Tax Group. Leverage 11 specialized AI agents designed to accelerate prospecting, automate marketing, and streamline internal operations.
+            Welcome to the intelligent core of Tax Group. Leverage 15 specialized AI agents designed to accelerate prospecting, automate marketing, and streamline internal operations.
           </p>
         </motion.div>
 
