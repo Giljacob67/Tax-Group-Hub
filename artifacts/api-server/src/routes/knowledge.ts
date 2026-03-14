@@ -2,28 +2,40 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { knowledgeDocumentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import multer from "multer";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
+import mammoth from "mammoth";
 
 const router: IRouter = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-// List knowledge documents (optionally by agentId)
+async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
+  const lower = (fileType + filename).toLowerCase();
+  if (lower.includes("pdf")) {
+    const data = await pdfParse(buffer);
+    return data.text || "";
+  }
+  if (lower.includes("docx") || lower.includes("word") || lower.includes("officedocument")) {
+    const result = await mammoth.extractRawText({ buffer });
+    return result.value || "";
+  }
+  if (lower.includes("markdown") || lower.includes("text") || filename.endsWith(".md") || filename.endsWith(".txt")) {
+    return buffer.toString("utf-8");
+  }
+  return "";
+}
+
 router.get("/knowledge", async (req, res) => {
   try {
     const { agentId } = req.query;
-
     let documents;
     if (agentId && typeof agentId === "string") {
-      documents = await db
-        .select()
-        .from(knowledgeDocumentsTable)
-        .where(eq(knowledgeDocumentsTable.agentId, agentId))
-        .orderBy(knowledgeDocumentsTable.createdAt);
+      documents = await db.select().from(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.agentId, agentId)).orderBy(knowledgeDocumentsTable.createdAt);
     } else {
-      documents = await db
-        .select()
-        .from(knowledgeDocumentsTable)
-        .orderBy(knowledgeDocumentsTable.createdAt);
+      documents = await db.select().from(knowledgeDocumentsTable).orderBy(knowledgeDocumentsTable.createdAt);
     }
-
     res.json({
       documents: documents.map((d) => ({
         id: String(d.id),
@@ -33,6 +45,7 @@ router.get("/knowledge", async (req, res) => {
         fileSize: d.fileSize,
         storageKey: d.storageKey,
         status: d.status,
+        hasContent: !!d.extractedContent,
         createdAt: d.createdAt.toISOString(),
       })),
     });
@@ -42,70 +55,78 @@ router.get("/knowledge", async (req, res) => {
   }
 });
 
-// Request presigned upload URL
-router.post("/knowledge/upload-url", async (req, res) => {
+router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
   try {
-    const { agentId, filename, fileType, fileSize } = req.body as {
-      agentId?: string;
-      filename?: string;
-      fileType?: string;
-      fileSize?: number;
-    };
+    const file = (req as any).file as Express.Multer.File | undefined;
+    const agentId = req.body?.agentId || "global";
 
-    if (!agentId || !filename || !fileType || !fileSize) {
-      res.status(400).json({ error: "agentId, filename, fileType and fileSize are required" });
+    if (!file) {
+      res.status(400).json({ error: "file is required" });
       return;
     }
 
-    // Generate a unique storage key
-    const storageKey = `knowledge/${agentId}/${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    let extractedContent = "";
+    try {
+      extractedContent = await extractTextContent(file.buffer, file.mimetype, file.originalname);
+    } catch (extractErr) {
+      console.error("Text extraction error:", extractErr);
+    }
 
-    // Create document record in DB
+    const storageKey = `knowledge/${agentId}/${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
     const [doc] = await db
       .insert(knowledgeDocumentsTable)
       .values({
         agentId,
-        filename,
-        fileType,
-        fileSize,
+        filename: file.originalname,
+        fileType: file.mimetype || "application/octet-stream",
+        fileSize: file.size,
         storageKey,
-        status: "pending",
+        extractedContent: extractedContent || null,
+        status: extractedContent ? "processed" : "pending",
+        processed: !!extractedContent,
       })
       .returning();
 
-    // In production, this would generate a real presigned URL from GCS/S3
-    // For now, we return a placeholder that indicates the document was registered
-    const uploadUrl = `${process.env.APP_URL || ""}/api/knowledge/upload/${doc.id}`;
-
-    res.json({
-      uploadUrl,
-      documentId: String(doc.id),
-      storageKey,
+    res.status(201).json({
+      id: String(doc.id),
+      agentId: doc.agentId,
+      filename: doc.filename,
+      fileType: doc.fileType,
+      fileSize: doc.fileSize,
+      storageKey: doc.storageKey,
+      status: doc.status,
+      hasContent: !!doc.extractedContent,
+      contentPreview: extractedContent ? extractedContent.substring(0, 200) + "..." : null,
+      createdAt: doc.createdAt.toISOString(),
     });
+  } catch (err) {
+    console.error("Error uploading knowledge document:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/knowledge/upload-url", async (req, res) => {
+  try {
+    const { agentId, filename, fileType, fileSize } = req.body as {
+      agentId?: string; filename?: string; fileType?: string; fileSize?: number;
+    };
+    if (!agentId || !filename || !fileType || !fileSize) {
+      res.status(400).json({ error: "agentId, filename, fileType and fileSize are required" });
+      return;
+    }
+    const storageKey = `knowledge/${agentId}/${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const [doc] = await db
+      .insert(knowledgeDocumentsTable)
+      .values({ agentId, filename, fileType, fileSize, storageKey, status: "pending" })
+      .returning();
+    const uploadUrl = `${process.env.APP_URL || ""}/api/knowledge/upload/${doc.id}`;
+    res.json({ uploadUrl, documentId: String(doc.id), storageKey });
   } catch (err) {
     console.error("Error requesting upload URL:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// Mark document as processed (called after upload)
-router.post("/knowledge/upload/:documentId/complete", async (req, res) => {
-  try {
-    const documentId = Number(req.params.documentId);
-
-    await db
-      .update(knowledgeDocumentsTable)
-      .set({ status: "processed", processed: true })
-      .where(eq(knowledgeDocumentsTable.id, documentId));
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Error completing upload:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Delete knowledge document
 router.delete("/knowledge/:documentId", async (req, res) => {
   try {
     const documentId = Number(req.params.documentId);
@@ -113,11 +134,7 @@ router.delete("/knowledge/:documentId", async (req, res) => {
       res.status(404).json({ error: "Document not found" });
       return;
     }
-
-    await db
-      .delete(knowledgeDocumentsTable)
-      .where(eq(knowledgeDocumentsTable.id, documentId));
-
+    await db.delete(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.id, documentId));
     res.json({ success: true, message: "Document deleted" });
   } catch (err) {
     console.error("Error deleting document:", err);

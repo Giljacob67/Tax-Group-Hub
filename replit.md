@@ -2,7 +2,7 @@
 
 ## Overview
 
-Full-stack AI platform for Tax Group — Brazil's largest tax consultancy. Features 11 specialized AI agents organized in 3 operational blocks, with chat via LLM (OpenRouter), persistent conversation history, knowledge base upload, image generation, Canva deep links, and Google Embeddings for semantic search.
+Full-stack AI platform for Tax Group — Brazil's largest tax consultancy. Features 11 specialized AI agents organized in 3 operational blocks, with chat via LLM (OpenRouter), persistent conversation history, RAG with real text extraction from PDFs/Word/MD/TXT, Design Studio for marketing agents (image gen + Canva templates + gallery), conversation management (auto-title, rename, export, search, confirmation dialogs), system prompt editor, and model/provider display.
 
 ## Stack
 
@@ -95,12 +95,26 @@ artifacts-monorepo/
 - `GET /api/conversations/:id` — Get conversation with messages
 - `DELETE /api/conversations/:id` — Delete conversation
 - `POST /api/conversations/:id/messages` — Send message (LLM response)
+- `PATCH /api/conversations/:id` — Rename conversation
+- `GET /api/conversations/:id/export` — Export conversation as Markdown
 - `GET /api/knowledge?agentId=X` — List knowledge documents
-- `POST /api/knowledge/upload-url` — Request upload URL
+- `POST /api/knowledge/upload` — Upload file (multipart) with text extraction
+- `POST /api/knowledge/upload-url` — Request upload URL (legacy)
 - `DELETE /api/knowledge/:id` — Delete document
 - `POST /api/integrations/generate-image` — Generate image (Gemini/OpenRouter)
-- `POST /api/integrations/canva-link` — Generate Canva deep link
+- `GET /api/integrations/image-gallery/:agentId` — Get generated images for agent
+- `POST /api/integrations/canva-link` — Generate Canva deep link (10 template types)
 - `POST /api/integrations/search-knowledge` — Semantic search with embeddings
+
+## Key Features (v2)
+
+- **Design Studio** — Integrated panel in 4 marketing agents (LinkedIn, Email Mkt, Materiais, Reforma) with image generation, 6 Canva template shortcuts, and image gallery
+- **RAG Content Extraction** — Uploads extract real text from PDF (pdf-parse), DOCX (mammoth), MD/TXT and inject relevant snippets into agent system prompts
+- **Auto-Title** — Conversations auto-titled from first user message (first 60 chars)
+- **Conversation Management** — Rename (double-click), search/filter, export to .md, delete with confirmation dialog
+- **System Prompt Editor** — Per-session editable system prompts via settings dialog
+- **Model/Provider Display** — Header and footer show active LLM model and provider
+- **Confirmation Dialogs** — All destructive actions (delete conversation, delete document) require explicit confirmation via AlertDialog
 
 ## Key Integrations
 

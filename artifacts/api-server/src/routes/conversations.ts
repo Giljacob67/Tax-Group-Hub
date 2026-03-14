@@ -5,61 +5,72 @@ import {
   messagesTable,
   knowledgeDocumentsTable,
 } from "@workspace/db";
-import { eq, desc, count, sql } from "drizzle-orm";
+import { eq, desc, count, and, isNotNull } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
 import OpenAI from "openai";
 
 const router: IRouter = Router();
 
-// Initialize OpenRouter client (compatible with OpenAI SDK)
 function getLLMClient() {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    return null;
-  }
-  return new OpenAI({
-    baseURL: "https://openrouter.ai/api/v1",
-    apiKey,
-  });
+  if (!apiKey) return null;
+  return new OpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey });
 }
 
-// List conversations (optionally by agentId)
+const LLM_MODEL = "google/gemini-flash-1.5";
+
+function buildRAGContext(docs: Array<{ filename: string; extractedContent: string | null }>, userMessage: string): string {
+  const keywords = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  const scored = docs
+    .filter(d => d.extractedContent)
+    .map(d => {
+      const content = d.extractedContent!;
+      const lower = content.toLowerCase();
+      const score = keywords.reduce((s, kw) => s + (lower.includes(kw) ? 1 : 0), 0);
+      return { ...d, score, content };
+    })
+    .filter(d => d.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  if (scored.length === 0) return "";
+
+  const chunks = scored.map(d => {
+    const trimmed = d.content.length > 2000 ? d.content.substring(0, 2000) + "..." : d.content;
+    return `[Documento: ${d.filename}]\n${trimmed}`;
+  });
+
+  return `\n\n--- CONTEXTO DA BASE DE CONHECIMENTO ---\nUse os trechos abaixo como referência para responder de forma mais precisa:\n\n${chunks.join("\n\n")}`;
+}
+
 router.get("/conversations", async (req, res) => {
   try {
     const { agentId } = req.query;
-
-    let query = db
-      .select({
-        id: conversationsTable.id,
-        agentId: conversationsTable.agentId,
-        title: conversationsTable.title,
-        createdAt: conversationsTable.createdAt,
-        updatedAt: conversationsTable.updatedAt,
-        messageCount: count(messagesTable.id),
-      })
-      .from(conversationsTable)
-      .leftJoin(messagesTable, eq(conversationsTable.id, messagesTable.conversationId))
-      .groupBy(conversationsTable.id)
-      .orderBy(desc(conversationsTable.updatedAt));
+    const baseQuery = {
+      id: conversationsTable.id,
+      agentId: conversationsTable.agentId,
+      title: conversationsTable.title,
+      createdAt: conversationsTable.createdAt,
+      updatedAt: conversationsTable.updatedAt,
+      messageCount: count(messagesTable.id),
+    };
 
     let conversations;
     if (agentId && typeof agentId === "string") {
       conversations = await db
-        .select({
-          id: conversationsTable.id,
-          agentId: conversationsTable.agentId,
-          title: conversationsTable.title,
-          createdAt: conversationsTable.createdAt,
-          updatedAt: conversationsTable.updatedAt,
-          messageCount: count(messagesTable.id),
-        })
+        .select(baseQuery)
         .from(conversationsTable)
         .leftJoin(messagesTable, eq(conversationsTable.id, messagesTable.conversationId))
         .where(eq(conversationsTable.agentId, agentId))
         .groupBy(conversationsTable.id)
         .orderBy(desc(conversationsTable.updatedAt));
     } else {
-      conversations = await query;
+      conversations = await db
+        .select(baseQuery)
+        .from(conversationsTable)
+        .leftJoin(messagesTable, eq(conversationsTable.id, messagesTable.conversationId))
+        .groupBy(conversationsTable.id)
+        .orderBy(desc(conversationsTable.updatedAt));
     }
 
     res.json({
@@ -77,7 +88,6 @@ router.get("/conversations", async (req, res) => {
   }
 });
 
-// Create a conversation
 router.post("/conversations", async (req, res) => {
   try {
     const { agentId, title } = req.body as { agentId?: string; title?: string };
@@ -85,10 +95,8 @@ router.post("/conversations", async (req, res) => {
       res.status(400).json({ error: "agentId is required" });
       return;
     }
-
     const agent = getAgentById(agentId);
-    const conversationTitle = title || `Conversa com ${agent?.name || agentId}`;
-
+    const conversationTitle = title || `Nova conversa`;
     const [conv] = await db
       .insert(conversationsTable)
       .values({ agentId, title: conversationTitle })
@@ -108,7 +116,6 @@ router.post("/conversations", async (req, res) => {
   }
 });
 
-// Get conversation with messages
 router.get("/conversations/:conversationId", async (req, res) => {
   try {
     const conversationId = Number(req.params.conversationId);
@@ -116,22 +123,13 @@ router.get("/conversations/:conversationId", async (req, res) => {
       res.status(404).json({ error: "Conversation not found" });
       return;
     }
-
-    const [conv] = await db
-      .select()
-      .from(conversationsTable)
-      .where(eq(conversationsTable.id, conversationId));
-
+    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
     if (!conv) {
       res.status(404).json({ error: "Conversation not found" });
       return;
     }
-
-    const messages = await db
-      .select()
-      .from(messagesTable)
-      .where(eq(messagesTable.conversationId, conversationId))
-      .orderBy(messagesTable.createdAt);
+    const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
+    const agent = getAgentById(conv.agentId);
 
     res.json({
       id: String(conv.id),
@@ -139,6 +137,9 @@ router.get("/conversations/:conversationId", async (req, res) => {
       title: conv.title,
       createdAt: conv.createdAt.toISOString(),
       updatedAt: conv.updatedAt.toISOString(),
+      model: LLM_MODEL,
+      provider: "OpenRouter",
+      agentName: agent?.name || conv.agentId,
       messages: messages.map((m) => ({
         id: String(m.id),
         conversationId: String(m.conversationId),
@@ -154,7 +155,72 @@ router.get("/conversations/:conversationId", async (req, res) => {
   }
 });
 
-// Delete conversation
+router.patch("/conversations/:conversationId", async (req, res) => {
+  try {
+    const conversationId = Number(req.params.conversationId);
+    const { title } = req.body as { title?: string };
+    if (isNaN(conversationId)) {
+      res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+    if (!title?.trim()) {
+      res.status(400).json({ error: "title is required" });
+      return;
+    }
+    const [conv] = await db
+      .update(conversationsTable)
+      .set({ title: title.trim(), updatedAt: new Date() })
+      .where(eq(conversationsTable.id, conversationId))
+      .returning();
+    if (!conv) {
+      res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+    res.json({
+      id: String(conv.id),
+      agentId: conv.agentId,
+      title: conv.title,
+      updatedAt: conv.updatedAt.toISOString(),
+    });
+  } catch (err) {
+    console.error("Error renaming conversation:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/conversations/:conversationId/export", async (req, res) => {
+  try {
+    const conversationId = Number(req.params.conversationId);
+    if (isNaN(conversationId)) {
+      res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+    if (!conv) {
+      res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+    const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
+    const agent = getAgentById(conv.agentId);
+
+    let md = `# ${conv.title}\n\n`;
+    md += `**Agente:** ${agent?.name || conv.agentId}\n`;
+    md += `**Data:** ${conv.createdAt.toISOString().split("T")[0]}\n\n---\n\n`;
+
+    for (const msg of messages) {
+      const role = msg.role === "user" ? "👤 Você" : "🤖 Assistente";
+      md += `### ${role}\n\n${msg.content}\n\n---\n\n`;
+    }
+
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${conv.title.replace(/[^a-zA-Z0-9 ]/g, "")}.md"`);
+    res.send(md);
+  } catch (err) {
+    console.error("Error exporting conversation:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.delete("/conversations/:conversationId", async (req, res) => {
   try {
     const conversationId = Number(req.params.conversationId);
@@ -162,11 +228,7 @@ router.delete("/conversations/:conversationId", async (req, res) => {
       res.status(404).json({ error: "Conversation not found" });
       return;
     }
-
-    await db
-      .delete(conversationsTable)
-      .where(eq(conversationsTable.id, conversationId));
-
+    await db.delete(conversationsTable).where(eq(conversationsTable.id, conversationId));
     res.json({ success: true, message: "Conversation deleted" });
   } catch (err) {
     console.error("Error deleting conversation:", err);
@@ -174,13 +236,13 @@ router.delete("/conversations/:conversationId", async (req, res) => {
   }
 });
 
-// Send a message
 router.post("/conversations/:conversationId/messages", async (req, res) => {
   try {
     const conversationId = Number(req.params.conversationId);
-    const { content, useKnowledgeBase } = req.body as {
+    const { content, useKnowledgeBase, customSystemPrompt } = req.body as {
       content?: string;
       useKnowledgeBase?: boolean;
+      customSystemPrompt?: string;
     };
 
     if (!content?.trim()) {
@@ -188,12 +250,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       return;
     }
 
-    // Validate conversation exists
-    const [conv] = await db
-      .select()
-      .from(conversationsTable)
-      .where(eq(conversationsTable.id, conversationId));
-
+    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
     if (!conv) {
       res.status(404).json({ error: "Conversation not found" });
       return;
@@ -205,82 +262,90 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       return;
     }
 
-    // Save user message
     const [userMsg] = await db
       .insert(messagesTable)
-      .values({
-        conversationId,
-        role: "user",
-        content: content.trim(),
-      })
+      .values({ conversationId, role: "user", content: content.trim() })
       .returning();
 
-    // Get conversation history
-    const history = await db
+    const existingMessages = await db
       .select()
       .from(messagesTable)
       .where(eq(messagesTable.conversationId, conversationId))
       .orderBy(messagesTable.createdAt);
 
-    // Build messages for LLM
-    const llmMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-      {
-        role: "system",
-        content: agent.systemPrompt,
-      },
-    ];
+    const userMessageCount = existingMessages.filter(m => m.role === "user").length;
+    let autoTitle: string | null = null;
+    if (userMessageCount === 1) {
+      autoTitle = content.trim().length > 60 ? content.trim().substring(0, 57) + "..." : content.trim();
+      await db.update(conversationsTable).set({ title: autoTitle, updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
+    }
 
-    // Add conversation history (excluding the user message we just saved)
-    for (const msg of history.slice(0, -1)) {
-      if (msg.role === "user" || msg.role === "assistant") {
-        llmMessages.push({
-          role: msg.role as "user" | "assistant",
-          content: msg.content,
-        });
+    let systemPrompt = customSystemPrompt || agent.systemPrompt;
+
+    if (useKnowledgeBase !== false) {
+      const knowledgeDocs = await db
+        .select({ filename: knowledgeDocumentsTable.filename, extractedContent: knowledgeDocumentsTable.extractedContent })
+        .from(knowledgeDocumentsTable)
+        .where(
+          and(
+            eq(knowledgeDocumentsTable.agentId, conv.agentId),
+            isNotNull(knowledgeDocumentsTable.extractedContent)
+          )
+        );
+
+      const globalDocs = await db
+        .select({ filename: knowledgeDocumentsTable.filename, extractedContent: knowledgeDocumentsTable.extractedContent })
+        .from(knowledgeDocumentsTable)
+        .where(
+          and(
+            eq(knowledgeDocumentsTable.agentId, "global"),
+            isNotNull(knowledgeDocumentsTable.extractedContent)
+          )
+        );
+
+      const allDocs = [...knowledgeDocs, ...globalDocs];
+      const ragContext = buildRAGContext(allDocs, content.trim());
+      if (ragContext) {
+        systemPrompt += ragContext;
       }
     }
 
-    // Add current user message
+    const llmMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    for (const msg of existingMessages.slice(0, -1)) {
+      if (msg.role === "user" || msg.role === "assistant") {
+        llmMessages.push({ role: msg.role as "user" | "assistant", content: msg.content });
+      }
+    }
     llmMessages.push({ role: "user", content: content.trim() });
 
-    // Call LLM
     let assistantContent: string;
     const client = getLLMClient();
 
     if (client) {
       try {
         const completion = await client.chat.completions.create({
-          model: "google/gemini-flash-1.5",
+          model: LLM_MODEL,
           messages: llmMessages,
           max_tokens: 2000,
         });
-        assistantContent =
-          completion.choices[0]?.message?.content ||
-          "Desculpe, não consegui gerar uma resposta. Tente novamente.";
+        assistantContent = completion.choices[0]?.message?.content || "Desculpe, não consegui gerar uma resposta. Tente novamente.";
       } catch (llmErr) {
         console.error("LLM error:", llmErr);
         assistantContent = `⚠️ Erro ao conectar com a IA. Verifique se a chave OPENROUTER_API_KEY está configurada.\n\nMensagem recebida: "${content.trim()}"`;
       }
     } else {
-      // Demo mode: generate a contextual response without API key
       assistantContent = `🤖 **Modo Demo** — Configure a chave OPENROUTER_API_KEY para respostas reais da IA.\n\n**Agente:** ${agent.name}\n**Sua mensagem:** ${content.trim()}\n\nEste agente está configurado para: ${agent.description}\n\n*Para ativar a IA, adicione sua chave OpenRouter nas configurações do projeto.*`;
     }
 
-    // Save assistant message
     const [assistantMsg] = await db
       .insert(messagesTable)
-      .values({
-        conversationId,
-        role: "assistant",
-        content: assistantContent,
-      })
+      .values({ conversationId, role: "assistant", content: assistantContent })
       .returning();
 
-    // Update conversation updatedAt
-    await db
-      .update(conversationsTable)
-      .set({ updatedAt: new Date() })
-      .where(eq(conversationsTable.id, conversationId));
+    await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
 
     res.json({
       userMessage: {
@@ -297,6 +362,9 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         content: assistantMsg.content,
         createdAt: assistantMsg.createdAt.toISOString(),
       },
+      autoTitle,
+      model: LLM_MODEL,
+      provider: "OpenRouter",
     });
   } catch (err) {
     console.error("Error sending message:", err);

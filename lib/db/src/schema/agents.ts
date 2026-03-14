@@ -26,7 +26,8 @@ export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   fileType: text("file_type").notNull(),
   fileSize: integer("file_size").notNull(),
   storageKey: text("storage_key").notNull(),
-  status: text("status").notNull().default("pending"), // 'pending' | 'processed' | 'error'
+  extractedContent: text("extracted_content"),
+  status: text("status").notNull().default("pending"),
   processed: boolean("processed").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
