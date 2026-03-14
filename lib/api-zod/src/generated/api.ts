@@ -337,5 +337,4 @@ export const GetIntegrationSettingsResponse = zod.object({
   activeLLM: zod.string().nullish(),
   ollamaModel: zod.string(),
   openrouterModel: zod.string(),
-  ollamaUrl: zod.string().nullish(),
 });

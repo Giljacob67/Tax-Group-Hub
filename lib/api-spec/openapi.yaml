@@ -777,7 +777,4 @@ components:
           type: string
         openrouterModel:
           type: string
-        ollamaUrl:
-          type: string
-          nullable: true
       required: [integrations, ollamaModel, openrouterModel]

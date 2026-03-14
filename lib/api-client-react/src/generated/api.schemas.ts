@@ -211,7 +211,6 @@ export interface IntegrationSettingsResponse {
   activeLLM?: string | null;
   ollamaModel: string;
   openrouterModel: string;
-  ollamaUrl?: string | null;
 }
 
 export type ListAgents200 = {

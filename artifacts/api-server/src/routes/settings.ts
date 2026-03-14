@@ -67,7 +67,6 @@ router.get("/settings/integrations", (_req, res) => {
     activeLLM,
     ollamaModel,
     openrouterModel,
-    ollamaUrl: process.env.OLLAMA_URL || null,
   });
 });
 

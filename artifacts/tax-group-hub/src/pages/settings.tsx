@@ -21,7 +21,6 @@ interface SettingsData {
   activeLLM: string | null;
   ollamaModel: string;
   openrouterModel: string;
-  ollamaUrl: string | null;
 }
 
 const CATEGORY_META: Record<string, { label: string; icon: typeof Cloud }> = {
@@ -134,9 +133,9 @@ export default function SettingsPage() {
               <div>
                 <p className="text-sm font-medium text-emerald-400">IA Ativa: {data.activeLLM}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {data.ollamaUrl
-                    ? `Ollama em ${data.ollamaUrl} | Modelo: ${data.ollamaModel}`
-                    : `OpenRouter | Modelo: ${data.openrouterModel}`
+                  {data.activeLLM?.startsWith("Ollama")
+                    ? `Modelo local: ${data.ollamaModel}`
+                    : `Modelo cloud: ${data.openrouterModel}`
                   }
                 </p>
               </div>
