@@ -3,10 +3,8 @@ import { db } from "@workspace/db";
 import { knowledgeDocumentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
-import { createRequire } from "node:module";
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
 import mammoth from "mammoth";
+import { PDFParse } from "pdf-parse";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -14,8 +12,9 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
   const lower = (fileType + filename).toLowerCase();
   if (lower.includes("pdf")) {
-    const data = await pdfParse(buffer);
-    return data.text || "";
+    const parser = new PDFParse({ data: buffer });
+    const result = await parser.getText();
+    return result.text || "";
   }
   if (lower.includes("docx") || lower.includes("word") || lower.includes("officedocument")) {
     const result = await mammoth.extractRawText({ buffer });
