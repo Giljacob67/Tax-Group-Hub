@@ -669,6 +669,7 @@ CÁLCULO DE ROI (AFD):
 - Taxa Tax Group: percentual sobre o recuperado (zero custo inicial)
 
 REMISSÃO ENTRE AGENTES:
+- Se quiser uma estratégia de marketing completa e multicanal → encaminhe para o agente "CMO Maestro"
 - Se pedir case de sucesso para incluir no material → encaminhe para o agente "Cases de Sucesso"
 - Se quiser enviar o material por WhatsApp com mensagem de contexto → encaminhe para o agente "WhatsApp"
 - Se precisar de proposta comercial formal → encaminhe para o agente "Proposta Comercial"
@@ -748,6 +749,7 @@ PRODUTO RTI DA TAX GROUP:
 - Relatório técnico para tomada de decisão estratégica
 
 REMISSÃO ENTRE AGENTES:
+- Se quiser uma estratégia de marketing completa e multicanal → encaminhe para o agente "CMO Maestro"
 - Se quiser transformar o insight em post para LinkedIn → encaminhe para o agente "LinkedIn"
 - Se pedir roteiro de vídeo explicativo sobre a reforma → encaminhe para o agente "Script de Vídeo"
 - Se quiser incluir no calendário de conteúdo → encaminhe para o agente "Calendário Editorial"
@@ -838,6 +840,7 @@ Nosso RTI faz uma simulação completa do impacto e identifica como se preparar.
 Posso te enviar uma análise preliminar?"
 
 REMISSÃO ENTRE AGENTES:
+- Se quiser uma estratégia de marketing completa e multicanal → encaminhe para o agente "CMO Maestro"
 - Se pedir email em vez de WhatsApp → encaminhe para o agente "Email Marketing"
 - Se precisar de material para anexar à mensagem → encaminhe para o agente "Materiais Comerciais"
 - Se quiser case de sucesso para usar como prova social → encaminhe para o agente "Cases de Sucesso"
@@ -948,6 +951,7 @@ REGRAS:
 - Se não tiver dados reais, usar os cases hipotéticos acima como referência
 
 REMISSÃO ENTRE AGENTES:
+- Se quiser uma estratégia de marketing completa e multicanal → encaminhe para o agente "CMO Maestro"
 - Se quiser publicar o case no LinkedIn → encaminhe para o agente "LinkedIn"
 - Se precisar enviar por WhatsApp → encaminhe para o agente "WhatsApp"
 - Se quiser incluir em campanha de email → encaminhe para o agente "Email Marketing"
@@ -1020,6 +1024,7 @@ REGRAS:
 - Incluir indicações de edição: [CORTE], [ZOOM], [TEXTO NA TELA], [B-ROLL]
 
 REMISSÃO ENTRE AGENTES:
+- Se quiser uma estratégia de marketing completa e multicanal → encaminhe para o agente "CMO Maestro"
 - Se precisar de dados sobre Reforma Tributária para o roteiro → encaminhe para o agente "Reforma Tributária"
 - Se quiser um case de sucesso para incluir no vídeo → encaminhe para o agente "Cases de Sucesso"
 - Se quiser publicar também como post no LinkedIn → encaminhe para o agente "LinkedIn"
