@@ -22,7 +22,10 @@ interface IntegrationStatus {
 router.get("/settings/integrations", async (_req, res) => {
   try {
     const openrouterModel = process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
-    const hasOpenRouter = !!(process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL || process.env.OPENROUTER_API_KEY);
+    const hasOpenRouter = !!(
+      (process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL && process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY) ||
+      process.env.OPENROUTER_API_KEY
+    );
 
     const integrations: IntegrationStatus[] = [
       {
@@ -45,10 +48,18 @@ router.get("/settings/integrations", async (_req, res) => {
       },
     ];
 
+    const MODEL_DISPLAY_NAMES: Record<string, string> = {
+      "google/gemini-2.5-flash": "Gemini 2.5 Flash",
+      "google/gemini-2.5-pro": "Gemini 2.5 Pro",
+      "google/gemini-2.0-flash-001": "Gemini 2.0 Flash",
+      "google/gemini-flash-1.5": "Gemini Flash 1.5",
+      "google/gemini-pro-1.5": "Gemini Pro 1.5",
+    };
+
     let activeLLM: string | null = null;
     if (hasOpenRouter) {
-      const modelName = openrouterModel.split("/").pop() || openrouterModel;
-      activeLLM = `Gemini via OpenRouter (${modelName})`;
+      const displayName = MODEL_DISPLAY_NAMES[openrouterModel] || openrouterModel.split("/").pop() || openrouterModel;
+      activeLLM = `${displayName} via OpenRouter`;
     }
 
     res.json({
@@ -88,7 +99,7 @@ router.get("/settings/models", async (_req, res) => {
     res.json({
       models,
       defaultModel: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
-      provider: (process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL || process.env.OPENROUTER_API_KEY) ? "openrouter" : null,
+      provider: ((process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL && process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY) || process.env.OPENROUTER_API_KEY) ? "openrouter" : null,
     });
   } catch (err) {
     console.error("Error fetching models:", err);
