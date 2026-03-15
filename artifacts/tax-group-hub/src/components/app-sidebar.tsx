@@ -31,14 +31,13 @@ export function AppSidebar() {
   return (
     <Sidebar variant="inset" className="border-r border-border/50 bg-background/50 backdrop-blur-xl">
       <SidebarHeader className="p-4 flex flex-row items-center space-x-3 mt-2">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-blue-900 p-[1px] shadow-glow flex-shrink-0">
-          <div className="w-full h-full bg-background rounded-[11px] flex items-center justify-center">
-            <img 
-              src={`${import.meta.env.BASE_URL}images/logo.png`} 
-              alt="Tax Group" 
-              className="w-6 h-6 object-contain"
-            />
-          </div>
+        <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
+          <img 
+            src={`${import.meta.env.BASE_URL}images/logo-azul.png`} 
+            alt="Tax Group" 
+            className="w-10 h-10 object-contain"
+            style={{ mixBlendMode: 'screen' }}
+          />
         </div>
         <div>
           <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">Tax Group</h1>

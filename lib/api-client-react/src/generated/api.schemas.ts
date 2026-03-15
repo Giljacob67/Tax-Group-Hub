@@ -210,7 +210,6 @@ export interface IntegrationItem {
 export interface IntegrationSettingsResponse {
   integrations: IntegrationItem[];
   activeLLM?: string | null;
-  ollamaModel: string;
   openrouterModel: string;
 }
 

@@ -788,11 +788,9 @@ components:
         activeLLM:
           type: string
           nullable: true
-        ollamaModel:
-          type: string
         openrouterModel:
           type: string
-      required: [integrations, ollamaModel, openrouterModel]
+      required: [integrations, openrouterModel]
 
     ModelOption:
       type: object

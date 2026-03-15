@@ -8,7 +8,6 @@ import {
 import { eq, desc, count, and, isNotNull } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
 import OpenAI from "openai";
-import { getEffectiveOllamaUrl, getEffectiveOllamaModel } from "./settings.js";
 
 const router: IRouter = Router();
 
@@ -18,16 +17,15 @@ interface LLMConfig {
   provider: string;
 }
 
-async function getLLMConfig(): Promise<LLMConfig | null> {
-  const { url: ollamaUrl } = await getEffectiveOllamaUrl();
-  const ollamaModel = await getEffectiveOllamaModel();
+function getLLMConfig(): LLMConfig | null {
+  const integrationBaseUrl = process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL;
+  const integrationKey = process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY;
 
-  if (ollamaUrl) {
-    const baseURL = ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`;
+  if (integrationBaseUrl && integrationKey) {
     return {
-      client: new OpenAI({ baseURL, apiKey: "ollama", defaultHeaders: { "ngrok-skip-browser-warning": "true" } }),
-      model: ollamaModel,
-      provider: "Ollama",
+      client: new OpenAI({ baseURL: integrationBaseUrl, apiKey: integrationKey }),
+      model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
+      provider: "OpenRouter",
     };
   }
 
@@ -35,7 +33,7 @@ async function getLLMConfig(): Promise<LLMConfig | null> {
   if (apiKey) {
     return {
       client: new OpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey }),
-      model: process.env.OPENROUTER_MODEL || "google/gemini-flash-1.5",
+      model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
       provider: "OpenRouter",
     };
   }
@@ -154,7 +152,7 @@ router.get("/conversations/:conversationId", async (req, res) => {
     }
     const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
     const agent = getAgentById(conv.agentId);
-    const llmConfig = await getLLMConfig();
+    const llmConfig = getLLMConfig();
 
     res.json({
       id: String(conv.id),
@@ -348,10 +346,10 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     llmMessages.push({ role: "user", content: content.trim() });
 
     let assistantContent: string;
-    const llmConfig = await getLLMConfig();
+    const llmConfig = getLLMConfig();
 
     if (llmConfig) {
-      if (modelOverride && llmConfig.provider === "OpenRouter") {
+      if (modelOverride) {
         llmConfig.model = modelOverride;
       }
       try {
@@ -363,37 +361,11 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         assistantContent = completion.choices[0]?.message?.content || "Desculpe, nao consegui gerar uma resposta. Tente novamente.";
       } catch (llmErr) {
         console.error("LLM error:", llmErr);
-        const providerName = llmConfig.provider;
-        let usedFallback = false;
-        if (providerName === "Ollama") {
-          const fallback = getLLMConfigFallback();
-          if (fallback) {
-            try {
-              const fallbackCompletion = await fallback.client.chat.completions.create({
-                model: fallback.model,
-                messages: llmMessages,
-                max_tokens: 2000,
-              });
-              assistantContent = fallbackCompletion.choices[0]?.message?.content || "Desculpe, nao consegui gerar uma resposta.";
-              usedFallback = true;
-              llmConfig.model = fallback.model;
-              llmConfig.provider = `${fallback.provider} (fallback)`;
-            } catch (fallbackErr) {
-              console.error("OpenRouter fallback error:", fallbackErr);
-              assistantContent = `Erro ao conectar com Ollama e o fallback OpenRouter tambem falhou. Verifique se o Ollama esta rodando e acessivel.`;
-            }
-          } else {
-            assistantContent = `Erro ao conectar com Ollama. Verifique se o Ollama esta rodando e acessivel, ou configure OPENROUTER_API_KEY como fallback.`;
-          }
-        } else {
-          assistantContent = `Erro ao conectar com a IA. Verifique as configuracoes do provedor ${providerName}.`;
-        }
-        if (!usedFallback) {
-          console.error(`LLM provider ${providerName} failed. OLLAMA_URL=${process.env.OLLAMA_URL ? "set" : "unset"}, OPENROUTER_API_KEY=${process.env.OPENROUTER_API_KEY ? "set" : "unset"}`);
-        }
+        console.error(`OpenRouter failed. OPENROUTER_API_KEY=${process.env.OPENROUTER_API_KEY ? "set" : "unset"}, model=${llmConfig.model}`);
+        assistantContent = `Erro ao conectar com a IA (Gemini via OpenRouter). Verifique se a chave OPENROUTER_API_KEY esta configurada corretamente.`;
       }
     } else {
-      assistantContent = `**Modo Demo** — Nenhum provedor de IA configurado.\n\n**Agente:** ${agent.name}\n**Sua mensagem:** ${content.trim()}\n\nConfigure OLLAMA_URL (para LLM local) ou OPENROUTER_API_KEY (para LLM na nuvem) nas variaveis de ambiente.`;
+      assistantContent = `**Modo Demo** — Nenhum provedor de IA configurado.\n\n**Agente:** ${agent.name}\n**Sua mensagem:** ${content.trim()}\n\nConfigure OPENROUTER_API_KEY nas variaveis de ambiente para usar Gemini e outros modelos via OpenRouter.`;
     }
 
     const assistantMsg = await insertAssistantMessage(conversationId, assistantContent);
@@ -440,16 +412,6 @@ function buildMessageResponse(
     autoTitle,
     model,
     provider,
-  };
-}
-
-function getLLMConfigFallback(): LLMConfig | null {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) return null;
-  return {
-    client: new OpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey }),
-    model: process.env.OPENROUTER_MODEL || "google/gemini-flash-1.5",
-    provider: "OpenRouter",
   };
 }
 

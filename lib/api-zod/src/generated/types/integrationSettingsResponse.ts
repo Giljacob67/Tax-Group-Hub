@@ -10,6 +10,5 @@ import type { IntegrationItem } from "./integrationItem";
 export interface IntegrationSettingsResponse {
   integrations: IntegrationItem[];
   activeLLM?: string | null;
-  ollamaModel: string;
   openrouterModel: string;
 }
