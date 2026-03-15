@@ -2,7 +2,7 @@
 
 ## Overview
 
-Full-stack AI platform for Tax Group — Brazil's largest tax consultancy. Features 15 specialized AI agents organized in 3 operational blocks (4 Prospecção, 8 Marketing, 3 Gestão), with chat via LLM (Gemini 2.5 Flash via OpenRouter), persistent conversation history, RAG with real text extraction from PDFs/Word/MD/TXT, Design Studio for marketing agents (image gen + Canva templates + gallery), conversation management (auto-title, rename, export, search, confirmation dialogs), system prompt editor, model/provider display, and cross-agent referrals (each agent suggests related agents when appropriate).
+Full-stack AI platform for Tax Group — Brazil's largest tax consultancy. Features 17 specialized AI agents organized in 3 operational blocks (5 Prospecção, 9 Marketing, 3 Gestão), with chat via LLM (Gemini 2.5 Flash via OpenRouter), persistent conversation history, RAG with real text extraction from PDFs/Word/MD/TXT, Design Studio for marketing agents (image gen + Canva templates + gallery), conversation management (auto-title, rename, export, search, confirmation dialogs), system prompt editor, model/provider display, and cross-agent referrals (each agent suggests related agents when appropriate). Dashboard V2 with greeting, stats cards, Estratégia & Growth section (weekly focus, fiscal dates, top agents ranking), agent blocks with NOVO/POPULAR badges. Agent chat includes clickable mention chips for cross-agent navigation.
 
 ## Stack
 
@@ -25,17 +25,18 @@ artifacts-monorepo/
 ├── artifacts/              # Deployable applications
 │   ├── api-server/         # Express API server (port 8080)
 │   │   └── src/
-│   │       ├── lib/agents-data.ts  # All 15 agent definitions + system prompts + cross-referrals
+│   │       ├── lib/agents-data.ts  # All 17 agent definitions + system prompts + cross-referrals
 │   │       └── routes/
 │   │           ├── agents.ts         # GET /api/agents, GET /api/agents/:id
 │   │           ├── conversations.ts  # Chat conversations + message sending via LLM
 │   │           ├── knowledge.ts      # Knowledge base document management
 │   │           ├── settings.ts       # Integration status, model list
+│   │           ├── stats.ts          # GET /api/stats — agent usage, fiscal dates, weekly focus
 │   │           └── integrations.ts   # Image gen, Canva links, semantic search
 │   └── tax-group-hub/      # React + Vite frontend (port 25986)
 │       └── src/
 │           ├── App.tsx               # Main app with wouter routing
-│           ├── components/app-sidebar.tsx  # Sidebar with 15 agents in 3 blocks
+│           ├── components/app-sidebar.tsx  # Sidebar with 17 agents in 3 blocks
 │           └── pages/
 │               ├── dashboard.tsx     # Main dashboard with blocks and stats
 │               ├── agent-chat.tsx    # Chat interface per agent

@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { useParams } from "wouter";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { useParams, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { format } from "date-fns";
@@ -7,10 +7,11 @@ import {
   Send, Bot, User, Plus, MessageSquare, Loader2,
   Copy, CheckCheck, Trash2, Search, Download,
   Settings, Sparkles, Pencil, Check, X, Cpu,
-  ChevronDown
+  ChevronDown, ArrowRight
 } from "lucide-react";
 import {
   useGetAgent,
+  useListAgents,
   useListConversations,
   useCreateConversation,
   useGetConversation,
@@ -48,10 +49,47 @@ const MARKETING_AGENTS = [
   "email-marketing-tax-group",
   "materiais-comerciais-tax-group",
   "reformatributaria-insight",
+  "whatsapp-marketing-tax-group",
+  "cases-sucesso-tax-group",
+  "script-video-tax-group",
+  "calendario-editorial-tax-group",
+  "cmo-maestro-tax-group",
 ];
+
+interface AgentRef {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+function detectAgentMentions(text: string, allAgents: AgentRef[], currentAgentId: string): AgentRef[] {
+  const found: AgentRef[] = [];
+  const seen = new Set<string>();
+  for (const agent of allAgents) {
+    if (agent.id === currentAgentId) continue;
+    const patterns = [
+      `"${agent.name}"`,
+      `"${agent.name}"`,
+      `"${agent.name}"`,
+      `agente "${agent.name}"`,
+      `agente "${agent.name}"`,
+      `agente "${agent.name}"`,
+      agent.name,
+    ];
+    for (const pattern of patterns) {
+      if (!seen.has(agent.id) && text.toLowerCase().includes(pattern.toLowerCase())) {
+        found.push(agent);
+        seen.add(agent.id);
+        break;
+      }
+    }
+  }
+  return found;
+}
 
 export default function AgentChat() {
   const { id: agentId } = useParams();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -73,7 +111,13 @@ export default function AgentChat() {
   const [showModelSelector, setShowModelSelector] = useState(false);
 
   const { data: agent, isLoading: isLoadingAgent } = useGetAgent(agentId!);
+  const { data: allAgentsData } = useListAgents();
   const { data: conversations, isLoading: isLoadingConvs } = useListConversations({ agentId });
+
+  const agentRefs = useMemo<AgentRef[]>(() => {
+    if (!allAgentsData?.agents) return [];
+    return allAgentsData.agents.map(a => ({ id: a.id, name: a.name, icon: a.icon }));
+  }, [allAgentsData]);
   const { data: activeConv, isLoading: isLoadingMessages } = useGetConversation(activeConvId!, {
     query: { enabled: !!activeConvId }
   });
@@ -463,28 +507,48 @@ export default function AgentChat() {
             )}
 
             <AnimatePresence>
-              {activeConv?.messages?.map((msg) => (
+              {activeConv?.messages?.map((msg) => {
+                const mentions = msg.role === 'assistant' ? detectAgentMentions(msg.content, agentRefs, agentId!) : [];
+                return (
                 <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] flex ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end gap-3`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 ${msg.role === 'user' ? 'bg-secondary' : 'bg-primary/20 border border-primary/30'}`}>
                       {msg.role === 'user' ? <User className="w-4 h-4 text-foreground/70" /> : <Bot className="w-4 h-4 text-primary" />}
                     </div>
-                    <div className={`relative group p-4 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-sm shadow-md' : 'bg-card border border-border/50 text-foreground rounded-bl-sm shadow-sm'}`}>
-                      {msg.role === 'assistant' && (
-                        <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute -right-10 top-2 p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" title="Copiar">
-                          {copiedId === msg.id ? <CheckCheck className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                        </button>
+                    <div>
+                      <div className={`relative group p-4 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-sm shadow-md' : 'bg-card border border-border/50 text-foreground rounded-bl-sm shadow-sm'}`}>
+                        {msg.role === 'assistant' && (
+                          <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute -right-10 top-2 p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" title="Copiar">
+                            {copiedId === msg.id ? <CheckCheck className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        )}
+                        <div className={`text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none ${msg.role === 'user' ? 'prose-p:text-white prose-strong:text-white' : ''}`}>
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        </div>
+                        <div className={`text-[10px] mt-2 text-right ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                          {format(new Date(msg.createdAt), "h:mm a")}
+                        </div>
+                      </div>
+                      {mentions.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2 pl-1">
+                          <span className="text-[10px] text-muted-foreground self-center mr-1">Agentes mencionados:</span>
+                          {mentions.map(m => (
+                            <button
+                              key={m.id}
+                              onClick={() => navigate(`/agent/${m.id}`)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary/10 hover:bg-primary/20 border border-primary/20 hover:border-primary/40 text-primary transition-all hover:scale-105"
+                            >
+                              <span>{m.icon}</span>
+                              <span className="font-medium">{m.name}</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          ))}
+                        </div>
                       )}
-                      <div className={`text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none ${msg.role === 'user' ? 'prose-p:text-white prose-strong:text-white' : ''}`}>
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      </div>
-                      <div className={`text-[10px] mt-2 text-right ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                        {format(new Date(msg.createdAt), "h:mm a")}
-                      </div>
                     </div>
                   </div>
                 </motion.div>
-              ))}
+              );})}
             </AnimatePresence>
 
             {sendMutation.isPending && (
