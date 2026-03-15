@@ -91,9 +91,7 @@ export default function AgentChat() {
 
   const isMarketingAgent = MARKETING_AGENTS.includes(agentId || "");
   const isOpenRouter = modelsData?.provider === "openrouter";
-  const effectiveModel = isOpenRouter
-    ? (selectedModel || activeConv?.model || modelsData?.defaultModel || "google/gemini-flash-1.5")
-    : (activeConv?.model || modelsData?.defaultModel || "llama3.2");
+  const effectiveModel = selectedModel || activeConv?.model || modelsData?.defaultModel || "google/gemini-2.5-flash";
   const displayModel = modelsData?.models?.find(m => m.id === effectiveModel)?.name || effectiveModel;
   const provider = activeConv?.provider || "OpenRouter";
   const isApiOnline = !!healthData?.status && !healthError;
@@ -133,7 +131,7 @@ export default function AgentChat() {
           content: text,
           useKnowledgeBase: true,
           customSystemPrompt: customSystemPrompt || undefined,
-          model: (isOpenRouter && selectedModel) ? selectedModel : undefined,
+          model: selectedModel || undefined,
         }
       });
       if (res.autoTitle) {

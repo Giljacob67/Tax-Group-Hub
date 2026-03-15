@@ -33,4 +33,4 @@ channel = "stable-25_05"
 [userenv.shared]
 OPENROUTER_API_KEY = "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"
 GEMINI_API_KEY = "AIzaSyB3kVw31YHO3E_9rjqdmb6qQTECGNL_RNo"
-OLLAMA_URL = "https://nonslanderous-claretha-subsidiarily.ngrok-free.dev -> http://localhost:11434"
+OPENROUTER_MODEL = "google/gemini-2.5-flash"
