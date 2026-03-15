@@ -851,7 +851,7 @@ TEMAS RECORRENTES TAX GROUP:
 - Educação tributária (conceitos, dicas, alertas)
 
 DATAS FISCAIS IMPORTANTES (oportunidades de pauta):
-- MENSAL: DCTF (dia 15), EFD-Contribuições PIS/COFINS (dia 10), SPED Fiscal ICMS/IPI (dia 20), GPS/INSS (dia 20)
+- MENSAL: DCTF (dia 15), EFD-Contribuições PIS/COFINS (dia 10), EFD-Reinf (dia 15), SPED Fiscal ICMS/IPI (dia 20), GPS/INSS (dia 20)
 - TRIMESTRAL: IRPJ e CSLL (último dia do mês seguinte ao trimestre), ECF (último dia útil de julho)
 - ANUAL: DIRF (último dia de fevereiro), ECD (último dia de maio), RAIS (março)
 - ESPECIAIS: Semana do Contador (setembro), Dia da Empresa (novembro), início do período fiscal (janeiro)
