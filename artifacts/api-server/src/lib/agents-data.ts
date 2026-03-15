@@ -694,11 +694,11 @@ BANCO DE CASES HIPOTÉTICOS (use como base quando não houver dados reais):
 - Resultado: R$3,2M recuperados em 60 dias
 - Quote: "Nem o nosso escritório contábil tinha identificado essas oportunidades"
 
-🏪 VAREJO — AFD:
+🏪 VAREJO — RTI:
 - Rede de supermercados, Lucro Real, R$25M/ano
-- Créditos de PIS/COFINS sobre produtos monofásicos e substituição tributária
-- Resultado: R$1,5M recuperados em 90 dias
-- Quote: "Achávamos que estava tudo certo — a análise linha a linha mostrou o contrário"
+- Sem preparação para a Reforma Tributária — impacto na cadeia de fornecedores e precificação
+- Resultado: simulação completa do impacto + plano de adequação tributária para 2026-2033
+- Quote: "Sem o RTI, teríamos sido pegos de surpresa pela mudança na CBS e no Split Payment"
 
 🏥 SAÚDE — REP:
 - Rede de clínicas, Lucro Presumido, R$15M/ano, 200 funcionários
