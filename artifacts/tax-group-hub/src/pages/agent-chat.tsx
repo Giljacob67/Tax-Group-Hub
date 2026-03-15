@@ -64,27 +64,23 @@ interface AgentRef {
 
 function detectAgentMentions(text: string, allAgents: AgentRef[], currentAgentId: string): AgentRef[] {
   const found: AgentRef[] = [];
-  const seen = new Set<string>();
+  const lower = text.toLowerCase();
   for (const agent of allAgents) {
     if (agent.id === currentAgentId) continue;
-    const patterns = [
-      `"${agent.name}"`,
-      `"${agent.name}"`,
-      `"${agent.name}"`,
-      `agente "${agent.name}"`,
-      `agente "${agent.name}"`,
-      `agente "${agent.name}"`,
-      agent.name,
-    ];
-    for (const pattern of patterns) {
-      if (!seen.has(agent.id) && text.toLowerCase().includes(pattern.toLowerCase())) {
-        found.push(agent);
-        seen.add(agent.id);
-        break;
-      }
+    if (lower.includes(agent.name.toLowerCase())) {
+      found.push(agent);
     }
   }
   return found;
+}
+
+function extractContextSummary(messages: { role: string; content: string }[]): string {
+  const lastUser = [...messages].reverse().find(m => m.role === "user");
+  const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+  const parts: string[] = [];
+  if (lastUser) parts.push(`Usuário pediu: ${lastUser.content.slice(0, 150)}`);
+  if (lastAssistant) parts.push(`Último resultado: ${lastAssistant.content.slice(0, 200)}`);
+  return parts.join(" | ");
 }
 
 export default function AgentChat() {
@@ -97,6 +93,7 @@ export default function AgentChat() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [crossAgentContext, setCrossAgentContext] = useState<{ from: string; context: string } | null>(null);
   const [searchFilter, setSearchFilter] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -154,6 +151,16 @@ export default function AgentChat() {
     setActiveConvId(null);
     setCustomSystemPrompt(null);
     setShowDesignStudio(false);
+    const params = new URLSearchParams(window.location.search);
+    const ctxParam = params.get("context");
+    const fromParam = params.get("from");
+    if (ctxParam && fromParam) {
+      setCrossAgentContext({ from: fromParam, context: ctxParam });
+      setInput(`[Contexto do agente ${fromParam}] ${ctxParam.slice(0, 300)}`);
+      window.history.replaceState({}, "", window.location.pathname);
+    } else {
+      setCrossAgentContext(null);
+    }
   }, [agentId]);
 
   const handleNewChat = () => setActiveConvId(null);
@@ -490,6 +497,26 @@ export default function AgentChat() {
                 </div>
                 <h3 className="text-2xl font-bold mb-2">Iniciar conversa</h3>
                 <p className="text-muted-foreground mb-8 max-w-md mx-auto">{agent.description}</p>
+                {crossAgentContext && (
+                  <div className="max-w-xl mx-auto mb-6 p-3 rounded-xl border border-primary/30 bg-primary/5 text-left">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-semibold text-primary">Contexto recebido de {crossAgentContext.from}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{crossAgentContext.context.slice(0, 250)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">O contexto foi pré-preenchido no campo de mensagem. Envie para continuar.</p>
+                  </div>
+                )}
+                {isMarketingAgent && (
+                  <button
+                    onClick={() => setShowDesignStudio(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-sm font-medium transition-all hover:scale-105"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Design Studio
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {agent.suggestedPrompts?.length > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
                     {agent.suggestedPrompts.map((prompt: string, i: number) => (
@@ -535,7 +562,14 @@ export default function AgentChat() {
                           {mentions.map(m => (
                             <button
                               key={m.id}
-                              onClick={() => navigate(`/agent/${m.id}`)}
+                              onClick={() => {
+                                const ctx = activeConv?.messages ? extractContextSummary(activeConv.messages) : "";
+                                const params = new URLSearchParams();
+                                if (ctx) params.set("context", ctx);
+                                if (agent?.name) params.set("from", agent.name);
+                                const qs = params.toString();
+                                navigate(`/agent/${m.id}${qs ? `?${qs}` : ""}`);
+                              }}
                               className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-primary/10 hover:bg-primary/20 border border-primary/20 hover:border-primary/40 text-primary transition-all hover:scale-105"
                             >
                               <span>{m.icon}</span>
