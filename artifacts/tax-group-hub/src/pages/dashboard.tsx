@@ -8,12 +8,20 @@ import {
 } from "lucide-react";
 import { useListAgents, useListConversations, useListKnowledgeDocuments } from "@workspace/api-client-react";
 
+interface FunnelStage {
+  stage: string;
+  label: string;
+  count: number;
+  color: string;
+}
+
 interface StatsData {
   totalAgents: number;
   totalConversations: number;
   agentUsage: { agentId: string; name: string; icon: string; block: string; conversations7d: number }[];
   fiscalDates: { name: string; date: string; urgency: string }[];
   weeklyFocus: { title: string; description: string; agentId: string; agentName: string };
+  funnel: FunnelStage[];
 }
 
 function getGreeting(): string {
@@ -185,6 +193,38 @@ export default function Dashboard() {
                     {i === 0 && <Crown className="w-3.5 h-3.5 text-amber-400" />}
                   </Link>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {stats?.funnel && stats.funnel.length > 0 && (
+            <div className="mt-4 bg-card/50 backdrop-blur-md border border-border/50 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Funil Ativo (7 dias)</span>
+              </div>
+              <div className="flex items-end gap-1 h-28">
+                {stats.funnel.map((stage, i) => {
+                  const maxCount = Math.max(...stats.funnel.map(s => s.count), 1);
+                  const heightPct = Math.max((stage.count / maxCount) * 100, 12);
+                  const widthPct = 100 - (i * 8);
+                  return (
+                    <div key={stage.stage} className="flex-1 flex flex-col items-center gap-1.5">
+                      <span className="text-sm font-bold" style={{ color: stage.color }}>{stage.count}</span>
+                      <div
+                        className="w-full rounded-t-lg transition-all duration-500"
+                        style={{
+                          height: `${heightPct}%`,
+                          backgroundColor: stage.color,
+                          opacity: 0.7,
+                          maxWidth: `${widthPct}%`,
+                          margin: "0 auto",
+                        }}
+                      />
+                      <span className="text-[10px] text-muted-foreground text-center leading-tight">{stage.label}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

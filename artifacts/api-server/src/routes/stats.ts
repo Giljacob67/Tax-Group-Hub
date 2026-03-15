@@ -37,8 +37,8 @@ router.get("/stats", async (_req, res) => {
     });
 
     const fiscalDates = getFiscalDates();
-
     const weeklyFocus = getWeeklyFocus();
+    const funnel = buildFunnel(agentUsage);
 
     res.json({
       totalAgents: AGENTS.length,
@@ -46,12 +46,72 @@ router.get("/stats", async (_req, res) => {
       agentUsage,
       fiscalDates,
       weeklyFocus,
+      funnel,
     });
   } catch (err) {
     console.error("Stats error:", err);
     res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
+
+interface FunnelStage {
+  stage: string;
+  label: string;
+  count: number;
+  color: string;
+  agentIds: string[];
+}
+
+function buildFunnel(agentUsage: { agentId: string; conversations7d: number }[]): FunnelStage[] {
+  const usageMap: Record<string, number> = {};
+  for (const a of agentUsage) {
+    usageMap[a.agentId] = a.conversations7d;
+  }
+
+  const stages: FunnelStage[] = [
+    {
+      stage: "prospeccao",
+      label: "Prospecção",
+      count: 0,
+      color: "#3B82F6",
+      agentIds: ["prospeccao-tax-group", "inteligencia-prospects-tax-group"],
+    },
+    {
+      stage: "qualificacao",
+      label: "Qualificação",
+      count: 0,
+      color: "#8B5CF6",
+      agentIds: ["qualificacao-leads-tax-group", "followup-tax-group"],
+    },
+    {
+      stage: "reuniao",
+      label: "Reunião",
+      count: 0,
+      color: "#F59E0B",
+      agentIds: ["roteiro-reuniao-tax-group", "objecoes-tax-group"],
+    },
+    {
+      stage: "proposta",
+      label: "Proposta",
+      count: 0,
+      color: "#10B981",
+      agentIds: ["proposta-comercial-tax-group", "materiais-comerciais-tax-group"],
+    },
+    {
+      stage: "fechamento",
+      label: "Fechamento",
+      count: 0,
+      color: "#EF4444",
+      agentIds: ["gestao-pipeline-tax-group"],
+    },
+  ];
+
+  for (const stage of stages) {
+    stage.count = stage.agentIds.reduce((sum, id) => sum + (usageMap[id] || 0), 0);
+  }
+
+  return stages;
+}
 
 function getFiscalDates(): { name: string; date: string; urgency: string }[] {
   const now = new Date();
