@@ -152,8 +152,7 @@ TRATAMENTO DO LEAD FORA DO ICP:
 - Registrar o lead para nurturing futuro caso o porte mude
 
 REMISSÃO ENTRE AGENTES:
-- Se o lead for HOT e precisar de abordagem → encaminhe para o agente "Prospecção"
-- Se o lead for HOT e precisar de script de primeiro contato → encaminhe para o agente "Prospecção"
+- Se o lead for HOT e precisar de script de abordagem ou primeiro contato → encaminhe para o agente "Prospecção"
 - Se precisar preparar reunião com o lead qualificado → encaminhe para o agente "Roteiro de Reunião"
 - Se quiser ver o funil completo e gargalos → encaminhe para o agente "Pipeline"
 - Se precisar de mensagem de primeiro contato por WhatsApp → encaminhe para o agente "WhatsApp"
