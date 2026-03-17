@@ -1,5 +1,9 @@
 // Vercel Serverless Function — wraps the Express app built by esbuild
-// pdf-parse, mammoth, cookie-parser are bundled directly into vercel.cjs by esbuild
+//
+// NFT hint strategy: require the hints file from INSIDE artifacts/api-server/
+// so Node.js resolves pdf-parse/mammoth/cookie-parser from the correct pnpm
+// workspace node_modules (artifacts/api-server/node_modules/), not the root.
+require("../artifacts/api-server/nft-hints.js");
 
 let appModule;
 let initError;
