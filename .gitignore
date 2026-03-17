@@ -3,7 +3,7 @@
 # compiled output
 dist
 server/dist
-server/vercel.cjs
+server/index.js
 tmp
 out-tsc
 *.tsbuildinfo
