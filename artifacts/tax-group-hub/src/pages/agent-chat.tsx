@@ -75,7 +75,8 @@ export default function AgentChat() {
   const { data: agent, isLoading: isLoadingAgent } = useGetAgent(agentId!);
   const { data: conversations, isLoading: isLoadingConvs } = useListConversations({ agentId });
   const { data: activeConv, isLoading: isLoadingMessages } = useGetConversation(activeConvId!, {
-    query: { enabled: !!activeConvId }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { enabled: !!activeConvId } as any
   });
 
   const createMutation = useCreateConversation();
@@ -83,10 +84,12 @@ export default function AgentChat() {
   const deleteMutation = useDeleteConversation();
   const renameMutation = useRenameConversation();
   const { data: healthData, isError: healthError } = useHealthCheck({
-    query: { refetchInterval: 30000 }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { refetchInterval: 30000 } as any
   });
   const { data: modelsData } = useGetAvailableModels({
-    query: { staleTime: 300000 }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    query: { staleTime: 300000 } as any
   });
 
   const isMarketingAgent = MARKETING_AGENTS.includes(agentId || "");
