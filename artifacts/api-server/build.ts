@@ -79,6 +79,15 @@ async function buildAll() {
     entryPoints: [path.resolve(__dirname, "src/vercel.ts")],
     outfile: path.resolve(distDir, "vercel.cjs"),
   });
+
+  // Vercel Express framework bundle → workspace root server/vercel.cjs
+  // Includes static file serving for the SPA (server/dist/ sibling).
+  console.log("building vercel express bundle...");
+  await esbuild({
+    ...sharedOptions,
+    entryPoints: [path.resolve(__dirname, "src/vercel-entry.ts")],
+    outfile: path.resolve(__dirname, "..", "..", "server", "vercel.cjs"),
+  });
 }
 
 buildAll().catch((err) => {
