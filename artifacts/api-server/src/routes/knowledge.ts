@@ -3,9 +3,7 @@ import { db } from "@workspace/db";
 import { knowledgeDocumentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import multer from "multer";
-import { createRequire } from "node:module";
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
+import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 
 const router: IRouter = Router();

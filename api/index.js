@@ -1,11 +1,5 @@
 // Vercel Serverless Function — wraps the Express app built by esbuild
-// The build step produces artifacts/api-server/dist/vercel.cjs (exports app, no listen)
-
-// NFT (Node File Tracing) hints: explicitly require external packages so Vercel
-// includes them in the function bundle (they are externalised by esbuild, not bundled)
-try { require("pdf-parse"); } catch (_) {}
-try { require("mammoth"); } catch (_) {}
-try { require("cookie-parser"); } catch (_) {}
+// pdf-parse, mammoth, cookie-parser are bundled directly into vercel.cjs by esbuild
 
 let appModule;
 let initError;
@@ -17,7 +11,7 @@ try {
 }
 
 if (initError) {
-  // Return a diagnostic handler so we can see the actual crash in HTTP response
+  // Diagnostic handler: surfaces the actual crash message instead of opaque 500
   module.exports = (_req, res) => {
     res.status(500).json({
       error: "Function initialization failed",
