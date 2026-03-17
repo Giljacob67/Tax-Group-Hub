@@ -1,9 +1,9 @@
 import { Router, type IRouter } from "express";
 import OpenAI from "openai";
+import { db, designGalleryTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
-
-const imageGallery: Record<string, Array<{ url: string; prompt: string; createdAt: string }>> = {};
 
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
@@ -72,20 +72,60 @@ router.post("/integrations/generate-image", async (req, res) => {
     }
 
     const galleryKey = agentId || "global";
-    if (!imageGallery[galleryKey]) imageGallery[galleryKey] = [];
-    imageGallery[galleryKey].unshift({ url: imageUrl, prompt: fullPrompt, createdAt: new Date().toISOString() });
-    if (imageGallery[galleryKey].length > 20) imageGallery[galleryKey] = imageGallery[galleryKey].slice(0, 20);
 
-    res.json({ imageUrl, prompt: fullPrompt, gallery: imageGallery[galleryKey] });
+    // Persist to DB (cap at 20 items per agent by deleting oldest if needed)
+    const existing = await db
+      .select({ id: designGalleryTable.id })
+      .from(designGalleryTable)
+      .where(eq(designGalleryTable.agentId, galleryKey))
+      .orderBy(desc(designGalleryTable.createdAt));
+
+    if (existing.length >= 20) {
+      const toDelete = existing.slice(19).map((r) => r.id);
+      for (const id of toDelete) {
+        await db.delete(designGalleryTable).where(eq(designGalleryTable.id, id));
+      }
+    }
+
+    await db.insert(designGalleryTable).values({
+      agentId: galleryKey,
+      imageUrl,
+      prompt: fullPrompt,
+    });
+
+    const gallery = await db
+      .select()
+      .from(designGalleryTable)
+      .where(eq(designGalleryTable.agentId, galleryKey))
+      .orderBy(desc(designGalleryTable.createdAt));
+
+    res.json({
+      imageUrl,
+      prompt: fullPrompt,
+      gallery: gallery.map((g) => ({ url: g.imageUrl, prompt: g.prompt, createdAt: g.createdAt.toISOString() })),
+    });
   } catch (err) {
     console.error("Error generating image:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.get("/integrations/image-gallery/:agentId", (req, res) => {
-  const { agentId } = req.params;
-  res.json({ images: imageGallery[agentId] || [] });
+router.get("/integrations/image-gallery/:agentId", async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const images = await db
+      .select()
+      .from(designGalleryTable)
+      .where(eq(designGalleryTable.agentId, agentId))
+      .orderBy(desc(designGalleryTable.createdAt));
+
+    res.json({
+      images: images.map((g) => ({ url: g.imageUrl, prompt: g.prompt, createdAt: g.createdAt.toISOString() })),
+    });
+  } catch (err) {
+    console.error("Error fetching image gallery:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 router.post("/integrations/canva-link", async (req, res) => {

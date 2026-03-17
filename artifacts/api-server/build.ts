@@ -54,18 +54,30 @@ async function buildAll() {
       !(pkg.dependencies?.[dep]?.startsWith("workspace:")),
   );
 
-  await esbuild({
-    entryPoints: [path.resolve(__dirname, "src/index.ts")],
-    platform: "node",
+  const sharedOptions = {
+    platform: "node" as const,
     bundle: true,
-    format: "cjs",
-    outfile: path.resolve(distDir, "index.cjs"),
+    format: "cjs" as const,
     define: {
       "process.env.NODE_ENV": '"production"',
     },
     minify: true,
     external: externals,
-    logLevel: "info",
+    logLevel: "info" as const,
+  };
+
+  // Standalone server (self-hosted / Railway)
+  await esbuild({
+    ...sharedOptions,
+    entryPoints: [path.resolve(__dirname, "src/index.ts")],
+    outfile: path.resolve(distDir, "index.cjs"),
+  });
+
+  // Vercel Serverless Function entry (exports Express app, no app.listen)
+  await esbuild({
+    ...sharedOptions,
+    entryPoints: [path.resolve(__dirname, "src/vercel.ts")],
+    outfile: path.resolve(distDir, "vercel.cjs"),
   });
 }
 
