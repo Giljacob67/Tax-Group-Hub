@@ -1,7 +1,7 @@
 {
   "version": 2,
   "framework": null,
-  "buildCommand": "pnpm run build",
+  "buildCommand": "pnpm run typecheck && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/tax-group-hub run build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist",
   "functions": {
