@@ -79,19 +79,6 @@ async function buildAll() {
     entryPoints: [path.resolve(__dirname, "src/vercel.ts")],
     outfile: path.resolve(distDir, "vercel.cjs"),
   });
-
-  // Vercel Express framework bundle → workspace root server/index.js
-  // Vercel scans the outputDirectory for BUILD artifacts only, so we output
-  // directly to server/index.js (overwriting the placeholder committed to git).
-  // The footer reassigns module.exports so Vercel gets the Express app directly
-  // instead of { default: app } from esbuild's CJS export default wrapping.
-  console.log("building vercel express bundle...");
-  await esbuild({
-    ...sharedOptions,
-    entryPoints: [path.resolve(__dirname, "src/vercel-entry.ts")],
-    outfile: path.resolve(__dirname, "..", "..", "server", "index.js"),
-    footer: { js: "module.exports = exports.default;" },
-  });
 }
 
 buildAll().catch((err) => {
