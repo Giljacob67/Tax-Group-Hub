@@ -470,7 +470,7 @@ components:
           type: string
         block:
           type: string
-          enum: [prospeccao, marketing, gestao]
+          enum: [estrategia, prospeccao, marketing, gestao]
         blockLabel:
           type: string
         icon:

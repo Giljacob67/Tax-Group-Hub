@@ -9,9 +9,10 @@ export default function Dashboard() {
   const { data: docsData } = useListKnowledgeDocuments();
 
   const blocks = [
+    { id: "estrategia", title: "Estratégia e Inteligência", desc: "Centro de comando: orquestra campanhas e distribui tarefas entre todos os agentes.", gradient: "from-amber-500/20 to-amber-900/20", border: "border-amber-500/30" },
     { id: "prospeccao", title: "Prospecção Comercial", desc: "Agents optimized for lead gen, scoring, and follow-ups.", gradient: "from-blue-500/20 to-blue-900/20", border: "border-blue-500/30" },
-    { id: "marketing", title: "Agência Virtual", desc: "Automated content creation, email copy, and materials.", gradient: "from-purple-500/20 to-purple-900/20", border: "border-purple-500/30" },
-    { id: "gestao", title: "Gestão Interna", desc: "Pipeline tracking, meeting prep, and proposal generation.", gradient: "from-emerald-500/20 to-emerald-900/20", border: "border-emerald-500/30" }
+    { id: "marketing", title: "Agência Virtual de Marketing", desc: "Criação de conteúdo multi-canal: LinkedIn, email, vídeo, WhatsApp e calendário editorial.", gradient: "from-purple-500/20 to-purple-900/20", border: "border-purple-500/30" },
+    { id: "gestao", title: "Gestão e Operação Interna", desc: "Pipeline, reuniões, propostas, relatórios de performance e treinamento de parceiros.", gradient: "from-emerald-500/20 to-emerald-900/20", border: "border-emerald-500/30" }
   ];
 
   return (
@@ -41,7 +42,7 @@ export default function Dashboard() {
             Tax Group <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">AI Hub</span>
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Welcome to the intelligent core of Tax Group. Leverage 11 specialized AI agents designed to accelerate prospecting, automate marketing, and streamline internal operations.
+            Welcome to the intelligent core of Tax Group. Leverage 17 specialized AI agents — coordinated by a strategic orchestrator — to accelerate prospecting, automate marketing, and streamline internal operations.
           </p>
         </motion.div>
 

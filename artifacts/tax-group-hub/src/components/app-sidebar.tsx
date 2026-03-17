@@ -1,8 +1,8 @@
 import { useLocation } from "wouter";
-import { 
-  MessageSquare, Briefcase, Megaphone, 
-  Settings2, FileText, LayoutDashboard, ChevronRight, 
-  Image as ImageIcon, Loader2, Cog
+import {
+  MessageSquare, Briefcase, Megaphone,
+  Settings2, FileText, LayoutDashboard, ChevronRight,
+  Image as ImageIcon, Loader2, Cog, Crown
 } from "lucide-react";
 import { useListAgents } from "@workspace/api-client-react";
 import {
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const BLOCKS = [
+  { id: "estrategia", label: "Estratégia e Inteligência", icon: Crown, color: "text-amber-400" },
   { id: "prospeccao", label: "Prospecção Comercial", icon: Briefcase, color: "text-blue-400" },
   { id: "marketing", label: "Agência de Marketing", icon: Megaphone, color: "text-purple-400" },
   { id: "gestao", label: "Gestão Interna", icon: Settings2, color: "text-emerald-400" },

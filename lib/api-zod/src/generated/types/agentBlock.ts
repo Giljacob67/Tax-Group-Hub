@@ -9,6 +9,7 @@
 export type AgentBlock = (typeof AgentBlock)[keyof typeof AgentBlock];
 
 export const AgentBlock = {
+  estrategia: "estrategia",
   prospeccao: "prospeccao",
   marketing: "marketing",
   gestao: "gestao",
