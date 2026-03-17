@@ -24,5 +24,17 @@ if (initError) {
     });
   };
 } else {
-  module.exports = appModule.default || appModule;
+  const handler = appModule.default || appModule;
+  // Wrap in error-catching handler to surface request-level crashes
+  module.exports = (req, res) => {
+    try {
+      handler(req, res);
+    } catch (err) {
+      res.status(500).json({
+        error: "Request handler failed",
+        message: err.message,
+        stack: err.stack,
+      });
+    }
+  };
 }
