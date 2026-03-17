@@ -60,26 +60,13 @@ try {
 }
 
 if (initError) {
-  // Diagnostic handler: surfaces the actual crash message instead of opaque 500
+  // Surfaces initialization crash in the HTTP response (easier to debug than opaque 500)
   module.exports = (_req, res) => {
     res.status(500).json({
       error: "Function initialization failed",
       message: initError.message,
-      stack: initError.stack,
     });
   };
 } else {
-  const handler = appModule.default || appModule;
-  // Wrap in error-catching handler to surface request-level crashes
-  module.exports = (req, res) => {
-    try {
-      handler(req, res);
-    } catch (err) {
-      res.status(500).json({
-        error: "Request handler failed",
-        message: err.message,
-        stack: err.stack,
-      });
-    }
-  };
+  module.exports = appModule.default || appModule;
 }
