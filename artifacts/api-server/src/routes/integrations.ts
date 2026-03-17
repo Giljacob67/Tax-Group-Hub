@@ -1,18 +1,9 @@
 import { Router, type IRouter } from "express";
-import OpenAI from "openai";
 import { db, designGalleryTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
-  if (!apiKey) return null;
-  if (process.env.OPENROUTER_API_KEY) {
-    return new OpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey: process.env.OPENROUTER_API_KEY });
-  }
-  return new OpenAI({ apiKey });
-}
 
 router.post("/integrations/generate-image", async (req, res) => {
   try {
@@ -27,13 +18,12 @@ router.post("/integrations/generate-image", async (req, res) => {
       : `${prompt}. Professional, high-quality, suitable for business and tax consulting context.`;
 
     const geminiKey = process.env.GEMINI_API_KEY;
-    const openrouterKey = process.env.OPENROUTER_API_KEY;
     let imageUrl: string;
 
     if (geminiKey) {
       try {
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${geminiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -52,18 +42,6 @@ router.post("/integrations/generate-image", async (req, res) => {
         } else {
           throw new Error("No image in Gemini response");
         }
-      } catch {
-        imageUrl = `https://placehold.co/1024x1024/1E40AF/FFFFFF?text=${encodeURIComponent("Tax Group AI")}`;
-      }
-    } else if (openrouterKey) {
-      try {
-        const response = await fetch("https://openrouter.ai/api/v1/images/generations", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${openrouterKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "dall-e-3", prompt: fullPrompt, n: 1, size: "1024x1024" }),
-        });
-        const data = (await response.json()) as { data?: Array<{ url?: string }> };
-        imageUrl = data?.data?.[0]?.url || `https://placehold.co/1024x1024/1E40AF/FFFFFF?text=${encodeURIComponent(prompt.substring(0, 20))}`;
       } catch {
         imageUrl = `https://placehold.co/1024x1024/1E40AF/FFFFFF?text=${encodeURIComponent("Tax Group AI")}`;
       }

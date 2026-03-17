@@ -48,39 +48,30 @@ router.get("/settings/integrations", async (_req, res) => {
         category: "llm",
       },
       {
-        id: "openrouter",
-        name: "OpenRouter",
-        description: "Acesso a diversos modelos de IA na nuvem (Gemini, GPT, Claude, etc). Usado para chat com os agentes.",
-        envVar: "OPENROUTER_API_KEY",
-        configured: !!process.env.OPENROUTER_API_KEY,
-        active: !!process.env.OPENROUTER_API_KEY,
-        category: "llm",
-      },
-      {
         id: "gemini",
         name: "Google AI (Gemini)",
-        description: "Plataforma Google AI unificada. Geracao de imagens (Gemini 2.0 Flash) no Design Studio e busca semantica (Text Embeddings 004) na base de conhecimento. Uma unica chave para ambas as funcionalidades.",
+        description: "Plataforma Google AI unificada. Chat com agentes (gemini-3-flash-preview), geracao de imagens (gemini-3-pro-image-preview) no Design Studio e busca semantica (Text Embeddings 004) na base de conhecimento.",
         envVar: "GEMINI_API_KEY",
         configured: !!process.env.GEMINI_API_KEY,
         active: !!process.env.GEMINI_API_KEY,
-        category: "google",
+        category: "llm",
       },
     ];
 
-    const openrouterModel = process.env.OPENROUTER_MODEL || "google/gemini-flash-1.5";
+    const geminiModel = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
 
     let activeLLM: string | null = null;
     if (ollamaUrl) {
       activeLLM = `Ollama (${ollamaModel})`;
-    } else if (process.env.OPENROUTER_API_KEY) {
-      activeLLM = `OpenRouter (${openrouterModel})`;
+    } else if (process.env.GEMINI_API_KEY) {
+      activeLLM = `Gemini (${geminiModel})`;
     }
 
     res.json({
       integrations,
       activeLLM,
       ollamaModel,
-      openrouterModel,
+      geminiModel,
     });
   } catch (err) {
     console.error("Error fetching integrations:", err);
@@ -99,23 +90,18 @@ router.get("/settings/models", async (_req, res) => {
     const { url: ollamaUrl } = await getEffectiveOllamaUrl();
 
     const models: ModelOption[] = [
-      { id: "google/gemini-flash-1.5", name: "Gemini Flash 1.5", description: "Rapido e eficiente. Bom para tarefas gerais e respostas ageis." },
-      { id: "google/gemini-pro-1.5", name: "Gemini Pro 1.5", description: "Mais capaz. Melhor para analises complexas e textos longos." },
-      { id: "google/gemini-2.0-flash-001", name: "Gemini 2.0 Flash", description: "Ultima geracao. Velocidade e qualidade equilibradas." },
-      { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku", description: "Rapido e economico. Otimo para tarefas simples e diretas." },
-      { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet", description: "Alto desempenho. Excelente para redacao e analise detalhada." },
-      { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", description: "Compacto e agil. Bom custo-beneficio para uso geral." },
-      { id: "openai/gpt-4o", name: "GPT-4o", description: "Modelo premium OpenAI. Maximo desempenho em todas as tarefas." },
-      { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B", description: "Open source Meta. Forte em raciocinio e codigo." },
-      { id: "deepseek/deepseek-chat", name: "DeepSeek V3", description: "Open source. Excelente em raciocinio e tarefas tecnicas." },
-      { id: "qwen/qwen-2.5-72b-instruct", name: "Qwen 2.5 72B", description: "Open source Alibaba. Forte em multilingual e codigo." },
-      { id: "openrouter/hunter-alpha", name: "Hunter Alpha", description: "Modelo OpenRouter otimizado. Versatil e de alta qualidade." },
+      { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", description: "Rapido e eficiente. Recomendado para tarefas gerais e respostas ageis." },
+      { id: "gemini-3-pro-preview", name: "Gemini 3 Pro", description: "Mais capaz. Melhor para analises complexas e textos longos." },
+      { id: "gemini-2.5-pro-preview-05-06", name: "Gemini 2.5 Pro", description: "Alta performance. Excelente raciocinio e contexto longo." },
+      { id: "gemini-2.5-flash-preview-05-20", name: "Gemini 2.5 Flash", description: "Velocidade e qualidade equilibradas. Ultima geracao Flash." },
+      { id: "gemini-2.0-flash-001", name: "Gemini 2.0 Flash", description: "Geracao anterior Flash. Estavel e confiavel." },
+      { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", description: "Versao compacta. Otimo custo-beneficio para tarefas simples." },
     ];
 
     res.json({
       models,
-      defaultModel: process.env.OPENROUTER_MODEL || "google/gemini-flash-1.5",
-      provider: ollamaUrl ? "ollama" : process.env.OPENROUTER_API_KEY ? "openrouter" : null,
+      defaultModel: process.env.GEMINI_MODEL || "gemini-3-flash-preview",
+      provider: ollamaUrl ? "ollama" : process.env.GEMINI_API_KEY ? "gemini" : null,
     });
   } catch (err) {
     console.error("Error fetching models:", err);
