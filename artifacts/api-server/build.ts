@@ -60,6 +60,12 @@ async function buildAll() {
     format: "cjs" as const,
     define: {
       "process.env.NODE_ENV": '"production"',
+      // In CJS output, import.meta.url is empty — define it via __filename
+      "import.meta.url": "__importMetaUrl__",
+    },
+    banner: {
+      // Polyfill import.meta.url for CJS bundles (needed by createRequire in knowledge.ts)
+      js: 'var __importMetaUrl__ = require("url").pathToFileURL(__filename).href;',
     },
     minify: true,
     external: externals,
