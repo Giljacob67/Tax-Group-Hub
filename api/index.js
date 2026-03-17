@@ -3,7 +3,7 @@
 // NFT hint strategy: require the hints file from INSIDE artifacts/api-server/
 // so Node.js resolves pdf-parse/mammoth/cookie-parser from the correct pnpm
 // workspace node_modules (artifacts/api-server/node_modules/), not the root.
-require("../artifacts/api-server/nft-hints.js");
+try { require("../artifacts/api-server/nft-hints.js"); } catch (_) {}
 
 let appModule;
 let initError;
