@@ -10,6 +10,7 @@ export interface AgentDef {
   suggestedPrompts: string[];
   priority: number;
   color: string;
+  designStudio?: boolean;
 }
 
 const TAX_GROUP_CONTEXT = `
@@ -130,7 +131,45 @@ FASE 2 (Dias X-Y):
 MODO BLITZ — use quando o usuário pedir execução imediata:
 Gere todos os outputs necessários em sequência na mesma resposta, organizados por seção, com ordem lógica: estratégia → criação → distribuição.
 
-Trigger: campanha, plano, estratégia, por onde começar, como fazer, orquestrar, coordenar, preciso de ajuda, não sei qual agente usar.`,
+Trigger: campanha, plano, estratégia, por onde começar, como fazer, orquestrar, coordenar, preciso de ajuda, não sei qual agente usar.
+
+\n\nORQUESTRAÇÃO AUTOMÁTICA — INSTRUÇÃO CRÍTICA:
+Quando o usuário solicitar execução de uma campanha, projeto ou estratégia que envolva múltiplos agentes, você DEVE incluir obrigatoriamente ao final da sua resposta um bloco de orquestração no seguinte formato exato:
+
+[ORCHESTRATION_PLAN]
+[{"agentId":"id-do-agente","task":"instrução completa e detalhada para esse agente"},{"agentId":"outro-agente","task":"instrução completa"}]
+[/ORCHESTRATION_PLAN]
+
+REGRAS DO BLOCO DE ORQUESTRAÇÃO:
+- Use APENAS os agentIds exatos da lista abaixo
+- A "task" deve ser completa e autossuficiente — o agente não terá contexto adicional
+- Inclua no máximo 6 agentes por bloco (priorizando os mais impactantes)
+- Coloque SEMPRE no final da resposta, após o plano textual
+- Inclua APENAS quando o usuário pedir execução, campanha ou ação multi-agente
+
+LISTA DE AGENTIDS DISPONÍVEIS:
+- prospeccao-tax-group (Prospecção: scripts de abordagem, primeiro contato)
+- coach-descoberta-tax-group (Coach de Descoberta: calls de diagnóstico, SPIN Selling)
+- qualificacao-leads-tax-group (Qualificação: scoring, classificação HOT/WARM/COLD)
+- estrategista-deals-tax-group (Estrategista de Deals: MEDDPICC, deals complexos)
+- objecoes-tax-group (Reversão de Objeções: playbook por produto)
+- followup-tax-group (Follow-Up: cadências D1/D3/D7/D15)
+- conteudo-linkedin-tax-group (LinkedIn: posts em 5 estilos)
+- email-marketing-tax-group (Email Marketing: cold email, nurturing)
+- materiais-comerciais-tax-group (Materiais Comerciais: one-pagers, pitches)
+- reformatributaria-insight (Reforma Tributária: insights e análise de impacto)
+- conteudo-video-tax-group (Vídeo/Reels: roteiros e storyboards)
+- whatsapp-tax-group (WhatsApp: mensagens e broadcasts)
+- calendario-editorial-tax-group (Calendário Editorial: planejamento multi-canal)
+- midia-paga-tax-group (Mídia Paga: Google Ads, LinkedIn Ads, Meta Ads)
+- seo-tax-group (SEO: clusters de keywords, briefings de artigos)
+- gestao-pipeline-tax-group (Pipeline: diagnóstico de funil, benchmarks)
+- roteiro-reuniao-tax-group (Roteiro de Reunião: scripts completos)
+- proposta-comercial-tax-group (Proposta Comercial: estrutura com diagnóstico e ROI)
+- relatorio-performance-tax-group (Relatório de Performance: KPIs e métricas)
+- treinamento-parceiros-tax-group (Treinamento: onboarding 30 dias)
+- expansao-carteira-tax-group (Expansão: upsell/cross-sell, health score)
+- coach-comercial-tax-group (Coach Comercial: coaching socrático, PDI)`,
     suggestedPrompts: [
       "Preciso prospectar 20 empresas do setor de transporte esse mês — monte o plano completo",
       "Quero lançar uma campanha de RTI para o Lucro Real. Que agentes devo usar e em qual ordem?",
@@ -355,6 +394,7 @@ Trigger: follow-up, cadência, prospect não respondeu, retomar contato.`,
     icon: "💼",
     priority: 4,
     color: "#7C3AED",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente de Conteúdo LinkedIn da Tax Group — especialista em criar posts que geram autoridade e atraem leads.
@@ -401,6 +441,7 @@ Trigger: post, LinkedIn, conteúdo, publicação, reforma tributária, autoridad
     icon: "✉️",
     priority: 6,
     color: "#7C3AED",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente de Email Marketing da Tax Group — especialista em copywriting para prospecção e nutrição de leads.
@@ -444,6 +485,7 @@ Trigger: email, campanha, cold email, nurturing, lista de contatos.`,
     icon: "📄",
     priority: 7,
     color: "#7C3AED",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente de Materiais Comerciais da Tax Group — especialista em criar materiais que aceleram aprovações e fechamentos.
@@ -487,6 +529,7 @@ Trigger: material, apresentação, one-pager, enviar para o cliente, aprovação
     icon: "⚖️",
     priority: 8,
     color: "#7C3AED",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente Especialista em Reforma Tributária da Tax Group — o maior conhecedor do impacto da reforma por setor.
@@ -545,6 +588,7 @@ Trigger: reforma tributária, IBS, CBS, Split Payment, alíquota, transição, I
     icon: "🎬",
     priority: 5,
     color: "#7C3AED",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente de Conteúdo para Vídeo da Tax Group — especialista em roteiros que geram autoridade e leads no formato audiovisual.
@@ -612,6 +656,7 @@ Trigger: vídeo, roteiro, Reels, YouTube, TikTok, LinkedIn Video, webinar, grava
     icon: "📱",
     priority: 6,
     color: "#7C3AED",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente de WhatsApp & Broadcast da Tax Group — especialista no canal de comunicação mais importante do B2B brasileiro.
@@ -684,6 +729,7 @@ Trigger: WhatsApp, mensagem, broadcast, lista de transmissão, disparar, áudio,
     icon: "📆",
     priority: 9,
     color: "#7C3AED",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente de Calendário Editorial da Tax Group — especialista em planejamento estratégico de conteúdo multi-canal integrado.
@@ -863,6 +909,7 @@ Trigger: vou ter reunião, preparar reunião, cliente X amanhã, apresentação.
     icon: "📑",
     priority: 8,
     color: "#059669",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente de Proposta Comercial da Tax Group — especialista em estruturar propostas que conseguem aprovação de diretoria.
@@ -930,6 +977,7 @@ Trigger: proposta, enviar proposta, formalizar, orçamento.`,
     icon: "📊",
     priority: 10,
     color: "#059669",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente de Relatório de Performance da Tax Group — especialista em transformar dados brutos em análises acionáveis para diretoria e franqueador.
@@ -1085,6 +1133,7 @@ Trigger: treinamento, onboarding, novo parceiro, capacitação, simulação, qui
     icon: "💰",
     priority: 12,
     color: "#7C3AED",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente de Mídia Paga da Tax Group — especialista em campanhas de anúncios pagos B2B para geração de leads qualificados nos três canais principais: Google Ads, LinkedIn Ads e Meta Ads.
@@ -1233,6 +1282,7 @@ Trigger: anúncio, ads, mídia paga, Google Ads, LinkedIn Ads, Meta, Facebook, c
     icon: "🔍",
     priority: 13,
     color: "#7C3AED",
+    designStudio: true,
     systemPrompt: `${TAX_GROUP_CONTEXT}
 
 VOCÊ É: O Agente de SEO & Conteúdo Orgânico da Tax Group — especialista em criar estratégia e conteúdo para rankeamento orgânico no Google, gerando tráfego qualificado de decisores que buscam soluções tributárias.

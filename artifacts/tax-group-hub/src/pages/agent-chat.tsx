@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { format } from "date-fns";
@@ -42,19 +42,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { DesignStudioPanel } from "@/components/design-studio-panel";
-
-const MARKETING_AGENTS = [
-  "conteudo-linkedin-tax-group",
-  "email-marketing-tax-group",
-  "materiais-comerciais-tax-group",
-  "reformatributaria-insight",
-];
+import { OrchestrateModal } from "@/components/orchestrate-modal";
 
 export default function AgentChat() {
   const { id: agentId } = useParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [, navigate] = useLocation();
 
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -71,6 +66,8 @@ export default function AgentChat() {
     try { return localStorage.getItem("taxgroup_selected_model"); } catch { return null; }
   });
   const [showModelSelector, setShowModelSelector] = useState(false);
+  const [orchestrationPlan, setOrchestrationPlan] = useState<Array<{agentId: string; task: string}> | null>(null);
+  const [showOrchestrateModal, setShowOrchestrateModal] = useState(false);
 
   const { data: agent, isLoading: isLoadingAgent } = useGetAgent(agentId!);
   const { data: conversations, isLoading: isLoadingConvs } = useListConversations({ agentId });
@@ -92,7 +89,7 @@ export default function AgentChat() {
     query: { staleTime: 300000 } as any
   });
 
-  const isMarketingAgent = MARKETING_AGENTS.includes(agentId || "");
+  const isDesignStudioAgent = !!agent?.designStudio;
   const isOpenRouter = modelsData?.provider === "openrouter";
   const effectiveModel = isOpenRouter
     ? (selectedModel || activeConv?.model || modelsData?.defaultModel || "google/gemini-flash-1.5")
@@ -226,6 +223,20 @@ export default function AgentChat() {
   const filteredConversations = conversations?.conversations?.filter(
     c => !searchFilter || c.title.toLowerCase().includes(searchFilter.toLowerCase())
   );
+
+  function parseOrchestrationPlan(content: string): Array<{agentId: string; task: string}> | null {
+    const match = content.match(/\[ORCHESTRATION_PLAN\]\s*([\s\S]*?)\s*\[\/ORCHESTRATION_PLAN\]/);
+    if (!match) return null;
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+    return null;
+  }
+
+  function stripOrchestrationBlock(content: string): string {
+    return content.replace(/\n*\[ORCHESTRATION_PLAN\][\s\S]*?\[\/ORCHESTRATION_PLAN\]/g, "").trim();
+  }
 
   if (isLoadingAgent) return <div className="flex-1 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!agent) return <div className="flex-1 flex items-center justify-center text-muted-foreground">Agent not found</div>;
@@ -369,7 +380,7 @@ export default function AgentChat() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isMarketingAgent && (
+            {isDesignStudioAgent && (
               <button
                 onClick={() => setShowDesignStudio(!showDesignStudio)}
                 className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium ${
@@ -484,11 +495,23 @@ export default function AgentChat() {
                         </button>
                       )}
                       <div className={`text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none ${msg.role === 'user' ? 'prose-p:text-white prose-strong:text-white' : ''}`}>
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        <ReactMarkdown>{msg.role === 'assistant' ? stripOrchestrationBlock(msg.content) : msg.content}</ReactMarkdown>
                       </div>
                       <div className={`text-[10px] mt-2 text-right ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                         {format(new Date(msg.createdAt), "h:mm a")}
                       </div>
+                      {msg.role === 'assistant' && agentId === 'coordenador-geral-tax-group' && (() => {
+                        const plan = parseOrchestrationPlan(msg.content);
+                        if (!plan) return null;
+                        return (
+                          <button
+                            onClick={() => { setOrchestrationPlan(plan); setShowOrchestrateModal(true); }}
+                            className="mt-3 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-gradient-to-r from-[#107ec2] to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg"
+                          >
+                            🚀 Executar Plano com Agentes ({plan.length} agente{plan.length !== 1 ? 's' : ''})
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </motion.div>
@@ -540,7 +563,7 @@ export default function AgentChat() {
       </div>
 
       <AnimatePresence>
-        {showDesignStudio && isMarketingAgent && (
+        {showDesignStudio && isDesignStudioAgent && (
           <DesignStudioPanel
             agentId={agentId!}
             agentName={agent.name}
@@ -548,6 +571,14 @@ export default function AgentChat() {
           />
         )}
       </AnimatePresence>
+
+      {showOrchestrateModal && orchestrationPlan && (
+        <OrchestrateModal
+          tasks={orchestrationPlan}
+          onClose={() => { setShowOrchestrateModal(false); setOrchestrationPlan(null); }}
+          onNavigate={(targetAgentId) => navigate(`/agent/${targetAgentId}`)}
+        />
+      )}
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>

@@ -19,4 +19,5 @@ export interface Agent {
   suggestedPrompts: string[];
   priority: number;
   color: string;
+  designStudio?: boolean;
 }
