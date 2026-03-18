@@ -32,18 +32,16 @@ export function AppSidebar() {
   return (
     <Sidebar variant="inset" className="border-r border-border/50 bg-background/50 backdrop-blur-xl">
       <SidebarHeader className="p-4 flex flex-row items-center space-x-3 mt-2">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-blue-900 p-[1px] shadow-glow flex-shrink-0">
-          <div className="w-full h-full bg-background rounded-[11px] flex items-center justify-center">
-            <img 
-              src={`${import.meta.env.BASE_URL}images/logo.png`} 
-              alt="Tax Group" 
-              className="w-6 h-6 object-contain"
-            />
-          </div>
+        <div className="w-12 h-12 rounded-xl bg-[#107ec2]/15 ring-1 ring-[#107ec2]/30 flex items-center justify-center flex-shrink-0">
+          <img
+            src={`${import.meta.env.BASE_URL}images/logo-x-branco.svg`}
+            alt="Tax Group"
+            className="w-8 h-8 object-contain"
+          />
         </div>
         <div>
-          <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">Tax Group</h1>
-          <p className="text-xs text-primary font-medium tracking-wider uppercase">AI Hub</p>
+          <h1 className="text-lg font-bold tracking-tight text-white">Tax Group</h1>
+          <p className="text-xs text-[#107ec2] font-semibold tracking-widest uppercase">AI Hub</p>
         </div>
       </SidebarHeader>
 
@@ -99,7 +97,7 @@ export function AppSidebar() {
                           <SidebarMenuButton 
                             isActive={isActive}
                             onClick={() => navigate(`/agent/${agent.id}`)}
-                            className={`group transition-all duration-200 cursor-pointer ${isActive ? 'bg-primary/10 text-primary hover:bg-primary/15' : 'hover:bg-white/5'}`}
+                            className={`group transition-all duration-200 cursor-pointer ${isActive ? 'bg-[#107ec2]/10 border-l-2 border-[#107ec2] text-white hover:bg-[#107ec2]/15' : 'hover:bg-white/5'}`}
                           >
                             <MessageSquare className={`w-4 h-4 mr-2 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
                             <span className="truncate flex-1">{agent.name}</span>
@@ -135,7 +133,7 @@ export function AppSidebar() {
               className="cursor-pointer"
             >
               <Cog className="w-4 h-4 mr-2 text-muted-foreground" />
-              <span className="font-medium">Configuracoes</span>
+              <span className="font-medium">Configurações</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

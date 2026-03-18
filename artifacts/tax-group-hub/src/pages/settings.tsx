@@ -117,7 +117,7 @@ function OllamaCard({ integration, onSettingsChange }: {
         setOllamaSettings(prev => prev ? { ...prev, url: data.url, source: data.source, model: data.model } : prev);
         setEditUrl(data.url || "");
         setEditModel(data.model || "");
-        setSaveMessage("Configuracoes salvas com sucesso!");
+        setSaveMessage("Configurações salvas com sucesso!");
         onSettingsChange();
         setTimeout(() => setSaveMessage(null), 3000);
       } else {
@@ -416,7 +416,7 @@ export default function SettingsPage() {
                 <Settings className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Configuracoes</h1>
+                <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
                 <p className="text-sm text-muted-foreground">Status das integracoes e provedores de IA</p>
               </div>
             </div>

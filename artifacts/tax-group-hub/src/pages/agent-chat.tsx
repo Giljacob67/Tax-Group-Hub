@@ -265,8 +265,8 @@ export default function AgentChat() {
                 onClick={() => { if (renamingId !== conv.id) setActiveConvId(conv.id); }}
                 className={`w-full text-left p-3 rounded-xl transition-all duration-200 group flex items-start justify-between cursor-pointer ${
                   activeConvId === conv.id
-                    ? 'bg-primary/10 border border-primary/20 shadow-[0_0_10px_rgba(30,64,175,0.1)]'
-                    : 'hover:bg-card border border-transparent'
+                    ? 'bg-[#107ec2]/10 border-l-2 border-[#107ec2] border-y-0 border-r-0 rounded-l-none shadow-[0_0_10px_rgba(16,126,194,0.08)]'
+                    : 'hover:bg-[#107ec2]/5 border border-transparent'
                 }`}
               >
                 <div className="flex items-start space-x-3 overflow-hidden flex-1 min-w-0">
@@ -335,13 +335,13 @@ export default function AgentChat() {
       <div className="flex-1 flex flex-col relative bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
         <header className="h-16 border-b border-border/50 bg-background/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-10">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 shadow-glow">
-              <Bot className="w-5 h-5 text-primary" />
+            <div className="w-10 h-10 rounded-full bg-[#107ec2]/15 flex items-center justify-center border border-[#107ec2]/25 shadow-glow text-xl select-none">
+              {agent.icon || <Bot className="w-5 h-5 text-primary" />}
             </div>
             <div>
               <h2 className="font-bold text-foreground">{agent.name}</h2>
               <div className="flex items-center gap-2">
-                <p className="text-xs text-muted-foreground">{agent.blockLabel}</p>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{agent.blockLabel}</span>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 border ${
                   isApiOnline
                     ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
@@ -445,23 +445,26 @@ export default function AgentChat() {
         <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
           <div className="max-w-3xl mx-auto space-y-6 pb-4">
             {!activeConvId && !isLoadingMessages && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center mt-20">
-                <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-6 border border-primary/20">
-                  <Bot className="w-10 h-10 text-primary" />
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center mt-16">
+                <div className="bg-card/50 border border-border/50 rounded-3xl p-10 max-w-lg w-full text-center shadow-lg mb-8">
+                  <div className="text-6xl mb-5 select-none">{agent.icon || "🤖"}</div>
+                  <h3 className="text-2xl font-bold text-white mb-2">{agent.name}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{agent.description}</p>
                 </div>
-                <h3 className="text-2xl font-bold mb-2">Iniciar conversa</h3>
-                <p className="text-muted-foreground mb-8 max-w-md mx-auto">{agent.description}</p>
                 {agent.suggestedPrompts?.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
-                    {agent.suggestedPrompts.map((prompt: string, i: number) => (
-                      <button
-                        key={i}
-                        onClick={() => handleCreateAndSend(prompt)}
-                        className="p-4 rounded-xl border border-border/50 bg-card/50 hover:bg-primary/5 hover:border-primary/30 text-left text-sm transition-all hover:-translate-y-0.5"
-                      >
-                        {prompt}
-                      </button>
-                    ))}
+                  <div className="w-full max-w-2xl">
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-3 text-center">Sugestões de início</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {agent.suggestedPrompts.map((prompt: string, i: number) => (
+                        <button
+                          key={i}
+                          onClick={() => handleCreateAndSend(prompt)}
+                          className="p-4 rounded-2xl border border-border/50 bg-card/40 hover:bg-[#107ec2]/8 hover:border-[#107ec2]/40 text-left text-sm text-foreground/80 hover:text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(16,126,194,0.1)]"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -471,10 +474,10 @@ export default function AgentChat() {
               {activeConv?.messages?.map((msg) => (
                 <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] flex ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end gap-3`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 ${msg.role === 'user' ? 'bg-secondary' : 'bg-primary/20 border border-primary/30'}`}>
-                      {msg.role === 'user' ? <User className="w-4 h-4 text-foreground/70" /> : <Bot className="w-4 h-4 text-primary" />}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 text-base select-none ${msg.role === 'user' ? 'bg-secondary' : 'bg-[#107ec2]/15 border border-[#107ec2]/20'}`}>
+                      {msg.role === 'user' ? <User className="w-4 h-4 text-foreground/70" /> : <span>{agent.icon || "🤖"}</span>}
                     </div>
-                    <div className={`relative group p-4 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-sm shadow-md' : 'bg-card border border-border/50 text-foreground rounded-bl-sm shadow-sm'}`}>
+                    <div className={`relative group p-4 rounded-2xl ${msg.role === 'user' ? 'bg-[#107ec2] text-white rounded-br-sm shadow-md' : 'bg-card/30 text-foreground rounded-bl-sm shadow-sm'}`}>
                       {msg.role === 'assistant' && (
                         <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute -right-10 top-2 p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" title="Copiar">
                           {copiedId === msg.id ? <CheckCheck className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
@@ -495,10 +498,10 @@ export default function AgentChat() {
             {sendMutation.isPending && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
                 <div className="flex gap-3 items-end">
-                  <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center mb-1">
-                    <Bot className="w-4 h-4 text-primary" />
+                  <div className="w-8 h-8 rounded-full bg-[#107ec2]/15 border border-[#107ec2]/20 flex items-center justify-center mb-1 text-base select-none">
+                    {agent.icon || <Bot className="w-4 h-4 text-primary" />}
                   </div>
-                  <div className="bg-card border border-border/50 rounded-2xl rounded-bl-sm p-4 flex space-x-2 items-center h-12">
+                  <div className="bg-card/30 rounded-2xl rounded-bl-sm p-4 flex space-x-2 items-center h-12">
                     <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                     <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                     <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -518,13 +521,13 @@ export default function AgentChat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCreateAndSend(input); } }}
               placeholder={`Mensagem para ${agent.name}...`}
-              className="w-full bg-card border border-border focus:border-primary focus:ring-1 focus:ring-primary/50 rounded-xl pl-5 pr-14 py-4 text-sm shadow-sm transition-all outline-none"
+              className="w-full bg-card border border-[#107ec2]/30 focus:border-[#107ec2] focus:shadow-[0_0_0_2px_rgba(16,126,194,0.20)] rounded-xl pl-5 pr-14 py-4 text-sm shadow-sm transition-all outline-none"
               disabled={sendMutation.isPending}
             />
             <button
               onClick={() => handleCreateAndSend(input)}
               disabled={!input.trim() || sendMutation.isPending}
-              className="absolute right-2 p-2.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors shadow-md"
+              className="absolute right-2 p-2.5 rounded-lg bg-[#107ec2] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#107ec2]/90 transition-colors shadow-md"
             >
               <Send className="w-4 h-4" />
             </button>

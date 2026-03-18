@@ -61,28 +61,28 @@
 
 :root {
   /* Force Dark Mode Colors Globally */
-  --background: 224 71% 4%;
+  --background: 220 80% 3%;
   --foreground: 210 40% 98%;
   
-  --border: 224 71% 12%;
-  --input: 224 71% 16%;
-  --ring: 226 71% 40%; /* Royal Blue */
+  --border: 220 60% 12%;
+  --input: 220 60% 16%;
+  --ring: 204 84% 41%; /* Tax Group Blue */
 
-  --card: 224 71% 6%;
+  --card: 220 70% 6%;
   --card-foreground: 210 40% 98%;
-  --card-border: 224 71% 12%;
+  --card-border: 220 60% 12%;
 
-  --popover: 224 71% 6%;
+  --popover: 220 70% 6%;
   --popover-foreground: 210 40% 98%;
-  --popover-border: 224 71% 12%;
+  --popover-border: 220 60% 12%;
 
-  --primary: 226 71% 40%; /* Royal Blue #1E40AF */
+  --primary: 204 84% 41%; /* Tax Group Azul Claro #107ec2 */
   --primary-foreground: 210 40% 98%;
 
   --secondary: 222 47% 11%;
   --secondary-foreground: 210 40% 98%;
 
-  --muted: 224 71% 12%;
+  --muted: 220 60% 12%;
   --muted-foreground: 215 20.2% 65.1%;
 
   --accent: 262 83% 58%; /* Purple for Marketing */
@@ -91,14 +91,14 @@
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
 
-  --sidebar: 224 71% 4%;
+  --sidebar: 220 80% 3%;
   --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 224 71% 10%;
-  --sidebar-primary: 226 71% 40%;
+  --sidebar-border: 220 60% 10%;
+  --sidebar-primary: 204 84% 41%;
   --sidebar-primary-foreground: 210 40% 98%;
-  --sidebar-accent: 224 71% 10%;
+  --sidebar-accent: 220 60% 10%;
   --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 226 71% 40%;
+  --sidebar-ring: 204 84% 41%;
 
   --radius: 0.75rem;
 
@@ -109,7 +109,7 @@
   --shadow-md: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 2px 4px -1px hsl(0 0% 0% / 0.2);
   --shadow-lg: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 4px 6px -1px hsl(0 0% 0% / 0.2);
   --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.2), 0px 8px 10px -1px hsl(0 0% 0% / 0.2);
-  --shadow-glow: 0px 0px 20px 0px hsl(226 71% 40% / 0.3);
+  --shadow-glow: 0px 0px 24px 0px hsl(204 84% 41% / 0.45);
 
   --opaque-button-border-intensity: 9;
 }

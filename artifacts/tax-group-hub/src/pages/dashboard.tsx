@@ -19,26 +19,31 @@ export default function Dashboard() {
     <div className="min-h-screen w-full relative overflow-y-auto overflow-x-hidden">
       {/* Hero Background */}
       <div className="absolute top-0 left-0 w-full h-[50vh] z-0">
-        <img 
-          src={`${import.meta.env.BASE_URL}images/hero-bg.png`} 
-          alt="Hero" 
-          className="w-full h-full object-cover opacity-40 mix-blend-screen"
+        <img
+          src={`${import.meta.env.BASE_URL}images/hero-bg.png`}
+          alt="Hero"
+          className="w-full h-full object-cover opacity-60 mix-blend-screen"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/80 to-background"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background"></div>
       </div>
 
       <div className="relative z-10 p-8 max-w-7xl mx-auto mt-12">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="max-w-2xl"
         >
+          <img
+            src={`${import.meta.env.BASE_URL}images/logo-taxgroup-branco.svg`}
+            alt="Tax Group"
+            className="h-10 w-auto mb-6 drop-shadow-[0_0_12px_rgba(16,126,194,0.5)]"
+          />
           <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary backdrop-blur-sm mb-6">
-            <ShieldCheck className="w-4 h-4 mr-2" /> 
-            Sistemas de IA Nível Corporativo
+            <ShieldCheck className="w-4 h-4 mr-2" />
+            ✦ Inteligência Tributária
           </div>
-          <h1 className="text-5xl font-bold tracking-tight mb-4">
+          <h1 className="text-6xl font-bold tracking-tight mb-4">
             Tax Group <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">AI Hub</span>
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
@@ -53,15 +58,15 @@ export default function Dashboard() {
           className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12"
         >
           {/* Stats Cards */}
-          <div className="bg-card/50 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-lg">
+          <div className="bg-card/50 backdrop-blur-md border border-border/50 hover:border-[#107ec2]/40 rounded-2xl p-6 shadow-lg hover:shadow-[0_0_20px_hsla(204,84%,41%,0.15)] transition-all duration-300">
             <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mb-4">
               <Bot className="w-6 h-6 text-blue-400" />
             </div>
             <h3 className="text-3xl font-bold text-foreground">{agentsData?.agents?.length || 0}</h3>
             <p className="text-sm text-muted-foreground mt-1">Agentes de IA Ativos</p>
           </div>
-          
-          <div className="bg-card/50 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-lg">
+
+          <div className="bg-card/50 backdrop-blur-md border border-border/50 hover:border-[#107ec2]/40 rounded-2xl p-6 shadow-lg hover:shadow-[0_0_20px_hsla(204,84%,41%,0.15)] transition-all duration-300">
             <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mb-4">
               <MessageSquare className="w-6 h-6 text-purple-400" />
             </div>
@@ -69,7 +74,7 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground mt-1">Total de Conversas</p>
           </div>
 
-          <div className="bg-card/50 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-lg">
+          <div className="bg-card/50 backdrop-blur-md border border-border/50 hover:border-[#107ec2]/40 rounded-2xl p-6 shadow-lg hover:shadow-[0_0_20px_hsla(204,84%,41%,0.15)] transition-all duration-300">
             <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4">
               <Zap className="w-6 h-6 text-emerald-400" />
             </div>
@@ -90,10 +95,20 @@ export default function Dashboard() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.4, delay: 0.3 + (i * 0.1) }}
-                className={`rounded-2xl border ${block.border} bg-gradient-to-b ${block.gradient} p-6 overflow-hidden relative group hover:shadow-glow transition-all duration-300`}
+                className={`rounded-2xl border ${block.border} bg-gradient-to-b ${block.gradient} p-8 overflow-hidden relative group hover:shadow-glow transition-all duration-300`}
               >
                 <div className="relative z-10">
-                  <h3 className="text-xl font-bold text-white mb-2">{block.title}</h3>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-xl font-bold text-white">{block.title}</h3>
+                    {(() => {
+                      const count = agentsData?.agents?.filter(a => a.block === block.id).length || 0;
+                      return count > 0 ? (
+                        <span className="ml-2 flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/60 border border-white/10">
+                          {count} agente{count !== 1 ? 's' : ''}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                   <p className="text-white/70 text-sm mb-6 h-10">{block.desc}</p>
                   
                   <div className="space-y-2">
