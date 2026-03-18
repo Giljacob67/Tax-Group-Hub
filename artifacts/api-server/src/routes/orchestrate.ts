@@ -149,11 +149,15 @@ async function runCoordinatorReview(
   const successfulResults = results.filter((r) => r.success);
   if (successfulResults.length === 0) return { response: "", conversationId: "" };
 
-  // Build the review prompt with all tasks and their outputs
+  // Build the review prompt — truncate each output to keep input manageable
+  const MAX_OUTPUT_CHARS = 800;
   const tasksAndOutputs = successfulResults
     .map((r) => {
       const originalTask = tasks.find((t) => t.agentId === r.agentId);
-      return `## ${r.icon} Agente: ${r.agentName}\n**Tarefa enviada:** ${originalTask?.task || ""}\n\n**Output produzido:**\n${r.response}`;
+      const truncatedResponse = r.response.length > MAX_OUTPUT_CHARS
+        ? r.response.substring(0, MAX_OUTPUT_CHARS) + "\n... [output truncado para análise]"
+        : r.response;
+      return `## ${r.icon} Agente: ${r.agentName}\n**Tarefa:** ${originalTask?.task || ""}\n\n**Output:**\n${truncatedResponse}`;
     })
     .join("\n\n---\n\n");
 
@@ -205,7 +209,7 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
           { role: "system", content: coordinator.systemPrompt },
           { role: "user", content: reviewPrompt },
         ],
-        max_tokens: 1500,
+        max_tokens: 3000,
       });
       reviewContent = completion.choices[0]?.message?.content || "Sem parecer disponível.";
     } else {
