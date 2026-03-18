@@ -213,9 +213,11 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
           { role: "system", content: supervisorSystemPrompt },
           { role: "user", content: reviewPrompt },
         ],
-        max_tokens: 3000,
       });
-      reviewContent = completion.choices[0]?.message?.content || "Sem parecer disponível.";
+      const choice = completion.choices[0];
+      const finishReason = choice?.finish_reason;
+      console.log(`[Coordinator review] finish_reason=${finishReason} tokens_used=${completion.usage?.total_tokens}`);
+      reviewContent = choice?.message?.content || "Sem parecer disponível.";
     } else {
       reviewContent = `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para ativar a supervisão do Coordenador.`;
     }
