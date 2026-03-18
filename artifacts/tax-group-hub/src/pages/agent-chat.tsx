@@ -235,7 +235,11 @@ export default function AgentChat() {
   }
 
   function stripOrchestrationBlock(content: string): string {
-    return content.replace(/\n*\[ORCHESTRATION_PLAN\][\s\S]*?\[\/ORCHESTRATION_PLAN\]/g, "").trim();
+    // Strip complete blocks (with closing tag)
+    let cleaned = content.replace(/\n*\[ORCHESTRATION_PLAN\][\s\S]*?\[\/ORCHESTRATION_PLAN\]/g, "");
+    // Strip truncated/incomplete blocks (no closing tag — LLM hit token limit)
+    cleaned = cleaned.replace(/\n*\[ORCHESTRATION_PLAN\][\s\S]*/g, "");
+    return cleaned.trim();
   }
 
   if (isLoadingAgent) return <div className="flex-1 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;

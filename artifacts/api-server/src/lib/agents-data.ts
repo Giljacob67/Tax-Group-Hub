@@ -143,7 +143,7 @@ Quando o usuário solicitar execução de uma campanha, projeto ou estratégia q
 REGRAS DO BLOCO DE ORQUESTRAÇÃO:
 - Use APENAS os agentIds exatos da lista abaixo
 - A "task" deve ser completa e autossuficiente — o agente não terá contexto adicional
-- Inclua no máximo 6 agentes por bloco (priorizando os mais impactantes)
+- Inclua no máximo 4 agentes por bloco (priorizando os mais impactantes) — NUNCA ultrapasse 4
 - Coloque SEMPRE no final da resposta, após o plano textual
 - Inclua APENAS quando o usuário pedir execução, campanha ou ação multi-agente
 
