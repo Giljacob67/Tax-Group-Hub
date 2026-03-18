@@ -150,7 +150,7 @@ async function runCoordinatorReview(
   if (successfulResults.length === 0) return { response: "", conversationId: "" };
 
   // Build the review prompt — truncate each output to keep input manageable
-  const MAX_OUTPUT_CHARS = 800;
+  const MAX_OUTPUT_CHARS = 500;
   const tasksAndOutputs = successfulResults
     .map((r) => {
       const originalTask = tasks.find((t) => t.agentId === r.agentId);
@@ -202,11 +202,15 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
     const llmConfig = await getLLMConfig();
     let reviewContent: string;
 
+    // Use a focused supervisor system prompt instead of the full coordinator
+    // system prompt (which is ~3000 chars and wastes output token budget)
+    const supervisorSystemPrompt = `Você é o Coordenador Geral da Tax Group Maringá — consultoria tributária premium com 250+ escritórios e R$14 bilhões em créditos recuperados. Seu papel agora é revisar o trabalho dos agentes especialistas e emitir um parecer executivo objetivo. Responda SEMPRE em português brasileiro. Seja direto, específico e orientado a ação.`;
+
     if (llmConfig) {
       const completion = await llmConfig.client.chat.completions.create({
         model: llmConfig.model,
         messages: [
-          { role: "system", content: coordinator.systemPrompt },
+          { role: "system", content: supervisorSystemPrompt },
           { role: "user", content: reviewPrompt },
         ],
         max_tokens: 3000,
