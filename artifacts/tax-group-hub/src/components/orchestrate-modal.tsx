@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
-import { Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp, ExternalLink, X, Zap } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp, ExternalLink, X, Zap, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Task {
@@ -17,6 +17,11 @@ interface AgentResult {
   conversationId: string;
   success: boolean;
   error?: string;
+}
+
+interface CoordinatorReview {
+  response: string;
+  conversationId: string;
 }
 
 // Lookup for display names when API hasn't resolved yet
@@ -55,9 +60,11 @@ export function OrchestrateModal({
   onNavigate: (agentId: string) => void;
 }) {
   const { toast } = useToast();
-  const [status, setStatus] = useState<"preview" | "running" | "done">("preview");
+  const [status, setStatus] = useState<"preview" | "running" | "reviewing" | "done">("preview");
   const [results, setResults] = useState<AgentResult[]>([]);
+  const [coordinatorReview, setCoordinatorReview] = useState<CoordinatorReview | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [reviewExpanded, setReviewExpanded] = useState(true);
 
   const toggleExpand = (agentId: string) => {
     setExpandedIds(prev => {
@@ -85,13 +92,24 @@ export function OrchestrateModal({
         body: JSON.stringify({ tasks }),
       });
       if (!res.ok) throw new Error("Orchestration request failed");
-      const data = await res.json() as { results: AgentResult[] };
+      const data = await res.json() as { results: AgentResult[]; coordinatorReview?: CoordinatorReview };
+
+      // Show agent results and transition to "reviewing" phase
       setResults(data.results);
+      setStatus("reviewing");
+
+      // Small delay so user sees the "reviewing" state before done
+      await new Promise(r => setTimeout(r, 600));
+
+      if (data.coordinatorReview?.response) {
+        setCoordinatorReview(data.coordinatorReview);
+      }
       setStatus("done");
+
       // Auto-expand first successful result
       const firstSuccess = data.results.find(r => r.success);
       if (firstSuccess) setExpandedIds(new Set([firstSuccess.agentId]));
-      toast({ title: `✅ ${data.results.filter(r => r.success).length}/${tasks.length} agentes executados com sucesso` });
+      toast({ title: `✅ ${data.results.filter(r => r.success).length}/${tasks.length} agentes + parecer do Coordenador` });
     } catch (err) {
       void err;
       toast({ title: "Erro na orquestração", description: "Verifique a conexão com a API.", variant: "destructive" });
@@ -119,10 +137,16 @@ export function OrchestrateModal({
             <div className="w-10 h-10 rounded-xl bg-[#107ec2]/20 flex items-center justify-center text-xl">🚀</div>
             <div>
               <h2 className="font-bold text-lg text-white">
-                {status === "preview" ? "Executar Plano com Agentes" : status === "running" ? "Executando..." : "Plano Executado"}
+                {status === "preview" ? "Executar Plano com Agentes"
+                  : status === "running" ? "Executando agentes..."
+                  : status === "reviewing" ? "Coordenador analisando..."
+                  : "Plano Executado ✓"}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {tasks.length} agente{tasks.length !== 1 ? "s" : ""} serão acionados em paralelo
+                {status === "preview" ? `${tasks.length} agente${tasks.length !== 1 ? "s" : ""} serão acionados em paralelo`
+                  : status === "running" ? "Aguardando respostas dos especialistas..."
+                  : status === "reviewing" ? "Coordenador Geral revisando os outputs..."
+                  : `${results.filter(r => r.success).length}/${tasks.length} agentes + parecer do Coordenador`}
               </p>
             </div>
           </div>
@@ -161,7 +185,7 @@ export function OrchestrateModal({
             </>
           )}
 
-          {(status === "running" || status === "done") && results.map((result) => (
+          {(status === "running" || status === "reviewing" || status === "done") && results.map((result) => (
             <div key={result.agentId} className={`border rounded-2xl overflow-hidden transition-all duration-300 ${
               result.success ? "border-emerald-500/20 bg-emerald-500/5" : result.response === "" && status === "running" ? "border-border/50 bg-background/30" : "border-red-500/20 bg-red-500/5"
             }`}>
@@ -215,25 +239,95 @@ export function OrchestrateModal({
               )}
             </div>
           ))}
+          {/* Coordinator reviewing indicator */}
+          {status === "reviewing" && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="border border-amber-500/30 bg-amber-500/5 rounded-2xl p-4 flex items-center gap-3"
+            >
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center text-lg shrink-0">🎖️</div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-amber-300">Coordenador Geral</p>
+                <p className="text-xs text-muted-foreground">Analisando coerência e preparando parecer executivo...</p>
+              </div>
+              <Loader2 className="w-4 h-4 animate-spin text-amber-400 shrink-0" />
+            </motion.div>
+          )}
+
+          {/* Coordinator final review card */}
+          {status === "done" && coordinatorReview?.response && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="border border-amber-500/40 bg-gradient-to-b from-amber-500/10 to-amber-500/5 rounded-2xl overflow-hidden"
+            >
+              <div
+                className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
+                onClick={() => setReviewExpanded(v => !v)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center text-lg shrink-0">🎖️</div>
+                  <div>
+                    <p className="text-sm font-bold text-amber-300">Parecer do Coordenador Geral</p>
+                    <p className="text-xs text-muted-foreground">Análise executiva consolidada</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  {reviewExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                </div>
+              </div>
+              <AnimatePresence>
+                {reviewExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-4 pb-4 border-t border-amber-500/20">
+                      <div className="mt-3 text-xs text-foreground/85 prose prose-xs dark:prose-invert max-w-none max-h-64 overflow-y-auto">
+                        <ReactMarkdown>{coordinatorReview.response}</ReactMarkdown>
+                      </div>
+                      {coordinatorReview.conversationId && (
+                        <button
+                          onClick={() => { onNavigate("coordenador-geral-tax-group"); onClose(); }}
+                          className="mt-3 flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Ver conversa de supervisão completa
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
         </div>
 
         {/* Footer */}
-        {status !== "done" && (
+        {(status === "preview" || status === "running" || status === "reviewing") && (
           <div className="p-6 border-t border-border/50 flex gap-3">
             <button
               onClick={onClose}
-              disabled={status === "running"}
+              disabled={status === "running" || status === "reviewing"}
               className="flex-1 py-3 rounded-xl border border-border text-sm font-medium hover:bg-white/5 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               onClick={handleExecute}
-              disabled={status === "running"}
+              disabled={status === "running" || status === "reviewing"}
               className="flex-2 flex-grow-[2] py-3 rounded-xl bg-gradient-to-r from-[#107ec2] to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {status === "running" ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Executando...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> Executando agentes...</>
+              ) : status === "reviewing" ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Coordenador analisando...</>
               ) : (
                 <><Zap className="w-4 h-4" /> Confirmar e Executar</>
               )}

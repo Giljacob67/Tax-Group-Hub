@@ -22,6 +22,11 @@ interface OrchestrationResult {
   error?: string;
 }
 
+interface CoordinatorReview {
+  response: string;
+  conversationId: string;
+}
+
 async function getLLMConfig() {
   const { url: ollamaUrl } = await getEffectiveOllamaUrl();
   const ollamaModel = await getEffectiveOllamaModel();
@@ -134,6 +139,94 @@ async function executeAgentTask(task: OrchestrationTask, context?: string): Prom
   }
 }
 
+async function runCoordinatorReview(
+  tasks: OrchestrationTask[],
+  results: OrchestrationResult[]
+): Promise<CoordinatorReview> {
+  const coordinator = getAgentById("coordenador-geral-tax-group");
+  if (!coordinator) return { response: "", conversationId: "" };
+
+  const successfulResults = results.filter((r) => r.success);
+  if (successfulResults.length === 0) return { response: "", conversationId: "" };
+
+  // Build the review prompt with all tasks and their outputs
+  const tasksAndOutputs = successfulResults
+    .map((r) => {
+      const originalTask = tasks.find((t) => t.agentId === r.agentId);
+      return `## ${r.icon} Agente: ${r.agentName}\n**Tarefa enviada:** ${originalTask?.task || ""}\n\n**Output produzido:**\n${r.response}`;
+    })
+    .join("\n\n---\n\n");
+
+  const reviewPrompt = `Você acaba de orquestrar ${successfulResults.length} agentes especialistas em paralelo. Analise os outputs abaixo e forneça um parecer executivo consolidado.
+
+${tasksAndOutputs}
+
+---
+
+PARECER EXECUTIVO SOLICITADO — responda de forma estruturada e direta:
+
+**1. ✅ Coerência Estratégica**
+Os outputs estão alinhados entre si? A mensagem é consistente em todos os canais?
+
+**2. ⚠️ Gaps e Pontos de Atenção**
+O que ficou faltando, precisa de revisão ou pode causar problema se usado assim?
+
+**3. 🏆 Destaques**
+O que foi excepcionalmente bem executado e pode ser usado diretamente?
+
+**4. 🎯 Próximos Passos Recomendados**
+Liste 3 a 5 ações concretas e priorizadas para avançar com este material.
+
+Seja específico, cite os agentes pelo nome quando necessário, e foque em orientação prática.`;
+
+  try {
+    // Create a conversation for the coordinator review
+    const [conv] = await db
+      .insert(conversationsTable)
+      .values({
+        agentId: "coordenador-geral-tax-group",
+        title: `🎖️ Supervisão: análise de ${successfulResults.length} agentes`,
+      })
+      .returning();
+
+    await db.insert(messagesTable).values({
+      conversationId: conv.id,
+      role: "user",
+      content: reviewPrompt,
+    });
+
+    const llmConfig = await getLLMConfig();
+    let reviewContent: string;
+
+    if (llmConfig) {
+      const completion = await llmConfig.client.chat.completions.create({
+        model: llmConfig.model,
+        messages: [
+          { role: "system", content: coordinator.systemPrompt },
+          { role: "user", content: reviewPrompt },
+        ],
+        max_tokens: 1500,
+      });
+      reviewContent = completion.choices[0]?.message?.content || "Sem parecer disponível.";
+    } else {
+      reviewContent = `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para ativar a supervisão do Coordenador.`;
+    }
+
+    await db.insert(messagesTable).values({
+      conversationId: conv.id,
+      role: "assistant",
+      content: reviewContent,
+    });
+
+    await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conv.id));
+
+    return { response: reviewContent, conversationId: String(conv.id) };
+  } catch (err) {
+    console.error("Coordinator review error:", err);
+    return { response: "", conversationId: "" };
+  }
+}
+
 router.post("/orchestrate", async (req, res) => {
   try {
     const { tasks, context } = req.body as { tasks?: OrchestrationTask[]; context?: string };
@@ -148,12 +241,15 @@ router.post("/orchestrate", async (req, res) => {
       return;
     }
 
-    // Execute all agent tasks in parallel
+    // Step 1: Execute all agent tasks in parallel
     const results = await Promise.all(
       tasks.map((task) => executeAgentTask(task, context))
     );
 
-    res.json({ results });
+    // Step 2: Coordinator reviews all outputs and gives final assessment
+    const coordinatorReview = await runCoordinatorReview(tasks, results);
+
+    res.json({ results, coordinatorReview });
   } catch (err) {
     console.error("Orchestration error:", err);
     res.status(500).json({ error: "Internal server error" });
