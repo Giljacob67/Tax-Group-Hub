@@ -100,7 +100,6 @@ async function executeAgentTask(task: OrchestrationTask, context?: string): Prom
           { role: "system", content: systemPrompt },
           { role: "user", content: task.task },
         ],
-        max_tokens: 2000,
       });
       assistantContent = completion.choices[0]?.message?.content || "Sem resposta do agente.";
     } else {

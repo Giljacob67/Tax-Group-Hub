@@ -362,7 +362,6 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         const completion = await llmConfig.client.chat.completions.create({
           model: llmConfig.model,
           messages: llmMessages,
-          max_tokens: 2000,
         });
         assistantContent = completion.choices[0]?.message?.content || "Desculpe, nao consegui gerar uma resposta. Tente novamente.";
       } catch (llmErr) {
@@ -376,7 +375,6 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
               const fallbackCompletion = await fallback.client.chat.completions.create({
                 model: fallback.model,
                 messages: llmMessages,
-                max_tokens: 2000,
               });
               assistantContent = fallbackCompletion.choices[0]?.message?.content || "Desculpe, nao consegui gerar uma resposta.";
               usedFallback = true;
