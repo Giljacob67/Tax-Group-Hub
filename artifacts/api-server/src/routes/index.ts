@@ -6,6 +6,7 @@ import knowledgeRouter from "./knowledge.js";
 import integrationsRouter from "./integrations.js";
 import settingsRouter from "./settings.js";
 import orchestrateRouter from "./orchestrate.js";
+import automateRouter from "./automate.js";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(knowledgeRouter);
 router.use(integrationsRouter);
 router.use(settingsRouter);
 router.use(orchestrateRouter);
+router.use(automateRouter);
 
 export default router;
