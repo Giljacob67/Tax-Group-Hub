@@ -4,6 +4,19 @@ import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
+// Root GET - list available settings endpoints
+router.get("/settings", (_req, res) => {
+  res.json({
+    endpoints: [
+      { method: "GET", path: "/api/settings/integrations", description: "List configured integrations" },
+      { method: "GET", path: "/api/settings/models", description: "List available AI models" },
+      { method: "GET", path: "/api/settings/ollama", description: "Get Ollama configuration" },
+      { method: "PUT", path: "/api/settings/ollama", description: "Update Ollama configuration" },
+      { method: "POST", path: "/api/settings/ollama/test", description: "Test Ollama connection" },
+    ],
+  });
+});
+
 export async function getConfigValue(key: string): Promise<string | null> {
   const [row] = await db.select().from(appConfigTable).where(eq(appConfigTable.key, key));
   return row?.value ?? null;

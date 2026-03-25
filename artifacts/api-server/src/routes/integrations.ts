@@ -4,6 +4,17 @@ import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
+// Root GET - list available integration endpoints
+router.get("/integrations", (_req, res) => {
+  res.json({
+    endpoints: [
+      { method: "POST", path: "/api/integrations/generate-image", description: "Generate image with Gemini AI" },
+      { method: "GET", path: "/api/integrations/image-gallery/:agentId", description: "Get image gallery for agent" },
+      { method: "POST", path: "/api/integrations/canva-link", description: "Generate Canva design link" },
+      { method: "POST", path: "/api/integrations/search-knowledge", description: "Semantic search in knowledge base" },
+    ],
+  });
+});
 
 router.post("/integrations/generate-image", async (req, res) => {
   try {
