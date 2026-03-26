@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAgentById } from "../lib/agents-data.js";
+import { callLLM } from "../lib/llm-client.js";
 
 const router: IRouter = Router();
 
@@ -472,78 +473,6 @@ router.get("/automate/triggers", (_req, res) => {
   });
 });
 
-// ─── LLM Caller (supports Gemini and Ollama) ──────────────────────────
-interface LLMResult {
-  output: string;
-  tokensUsed: number;
-  executionTimeMs: number;
-}
-
-async function callLLM(
-  systemPrompt: string,
-  userMessage: string,
-  _context?: Record<string, unknown>
-): Promise<LLMResult> {
-  const startTime = Date.now();
-  const geminiKey = process.env.GEMINI_API_KEY;
-  const ollamaUrl = process.env.OLLAMA_URL;
-
-  if (geminiKey) {
-    const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: `${systemPrompt}\n\n---\n\n${userMessage}` }],
-            },
-          ],
-          generationConfig: { maxOutputTokens: 4096 },
-        }),
-      }
-    );
-
-    const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      usageMetadata?: { totalTokenCount?: number };
-    };
-
-    const output = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const tokensUsed = data?.usageMetadata?.totalTokenCount || 0;
-
-    return { output, tokensUsed, executionTimeMs: Date.now() - startTime };
-  }
-
-  if (ollamaUrl) {
-    const model = process.env.OLLAMA_MODEL || "llama3.2";
-    const response = await fetch(`${ollamaUrl}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        system: systemPrompt,
-        prompt: userMessage,
-        stream: false,
-      }),
-    });
-
-    const data = (await response.json()) as {
-      response?: string;
-      eval_count?: number;
-    };
-
-    return {
-      output: data.response || "",
-      tokensUsed: data.eval_count || 0,
-      executionTimeMs: Date.now() - startTime,
-    };
-  }
-
-  throw new Error("No LLM configured. Set GEMINI_API_KEY or OLLAMA_URL.");
-}
+// callLLM is now imported from ../lib/llm-client.js
 
 export default router;

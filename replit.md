@@ -2,7 +2,9 @@
 
 ## Overview
 
-Full-stack AI platform for Tax Group — Brazil's largest tax consultancy. Features 11 specialized AI agents organized in 3 operational blocks, with chat via LLM (OpenRouter), persistent conversation history, RAG with real text extraction from PDFs/Word/MD/TXT, Design Studio for marketing agents (image gen + Canva templates + gallery), conversation management (auto-title, rename, export, search, confirmation dialogs), system prompt editor, and model/provider display.
+Full-stack AI platform for Tax Group — Brazil's largest tax consultancy. Features **23 specialized AI agents** organized in 4 operational blocks, with chat via LLM (Gemini/Ollama), persistent conversation history, RAG with real text extraction from PDFs/Word/MD/TXT, multi-agent orchestration, automation layer for Make/n8n integration, Design Studio for marketing agents, conversation management, and system prompt editor.
+
+**Platform:** Originally created on Replit, now deployed on **Vercel**.
 
 ## Stack
 
@@ -12,29 +14,42 @@ Full-stack AI platform for Tax Group — Brazil's largest tax consultancy. Featu
 - **TypeScript version**: 5.9
 - **Frontend**: React + Vite (artifacts/tax-group-hub), Tailwind CSS v4, Shadcn/UI, Framer Motion
 - **API framework**: Express 5 (artifacts/api-server)
-- **Database**: PostgreSQL + Drizzle ORM
+- **Database**: PostgreSQL (Neon) + Drizzle ORM
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
-- **LLM**: OpenRouter (compatible with OpenAI SDK), model: google/gemini-flash-1.5
+- **LLM**: Gemini 3 Flash via OpenAI-compatible endpoint (primary), Ollama (optional)
 - **Build**: esbuild (CJS bundle)
+- **Deployment**: Vercel (serverless)
 
 ## Structure
 
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   ├── api-server/         # Express API server (port 8080)
+│   ├── api-server/         # Express API server (Vercel)
 │   │   └── src/
-│   │       ├── lib/agents-data.ts  # All 11 agent definitions + system prompts
+│   │       ├── app.ts                # Express app with auth + rate limiting
+│   │       ├── middlewares/
+│   │       │   ├── auth.ts           # API key auth (Bearer, x-api-key, webhook secret)
+│   │       │   └── rate-limit.ts     # Rate limiting (general + LLM-specific)
+│   │       ├── lib/
+│   │       │   ├── agents-data.ts    # All 23 agent definitions + system prompts
+│   │       │   └── llm-client.ts     # Shared LLM client (Gemini + Ollama)
 │   │       └── routes/
-│   │           ├── agents.ts         # GET /api/agents, GET /api/agents/:id
-│   │           ├── conversations.ts  # Chat conversations + message sending via LLM
-│   │           ├── knowledge.ts      # Knowledge base document management
-│   │           └── integrations.ts   # Image gen, Canva links, semantic search
-│   └── tax-group-hub/      # React + Vite frontend (port 25986)
+│   │           ├── agents.ts         # Agent listing and details
+│   │           ├── conversations.ts  # Chat conversations + LLM responses
+│   │           ├── knowledge.ts      # Knowledge base (validated uploads)
+│   │           ├── integrations.ts   # Image gen, Canva, semantic search
+│   │           ├── orchestrate.ts    # Multi-agent orchestration + coordinator
+│   │           ├── automate.ts       # Make/n8n webhook triggers (execute, pipeline)
+│   │           ├── settings.ts       # Model/provider configuration
+│   │           └── health.ts         # Health check
+│   └── tax-group-hub/      # React + Vite frontend
 │       └── src/
 │           ├── App.tsx               # Main app with wouter routing
-│           ├── components/app-sidebar.tsx  # Sidebar with 11 agents
+│           ├── components/
+│           │   ├── app-sidebar.tsx   # Sidebar with 23 agents across 4 blocks
+│           │   └── orchestrate-modal.tsx  # Multi-agent orchestration UI
 │           └── pages/
 │               ├── dashboard.tsx     # Main dashboard with blocks and stats
 │               ├── agent-chat.tsx    # Chat interface per agent
@@ -45,101 +60,101 @@ artifacts-monorepo/
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
-│       └── src/schema/
-│           └── agents.ts   # conversations, messages, knowledge_documents tables
-├── pnpm-workspace.yaml
-├── tsconfig.base.json
-├── tsconfig.json
-└── package.json
+├── docs/
+│   ├── AUTOMACAO_MAKE.md   # Make.com integration guide
+│   └── make-scenario-novo-lead.json  # Importable Make.com scenario
+└── vercel.json             # Vercel deployment config
 ```
 
-## 11 AI Agents
+## 23 AI Agents
 
-### BLOCO 1 — Prospecção e Operação Comercial
-1. **prospeccao-tax-group** — Scripts de abordagem, SPIN Selling, cold outreach
-2. **qualificacao-leads-tax-group** — Scoring HOT/WARM/COLD, ICP analysis
-3. **objecoes-tax-group** — Reversão de objeções em tempo real (playbooks AFD/REP/RTI)
-4. **followup-tax-group** — Cadência D1/D3/D7/D15 por canal
+### BLOCO 1 — Estratégia (6 agentes)
+1. **analista-corporativo-tax-group** — Análise jurídica e compliance corporativo
+2. **consultor-reforma-tributaria** — CBS, IBS, Split Payment, transição 2026-2033
+3. **especialista-creditos-tributarios** — Identificação e recuperação de créditos
+4. **coordenador-geral-tax-group** — Supervisão executiva e parecer consolidado
+5. **auditor-fiscal-tax-group** — Auditoria preventiva de riscos fiscais
+6. **planejador-tributario-tax-group** — Planejamento tributário estratégico
 
-### BLOCO 2 — Agência Virtual de Marketing
-5. **conteudo-linkedin-tax-group** — Posts LinkedIn educativos, provocativos, storytelling
-6. **email-marketing-tax-group** — Cold email, nurturing, reativação
-7. **materiais-comerciais-tax-group** — One-pagers, pitches, PDFs de ROI
-8. **reformatributaria-insight** — CBS, IBS, Split Payment, IVA Dual, RTI
-
-### BLOCO 3 — Gestão e Operação Interna
-9. **gestao-pipeline-tax-group** — Diagnóstico de funil, gargalos, revisão semanal
-10. **roteiro-reuniao-tax-group** — Roteiro completo SPIN para reuniões comerciais
+### BLOCO 2 — Comercial (5 agentes)
+7. **prospeccao-tax-group** — Scripts de abordagem, SPIN Selling, cold outreach
+8. **qualificacao-leads-tax-group** — Scoring HOT/WARM/COLD, ICP analysis
+9. **objecoes-tax-group** — Reversão de objeções em tempo real (playbooks AFD/REP/RTI)
+10. **followup-tax-group** — Cadência D1/D3/D7/D15 por canal
 11. **proposta-comercial-tax-group** — Estrutura de proposta para CFO/diretoria
+
+### BLOCO 3 — Marketing (6 agentes)
+12. **conteudo-linkedin-tax-group** — Posts LinkedIn educativos, provocativos, storytelling
+13. **email-marketing-tax-group** — Cold email, nurturing, reativação
+14. **materiais-comerciais-tax-group** — One-pagers, pitches, PDFs de ROI
+15. **reformatributaria-insight** — CBS, IBS, Split Payment, IVA Dual, RTI
+16. **design-studio-tax-group** — Geração de imagens, templates Canva
+17. **social-media-tax-group** — Gestão de redes sociais
+
+### BLOCO 4 — Gestão e Capacitação (6 agentes)
+18. **gestao-pipeline-tax-group** — Diagnóstico de funil, gargalos, revisão semanal
+19. **roteiro-reuniao-tax-group** — Roteiro completo SPIN para reuniões comerciais
+20. **treinamento-vendas-tax-group** — Capacitação comercial e onboarding
+21. **suporte-operacional-tax-group** — Suporte interno e processos
+22. **analista-dados-tax-group** — Métricas, KPIs e relatórios
+23. **crm-integracao-tax-group** — Integração e gestão de CRM
 
 ## Database Schema
 
 - **conversations** — id, agentId, title, createdAt, updatedAt
 - **messages** — id, conversationId, role (user/assistant/system), content, metadata, createdAt
-- **knowledge_documents** — id, agentId, filename, fileType, fileSize, storageKey, status, createdAt
+- **knowledge_documents** — id, agentId, filename, fileType, fileSize, storageKey, status, extractedContent, createdAt
 
 ## Environment Variables Required
 
-- `DATABASE_URL` — PostgreSQL connection (auto-provisioned by Replit)
-- `OPENROUTER_API_KEY` — For LLM chat (OpenRouter API key)
-- `GEMINI_API_KEY` — For Google AI: image generation (Gemini 2.0 Flash) and semantic search embeddings (Text Embeddings 004)
+- `DATABASE_URL` — PostgreSQL connection (Neon)
+- `GEMINI_API_KEY` — For Gemini LLM (primary provider)
+- `API_KEY` — (Optional) API authentication key for all endpoints
+- `WEBHOOK_SECRET` — (Optional) Secret for Make/n8n webhook authentication
+- `OLLAMA_URL` — (Optional) Local Ollama for fallback LLM
+- `APP_URL` — (Optional) Production URL for CORS in Vercel
 
 ## API Endpoints
 
+### Core
 - `GET /api/healthz` — Health check
-- `GET /api/agents` — List all 11 agents
-- `GET /api/agents/:id` — Agent details
+- `GET /api/agents` — List all 23 agents (no systemPrompt)
+- `GET /api/agents/:id` — Agent details (systemPrompt redacted if not authenticated)
+
+### Conversations
 - `GET /api/conversations?agentId=X` — List conversations
 - `POST /api/conversations` — Create conversation
 - `GET /api/conversations/:id` — Get conversation with messages
+- `PATCH /api/conversations/:id` — Rename conversation
 - `DELETE /api/conversations/:id` — Delete conversation
 - `POST /api/conversations/:id/messages` — Send message (LLM response)
-- `PATCH /api/conversations/:id` — Rename conversation
-- `GET /api/conversations/:id/export` — Export conversation as Markdown
-- `GET /api/knowledge?agentId=X` — List knowledge documents
-- `POST /api/knowledge/upload` — Upload file (multipart) with text extraction
-- `POST /api/knowledge/upload-url` — Request upload URL (legacy)
+- `GET /api/conversations/:id/export` — Export as Markdown
+
+### Knowledge Base
+- `GET /api/knowledge?agentId=X` — List documents
+- `POST /api/knowledge/upload` — Upload file (PDF, DOCX, MD, TXT only)
 - `DELETE /api/knowledge/:id` — Delete document
-- `POST /api/integrations/generate-image` — Generate image (Gemini/OpenRouter)
-- `GET /api/integrations/image-gallery/:agentId` — Get generated images for agent
-- `POST /api/integrations/canva-link` — Generate Canva deep link (10 template types)
-- `POST /api/integrations/search-knowledge` — Semantic search with embeddings
-- `GET /api/settings/integrations` — Get integration status (no secrets exposed)
-- `GET /api/settings/models` — List available LLM models with names/descriptions
 
-## Key Features (v2)
+### Orchestration
+- `POST /api/orchestrate` — Run multiple agents in parallel + coordinator review
 
-- **Design Studio** — Integrated panel in 4 marketing agents (LinkedIn, Email Mkt, Materiais, Reforma) with image generation, 6 Canva template shortcuts, and image gallery
-- **RAG Content Extraction** — Uploads extract real text from PDF (pdf-parse), DOCX (mammoth), MD/TXT and inject relevant snippets into agent system prompts
-- **Auto-Title** — Conversations auto-titled from first user message (first 60 chars)
-- **Conversation Management** — Rename (double-click), search/filter, export to .md, delete with confirmation dialog
-- **System Prompt Editor** — Per-session editable system prompts via settings dialog
-- **Model/Provider Display** — Header and footer show active LLM model and provider
-- **OpenRouter Model Selector** — Clickable model badge in chat header opens dropdown with 10 curated models; selection persisted in localStorage and sent as model override in message requests
-- **Confirmation Dialogs** — All destructive actions (delete conversation, delete document) require explicit confirmation via AlertDialog
+### Automation (Make/n8n)
+- `POST /api/automate/execute` — Execute single agent
+- `POST /api/automate/pipeline` — Chain up to 10 agents sequentially
+- `POST /api/automate/trigger/{trigger}` — Named triggers (new-lead, editorial-calendar, etc.)
 
-## LLM Provider Configuration
+### Settings
+- `GET /api/settings/integrations` — Integration status
+- `GET /api/settings/models` — Available LLM models
 
-The platform supports multiple LLM providers with automatic fallback:
-- **Ollama (priority 1)** — Set `OLLAMA_URL` (e.g. ngrok URL pointing to local Ollama). Model via `OLLAMA_MODEL` (default: llama3.2). Falls back to OpenRouter on connection error.
-- **OpenRouter (priority 2)** — Set `OPENROUTER_API_KEY`. Model via `OPENROUTER_MODEL` (default: google/gemini-flash-1.5).
-- **Demo mode** — If neither is configured, agents respond with demo messages explaining how to configure.
+## Security
 
-## Key Integrations
-
-1. **Ollama** — Local LLM via OpenAI-compatible API at `OLLAMA_URL`
-2. **OpenRouter LLM** — Cloud LLM chat completions via `/api/conversations/:id/messages`
-3. **Google AI (Gemini)** — Single `GEMINI_API_KEY` for both image generation (Gemini 2.0 Flash) and RAG semantic search (Text Embeddings 004)
-4. **Canva Deep Links** — Content creation for presentations, social posts, documents, flyers
-
-## Tax Group Products Knowledge Base
-
-The agents are pre-configured with knowledge about:
-- **AFD** — Análise Fiscal Digital (PIS, COFINS, ICMS, IRPJ, CSLL, 60 months, R$14B recovered)
-- **REP** — Revisão dos Encargos Previdenciários
-- **RTI** — Reforma Tributária Inteligente (CBS, IBS, Split Payment, 2026-2033 timeline)
-- **TTR** — Tratamentos e Tributos Recuperáveis
-- Full service catalog and sector expertise
+- **Global auth**: All `/api` routes protected by `apiKeyAuth` middleware when `API_KEY` is set
+- **Header auth**: `Authorization: Bearer <key>` or `x-api-key: <key>`
+- **Webhook auth**: `x-webhook-secret` header for automate endpoints
+- **No query string auth**: Prevents credential leakage in proxy/CDN logs
+- **Rate limiting**: 100 req/min general, 10 req/min for LLM-heavy endpoints
+- **Upload validation**: Only PDF, DOCX, MD, TXT files accepted (max 50MB)
 
 ## Development Commands
 

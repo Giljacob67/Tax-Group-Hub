@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import {
   MessageSquare, Briefcase, Megaphone,
   Settings2, FileText, LayoutDashboard, ChevronRight,
-  Image as ImageIcon, Loader2, Cog, Crown
+  Image as ImageIcon, Loader2, Cog, Crown, Search, X
 } from "lucide-react";
 import { useListAgents } from "@workspace/api-client-react";
 import {
@@ -28,6 +29,14 @@ const BLOCKS = [
 export function AppSidebar() {
   const [location, navigate] = useLocation();
   const { data, isLoading } = useListAgents();
+  const [search, setSearch] = useState("");
+
+  const filteredAgents = search.trim()
+    ? data?.agents?.filter(a =>
+        a.name.toLowerCase().includes(search.toLowerCase()) ||
+        (a.description || "").toLowerCase().includes(search.toLowerCase())
+      )
+    : null;
 
   return (
     <Sidebar variant="inset" className="border-r border-border/50 bg-background/50 backdrop-blur-xl">
@@ -44,6 +53,28 @@ export function AppSidebar() {
           <p className="text-xs text-[#107ec2] font-semibold tracking-widest uppercase">AI Hub</p>
         </div>
       </SidebarHeader>
+
+      {/* Search bar */}
+      <div className="px-3 pb-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Buscar agente..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-8 py-2 text-sm bg-muted/50 border border-border/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 placeholder:text-muted-foreground"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded"
+            >
+              <X className="w-3 h-3 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+      </div>
 
       <SidebarContent className="px-2">
         <SidebarGroup>
@@ -77,7 +108,41 @@ export function AppSidebar() {
           <div className="p-8 flex justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
           </div>
+        ) : filteredAgents ? (
+          // Search results view
+          <SidebarGroup className="mt-4">
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+              Resultados ({filteredAgents.length})
+            </SidebarGroupLabel>
+            <SidebarGroupContent className="mt-1">
+              <SidebarMenu>
+                {filteredAgents.map((agent) => {
+                  const isActive = location.startsWith(`/agent/${agent.id}`);
+                  const block = BLOCKS.find(b => b.id === agent.block);
+                  return (
+                    <SidebarMenuItem key={agent.id}>
+                      <SidebarMenuButton 
+                        isActive={isActive}
+                        onClick={() => navigate(`/agent/${agent.id}`)}
+                        className={`group transition-all duration-200 cursor-pointer ${isActive ? 'bg-[#107ec2]/10 border-l-2 border-[#107ec2] text-white hover:bg-[#107ec2]/15' : 'hover:bg-white/5'}`}
+                      >
+                        <MessageSquare className={`w-4 h-4 mr-2 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
+                        <span className="truncate flex-1">{agent.name}</span>
+                        {block && <span className={`text-[10px] ${block.color}`}>{block.label.split(" ")[0]}</span>}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+                {filteredAgents.length === 0 && (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    Nenhum agente encontrado
+                  </div>
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         ) : (
+          // Normal grouped view
           BLOCKS.map(block => {
             const blockAgents = data?.agents?.filter(a => a.block === block.id) || [];
             if (blockAgents.length === 0) return null;

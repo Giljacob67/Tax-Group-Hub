@@ -37,7 +37,7 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 - URL: Copie a URL gerada pelo Make
 
 **Módulo 2: HTTP (Make a request)**
-- URL: `https://tax-group-hub-api-server.vercel.app/api/automate/trigger/new-lead`
+- URL: `{{YOUR_API_URL}}/api/automate/trigger/new-lead`
 - Method: POST
 - Headers: `Content-Type: application/json`
 - Body:
@@ -67,7 +67,7 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 - Time: 07:00
 
 **Módulo 2: HTTP (Make a request)**
-- URL: `https://tax-group-hub-api-server.vercel.app/api/automate/trigger/editorial-calendar`
+- URL: `{{YOUR_API_URL}}/api/automate/trigger/editorial-calendar`
 - Method: POST
 - Body:
 ```json
@@ -94,7 +94,7 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 - Time: 08:00
 
 **Módulo 2: HTTP**
-- URL: `https://tax-group-hub-api-server.vercel.app/api/automate/trigger/reforma-tributaria`
+- URL: `{{YOUR_API_URL}}/api/automate/trigger/reforma-tributaria`
 - Method: POST
 
 **Módulo 3: Enviar**
@@ -114,7 +114,7 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 - Buscar leads com `lastContact` > 7 dias atrás
 
 **Módulo 3: HTTP**
-- URL: `https://tax-group-hub-api-server.vercel.app/api/automate/trigger/follow-up-check`
+- URL: `{{YOUR_API_URL}}/api/automate/trigger/follow-up-check`
 - Method: POST
 - Body:
 ```json
@@ -142,7 +142,7 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 - Ou: Watch do banco de dados / Google Sheets
 
 **Módulo 2: HTTP**
-- URL: `https://tax-group-hub-api-server.vercel.app/api/automate/trigger/content-request`
+- URL: `{{YOUR_API_URL}}/api/automate/trigger/content-request`
 - Method: POST
 - Body:
 ```json

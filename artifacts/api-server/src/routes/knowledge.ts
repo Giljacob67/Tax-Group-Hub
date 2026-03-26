@@ -9,7 +9,37 @@ const pdfParse = require("pdf-parse");
 import mammoth from "mammoth";
 
 const router: IRouter = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+// Whitelist: only allow document file types
+const ALLOWED_MIME_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "text/plain",
+  "text/markdown",
+  "text/x-markdown",
+  "application/octet-stream", // fallback for .md files
+];
+
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt", ".md"];
+
+function fileFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
+  const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf("."));
+  const mimeOk = ALLOWED_MIME_TYPES.includes(file.mimetype);
+  const extOk = ALLOWED_EXTENSIONS.includes(ext);
+
+  if (mimeOk || extOk) {
+    cb(null, true);
+  } else {
+    cb(new Error(`File type not allowed. Accepted: ${ALLOWED_EXTENSIONS.join(", ")}`));
+  }
+}
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter,
+});
 
 async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
   const lower = (fileType + filename).toLowerCase();
@@ -38,107 +68,71 @@ router.get("/knowledge", async (req, res) => {
     }
     res.json({
       documents: documents.map((d) => ({
-        id: String(d.id),
-        agentId: d.agentId,
+        id: d.id,
         filename: d.filename,
         fileType: d.fileType,
-        fileSize: d.fileSize,
-        storageKey: d.storageKey,
-        status: d.status,
-        hasContent: !!d.extractedContent,
-        createdAt: d.createdAt.toISOString(),
+        agentId: d.agentId,
+        createdAt: d.createdAt,
       })),
     });
   } catch (err) {
-    console.error("Error listing knowledge documents:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Knowledge list error:", err);
+    res.status(500).json({ error: "Failed to list documents" });
   }
 });
 
 router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
   try {
-    const file = (req as unknown as { file?: Express.Multer.File }).file;
-    const agentId = req.body?.agentId || "global";
-
-    if (!file) {
-      res.status(400).json({ error: "file is required" });
+    if (!req.file) {
+      res.status(400).json({ error: "No file provided" });
       return;
     }
 
-    let extractedContent = "";
-    try {
-      extractedContent = await extractTextContent(file.buffer, file.mimetype, file.originalname);
-    } catch (extractErr) {
-      console.error("Text extraction error:", extractErr);
-    }
+    const { agentId } = req.body;
 
-    const storageKey = `knowledge/${agentId}/${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    // Extract text content
+    const extractedContent = await extractTextContent(
+      req.file.buffer,
+      req.file.mimetype,
+      req.file.originalname,
+    );
+
+    // Save to database
     const [doc] = await db
       .insert(knowledgeDocumentsTable)
       .values({
-        agentId,
-        filename: file.originalname,
-        fileType: file.mimetype || "application/octet-stream",
-        fileSize: file.size,
-        storageKey,
-        extractedContent: extractedContent || null,
-        status: extractedContent ? "processed" : "pending",
-        processed: !!extractedContent,
+        filename: req.file.originalname,
+        fileType: req.file.mimetype,
+        fileSize: req.file.size,
+        extractedContent,
+        agentId: agentId || null,
       })
       .returning();
 
-    res.status(201).json({
-      id: String(doc.id),
-      agentId: doc.agentId,
-      filename: doc.filename,
-      fileType: doc.fileType,
-      fileSize: doc.fileSize,
-      storageKey: doc.storageKey,
-      status: doc.status,
-      hasContent: !!doc.extractedContent,
-      contentPreview: extractedContent ? extractedContent.substring(0, 200) + "..." : null,
-      createdAt: doc.createdAt.toISOString(),
+    res.json({
+      success: true,
+      document: {
+        id: doc.id,
+        filename: doc.filename,
+        fileType: doc.fileType,
+        agentId: doc.agentId,
+        createdAt: doc.createdAt,
+      },
     });
   } catch (err) {
-    console.error("Error uploading knowledge document:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Knowledge upload error:", err);
+    res.status(500).json({ error: "Failed to upload document", message: (err as Error).message });
   }
 });
 
-router.post("/knowledge/upload-url", async (req, res) => {
+router.delete("/knowledge/:id", async (req, res) => {
   try {
-    const { agentId, filename, fileType, fileSize } = req.body as {
-      agentId?: string; filename?: string; fileType?: string; fileSize?: number;
-    };
-    if (!agentId || !filename || !fileType || !fileSize) {
-      res.status(400).json({ error: "agentId, filename, fileType and fileSize are required" });
-      return;
-    }
-    const storageKey = `knowledge/${agentId}/${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const [doc] = await db
-      .insert(knowledgeDocumentsTable)
-      .values({ agentId, filename, fileType, fileSize, storageKey, status: "pending" })
-      .returning();
-    const uploadUrl = `${process.env.APP_URL || ""}/api/knowledge/upload/${doc.id}`;
-    res.json({ uploadUrl, documentId: String(doc.id), storageKey });
+    const { id } = req.params;
+    await db.delete(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.id, id));
+    res.json({ success: true });
   } catch (err) {
-    console.error("Error requesting upload URL:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-router.delete("/knowledge/:documentId", async (req, res) => {
-  try {
-    const documentId = Number(req.params.documentId);
-    if (isNaN(documentId)) {
-      res.status(404).json({ error: "Document not found" });
-      return;
-    }
-    await db.delete(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.id, documentId));
-    res.json({ success: true, message: "Document deleted" });
-  } catch (err) {
-    console.error("Error deleting document:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Knowledge delete error:", err);
+    res.status(500).json({ error: "Failed to delete document" });
   }
 });
 

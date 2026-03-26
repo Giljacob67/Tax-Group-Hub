@@ -47,7 +47,7 @@ export default function Dashboard() {
             Tax Group <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">AI Hub</span>
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Bem-vindo ao núcleo inteligente da Tax Group. Utilize 23 agentes de IA especializados — coordenados por um orquestrador estratégico — para acelerar a prospecção, automatizar o marketing e otimizar as operações internas.
+            Bem-vindo ao núcleo inteligente da Tax Group. Utilize {agentsData?.agents?.length || "23"} agentes de IA especializados — coordenados por um orquestrador estratégico — para acelerar a prospecção, automatizar o marketing e otimizar as operações internas.
           </p>
         </motion.div>
 

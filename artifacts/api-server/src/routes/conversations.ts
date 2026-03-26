@@ -7,45 +7,9 @@ import {
 } from "@workspace/db";
 import { eq, desc, count, and, isNotNull } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
-import OpenAI from "openai";
-import { getEffectiveOllamaUrl, getEffectiveOllamaModel } from "./settings.js";
+import { getLLMConfig, type LLMConfig } from "../lib/llm-client.js";
 
 const router: IRouter = Router();
-
-interface LLMConfig {
-  client: OpenAI;
-  model: string;
-  provider: string;
-}
-
-async function getLLMConfig(): Promise<LLMConfig | null> {
-  const { url: ollamaUrl } = await getEffectiveOllamaUrl();
-  const ollamaModel = await getEffectiveOllamaModel();
-
-  if (ollamaUrl) {
-    const baseURL = ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`;
-    return {
-      client: new OpenAI({ baseURL, apiKey: "ollama", defaultHeaders: { "ngrok-skip-browser-warning": "true" } }),
-      model: ollamaModel,
-      provider: "Ollama",
-    };
-  }
-
-  // Gemini direto via endpoint compatível com OpenAI — sem proxy externo
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    return {
-      client: new OpenAI({
-        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-        apiKey: geminiKey,
-      }),
-      model: process.env.GEMINI_MODEL || "gemini-3-flash-preview",
-      provider: "Gemini",
-    };
-  }
-
-  return null;
-}
 
 function buildRAGContext(docs: Array<{ filename: string; extractedContent: string | null }>, userMessage: string): string {
   const keywords = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 3);
@@ -59,7 +23,7 @@ function buildRAGContext(docs: Array<{ filename: string; extractedContent: strin
     })
     .filter(d => d.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
+    .slice(0, 5); // Limit to top 5 most relevant
 
   if (scored.length === 0) return "";
 
@@ -123,7 +87,6 @@ router.post("/conversations", async (req, res) => {
       res.status(400).json({ error: "agentId is required" });
       return;
     }
-    const agent = getAgentById(agentId);
     const conversationTitle = title || `Nova conversa`;
     const [conv] = await db
       .insert(conversationsTable)
@@ -366,96 +329,42 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         assistantContent = completion.choices[0]?.message?.content || "Desculpe, nao consegui gerar uma resposta. Tente novamente.";
       } catch (llmErr) {
         console.error("LLM error:", llmErr);
-        const providerName = llmConfig.provider;
-        let usedFallback = false;
-        if (providerName === "Ollama") {
-          const fallback = getLLMConfigFallback();
-          if (fallback) {
-            try {
-              const fallbackCompletion = await fallback.client.chat.completions.create({
-                model: fallback.model,
-                messages: llmMessages,
-              });
-              assistantContent = fallbackCompletion.choices[0]?.message?.content || "Desculpe, nao consegui gerar uma resposta.";
-              usedFallback = true;
-              llmConfig.model = fallback.model;
-              llmConfig.provider = `${fallback.provider} (fallback)`;
-            } catch (fallbackErr) {
-              console.error("Gemini fallback error:", fallbackErr);
-              assistantContent = `Erro ao conectar com Ollama e o fallback Gemini tambem falhou. Verifique se o Ollama esta rodando e acessivel.`;
-            }
-          } else {
-            assistantContent = `Erro ao conectar com Ollama. Verifique se o Ollama esta rodando e acessivel, ou configure GEMINI_API_KEY como fallback.`;
-          }
-        } else {
-          assistantContent = `Erro ao conectar com a IA. Verifique as configuracoes do provedor ${providerName}.`;
-        }
-        if (!usedFallback) {
-          console.error(`LLM provider ${providerName} failed. OLLAMA_URL=${process.env.OLLAMA_URL ? "set" : "unset"}, GEMINI_API_KEY=${process.env.GEMINI_API_KEY ? "set" : "unset"}`);
-        }
+        assistantContent = `Erro ao conectar com a IA (${llmConfig.provider}). Verifique as configuracoes do provedor.`;
       }
     } else {
       assistantContent = `**Modo Demo** — Nenhum provedor de IA configurado.\n\n**Agente:** ${agent.name}\n**Sua mensagem:** ${content.trim()}\n\nConfigure OLLAMA_URL (para LLM local) ou GEMINI_API_KEY (para Gemini na nuvem) nas variaveis de ambiente.`;
     }
 
-    const assistantMsg = await insertAssistantMessage(conversationId, assistantContent);
+    const [assistantMsg] = await db
+      .insert(messagesTable)
+      .values({ conversationId, role: "assistant", content: assistantContent })
+      .returning();
 
     await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
 
-    res.json(buildMessageResponse(userMsg, assistantMsg, autoTitle, llmConfig?.model || "nenhum", llmConfig?.provider || "Nenhum"));
+    res.json({
+      userMessage: {
+        id: String(userMsg.id),
+        conversationId: String(userMsg.conversationId),
+        role: userMsg.role,
+        content: userMsg.content,
+        createdAt: userMsg.createdAt.toISOString(),
+      },
+      assistantMessage: {
+        id: String(assistantMsg.id),
+        conversationId: String(assistantMsg.conversationId),
+        role: assistantMsg.role,
+        content: assistantMsg.content,
+        createdAt: assistantMsg.createdAt.toISOString(),
+      },
+      autoTitle,
+      model: llmConfig?.model || "nenhum",
+      provider: llmConfig?.provider || "Nenhum",
+    });
   } catch (err) {
     console.error("Error sending message:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
-async function insertAssistantMessage(conversationId: number, content: string) {
-  const [msg] = await db
-    .insert(messagesTable)
-    .values({ conversationId, role: "assistant", content })
-    .returning();
-  return msg;
-}
-
-function buildMessageResponse(
-  userMsg: typeof messagesTable.$inferSelect,
-  assistantMsg: typeof messagesTable.$inferSelect,
-  autoTitle: string | null,
-  model: string,
-  provider: string
-) {
-  return {
-    userMessage: {
-      id: String(userMsg.id),
-      conversationId: String(userMsg.conversationId),
-      role: userMsg.role,
-      content: userMsg.content,
-      createdAt: userMsg.createdAt.toISOString(),
-    },
-    assistantMessage: {
-      id: String(assistantMsg.id),
-      conversationId: String(assistantMsg.conversationId),
-      role: assistantMsg.role,
-      content: assistantMsg.content,
-      createdAt: assistantMsg.createdAt.toISOString(),
-    },
-    autoTitle,
-    model,
-    provider,
-  };
-}
-
-function getLLMConfigFallback(): LLMConfig | null {
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) return null;
-  return {
-    client: new OpenAI({
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-      apiKey: geminiKey,
-    }),
-    model: process.env.GEMINI_MODEL || "gemini-3-flash-preview",
-    provider: "Gemini",
-  };
-}
 
 export default router;

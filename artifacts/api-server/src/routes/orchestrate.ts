@@ -2,8 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, conversationsTable, messagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
-import OpenAI from "openai";
-import { getEffectiveOllamaUrl, getEffectiveOllamaModel } from "./settings.js";
+import { getLLMConfig } from "../lib/llm-client.js";
 
 const router: IRouter = Router();
 
@@ -25,34 +24,6 @@ interface OrchestrationResult {
 interface CoordinatorReview {
   response: string;
   conversationId: string;
-}
-
-async function getLLMConfig() {
-  const { url: ollamaUrl } = await getEffectiveOllamaUrl();
-  const ollamaModel = await getEffectiveOllamaModel();
-
-  if (ollamaUrl) {
-    const baseURL = ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`;
-    return {
-      client: new OpenAI({ baseURL, apiKey: "ollama", defaultHeaders: { "ngrok-skip-browser-warning": "true" } }),
-      model: ollamaModel,
-      provider: "Ollama",
-    };
-  }
-
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    return {
-      client: new OpenAI({
-        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-        apiKey: geminiKey,
-      }),
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash-preview-04-17",
-      provider: "Gemini",
-    };
-  }
-
-  return null;
 }
 
 async function executeAgentTask(task: OrchestrationTask, context?: string): Promise<OrchestrationResult> {
@@ -107,12 +78,9 @@ async function executeAgentTask(task: OrchestrationTask, context?: string): Prom
     }
 
     // Save assistant response
-    const [assistantMsg] = await db
+    await db
       .insert(messagesTable)
-      .values({ conversationId: conv.id, role: "assistant", content: assistantContent })
-      .returning();
-
-    void assistantMsg;
+      .values({ conversationId: conv.id, role: "assistant", content: assistantContent });
 
     await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conv.id));
 
@@ -214,8 +182,7 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
         ],
       });
       const choice = completion.choices[0];
-      const finishReason = choice?.finish_reason;
-      console.log(`[Coordinator review] finish_reason=${finishReason} tokens_used=${completion.usage?.total_tokens}`);
+      console.log(`[Coordinator review] finish_reason=${choice?.finish_reason} tokens=${completion.usage?.total_tokens || 0}`);
       reviewContent = choice?.message?.content || "Sem parecer disponível.";
     } else {
       reviewContent = `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para ativar a supervisão do Coordenador.`;

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, designGalleryTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -71,8 +71,9 @@ router.post("/integrations/generate-image", async (req, res) => {
 
     if (existing.length >= 20) {
       const toDelete = existing.slice(19).map((r) => r.id);
-      for (const id of toDelete) {
-        await db.delete(designGalleryTable).where(eq(designGalleryTable.id, id));
+      if (toDelete.length > 0) {
+        // Batch delete instead of N+1 queries
+        await db.delete(designGalleryTable).where(inArray(designGalleryTable.id, toDelete));
       }
     }
 
