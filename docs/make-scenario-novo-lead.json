@@ -1,0 +1,104 @@
+{
+  "name": "Tax Group - Novo Lead → AI Hub → Notificação",
+  "description": "Recebe lead do site, chama AI Hub (Prospecção + Qualificação), envia resultado por email",
+  "flow": [
+    {
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "hook": "tax-group-novo-lead"
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        },
+        "restore": {},
+        "parameters": [
+          {
+            "name": "hook",
+            "type": "text",
+            "label": "Webhook name",
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "module": "util:ComposeTransformer",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "body": "{\n  \"name\": \"{{1.name}}\",\n  \"email\": \"{{1.email}}\",\n  \"phone\": \"{{1.phone}}\",\n  \"company\": \"{{1.company}}\",\n  \"source\": \"Site - Formulário\",\n  \"message\": \"{{1.message}}\"\n}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        },
+        "note": "Monta o JSON para enviar ao AI Hub"
+      }
+    },
+    {
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {},
+      "mapper": {
+        "method": "POST",
+        "url": "https://tax-group-hub-api-server.vercel.app/api/automate/trigger/new-lead",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": "{{2.body}}",
+        "parseResponse": true,
+        "timeout": 60
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0
+        },
+        "note": "Chama o AI Hub - executa Prospecção + Qualificação automaticamente"
+      }
+    },
+    {
+      "module": "email:ActionSendEmail",
+      "version": 2,
+      "parameters": {},
+      "mapper": {
+        "to": "gilberto@jgggroup.com.br",
+        "subject": "🔔 Novo Lead: {{1.name}} - {{1.company}}",
+        "content": "<div style='font-family: Arial, sans-serif; max-width: 600px;'>\n<h2 style='color: #107ec2;'>🔔 Novo Lead Qualificado</h2>\n<table style='width: 100%; border-collapse: collapse; margin: 16px 0;'>\n<tr><td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>👤 Nome:</strong></td><td style='padding: 8px; border-bottom: 1px solid #eee;'>{{1.name}}</td></tr>\n<tr><td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>📧 Email:</strong></td><td style='padding: 8px; border-bottom: 1px solid #eee;'>{{1.email}}</td></tr>\n<tr><td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>📞 Telefone:</strong></td><td style='padding: 8px; border-bottom: 1px solid #eee;'>{{1.phone}}</td></tr>\n<tr><td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>🏢 Empresa:</strong></td><td style='padding: 8px; border-bottom: 1px solid #eee;'>{{1.company}}</td></tr>\n<tr><td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>💬 Mensagem:</strong></td><td style='padding: 8px; border-bottom: 1px solid #eee;'>{{1.message}}</td></tr>\n</table>\n<hr style='border: 1px solid #107ec2;'>\n<h3 style='color: #107ec2;'>📋 Script de Abordagem</h3>\n<div style='background: #f5f5f5; padding: 16px; border-radius: 8px; white-space: pre-wrap;'>{{3.pipeline[0].output}}</div>\n<hr style='border: 1px solid #107ec2;'>\n<h3 style='color: #107ec2;'>📊 Qualificação do Lead</h3>\n<div style='background: #f5f5f5; padding: 16px; border-radius: 8px; white-space: pre-wrap;'>{{3.pipeline[1].output}}</div>\n<hr>\n<p style='color: #999; font-size: 12px;'>Gerado automaticamente pelo Tax Group AI Hub</p>\n</div>",
+        "contentType": "html"
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 0
+        },
+        "note": "Envia email formatado com o script de abordagem e scoring do lead"
+      }
+    }
+  ],
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": true,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": {
+      "orphans": []
+    }
+  }
+}
