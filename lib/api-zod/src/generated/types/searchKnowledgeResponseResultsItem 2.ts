@@ -6,10 +6,9 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface SendMessageRequest {
+export type SearchKnowledgeResponseResultsItem = {
+  documentId: string;
+  filename: string;
   content: string;
-  useKnowledgeBase?: boolean;
-  customSystemPrompt?: string;
-  model?: string;
-  stream?: boolean;
-}
+  score: number;
+};

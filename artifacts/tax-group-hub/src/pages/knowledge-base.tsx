@@ -33,7 +33,14 @@ export default function KnowledgeBase() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const { data: docsData, isLoading: isLoadingDocs } = useListKnowledgeDocuments();
+  const { data: docsData, isLoading: isLoadingDocs } = useListKnowledgeDocuments(undefined, {
+    query: {
+      refetchInterval: (data: any) => {
+        const hasPending = data?.documents?.some((doc: any) => doc.status === "pending" || !doc.processed);
+        return hasPending ? 5000 : false;
+      }
+    } as any
+  });
   const deleteMutation = useDeleteKnowledgeDocument();
   const searchMutation = useSearchKnowledge();
 
@@ -142,7 +149,17 @@ export default function KnowledgeBase() {
             <Database className="w-5 h-5 mr-2 text-primary" /> Documentos Indexados
           </h2>
           {isLoadingDocs ? (
-            <div className="py-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-card/50 border border-border/50 rounded-xl p-5 h-28 animate-pulse flex items-start space-x-3">
+                   <div className="w-10 h-10 bg-muted/40 rounded-lg" />
+                   <div className="flex-1 space-y-2">
+                     <div className="h-4 bg-muted/40 rounded w-3/4" />
+                     <div className="h-3 bg-muted/30 rounded w-1/2" />
+                   </div>
+                </div>
+              ))}
+            </div>
           ) : docsData?.documents?.length === 0 ? (
             <div className="text-center py-16 bg-card/30 rounded-2xl border border-border/50">
               <Shield className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />

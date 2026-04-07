@@ -6,8 +6,11 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface CreateConversationRequest {
+export interface Conversation {
+  id: string;
   agentId: string;
-  title?: string;
-  model?: string;
+  title: string;
+  createdAt: Date;
+  updatedAt: Date;
+  messageCount: number;
 }

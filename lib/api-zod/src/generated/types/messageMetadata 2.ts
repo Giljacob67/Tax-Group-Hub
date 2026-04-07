@@ -6,8 +6,4 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface CreateConversationRequest {
-  agentId: string;
-  title?: string;
-  model?: string;
-}
+export type MessageMetadata = { [key: string]: unknown };

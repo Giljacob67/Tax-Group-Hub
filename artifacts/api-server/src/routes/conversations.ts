@@ -4,40 +4,29 @@ import {
   conversationsTable,
   messagesTable,
   knowledgeDocumentsTable,
+  knowledgeChunksTable,
 } from "@workspace/db";
-import { eq, desc, count, and, isNotNull } from "drizzle-orm";
+import { eq, desc, count, and, isNotNull, sql } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
-import { getLLMConfig, type LLMConfig } from "../lib/llm-client.js";
+import { getLLMConfig, type LLMConfig, generateEmbeddings } from "../lib/llm-client.js";
+import { SendMessageBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-function buildRAGContext(docs: Array<{ filename: string; extractedContent: string | null }>, userMessage: string): string {
-  const keywords = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-  const scored = docs
-    .filter(d => d.extractedContent)
-    .map(d => {
-      const content = d.extractedContent!;
-      const lower = content.toLowerCase();
-      const score = keywords.reduce((s, kw) => s + (lower.includes(kw) ? 1 : 0), 0);
-      return { ...d, score, content };
-    })
-    .filter(d => d.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5); // Limit to top 5 most relevant
+/** Returns true if the userId represents a real user (not a fallback/dev value) */
+function isRealUser(userId?: string): userId is string {
+  return !!userId && userId !== "default" && userId !== "dev-user" && userId !== "system";
+}
 
-  if (scored.length === 0) return "";
-
-  const chunks = scored.map(d => {
-    const trimmed = d.content.length > 2000 ? d.content.substring(0, 2000) + "..." : d.content;
-    return `[Documento: ${d.filename}]\n${trimmed}`;
-  });
-
-  return `\n\n--- CONTEXTO DA BASE DE CONHECIMENTO ---\nUse os trechos abaixo como referência para responder de forma mais precisa:\n\n${chunks.join("\n\n")}`;
+function buildRAGContextMock(docs: Array<{ filename: string; extractedContent: string | null }>, userMessage: string): string {
+  // kept only for legacy if needed
+  return "";
 }
 
 router.get("/conversations", async (req, res) => {
   try {
     const { agentId } = req.query;
+    const userId = req.userId;
     const baseQuery = {
       id: conversationsTable.id,
       agentId: conversationsTable.agentId,
@@ -47,23 +36,23 @@ router.get("/conversations", async (req, res) => {
       messageCount: count(messagesTable.id),
     };
 
-    let conversations;
-    if (agentId && typeof agentId === "string") {
-      conversations = await db
-        .select(baseQuery)
-        .from(conversationsTable)
-        .leftJoin(messagesTable, eq(conversationsTable.id, messagesTable.conversationId))
-        .where(eq(conversationsTable.agentId, agentId))
-        .groupBy(conversationsTable.id)
-        .orderBy(desc(conversationsTable.updatedAt));
-    } else {
-      conversations = await db
-        .select(baseQuery)
-        .from(conversationsTable)
-        .leftJoin(messagesTable, eq(conversationsTable.id, messagesTable.conversationId))
-        .groupBy(conversationsTable.id)
-        .orderBy(desc(conversationsTable.updatedAt));
-    }
+    // Build where clause: filter by agentId and/or userId
+    const buildWhere = () => {
+      const conditions = [];
+      if (agentId && typeof agentId === "string") conditions.push(eq(conversationsTable.agentId, agentId));
+      if (isRealUser(userId)) conditions.push(eq(conversationsTable.userId, userId));
+      return conditions.length === 1 ? conditions[0] : conditions.length > 1 ? and(...conditions) : undefined;
+    };
+
+    const whereClause = buildWhere();
+    const query = db
+      .select(baseQuery)
+      .from(conversationsTable)
+      .leftJoin(messagesTable, eq(conversationsTable.id, messagesTable.conversationId))
+      .groupBy(conversationsTable.id)
+      .orderBy(desc(conversationsTable.updatedAt));
+
+    const conversations = whereClause ? await query.where(whereClause) : await query;
 
     res.json({
       conversations: conversations.map((c) => ({
@@ -82,21 +71,23 @@ router.get("/conversations", async (req, res) => {
 
 router.post("/conversations", async (req, res) => {
   try {
-    const { agentId, title } = req.body as { agentId?: string; title?: string };
+    const { agentId, title, model } = req.body as { agentId?: string; title?: string; model?: string };
     if (!agentId) {
       res.status(400).json({ error: "agentId is required" });
       return;
     }
     const conversationTitle = title || `Nova conversa`;
+    const userId = req.userId;
     const [conv] = await db
       .insert(conversationsTable)
-      .values({ agentId, title: conversationTitle })
+      .values({ agentId, title: conversationTitle, model, userId: userId || null })
       .returning();
 
     res.status(201).json({
       id: String(conv.id),
       agentId: conv.agentId,
       title: conv.title,
+      model: conv.model,
       createdAt: conv.createdAt.toISOString(),
       updatedAt: conv.updatedAt.toISOString(),
       messageCount: 0,
@@ -110,6 +101,7 @@ router.post("/conversations", async (req, res) => {
 router.get("/conversations/:conversationId", async (req, res) => {
   try {
     const conversationId = Number(req.params.conversationId);
+    const userId = req.userId;
     if (isNaN(conversationId)) {
       res.status(404).json({ error: "Conversation not found" });
       return;
@@ -117,6 +109,11 @@ router.get("/conversations/:conversationId", async (req, res) => {
     const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
     if (!conv) {
       res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+    // Tenancy check: if real user, verify ownership
+    if (isRealUser(userId) && conv.userId && conv.userId !== userId) {
+      res.status(403).json({ error: "Access denied" });
       return;
     }
     const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
@@ -197,18 +194,41 @@ router.get("/conversations/:conversationId/export", async (req, res) => {
 
     let md = `# ${conv.title}\n\n`;
     md += `**Agente:** ${agent?.name || conv.agentId}\n`;
-    md += `**Data:** ${conv.createdAt.toISOString().split("T")[0]}\n\n---\n\n`;
+    md += `**Modelo Base:** ${conv.model || "Padrão"}\n`;
+    md += `**Data:** ${new Date(conv.createdAt).toLocaleString("pt-BR")}\n\n`;
+    
+    if (agent?.systemPrompt) {
+      md += `### Prompt do Sistema\n> ${agent.systemPrompt.replace(/\n/g, "\n> ")}\n\n`;
+    }
+
+    md += `---\n\n`;
 
     for (const msg of messages) {
-      const role = msg.role === "user" ? "Voce" : "Assistente";
-      md += `### ${role}\n\n${msg.content}\n\n---\n\n`;
+      const role = msg.role === "user" ? "👤 Usuário" : "🤖 Assistente";
+      const time = new Date(msg.createdAt).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' });
+      md += `### ${role} (${time})\n\n${msg.content}\n\n---\n\n`;
     }
 
     res.setHeader("Content-Type", "text/markdown; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${conv.title.replace(/[^a-zA-Z0-9 ]/g, "")}.md"`);
+    res.setHeader("Content-Disposition", `attachment; filename="conversa-${conversationId}.md"`);
     res.send(md);
   } catch (err) {
     console.error("Error exporting conversation:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/messages/:messageId", async (req, res) => {
+  try {
+    const messageId = Number(req.params.messageId);
+    if (isNaN(messageId)) {
+      res.status(400).json({ error: "Invalid messageId" });
+      return;
+    }
+    await db.delete(messagesTable).where(eq(messagesTable.id, messageId));
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error deleting message:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -231,14 +251,15 @@ router.delete("/conversations/:conversationId", async (req, res) => {
 router.post("/conversations/:conversationId/messages", async (req, res) => {
   try {
     const conversationId = Number(req.params.conversationId);
-    const { content, useKnowledgeBase, customSystemPrompt, model: modelOverride } = req.body as {
-      content?: string;
-      useKnowledgeBase?: boolean;
-      customSystemPrompt?: string;
-      model?: string;
-    };
+    const parsedBody = SendMessageBody.safeParse(req.body);
+    if (!parsedBody.success) {
+      res.status(400).json({ error: "Formato de requisicao invalido", details: parsedBody.error.format() });
+      return;
+    }
+    const { content, useKnowledgeBase, customSystemPrompt, model: modelOverride, stream: streamOverride } = parsedBody.data;
+    const isStream = streamOverride === true || req.query.stream === "true";
 
-    if (!content?.trim()) {
+    if (!content.trim()) {
       res.status(400).json({ error: "content is required" });
       return;
     }
@@ -273,33 +294,35 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       await db.update(conversationsTable).set({ title: autoTitle, updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
     }
 
-    let systemPrompt = customSystemPrompt || agent.systemPrompt;
+    let systemPrompt = customSystemPrompt 
+      ? `${agent.systemPrompt}\n\n[Instructions Addicionais do Usuario para esta sessao]: ${customSystemPrompt}` 
+      : agent.systemPrompt;
 
     if (useKnowledgeBase !== false) {
-      const knowledgeDocs = await db
-        .select({ filename: knowledgeDocumentsTable.filename, extractedContent: knowledgeDocumentsTable.extractedContent })
-        .from(knowledgeDocumentsTable)
-        .where(
-          and(
-            eq(knowledgeDocumentsTable.agentId, conv.agentId),
-            isNotNull(knowledgeDocumentsTable.extractedContent)
-          )
-        );
+      try {
+        const [queryEmbedding] = await generateEmbeddings([content.trim()]);
+        
+        // Find top chunks for this agent and global
+        const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
+        const results = await db
+          .select({
+            content: knowledgeChunksTable.content,
+            score: similarity,
+            filename: knowledgeDocumentsTable.filename,
+          })
+          .from(knowledgeChunksTable)
+          .innerJoin(knowledgeDocumentsTable, eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id))
+          .where(sql`${knowledgeDocumentsTable.agentId} = ${conv.agentId} OR ${knowledgeDocumentsTable.agentId} = 'global'`)
+          .orderBy((t) => desc(t.score))
+          .limit(5);
 
-      const globalDocs = await db
-        .select({ filename: knowledgeDocumentsTable.filename, extractedContent: knowledgeDocumentsTable.extractedContent })
-        .from(knowledgeDocumentsTable)
-        .where(
-          and(
-            eq(knowledgeDocumentsTable.agentId, "global"),
-            isNotNull(knowledgeDocumentsTable.extractedContent)
-          )
-        );
-
-      const allDocs = [...knowledgeDocs, ...globalDocs];
-      const ragContext = buildRAGContext(allDocs, content.trim());
-      if (ragContext) {
-        systemPrompt += ragContext;
+        const relevantChunks = results.filter((r) => r.score > 0.3);
+        if (relevantChunks.length > 0) {
+          const contextText = relevantChunks.map(c => `[Doc: ${c.filename}]\n${c.content}`).join("\n\n");
+          systemPrompt += `\n\n--- CONTEXTO REFERÊNCIA ---\n${contextText}`;
+        }
+      } catch (ragErr) {
+        console.error("Failed to generate vector context:", ragErr);
       }
     }
 
@@ -307,14 +330,23 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       { role: "system", content: systemPrompt },
     ];
 
-    for (const msg of existingMessages.slice(0, -1)) {
+    // Sliding Window: Only send the last 14 messages to LLM to preserve tokens/budget
+    const contextHistory = existingMessages.slice(-14); 
+
+    for (const msg of contextHistory) {
       if (msg.role === "user" || msg.role === "assistant") {
         llmMessages.push({ role: msg.role as "user" | "assistant", content: msg.content });
       }
     }
-    llmMessages.push({ role: "user", content: content.trim() });
+    // Note: 'content' is already the last message in existingMessages if we just saved it, 
+    // but the slice(-14) might include it. Let's be careful.
+    // userMsg was just inserted, so it's the last element of existingMessages.
+    // If userMsg is already in llmMessages via the slice, we don't need to push again.
+    if (llmMessages[llmMessages.length - 1].content !== content.trim()) {
+      llmMessages.push({ role: "user", content: content.trim() });
+    }
 
-    let assistantContent: string;
+    let assistantContent = "";
     const llmConfig = await getLLMConfig();
 
     if (llmConfig) {
@@ -322,17 +354,42 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         llmConfig.model = modelOverride;
       }
       try {
-        const completion = await llmConfig.client.chat.completions.create({
-          model: llmConfig.model,
-          messages: llmMessages,
-        });
-        assistantContent = completion.choices[0]?.message?.content || "Desculpe, nao consegui gerar uma resposta. Tente novamente.";
+        if (isStream) {
+          res.setHeader("Content-Type", "text/event-stream");
+          res.setHeader("Cache-Control", "no-cache");
+          res.setHeader("Connection", "keep-alive");
+          res.flushHeaders();
+          
+          res.write(`data: ${JSON.stringify({ type: "start", userMessage: { id: String(userMsg.id), conversationId: String(userMsg.conversationId), role: userMsg.role, content: userMsg.content, createdAt: userMsg.createdAt.toISOString() }, autoTitle })}\n\n`);
+
+          const completion = await llmConfig.client.chat.completions.create({
+            model: llmConfig.model,
+            messages: llmMessages,
+            stream: true,
+          });
+
+          for await (const chunk of completion) {
+            const token = chunk.choices[0]?.delta?.content || "";
+            if (token) {
+              assistantContent += token;
+              res.write(`data: ${JSON.stringify({ type: "token", text: token })}\n\n`);
+            }
+          }
+        } else {
+          const completion = await llmConfig.client.chat.completions.create({
+            model: llmConfig.model,
+            messages: llmMessages,
+          });
+          assistantContent = completion.choices[0]?.message?.content || "Desculpe, não consegui gerar uma resposta. Tente novamente.";
+        }
       } catch (llmErr) {
         console.error("LLM error:", llmErr);
-        assistantContent = `Erro ao conectar com a IA (${llmConfig.provider}). Verifique as configuracoes do provedor.`;
+        assistantContent = `Erro ao conectar com a IA (${llmConfig.provider}). Verifique as configurações do provedor.`;
+        if (isStream) res.write(`data: ${JSON.stringify({ type: "token", text: assistantContent })}\n\n`);
       }
     } else {
-      assistantContent = `**Modo Demo** — Nenhum provedor de IA configurado.\n\n**Agente:** ${agent.name}\n**Sua mensagem:** ${content.trim()}\n\nConfigure OLLAMA_URL (para LLM local) ou GEMINI_API_KEY (para Gemini na nuvem) nas variaveis de ambiente.`;
+      assistantContent = `**Modo Demo** — Nenhum provedor de IA configurado.\n\n**Agente:** ${agent.name}\n**Sua mensagem:** ${content.trim()}\n\nConfigure OLLAMA_URL ou GEMINI_API_KEY nas variáveis de ambiente.`;
+      if (isStream) res.write(`data: ${JSON.stringify({ type: "token", text: assistantContent })}\n\n`);
     }
 
     const [assistantMsg] = await db
@@ -341,6 +398,12 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       .returning();
 
     await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
+
+    if (isStream) {
+      res.write(`data: ${JSON.stringify({ type: "done", assistantMessage: { id: String(assistantMsg.id), conversationId: String(assistantMsg.conversationId), role: assistantMsg.role, content: assistantMsg.content, createdAt: assistantMsg.createdAt.toISOString() }, model: llmConfig?.model || "nenhum", provider: llmConfig?.provider || "Nenhum" })}\n\n`);
+      res.end();
+      return;
+    }
 
     res.json({
       userMessage: {

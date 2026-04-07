@@ -6,8 +6,9 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface CreateConversationRequest {
-  agentId: string;
-  title?: string;
+export interface SendMessageRequest {
+  content: string;
+  useKnowledgeBase?: boolean;
+  customSystemPrompt?: string;
   model?: string;
 }

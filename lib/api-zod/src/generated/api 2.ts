@@ -24,14 +24,13 @@ export const ListAgentsResponse = zod.object({
       name: zod.string(),
       slug: zod.string(),
       description: zod.string(),
-      block: zod.enum(["estrategia", "prospeccao", "marketing", "gestao"]),
+      block: zod.enum(["prospeccao", "marketing", "gestao"]),
       blockLabel: zod.string(),
       icon: zod.string(),
       systemPrompt: zod.string(),
       suggestedPrompts: zod.array(zod.string()),
       priority: zod.number(),
       color: zod.string(),
-      designStudio: zod.boolean().optional(),
     }),
   ),
 });
@@ -48,14 +47,13 @@ export const GetAgentResponse = zod.object({
   name: zod.string(),
   slug: zod.string(),
   description: zod.string(),
-  block: zod.enum(["estrategia", "prospeccao", "marketing", "gestao"]),
+  block: zod.enum(["prospeccao", "marketing", "gestao"]),
   blockLabel: zod.string(),
   icon: zod.string(),
   systemPrompt: zod.string(),
   suggestedPrompts: zod.array(zod.string()),
   priority: zod.number(),
   color: zod.string(),
-  designStudio: zod.boolean().optional(),
 });
 
 /**
@@ -84,19 +82,6 @@ export const ListConversationsResponse = zod.object({
 export const CreateConversationBody = zod.object({
   agentId: zod.string(),
   title: zod.string().optional(),
-  model: zod.string().optional(),
-});
-
-/**
- * @summary Delete a single message
- */
-export const DeleteMessageParams = zod.object({
-  messageId: zod.coerce.number(),
-});
-
-export const DeleteMessageResponse = zod.object({
-  success: zod.boolean(),
-  message: zod.string().optional(),
 });
 
 /**
@@ -169,7 +154,6 @@ export const SendMessageBody = zod.object({
   useKnowledgeBase: zod.boolean().optional(),
   customSystemPrompt: zod.string().optional(),
   model: zod.string().optional(),
-  stream: zod.boolean().optional(),
 });
 
 export const SendMessageResponse = zod.object({

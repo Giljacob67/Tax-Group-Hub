@@ -5,9 +5,8 @@
  * Tax Group AI Hub API
  * OpenAPI spec version: 0.2.0
  */
+import type { Conversation } from "./conversation";
 
-export interface CreateConversationRequest {
-  agentId: string;
-  title?: string;
-  model?: string;
-}
+export type ListConversations200 = {
+  conversations: Conversation[];
+};

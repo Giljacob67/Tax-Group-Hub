@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { knowledgeDocumentsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { generateEmbeddings } from "../lib/llm-client.js";
 import multer from "multer";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
@@ -37,7 +38,7 @@ function fileFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterC
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB to prevent memory exhaustion
   fileFilter,
 });
 
@@ -57,22 +58,107 @@ async function extractTextContent(buffer: Buffer, fileType: string, filename: st
   return "";
 }
 
+function chunkText(text: string, chunkSize: number = 800, overlap: number = 200): string[] {
+  if (!text.trim()) return [];
+  const words = text.split(/\s+/);
+  const chunks: string[] = [];
+  let i = 0;
+  while (i < words.length) {
+    const chunkWords = words.slice(i, i + chunkSize);
+    chunks.push(chunkWords.join(" "));
+    i += chunkSize - overlap;
+  }
+  return chunks;
+}
+
+/**
+ * Process a document in the background: extract text, chunk, embed, and store.
+ * Updates the document status to 'processing' → 'processed' | 'error'.
+ */
+async function processDocumentAsync(docId: number, buffer: Buffer, fileType: string, filename: string): Promise<void> {
+  try {
+    // Mark as processing
+    await db
+      .update(knowledgeDocumentsTable)
+      .set({ status: "processing" })
+      .where(eq(knowledgeDocumentsTable.id, docId));
+
+    const extractedContent = await extractTextContent(buffer, fileType, filename);
+
+    // Update extracted content in DB
+    await db
+      .update(knowledgeDocumentsTable)
+      .set({ extractedContent })
+      .where(eq(knowledgeDocumentsTable.id, docId));
+
+    const chunks = chunkText(extractedContent);
+    if (chunks.length > 0) {
+      const embeddings = await generateEmbeddings(chunks);
+      const chunkValues = chunks.map((chunk, i) => ({
+        documentId: docId,
+        content: chunk,
+        embedding: embeddings[i],
+      }));
+      await db.insert(knowledgeChunksTable).values(chunkValues);
+    }
+
+    // Mark as processed
+    await db
+      .update(knowledgeDocumentsTable)
+      .set({ status: "processed", processed: true })
+      .where(eq(knowledgeDocumentsTable.id, docId));
+
+    console.log(`[Knowledge] Document ${docId} (${filename}) processed successfully. ${chunks.length} chunks indexed.`);
+  } catch (err) {
+    console.error(`[Knowledge] Error processing document ${docId}:`, err);
+    await db
+      .update(knowledgeDocumentsTable)
+      .set({ status: "error" })
+      .where(eq(knowledgeDocumentsTable.id, docId))
+      .catch(() => {});
+  }
+}
+
+// GET /knowledge — List documents, filtered by agentId and/or userId
 router.get("/knowledge", async (req, res) => {
   try {
     const { agentId } = req.query;
+    const userId = req.userId; // injected by auth middleware
+
     let documents;
     if (agentId && typeof agentId === "string") {
-      documents = await db.select().from(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.agentId, agentId)).orderBy(knowledgeDocumentsTable.createdAt);
+      documents = await db
+        .select()
+        .from(knowledgeDocumentsTable)
+        .where(
+          userId && userId !== "default" && userId !== "dev-user"
+            ? and(eq(knowledgeDocumentsTable.agentId, agentId), eq(knowledgeDocumentsTable.userId, userId))
+            : eq(knowledgeDocumentsTable.agentId, agentId),
+        )
+        .orderBy(knowledgeDocumentsTable.createdAt);
     } else {
-      documents = await db.select().from(knowledgeDocumentsTable).orderBy(knowledgeDocumentsTable.createdAt);
+      documents = await db
+        .select()
+        .from(knowledgeDocumentsTable)
+        .where(
+          userId && userId !== "default" && userId !== "dev-user"
+            ? eq(knowledgeDocumentsTable.userId, userId)
+            : undefined,
+        )
+        .orderBy(knowledgeDocumentsTable.createdAt);
     }
+
     res.json({
-      documents: documents.map((d) => ({
-        id: d.id,
+      documents: documents.map((d: any) => ({
+        id: String(d.id),
         filename: d.filename,
         fileType: d.fileType,
+        fileSize: d.fileSize,
         agentId: d.agentId,
-        createdAt: d.createdAt,
+        status: d.status ?? "pending",
+        processed: d.processed ?? false,
+        hasContent: d.processed && !!d.extractedContent,
+        createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt,
       })),
     });
   } catch (err) {
@@ -81,6 +167,7 @@ router.get("/knowledge", async (req, res) => {
   }
 });
 
+// POST /knowledge/upload — Accept file, return immediately, process in background
 router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -89,35 +176,47 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
     }
 
     const { agentId } = req.body;
+    const userId = req.userId;
 
-    // Extract text content
-    const extractedContent = await extractTextContent(
-      req.file.buffer,
-      req.file.mimetype,
-      req.file.originalname,
-    );
-
-    // Save to database
+    // 1. Persist the document record immediately with status 'pending'
     const [doc] = await db
       .insert(knowledgeDocumentsTable)
       .values({
         filename: req.file.originalname,
         fileType: req.file.mimetype,
         fileSize: req.file.size,
-        extractedContent,
-        agentId: agentId || null,
+        extractedContent: null,
+        storageKey: `local-memory-${Date.now()}-${req.file.originalname}`,
+        agentId: agentId || "global",
+        userId: userId || null,
+        status: "pending",
+        processed: false,
       })
       .returning();
 
-    res.json({
+    // 2. Return immediately to the client
+    res.status(202).json({
       success: true,
+      message: "Documento recebido. Processamento em andamento.",
       document: {
-        id: doc.id,
+        id: String(doc.id),
         filename: doc.filename,
         fileType: doc.fileType,
+        fileSize: doc.fileSize,
         agentId: doc.agentId,
-        createdAt: doc.createdAt,
+        status: "pending",
+        processed: false,
+        hasContent: false,
+        createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
       },
+    });
+
+    // 3. Process asynchronously (fire and forget — intentional)
+    const fileBuffer = Buffer.from(req.file.buffer);
+    const fileMime = req.file.mimetype;
+    const fileName = req.file.originalname;
+    setImmediate(() => {
+      processDocumentAsync(doc.id, fileBuffer, fileMime, fileName).catch(() => {});
     });
   } catch (err) {
     console.error("Knowledge upload error:", err);
@@ -125,10 +224,25 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
   }
 });
 
+// DELETE /knowledge/:id — Remove a document (scoped by userId if provided)
 router.delete("/knowledge/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    await db.delete(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.id, id));
+    const userId = req.userId;
+
+    // If we have a real userId, ensure the user owns this document
+    if (userId && userId !== "default" && userId !== "dev-user") {
+      const [doc] = await db
+        .select()
+        .from(knowledgeDocumentsTable)
+        .where(and(eq(knowledgeDocumentsTable.id, Number(id)), eq(knowledgeDocumentsTable.userId, userId)));
+      if (!doc) {
+        res.status(404).json({ error: "Document not found or access denied" });
+        return;
+      }
+    }
+
+    await db.delete(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.id, Number(id)));
     res.json({ success: true });
   } catch (err) {
     console.error("Knowledge delete error:", err);

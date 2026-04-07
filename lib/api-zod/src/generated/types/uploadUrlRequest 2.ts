@@ -6,8 +6,9 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface CreateConversationRequest {
+export interface UploadUrlRequest {
   agentId: string;
-  title?: string;
-  model?: string;
+  filename: string;
+  fileType: string;
+  fileSize: number;
 }

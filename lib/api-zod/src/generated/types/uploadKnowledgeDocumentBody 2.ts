@@ -6,8 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface CreateConversationRequest {
+export type UploadKnowledgeDocumentBody = {
+  file: Blob;
   agentId: string;
-  title?: string;
-  model?: string;
-}
+};

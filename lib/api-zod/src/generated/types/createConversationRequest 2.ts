@@ -9,5 +9,4 @@
 export interface CreateConversationRequest {
   agentId: string;
   title?: string;
-  model?: string;
 }

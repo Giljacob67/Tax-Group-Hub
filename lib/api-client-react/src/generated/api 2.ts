@@ -19,7 +19,6 @@ import type {
 import type {
   Agent,
   AvailableModelsResponse,
-  BadRequestResponse,
   CanvaLinkRequest,
   CanvaLinkResponse,
   Conversation,
@@ -43,7 +42,6 @@ import type {
   SearchKnowledgeRequest,
   SearchKnowledgeResponse,
   SendMessageRequest,
-  ServerErrorResponse,
   SuccessResponse,
   UploadKnowledgeDocumentBody,
   UploadUrlRequest,
@@ -476,92 +474,6 @@ export const useCreateConversation = <
   TContext
 > => {
   return useMutation(getCreateConversationMutationOptions(options));
-};
-
-/**
- * @summary Delete a single message
- */
-export const getDeleteMessageUrl = (messageId: number) => {
-  return `/api/messages/${messageId}`;
-};
-
-export const deleteMessage = async (
-  messageId: number,
-  options?: RequestInit,
-): Promise<SuccessResponse> => {
-  return customFetch<SuccessResponse>(getDeleteMessageUrl(messageId), {
-    ...options,
-    method: "DELETE",
-  });
-};
-
-export const getDeleteMessageMutationOptions = <
-  TError = ErrorType<BadRequestResponse | ServerErrorResponse>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteMessage>>,
-    TError,
-    { messageId: number },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof deleteMessage>>,
-  TError,
-  { messageId: number },
-  TContext
-> => {
-  const mutationKey = ["deleteMessage"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof deleteMessage>>,
-    { messageId: number }
-  > = (props) => {
-    const { messageId } = props ?? {};
-
-    return deleteMessage(messageId, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type DeleteMessageMutationResult = NonNullable<
-  Awaited<ReturnType<typeof deleteMessage>>
->;
-
-export type DeleteMessageMutationError = ErrorType<
-  BadRequestResponse | ServerErrorResponse
->;
-
-/**
- * @summary Delete a single message
- */
-export const useDeleteMessage = <
-  TError = ErrorType<BadRequestResponse | ServerErrorResponse>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof deleteMessage>>,
-    TError,
-    { messageId: number },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof deleteMessage>>,
-  TError,
-  { messageId: number },
-  TContext
-> => {
-  return useMutation(getDeleteMessageMutationOptions(options));
 };
 
 /**

@@ -138,7 +138,39 @@ router.put("/settings/ollama", async (req, res) => {
     const { url, model } = req.body as { url?: string; model?: string };
     if (url !== undefined && url !== null && url !== "") {
       try {
-        new URL(url);
+        const u = new URL(url);
+        if (u.protocol !== "http:" && u.protocol !== "https:") {
+          throw new Error("Protocolo invalido");
+        }
+        
+        const host = u.hostname.toLowerCase();
+        const isPrivate = 
+          host === "localhost" || 
+          host === "127.0.0.1" || 
+          host === "::1" || 
+          host.startsWith("192.168.") || 
+          host.startsWith("10.") || 
+          host.startsWith("172.16.") || 
+          host.startsWith("172.17.") || 
+          host.startsWith("172.18.") || 
+          host.startsWith("172.19.") || 
+          host.startsWith("172.20.") || 
+          host.startsWith("172.21.") || 
+          host.startsWith("172.22.") || 
+          host.startsWith("172.23.") || 
+          host.startsWith("172.24.") || 
+          host.startsWith("172.25.") || 
+          host.startsWith("172.26.") || 
+          host.startsWith("172.27.") || 
+          host.startsWith("172.28.") || 
+          host.startsWith("172.29.") || 
+          host.startsWith("172.30.") || 
+          host.startsWith("172.31.");
+
+        if (isPrivate && process.env.ALLOW_PRIVATE_OLLAMA !== "true") {
+          res.status(400).json({ error: "Seguranca: URLs de rede privada/local nao sao permitidas por padrao." });
+          return;
+        }
       } catch {
         res.status(400).json({ error: "URL invalida. Use o formato: http://host:porta" });
         return;

@@ -1,11 +1,13 @@
-import { pgTable, text, serial, timestamp, integer, jsonb, boolean, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb, boolean, bigint, vector } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const conversationsTable = pgTable("conversations", {
   id: serial("id").primaryKey(),
   agentId: text("agent_id").notNull(),
+  userId: text("user_id"), // Added for future tenancy
   title: text("title").notNull().default("Nova Conversa"),
+  model: text("model"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -22,6 +24,7 @@ export const messagesTable = pgTable("messages", {
 export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   id: serial("id").primaryKey(),
   agentId: text("agent_id").notNull(),
+  userId: text("user_id"), // Added for future tenancy
   filename: text("filename").notNull(),
   fileType: text("file_type").notNull(),
   fileSize: integer("file_size").notNull(),
@@ -60,3 +63,28 @@ export type Message = typeof messagesTable.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type KnowledgeDocument = typeof knowledgeDocumentsTable.$inferSelect;
 export type InsertKnowledgeDocument = z.infer<typeof insertKnowledgeDocumentSchema>;
+
+export const knowledgeChunksTable = pgTable("knowledge_chunks", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull().references(() => knowledgeDocumentsTable.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  embedding: vector("embedding", { dimensions: 768 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertKnowledgeChunkSchema = createInsertSchema(knowledgeChunksTable).omit({ id: true, createdAt: true });
+export type KnowledgeChunk = typeof knowledgeChunksTable.$inferSelect;
+export type InsertKnowledgeChunk = z.infer<typeof insertKnowledgeChunkSchema>;
+
+/**
+ * Embedding cache: avoids calling the embedding API for identical text chunks.
+ * Key: MD5 hash of the text. Value: the embedding vector.
+ */
+export const embeddingCacheTable = pgTable("embedding_cache", {
+  id: serial("id").primaryKey(),
+  textHash: text("text_hash").notNull().unique(),
+  embedding: vector("embedding", { dimensions: 768 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type EmbeddingCache = typeof embeddingCacheTable.$inferSelect;

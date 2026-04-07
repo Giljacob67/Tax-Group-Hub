@@ -9,7 +9,6 @@
 export * from "./agent";
 export * from "./agentBlock";
 export * from "./availableModelsResponse";
-export * from "./badRequestResponse";
 export * from "./canvaLinkRequest";
 export * from "./canvaLinkResponse";
 export * from "./conversation";
@@ -41,7 +40,6 @@ export * from "./searchKnowledgeRequest";
 export * from "./searchKnowledgeResponse";
 export * from "./searchKnowledgeResponseResultsItem";
 export * from "./sendMessageRequest";
-export * from "./serverErrorResponse";
 export * from "./successResponse";
 export * from "./uploadKnowledgeDocumentBody";
 export * from "./uploadUrlRequest";

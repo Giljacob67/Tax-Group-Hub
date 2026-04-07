@@ -120,6 +120,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/Conversation"
 
+  /messages/{messageId}:
+    delete:
+      summary: Delete a single message
+      operationId: deleteMessage
+      tags: [conversations]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Message deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
   /conversations/{conversationId}:
     get:
       operationId: getConversation
@@ -433,6 +456,19 @@ paths:
                 $ref: "#/components/schemas/IntegrationSettingsResponse"
 
 components:
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     HealthStatus:
       type: object
@@ -485,6 +521,8 @@ components:
           type: integer
         color:
           type: string
+        designStudio:
+          type: boolean
       required: [id, name, slug, description, block, blockLabel, icon, systemPrompt, suggestedPrompts, priority, color]
 
     Conversation:
@@ -560,6 +598,8 @@ components:
           type: string
         title:
           type: string
+        model:
+          type: string
       required: [agentId]
 
     RenameConversationRequest:
@@ -594,6 +634,8 @@ components:
           type: string
         model:
           type: string
+        stream:
+          type: boolean
       required: [content]
 
     MessageResponse:

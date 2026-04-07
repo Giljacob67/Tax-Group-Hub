@@ -21,7 +21,6 @@ export interface SuccessResponse {
 export type AgentBlock = (typeof AgentBlock)[keyof typeof AgentBlock];
 
 export const AgentBlock = {
-  estrategia: "estrategia",
   prospeccao: "prospeccao",
   marketing: "marketing",
   gestao: "gestao",
@@ -85,7 +84,6 @@ export interface ConversationWithMessages {
 export interface CreateConversationRequest {
   agentId: string;
   title?: string;
-  model?: string;
 }
 
 export interface RenameConversationRequest {
@@ -104,7 +102,6 @@ export interface SendMessageRequest {
   useKnowledgeBase?: boolean;
   customSystemPrompt?: string;
   model?: string;
-  stream?: boolean;
 }
 
 export interface MessageResponse {
@@ -229,16 +226,6 @@ export interface AvailableModelsResponse {
   defaultModel: string;
   provider?: string | null;
 }
-
-/**
- * Bad request
- */
-export type BadRequestResponse = ErrorResponse;
-
-/**
- * Internal server error
- */
-export type ServerErrorResponse = ErrorResponse;
 
 export type ListAgents200 = {
   agents: Agent[];

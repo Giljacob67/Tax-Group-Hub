@@ -7,7 +7,7 @@ import {
   Send, Bot, User, Plus, MessageSquare, Loader2,
   Copy, CheckCheck, Trash2, Search, Download,
   Settings, Sparkles, Pencil, Check, X, Cpu,
-  ChevronDown
+  ChevronDown, RotateCw
 } from "lucide-react";
 import {
   useGetAgent,
@@ -17,6 +17,7 @@ import {
   useSendMessage,
   useDeleteConversation,
   useRenameConversation,
+  useDeleteMessage,
   useHealthCheck,
   useGetAvailableModels,
   getListConversationsQueryKey,
@@ -68,6 +69,9 @@ export default function AgentChat() {
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [orchestrationPlan, setOrchestrationPlan] = useState<Array<{agentId: string; task: string}> | null>(null);
   const [showOrchestrateModal, setShowOrchestrateModal] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingContent, setStreamingContent] = useState("");
+  const [optimisticUserMsg, setOptimisticUserMsg] = useState<string | null>(null);
 
   const { data: agent, isLoading: isLoadingAgent } = useGetAgent(agentId!);
   const { data: conversations, isLoading: isLoadingConvs } = useListConversations({ agentId });
@@ -80,6 +84,7 @@ export default function AgentChat() {
   const sendMutation = useSendMessage();
   const deleteMutation = useDeleteConversation();
   const renameMutation = useRenameConversation();
+  const deleteMsgMutation = useDeleteMessage();
   const { data: healthData, isError: healthError } = useHealthCheck({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { refetchInterval: 30000 } as any
@@ -117,33 +122,72 @@ export default function AgentChat() {
   const handleNewChat = () => setActiveConvId(null);
 
   const handleCreateAndSend = async (text: string) => {
-    if (!text.trim() || !agentId) return;
+    if (!text.trim() || !agentId || isStreaming) return;
     setInput("");
+    setStreamingContent("");
+    setOptimisticUserMsg(text.trim());
+    setIsStreaming(true);
+
     try {
       let convId = activeConvId;
       if (!convId) {
-        const newConv = await createMutation.mutateAsync({ data: { agentId } });
+        const newConv = await createMutation.mutateAsync({ 
+          data: { agentId, model: effectiveModel } 
+        });
         convId = newConv.id;
         setActiveConvId(convId);
         queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
       }
-      const res = await sendMutation.mutateAsync({
-        conversationId: convId,
-        data: {
-          content: text,
+
+      const response = await fetch(`/api/conversations/${convId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: text.trim(),
           useKnowledgeBase: true,
           customSystemPrompt: customSystemPrompt || undefined,
           model: (isOpenRouter && selectedModel) ? selectedModel : undefined,
-        }
+          stream: true,
+        }),
       });
-      if (res.autoTitle) {
-        queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
+
+      if (!response.ok) throw new Error("Mensagem falhou");
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder("utf-8");
+      
+      let fullText = "";
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunkStr = decoder.decode(value, { stream: true });
+          const lines = chunkStr.split("\\n\\n");
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.substring(6));
+                if (data.type === "start" && data.autoTitle) {
+                   queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
+                } else if (data.type === "token" && data.text) {
+                   fullText += data.text;
+                   setStreamingContent(fullText);
+                }
+              } catch (e) {}
+            }
+          }
+        }
       }
+
       queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(convId) });
       queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
     } catch {
       toast({ title: "Erro ao enviar mensagem", description: "Tente novamente.", variant: "destructive" });
       setInput(text);
+    } finally {
+      setIsStreaming(false);
+      setOptimisticUserMsg(null);
+      setStreamingContent("");
     }
   };
 
@@ -202,7 +246,26 @@ export default function AgentChat() {
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
+    toast({
+      title: "Mensagem copiada",
+      duration: 2000,
+    });
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleRegenerate = async (msgId: string) => {
+    if (isStreaming || !activeConvId) return;
+    try {
+      await deleteMsgMutation.mutateAsync({ messageId: Number(msgId) });
+      queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(activeConvId) });
+      // Find the last user message to replay
+      const lastUserMsg = activeConv?.messages?.filter(m => m.role === 'user').pop();
+      if (lastUserMsg) {
+        handleCreateAndSend(lastUserMsg.content);
+      }
+    } catch {
+      toast({ title: "Erro ao regenerar", variant: "destructive" });
+    }
   };
 
   const handleSaveSystemPrompt = () => {
@@ -498,6 +561,16 @@ export default function AgentChat() {
                           {copiedId === msg.id ? <CheckCheck className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
                         </button>
                       )}
+                      {msg.role === 'assistant' && msg.id === activeConv?.messages?.[activeConv.messages.length - 1]?.id && (
+                        <button 
+                          onClick={() => handleRegenerate(msg.id)} 
+                          className="absolute -right-10 top-10 p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" 
+                          disabled={isStreaming}
+                          title="Regenerar"
+                        >
+                          <RotateCw className={`w-4 h-4 ${isStreaming ? 'animate-spin' : ''}`} />
+                        </button>
+                      )}
                       <div className={`text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none ${msg.role === 'user' ? 'prose-p:text-white prose-strong:text-white' : ''}`}>
                         <ReactMarkdown>{msg.role === 'assistant' ? stripOrchestrationBlock(msg.content) : msg.content}</ReactMarkdown>
                       </div>
@@ -520,22 +593,50 @@ export default function AgentChat() {
                   </div>
                 </motion.div>
               ))}
+
+              {optimisticUserMsg && (
+                <motion.div key="optimistic-user" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
+                  <div className="max-w-[85%] flex flex-row-reverse items-end gap-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 text-base select-none bg-secondary">
+                      <User className="w-4 h-4 text-foreground/70" />
+                    </div>
+                    <div className="relative p-4 rounded-2xl bg-[#107ec2] text-white rounded-br-sm shadow-md opacity-80">
+                      <div className="text-sm leading-relaxed prose prose-sm max-w-none prose-p:text-white prose-strong:text-white">
+                        <ReactMarkdown>{optimisticUserMsg}</ReactMarkdown>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {isStreaming && (
+                <motion.div key="optimistic-bot" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
+                  <div className="max-w-[85%] flex flex-row items-end gap-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 text-base select-none bg-[#107ec2]/15 border border-[#107ec2]/20">
+                      <span>{agent.icon || "🤖"}</span>
+                    </div>
+                    <div className="relative p-4 rounded-2xl bg-card/30 text-foreground rounded-bl-sm shadow-sm">
+                      {streamingContent ? (
+                        <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown>{stripOrchestrationBlock(streamingContent)}</ReactMarkdown>
+                          <span className="inline-block w-1.5 h-3.5 bg-primary ml-1 animate-pulse" />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex space-x-2 items-center h-4">
+                            <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
+                          <span className="text-[10px] text-muted-foreground animate-pulse font-medium">Pensando...</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
             </AnimatePresence>
 
-            {sendMutation.isPending && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-                <div className="flex gap-3 items-end">
-                  <div className="w-8 h-8 rounded-full bg-[#107ec2]/15 border border-[#107ec2]/20 flex items-center justify-center mb-1 text-base select-none">
-                    {agent.icon || <Bot className="w-4 h-4 text-primary" />}
-                  </div>
-                  <div className="bg-card/30 rounded-2xl rounded-bl-sm p-4 flex space-x-2 items-center h-12">
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
-              </motion.div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         </div>
@@ -549,11 +650,11 @@ export default function AgentChat() {
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCreateAndSend(input); } }}
               placeholder={`Mensagem para ${agent.name}...`}
               className="w-full bg-card border border-[#107ec2]/30 focus:border-[#107ec2] focus:shadow-[0_0_0_2px_rgba(16,126,194,0.20)] rounded-xl pl-5 pr-14 py-4 text-sm shadow-sm transition-all outline-none"
-              disabled={sendMutation.isPending}
+              disabled={isStreaming}
             />
             <button
               onClick={() => handleCreateAndSend(input)}
-              disabled={!input.trim() || sendMutation.isPending}
+              disabled={!input.trim() || isStreaming}
               className="absolute right-2 p-2.5 rounded-lg bg-[#107ec2] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#107ec2]/90 transition-colors shadow-md"
             >
               <Send className="w-4 h-4" />

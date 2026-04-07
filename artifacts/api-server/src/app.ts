@@ -2,15 +2,31 @@ import express, { type Express } from "express";
 import cors from "cors";
 import { apiKeyAuth } from "./middlewares/auth.js";
 import { apiLimiter, llmLimiter } from "./middlewares/rate-limit.js";
+import { requestId } from "./middlewares/request-id.js";
+import { errorHandler } from "./middlewares/error-handler.js";
 import router from "./routes";
 
 const app: Express = express();
 
+const getOrigins = () => {
+  if (process.env.CORS_ORIGINS) return process.env.CORS_ORIGINS.split(',');
+  if (process.env.NODE_ENV === "production") return [process.env.APP_URL || false];
+  return ["http://localhost:5173", "http://127.0.0.1:5173"];
+};
+
+// Request ID tracing
+app.use(requestId);
+
 // CORS
 app.use(cors({
-  origin: process.env.NODE_ENV === "production"
-    ? process.env.APP_URL || false
-    : true,
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    const allowed = getOrigins();
+    if (!origin || allowed.includes(origin) || allowed.includes(true) || allowed.includes("true")) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
 }));
 
@@ -32,5 +48,8 @@ app.use("/api/orchestrate", llmLimiter);
 
 // Routes
 app.use("/api", router);
+
+// Global Error Handler
+app.use(errorHandler);
 
 export default app;

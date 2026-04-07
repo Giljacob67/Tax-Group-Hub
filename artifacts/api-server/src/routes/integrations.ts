@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, designGalleryTable } from "@workspace/db";
-import { eq, desc, inArray } from "drizzle-orm";
+import { db, designGalleryTable, knowledgeChunksTable, knowledgeDocumentsTable } from "@workspace/db";
+import { eq, desc, inArray, sql } from "drizzle-orm";
+import { generateEmbeddings } from "../lib/llm-client.js";
 
 const router: IRouter = Router();
 
@@ -157,44 +158,32 @@ router.post("/integrations/search-knowledge", async (req, res) => {
       return;
     }
 
-    const googleApiKey = process.env.GEMINI_API_KEY;
-    if (googleApiKey) {
-      try {
-        const embeddingResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${googleApiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model: "models/text-embedding-004", content: { parts: [{ text: query }] } }),
-          }
-        );
-        interface EmbeddingResponse { error?: { message: string }; embedding?: { values: number[] } }
-        const embeddingData = (await embeddingResponse.json()) as EmbeddingResponse;
-        if (embeddingData.error) throw new Error(embeddingData.error.message);
-        res.json({
-          query,
-          results: [{
-            documentId: "demo",
-            filename: "Dados Tax Group",
-            content: `Resultado da busca semântica para: "${query}". Configure a base de conhecimento fazendo upload de documentos e use embeddings para busca avançada.`,
-            score: 0.95,
-          }],
-        });
-        return;
-      } catch (embErr) {
-        console.error("Embedding error:", embErr);
-      }
-    }
+    try {
+      const [queryEmbedding] = await generateEmbeddings([query]);
+      
+      const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
+      
+      const results = await db
+        .select({
+          documentId: knowledgeChunksTable.documentId,
+          content: knowledgeChunksTable.content,
+          score: similarity,
+          filename: knowledgeDocumentsTable.filename,
+        })
+        .from(knowledgeChunksTable)
+        .innerJoin(knowledgeDocumentsTable, eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id))
+        .where(agentId ? eq(knowledgeDocumentsTable.agentId, agentId) : undefined)
+        .orderBy((t) => desc(t.score))
+        .limit(limit || 5);
 
-    res.json({
-      query,
-      results: [{
-        documentId: "demo",
-        filename: "Demo",
-        content: `Busca por: "${query}". Configure GEMINI_API_KEY para busca semântica com embeddings reais.`,
-        score: 0.5,
-      }],
-    });
+      res.json({
+        query,
+        results: results.filter((r) => r.score > 0.3), // Vector similarity threshold
+      });
+    } catch (embErr) {
+      console.error("Vector search error:", embErr);
+      res.status(500).json({ error: "Failed to perform vector search" });
+    }
   } catch (err) {
     console.error("Error searching knowledge:", err);
     res.status(500).json({ error: "Internal server error" });
