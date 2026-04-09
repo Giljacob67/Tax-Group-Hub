@@ -353,6 +353,8 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       llmMessages.push({ role: "user", content: content.trim() });
     }
 
+    let assistantContent = "";
+
     // [Refactored for Phase 9] Use unified callLLM for metrics and tool support
     try {
       if (isStream) {

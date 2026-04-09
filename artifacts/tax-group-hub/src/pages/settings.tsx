@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   Settings, CheckCircle2, XCircle, Server,
   Cloud, Loader2, ExternalLink, RefreshCw, Cpu, Zap,
-  Eye, EyeOff, Save, Wifi, WifiOff, AlertCircle
+  Eye, EyeOff, Save, Wifi, WifiOff, AlertCircle, Crown
 } from "lucide-react";
 
 interface IntegrationStatus {
