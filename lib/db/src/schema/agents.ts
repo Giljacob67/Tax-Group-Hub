@@ -5,9 +5,11 @@ import { z } from "zod/v4";
 export const conversationsTable = pgTable("conversations", {
   id: serial("id").primaryKey(),
   agentId: text("agent_id").notNull(),
-  userId: text("user_id"), // Added for future tenancy
+  userId: text("user_id"), 
   title: text("title").notNull().default("Nova Conversa"),
   model: text("model"),
+  platform: text("platform").default("web"), // 'web' | 'whatsapp' | 'telegram'
+  externalId: text("external_id"), // phone number or chat_id
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -32,12 +34,15 @@ export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   extractedContent: text("extracted_content"),
   status: text("status").notNull().default("pending"),
   processed: boolean("processed").notNull().default(false),
+  retries: integer("retries").notNull().default(0), // Added for resiliency
+  errorLog: text("error_log"), // Added for debug
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const designGalleryTable = pgTable("design_gallery", {
   id: serial("id").primaryKey(),
   agentId: text("agent_id").notNull().default("global"),
+  userId: text("user_id"), // Added for strict tenancy
   imageUrl: text("image_url").notNull(),
   prompt: text("prompt").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -88,3 +93,73 @@ export const embeddingCacheTable = pgTable("embedding_cache", {
 });
 
 export type EmbeddingCache = typeof embeddingCacheTable.$inferSelect;
+
+/**
+ * Storage for integration and AI provider API Keys (BYOK support)
+ */
+export const apiKeysTable = pgTable("api_keys", {
+  id: serial("id").primaryKey(),
+  provider: text("provider").notNull(), // 'openai', 'anthropic', 'resend', 'tavily', 'whatsapp', etc
+  key: text("key").notNull(),
+  userId: text("user_id"), // Added for future tenancy (Bring Your Own Key)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type ApiKey = typeof apiKeysTable.$inferSelect;
+
+/**
+ * Maps external bot channels (Telegram tokens, WhatsApp numbers) to specific agents/users.
+ */
+export const channelConfigsTable = pgTable("channel_configs", {
+  id: serial("id").primaryKey(),
+  platform: text("platform").notNull(), // 'whatsapp' | 'telegram'
+  externalId: text("external_id").notNull(), // bot token or phone number
+  agentId: text("agent_id").notNull(),
+  userId: text("user_id"),
+  config: jsonb("config"), // extra secrets or settings
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type ChannelConfig = typeof channelConfigsTable.$inferSelect;
+export const insertChannelConfigSchema = createInsertSchema(channelConfigsTable).omit({ id: true, createdAt: true, updatedAt: true });
+
+/**
+ * Stores LLM metrics for analytics and billing.
+ */
+export const usageLogsTable = pgTable("usage_logs", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id"),
+  conversationId: integer("conversation_id"),
+  agentId: text("agent_id"),
+  model: text("model"),
+  provider: text("provider"),
+  promptTokens: integer("prompt_tokens").notNull().default(0),
+  completionTokens: integer("completion_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  latencyMs: integer("latency_ms"),
+  platform: text("platform").notNull().default("web"), // 'web' | 'whatsapp' | 'telegram' | 'automate'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type UsageLog = typeof usageLogsTable.$inferSelect;
+export const insertUsageLogSchema = createInsertSchema(usageLogsTable).omit({ id: true, createdAt: true });
+
+/**
+ * Custom branding configuration for tenants.
+ */
+export const tenantBrandingTable = pgTable("tenant_branding", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").unique(), // One branding config per user/owner
+  companyName: text("company_name").notNull().default("Tax Group Hub"),
+  logoStorageKey: text("logo_storage_key"), // Internal path in /uploads
+  primaryColor: text("primary_color").notNull().default("#3b82f6"), // Default tailwind blue-500
+  customDomain: text("custom_domain"), // Optional custom domain for white-label
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type TenantBranding = typeof tenantBrandingTable.$inferSelect;
+export const insertTenantBrandingSchema = createInsertSchema(tenantBrandingTable).omit({ id: true, createdAt: true, updatedAt: true });

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, appConfigTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, appConfigTable, channelConfigsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -48,36 +48,65 @@ interface IntegrationStatus {
 router.get("/settings/integrations", async (_req, res) => {
   try {
     const { url: ollamaUrl } = await getEffectiveOllamaUrl();
-    const ollamaModel = await getEffectiveOllamaModel();
 
     const integrations: IntegrationStatus[] = [
       {
         id: "ollama",
-        name: "Ollama (LLM Local)",
-        description: "Modelos de IA rodando localmente via Ollama. Requer endpoint acessivel externamente (ngrok, cloudflared, etc).",
-        envVar: "OLLAMA_URL",
-        configured: !!ollamaUrl,
-        active: !!ollamaUrl,
-        category: "llm",
+        name: "Ollama",
+        status: ollamaUrl ? "connected" : "disconnected",
+        description: "IA Local (Privacidade Total)",
+        icon: "🦙",
       },
       {
-        id: "gemini",
-        name: "Google AI (Gemini)",
-        description: "Plataforma Google AI unificada. Chat com agentes (gemini-3-flash-preview), geracao de imagens (gemini-3-pro-image-preview) no Design Studio e busca semantica (Text Embeddings 004) na base de conhecimento.",
-        envVar: "GEMINI_API_KEY",
-        configured: !!process.env.GEMINI_API_KEY,
-        active: !!process.env.GEMINI_API_KEY,
-        category: "llm",
+        id: "google",
+        name: "Google Gemini",
+        status: process.env.GEMINI_API_KEY ? "connected" : "disconnected",
+        description: "Performance e Contexto Longo",
+        icon: "♊",
+      },
+      {
+        id: "anthropic",
+        name: "Anthropic Claude",
+        status: process.env.ANTHROPIC_API_KEY ? "connected" : "disconnected",
+        description: "Raciocínio Técnico Superior",
+        icon: "🎭",
+      },
+      {
+        id: "openai",
+        name: "OpenAI GPT-4",
+        status: process.env.OPENAI_API_KEY ? "connected" : "disconnected",
+        description: "Estabilidade e Multimodalidade",
+        icon: "🧠",
+      },
+      {
+        id: "tavily",
+        name: "Tavily Search",
+        description: "Busca em tempo real otimizada para LLMs (RAG).",
+        envVar: "TAVILY_API_KEY",
+        configured: !!process.env.TAVILY_API_KEY,
+        active: !!process.env.TAVILY_API_KEY,
+        category: "tool",
+      },
+      {
+        id: "resend",
+        name: "Resend (Email)",
+        description: "Envio de emails transacionais para leads.",
+        envVar: "RESEND_API_KEY",
+        configured: !!process.env.RESEND_API_KEY,
+        active: !!process.env.RESEND_API_KEY,
+        category: "tool",
       },
     ];
 
-    const geminiModel = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+    const geminiModel = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
     let activeLLM: string | null = null;
     if (ollamaUrl) {
       activeLLM = `Ollama (${ollamaModel})`;
     } else if (process.env.GEMINI_API_KEY) {
       activeLLM = `Gemini (${geminiModel})`;
+    } else if (process.env.ANTHROPIC_API_KEY) {
+      activeLLM = `Anthropic (Claude 3.5)`;
     }
 
     res.json({
@@ -89,6 +118,66 @@ router.get("/settings/integrations", async (_req, res) => {
   } catch (err) {
     console.error("Error fetching integrations:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /settings/channels — List omnichannel channel configurations
+router.get("/settings/channels", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const channels = await db
+      .select()
+      .from(channelConfigsTable)
+      .where(userId && userId !== "default" && userId !== "dev-user" ? eq(channelConfigsTable.userId, userId) : undefined);
+    
+    res.json({ channels });
+  } catch (err) {
+    console.error("Error listing channels:", err);
+    res.status(500).json({ error: "Failed to list channels" });
+  }
+});
+
+// POST /settings/channels — Create/Update channel mapping
+router.post("/settings/channels", async (req, res) => {
+  try {
+    const { platform, externalId, agentId, config } = req.body;
+    const userId = req.userId;
+
+    if (!platform || !externalId || !agentId) {
+      res.status(400).json({ error: "platform, externalId and agentId are required" });
+      return;
+    }
+
+    // Insert or Update logic
+    const [existing] = await db
+      .select()
+      .from(channelConfigsTable)
+      .where(and(eq(channelConfigsTable.platform, platform), eq(channelConfigsTable.externalId, externalId)))
+      .limit(1);
+
+    if (existing) {
+       const [updated] = await db
+         .update(channelConfigsTable)
+         .set({ agentId, config: config || {}, updatedAt: new Date() })
+         .where(eq(channelConfigsTable.id, existing.id))
+         .returning();
+       res.json({ success: true, channel: updated });
+    } else {
+       const [newChan] = await db
+         .insert(channelConfigsTable)
+         .values({
+           platform,
+           externalId,
+           agentId,
+           userId: userId || null,
+           config: config || {},
+         })
+         .returning();
+       res.json({ success: true, channel: newChan });
+    }
+  } catch (err) {
+    console.error("Error saving channel config:", err);
+    res.status(500).json({ error: "Failed to save channel config" });
   }
 });
 

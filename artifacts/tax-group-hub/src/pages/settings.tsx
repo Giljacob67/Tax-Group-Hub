@@ -366,6 +366,159 @@ function OllamaCard({ integration, onSettingsChange }: {
   );
 }
 
+function BrandingSection() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [branding, setBranding] = useState({
+    companyName: "",
+    primaryColor: "#3b82f6",
+    customDomain: "",
+    logoUrl: ""
+  });
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    fetch("/api/branding/config")
+      .then(r => r.json())
+      .then(data => {
+        if (data.id) {
+          setBranding({
+            companyName: data.companyName,
+            primaryColor: data.primaryColor,
+            customDomain: data.customDomain || "",
+            logoUrl: data.logoStorageKey ? `/uploads/${data.logoStorageKey}` : ""
+          });
+        }
+        setLoading(false);
+      });
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/branding/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(branding)
+      });
+      if (res.ok) {
+        setMsg("Branding atualizado! Recarregue a página para aplicar.");
+        setTimeout(() => window.location.reload(), 1500);
+      }
+    } catch {
+      setMsg("Erro ao salvar.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0]) return;
+    const formData = new FormData();
+    formData.append("logo", e.target.files[0]);
+    
+    setSaving(true);
+    try {
+      const res = await fetch("/api/branding/logo", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBranding(prev => ({ ...prev, logoUrl: data.logoUrl }));
+        setMsg("Logo atualizada!");
+      }
+    } catch {
+      setMsg("Erro no upload.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-card border border-border/50 rounded-2xl p-6 space-y-6"
+    >
+      <div className="flex items-center gap-3">
+        <Crown className="w-5 h-5 text-amber-400" />
+        <h2 className="text-lg font-semibold text-foreground">Identidade Visual & Branding</h2>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase">Nome da Empresa</label>
+            <input
+              type="text"
+              value={branding.companyName}
+              onChange={e => setBranding({...branding, companyName: e.target.value})}
+              className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase">Cor Primária (Hex)</label>
+            <div className="flex gap-3">
+              <input
+                type="color"
+                value={branding.primaryColor}
+                onChange={e => setBranding({...branding, primaryColor: e.target.value})}
+                className="w-10 h-10 rounded cursor-pointer bg-transparent"
+              />
+              <input
+                type="text"
+                value={branding.primaryColor}
+                onChange={e => setBranding({...branding, primaryColor: e.target.value})}
+                className="flex-1 bg-background border border-border/50 rounded-lg px-3 py-2 text-sm font-mono"
+              />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+             <label className="text-xs font-medium text-muted-foreground uppercase">Domínio Customizado</label>
+             <input
+               type="text"
+               value={branding.customDomain}
+               placeholder="hub.suaempresa.com"
+               onChange={e => setBranding({...branding, customDomain: e.target.value})}
+               className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-sm"
+             />
+          </div>
+        </div>
+
+        <div className="space-y-4 flex flex-col items-center justify-center p-6 border-2 border-dashed border-border/30 rounded-2xl bg-muted/20">
+           <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Logotipo</p>
+           {branding.logoUrl ? (
+             <img src={branding.logoUrl} className="h-16 object-contain mb-4" alt="Preview" />
+           ) : (
+             <Crown className="w-12 h-12 text-muted-foreground/30 mb-4" />
+           )}
+           <label className="cursor-pointer bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+             Alterar Logo
+             <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
+           </label>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-border/30 flex items-center justify-between">
+         <p className="text-xs text-muted-foreground">{msg || "Altere a cor e o nome para personalizar seu portal."}</p>
+         <button
+           onClick={handleSave}
+           disabled={saving}
+           className="flex items-center gap-2 bg-emerald-500 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all disabled:opacity-50"
+         >
+           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+           Salvar Identidade
+         </button>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function SettingsPage() {
   const [data, setData] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -430,6 +583,9 @@ export default function SettingsPage() {
             </button>
           </div>
         </motion.div>
+
+        {/* Phase 10 Branding */}
+        <BrandingSection />
 
         <motion.div
           initial={{ opacity: 0, y: 10 }}

@@ -36,13 +36,32 @@ function fileFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterC
   }
 }
 
+import path from "node:path";
+import fs from "node:fs";
+
+const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, `doc-${uniqueSuffix}${ext}`);
+  },
+});
+
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB to prevent memory exhaustion
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter,
 });
 
-async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
+export async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
   const lower = (fileType + filename).toLowerCase();
   if (lower.includes("pdf")) {
     const data = await pdfParse(buffer);
@@ -75,12 +94,15 @@ function chunkText(text: string, chunkSize: number = 800, overlap: number = 200)
  * Process a document in the background: extract text, chunk, embed, and store.
  * Updates the document status to 'processing' → 'processed' | 'error'.
  */
-async function processDocumentAsync(docId: number, buffer: Buffer, fileType: string, filename: string): Promise<void> {
+export async function processDocumentAsync(docId: number, buffer: Buffer, fileType: string, filename: string): Promise<void> {
   try {
-    // Mark as processing
+    // Increment retries and mark as processing
     await db
       .update(knowledgeDocumentsTable)
-      .set({ status: "processing" })
+      .set({ 
+        status: "processing", 
+        retries: sql`${knowledgeDocumentsTable.retries} + 1` 
+      })
       .where(eq(knowledgeDocumentsTable.id, docId));
 
     const extractedContent = await extractTextContent(buffer, fileType, filename);
@@ -105,15 +127,16 @@ async function processDocumentAsync(docId: number, buffer: Buffer, fileType: str
     // Mark as processed
     await db
       .update(knowledgeDocumentsTable)
-      .set({ status: "processed", processed: true })
+      .set({ status: "processed", processed: true, errorLog: null })
       .where(eq(knowledgeDocumentsTable.id, docId));
 
     console.log(`[Knowledge] Document ${docId} (${filename}) processed successfully. ${chunks.length} chunks indexed.`);
   } catch (err) {
-    console.error(`[Knowledge] Error processing document ${docId}:`, err);
+    const errorMsg = (err as Error).message || String(err);
+    console.error(`[Knowledge] Error processing document ${docId}:`, errorMsg);
     await db
       .update(knowledgeDocumentsTable)
-      .set({ status: "error" })
+      .set({ status: "error", errorLog: errorMsg })
       .where(eq(knowledgeDocumentsTable.id, docId))
       .catch(() => {});
   }
@@ -186,7 +209,7 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
         fileType: req.file.mimetype,
         fileSize: req.file.size,
         extractedContent: null,
-        storageKey: `local-memory-${Date.now()}-${req.file.originalname}`,
+        storageKey: req.file.path || `local-memory-${Date.now()}-${req.file.originalname}`,
         agentId: agentId || "global",
         userId: userId || null,
         status: "pending",
@@ -211,10 +234,13 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
       },
     });
 
-    // 3. Process asynchronously (fire and forget — intentional)
-    const fileBuffer = Buffer.from(req.file.buffer);
+    // 3. Process asynchronously (fire and forget)
+    // If multer is configured for disk Storage, req.file.path exists. Otherwise fallback to buffer (memory)
+    const filePath = req.file.path;
+    const fileBuffer = filePath ? fs.readFileSync(filePath) : (req.file.buffer ? Buffer.from(req.file.buffer) : Buffer.alloc(0));
     const fileMime = req.file.mimetype;
     const fileName = req.file.originalname;
+    
     setImmediate(() => {
       processDocumentAsync(doc.id, fileBuffer, fileMime, fileName).catch(() => {});
     });

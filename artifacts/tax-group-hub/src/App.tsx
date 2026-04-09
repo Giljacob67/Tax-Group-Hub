@@ -12,6 +12,7 @@ import AgentChat from "./pages/agent-chat";
 import KnowledgeBase from "./pages/knowledge-base";
 import Integrations from "./pages/integrations";
 import SettingsPage from "./pages/settings";
+import { BrandingProvider } from "./contexts/BrandingContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,14 +77,16 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-          <Toaster />
-        </TooltipProvider>
-      </QueryClientProvider>
+      <BrandingProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Router />
+            </WouterRouter>
+            <Toaster />
+          </TooltipProvider>
+        </QueryClientProvider>
+      </BrandingProvider>
     </ErrorBoundary>
   );
 }

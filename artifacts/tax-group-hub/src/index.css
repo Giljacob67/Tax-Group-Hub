@@ -76,8 +76,10 @@
   --popover-foreground: 210 40% 98%;
   --popover-border: 220 60% 12%;
 
-  --primary: 204 84% 41%; /* Tax Group Azul Claro #107ec2 */
-  --primary-foreground: 210 40% 98%;
+  /* White-label Dynamic Colors (Phase 10) */
+  --primary-color: #107ec2; 
+  --primary: var(--primary-color);
+  --primary-foreground: #ffffff;
 
   --secondary: 222 47% 11%;
   --secondary-foreground: 210 40% 98%;
@@ -94,11 +96,11 @@
   --sidebar: 220 80% 3%;
   --sidebar-foreground: 210 40% 98%;
   --sidebar-border: 220 60% 10%;
-  --sidebar-primary: 204 84% 41%;
-  --sidebar-primary-foreground: 210 40% 98%;
+  --sidebar-primary: var(--primary-color);
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: 220 60% 10%;
   --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-ring: 204 84% 41%;
+  --sidebar-ring: var(--primary-color);
 
   --radius: 0.75rem;
 

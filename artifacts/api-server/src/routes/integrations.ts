@@ -62,24 +62,30 @@ router.post("/integrations/generate-image", async (req, res) => {
     }
 
     const galleryKey = agentId || "global";
+    const userId = req.userId;
 
-    // Persist to DB (cap at 20 items per agent by deleting oldest if needed)
+    // Persist to DB (cap at 20 items per agent/user)
     const existing = await db
       .select({ id: designGalleryTable.id })
       .from(designGalleryTable)
-      .where(eq(designGalleryTable.agentId, galleryKey))
+      .where(
+        and(
+          eq(designGalleryTable.agentId, galleryKey),
+          userId ? eq(designGalleryTable.userId, userId) : sql`TRUE`
+        )
+      )
       .orderBy(desc(designGalleryTable.createdAt));
 
     if (existing.length >= 20) {
       const toDelete = existing.slice(19).map((r) => r.id);
       if (toDelete.length > 0) {
-        // Batch delete instead of N+1 queries
         await db.delete(designGalleryTable).where(inArray(designGalleryTable.id, toDelete));
       }
     }
 
     await db.insert(designGalleryTable).values({
       agentId: galleryKey,
+      userId: userId || null,
       imageUrl,
       prompt: fullPrompt,
     });
@@ -87,7 +93,12 @@ router.post("/integrations/generate-image", async (req, res) => {
     const gallery = await db
       .select()
       .from(designGalleryTable)
-      .where(eq(designGalleryTable.agentId, galleryKey))
+      .where(
+        and(
+          eq(designGalleryTable.agentId, galleryKey),
+          userId ? eq(designGalleryTable.userId, userId) : sql`TRUE`
+        )
+      )
       .orderBy(desc(designGalleryTable.createdAt));
 
     res.json({
@@ -104,10 +115,17 @@ router.post("/integrations/generate-image", async (req, res) => {
 router.get("/integrations/image-gallery/:agentId", async (req, res) => {
   try {
     const { agentId } = req.params;
+    const userId = req.userId;
+
     const images = await db
       .select()
       .from(designGalleryTable)
-      .where(eq(designGalleryTable.agentId, agentId))
+      .where(
+        and(
+          eq(designGalleryTable.agentId, agentId),
+          userId ? eq(designGalleryTable.userId, userId) : sql`TRUE`
+        )
+      )
       .orderBy(desc(designGalleryTable.createdAt));
 
     res.json({
@@ -160,6 +178,7 @@ router.post("/integrations/search-knowledge", async (req, res) => {
 
     try {
       const [queryEmbedding] = await generateEmbeddings([query]);
+      const userId = req.userId;
       
       const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
       
@@ -172,7 +191,12 @@ router.post("/integrations/search-knowledge", async (req, res) => {
         })
         .from(knowledgeChunksTable)
         .innerJoin(knowledgeDocumentsTable, eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id))
-        .where(agentId ? eq(knowledgeDocumentsTable.agentId, agentId) : undefined)
+        .where(
+          and(
+            agentId ? eq(knowledgeDocumentsTable.agentId, agentId) : sql`TRUE`,
+            userId ? eq(knowledgeDocumentsTable.userId, userId) : sql`TRUE`
+          )
+        )
         .orderBy((t) => desc(t.score))
         .limit(limit || 5);
 

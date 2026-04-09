@@ -1,115 +1,191 @@
 /**
- * Shared LLM client for Tax Group Hub.
- *
- * Consolidates getLLMConfig() and callLLM() into a single module
- * used by conversations.ts, orchestrate.ts, and automate.ts.
+ * Universal LLM client for Tax Group Hub.
+ * Uses Vercel AI SDK for provider-agnostic calls.
  */
 
-import OpenAI from "openai";
 import { createHash } from "node:crypto";
-import { getEffectiveOllamaUrl, getEffectiveOllamaModel } from "../routes/settings.js";
+import { 
+  generateText, 
+  generateObject,
+  embedMany,
+  type LanguageModel,
+  type GenerateTextResult,
+  type EmbeddingModel
+} from "ai";
+import { createOpenAI, openai } from "@ai-sdk/openai";
+import { createAnthropic, anthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI, google } from "@ai-sdk/google";
+import { getEffectiveOllamaUrl, getEffectiveOllamaModel, getConfigValue } from "../routes/settings.js";
 import { db } from "@workspace/db";
-import { embeddingCacheTable } from "@workspace/db";
+import { embeddingCacheTable, apiKeysTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
-
-export interface LLMConfig {
-  client: OpenAI;
-  model: string;
-  provider: string;
-}
+import { availableTools, type ToolId } from "./tools/registry.js";
 
 export interface LLMResult {
   output: string;
   tokensUsed: number;
   executionTimeMs: number;
+  model: string;
+  provider: string;
+  toolCalls?: any[];
 }
 
 /**
- * Get an OpenAI-compatible client configured for the active LLM provider.
- * Priority: Ollama > Gemini > null
+ * Get a specific API key from DB or Env
  */
-export async function getLLMConfig(): Promise<LLMConfig | null> {
-  const { url: ollamaUrl } = await getEffectiveOllamaUrl();
-  const ollamaModel = await getEffectiveOllamaModel();
+async function getApiKey(provider: string): Promise<string | null> {
+  // Try DB first (BYOK)
+  const [dbKey] = await db
+    .select()
+    .from(apiKeysTable)
+    .where(eq(apiKeysTable.provider, provider))
+    .limit(1);
+  
+  if (dbKey?.key) return dbKey.key;
 
-  if (ollamaUrl) {
-    const baseURL = ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`;
-    return {
-      client: new OpenAI({
-        baseURL,
-        apiKey: "ollama",
-        defaultHeaders: { "ngrok-skip-browser-warning": "true" },
-      }),
-      model: ollamaModel,
-      provider: "Ollama",
-    };
-  }
+  // Fallback to Env
+  const envMap: Record<string, string | undefined> = {
+    openai: process.env.OPENAI_API_KEY,
+    anthropic: process.env.ANTHROPIC_API_KEY,
+    google: process.env.GEMINI_API_KEY,
+    tavily: process.env.TAVILY_API_KEY,
+    resend: process.env.RESEND_API_KEY,
+  };
 
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    return {
-      client: new OpenAI({
-        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-        apiKey: geminiKey,
-      }),
-      model: process.env.GEMINI_MODEL || "gemini-2.5-flash-preview-04-17",
-      provider: "Gemini",
-    };
-  }
-
-  return null;
+  return envMap[provider] || null;
 }
 
 /**
- * Call the LLM with a system prompt and user message.
- * Returns output, token count, and execution time.
+ * Returns a configured LanguageModel based on provider and model name.
+ * Defaults to Ollama (if available) or Gemini.
+ */
+export async function getLanguageModel(requestedProvider?: string, requestedModel?: string): Promise<{ model: LanguageModel; providerName: string; modelId: string }> {
+  // Normalize provider names
+  const provider = (requestedProvider || "auto").toLowerCase();
+  
+  // 1. OLLAMA (Local First)
+  const { url: ollamaUrl } = await getEffectiveOllamaUrl();
+  const ollamaDefaultModel = await getEffectiveOllamaModel();
+  
+  if ((provider === "ollama" || provider === "auto") && ollamaUrl) {
+    const customOpenAI = createOpenAI({
+      baseURL: ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
+      apiKey: "ollama",
+    });
+    const modelId = requestedModel || ollamaDefaultModel;
+    return { 
+      model: customOpenAI(modelId), 
+      providerName: "Ollama", 
+      modelId 
+    };
+  }
+
+  // 2. ANTHROPIC
+  const anthropicKey = await getApiKey("anthropic");
+  if ((provider === "anthropic" || provider === "claude") && anthropicKey) {
+    const customAnthropic = createAnthropic({ apiKey: anthropicKey });
+    const modelId = requestedModel || "claude-3-5-sonnet-20240620";
+    return { model: customAnthropic(modelId), providerName: "Anthropic", modelId };
+  }
+
+  // 3. OPENAI
+  const openaiKey = await getApiKey("openai");
+  if ((provider === "openai" || provider === "gpt") && openaiKey) {
+    const customOpenAI = createOpenAI({ apiKey: openaiKey });
+    const modelId = requestedModel || "gpt-4o";
+    return { model: customOpenAI(modelId), providerName: "OpenAI", modelId };
+  }
+
+  // 4. GOOGLE / GEMINI (Default Cloud Fallback)
+  const googleKey = await getApiKey("google");
+  if (googleKey) {
+    const customGoogle = createGoogleGenerativeAI({ apiKey: googleKey });
+    const modelId = requestedModel || process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    return { model: customGoogle(modelId), providerName: "Google", modelId };
+  }
+
+  throw new Error(`Nenhum provedor de IA disponível ou configurado para: ${provider}`);
+}
+
+/**
+ * Call the LLM using Vercel AI SDK.
+ * Supports automated tool calling with maxSteps.
  */
 export async function callLLM(
   systemPrompt: string,
   userMessage: string,
-  _context?: Record<string, unknown>,
+  options?: { 
+    provider?: string; 
+    model?: string; 
+    jsonMode?: boolean;
+    toolIds?: ToolId[];
+  }
 ): Promise<LLMResult> {
   const startTime = Date.now();
-  const config = await getLLMConfig();
+  const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model);
 
-  if (!config) {
-    throw new Error("No LLM configured. Set GEMINI_API_KEY or OLLAMA_URL.");
+  // Prepare tools if requested
+  const tools: Record<string, any> = {};
+  if (options?.toolIds) {
+    for (const id of options.toolIds) {
+      if (availableTools[id]) {
+        tools[id] = availableTools[id];
+      }
+    }
   }
 
-  const completion = await config.client.chat.completions.create({
-    model: config.model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
-    ],
-    max_tokens: 4096,
+  const result = await generateText({
+    model,
+    system: systemPrompt,
+    prompt: userMessage,
+    maxTokens: 4096,
+    tools: Object.keys(tools).length > 0 ? tools : undefined,
+    maxSteps: Object.keys(tools).length > 0 ? 5 : 1, // Enable multi-step tools
   });
 
-  const output = completion.choices?.[0]?.message?.content || "";
-  const tokensUsed = completion.usage?.total_tokens || 0;
   const executionTimeMs = Date.now() - startTime;
+  const tokensUsed = (result.usage.promptTokens + result.usage.completionTokens) || 0;
 
-  console.log(`[LLM] ${config.provider} (${config.model}) | Tokens: ${tokensUsed} | Duration: ${executionTimeMs}ms`);
+  console.log(`[LLM] ${providerName} (${modelId}) | Tokens: ${tokensUsed} | Steps: ${result.steps.length} | Duration: ${executionTimeMs}ms`);
 
   return {
-    output,
+    output: result.text,
     tokensUsed,
     executionTimeMs,
+    model: modelId,
+    provider: providerName,
+    toolCalls: result.toolCalls,
   };
 }
 
 /**
  * Generate embeddings for a given array of texts.
  * Uses a DB cache (MD5 hash) to avoid redundant API calls.
- * Uses text-embedding-004 (Gemini) or nomic-embed-text (Ollama).
  */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  const config = await getLLMConfig();
-  if (!config) {
-    throw new Error("No LLM configured for embeddings.");
-  }
+  if (texts.length === 0) return [];
 
-  const embedModel = config.provider === "Gemini" ? "text-embedding-004" : "nomic-embed-text";
+  // Use Google as default for embeddings if available, else Ollama
+  const googleKey = await getApiKey("google");
+  const { url: ollamaUrl } = await getEffectiveOllamaUrl();
+
+  let embeddingModel: EmbeddingModel<string>;
+  let modelId: string;
+
+  if (googleKey) {
+    const googleProvider = createGoogleGenerativeAI({ apiKey: googleKey });
+    modelId = "text-embedding-004";
+    embeddingModel = googleProvider.textEmbeddingModel(modelId);
+  } else if (ollamaUrl) {
+    const ollamaProvider = createOpenAI({
+      baseURL: ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
+      apiKey: "ollama",
+    });
+    modelId = await getEffectiveOllamaModel() || "nomic-embed-text";
+    embeddingModel = ollamaProvider.textEmbeddingModel(modelId);
+  } else {
+    throw new Error("Nenhum provedor configurado para embeddings.");
+  }
 
   // 1. Compute MD5 hash for each text
   const hashes = texts.map((t) => createHash("md5").update(t).digest("hex"));
@@ -121,50 +197,49 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
       .select({ textHash: embeddingCacheTable.textHash, embedding: embeddingCacheTable.embedding })
       .from(embeddingCacheTable)
       .where(inArray(embeddingCacheTable.textHash, hashes));
-  } catch (cacheErr) {
-    console.warn("[Embedding Cache] DB lookup failed, falling back to API:", cacheErr);
+  } catch (e) {
+    console.warn("[Embedding Cache] DB error:", e);
   }
 
   const cacheMap = new Map(cachedRows.map((r) => [r.textHash, r.embedding]));
-
-  // 3. Identify which texts are not in cache
   const missingIndices: number[] = [];
   const missingTexts: string[] = [];
+  
   for (let i = 0; i < texts.length; i++) {
     if (!cacheMap.has(hashes[i])) {
       missingIndices.push(i);
       missingTexts.push(texts[i]);
-    } else {
-      console.log(`[Embedding Cache] HIT for hash ${hashes[i].substring(0, 8)}...`);
     }
   }
 
-  // 4. Fetch embeddings from API for missing texts
   const newEmbeddings: number[][] = [];
   if (missingTexts.length > 0) {
-    console.log(`[Embedding Cache] MISS — calling API for ${missingTexts.length}/${texts.length} texts`);
-    const response = await config.client.embeddings.create({
-      model: embedModel,
-      input: missingTexts,
+    console.log(`[Embedding Cache] MISS - calling API for ${missingTexts.length}/${texts.length} texts`);
+    const { embeddings } = await embedMany({
+      model: embeddingModel,
+      values: missingTexts,
     });
-    const sorted = response.data.sort((a: any, b: any) => a.index - b.index);
-    for (const item of sorted) {
-      newEmbeddings.push(item.embedding);
+    
+    for (const emb of embeddings) {
+      newEmbeddings.push(Array.from(emb));
     }
 
-    // 5. Persist new embeddings to cache (fire-and-forget)
+    // Persist new embeddings to cache (fire-and-forget)
     Promise.all(
       missingIndices.map((origIdx, i) =>
         db
           .insert(embeddingCacheTable)
-          .values({ textHash: hashes[origIdx], embedding: newEmbeddings[i] })
+          .values({ 
+            textHash: hashes[origIdx], 
+            embedding: newEmbeddings[i] 
+          })
           .onConflictDoNothing()
-          .catch((e: Error) => console.warn("[Embedding Cache] Failed to persist:", e.message)),
-      ),
+          .catch((e: Error) => console.warn("[Embedding Cache] Save failed:", e.message)),
+      )
     ).catch(() => {});
   }
 
-  // 6. Assemble final result in original order
+  // Assemble final result in original order
   const result: number[][] = [];
   let newIdx = 0;
   for (let i = 0; i < texts.length; i++) {
@@ -177,4 +252,41 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   }
 
   return result;
+}
+
+/**
+ * Transcribe audio buffer to text using OpenAI Whisper.
+ */
+export async function transcribeAudio(audioBuffer: Buffer, fileName: string): Promise<string> {
+  const apiKey = await getApiKey("openai");
+  if (!apiKey) {
+    throw new Error("OpenAI API Key não configurada para transcrição de áudio.");
+  }
+
+  const customOpenAI = createOpenAI({ apiKey });
+  
+  // Vercel AI SDK doesn't have a direct transcribe tool, so we use the openai package if available or fetch
+  // Since we have @ai-sdk/openai, we can try to use the raw client if we find it, or just use fetch.
+  // I'll use fetch to be safe and avoid adding new dependencies if possible.
+  
+  const formData = new FormData();
+  const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+  formData.append("file", blob, fileName);
+  formData.append("model", "whisper-1");
+
+  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Erro na transcrição: ${error.error?.message || response.statusText}`);
+  }
+
+  const result = await response.json();
+  return result.text;
 }

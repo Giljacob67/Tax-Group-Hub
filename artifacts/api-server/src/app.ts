@@ -34,6 +34,11 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static uploads (Phase 10 Branding)
+import path from "node:path";
+const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
+app.use("/uploads", express.static(UPLOADS_DIR));
+
 // Global API key auth — applied to all /api routes
 app.use("/api", apiKeyAuth);
 

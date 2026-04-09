@@ -26,9 +26,12 @@ const BLOCKS = [
   { id: "gestao", label: "Gestão Interna", icon: Settings2, color: "text-emerald-400" },
 ];
 
+import { useBranding } from "../contexts/BrandingContext";
+
 export function AppSidebar() {
   const [location, navigate] = useLocation();
   const { data, isLoading } = useListAgents();
+  const { branding, isLoading: brandingLoading } = useBranding();
   const [search, setSearch] = useState("");
 
   const filteredAgents = search.trim()
@@ -38,19 +41,25 @@ export function AppSidebar() {
       )
     : null;
 
+  const logoUrl = branding.logoStorageKey 
+    ? `/uploads/${branding.logoStorageKey}` 
+    : `${import.meta.env.BASE_URL}images/logo-x-branco.svg`;
+
   return (
     <Sidebar variant="inset" className="border-r border-border/50 bg-background/50 backdrop-blur-xl">
       <SidebarHeader className="p-4 flex flex-row items-center space-x-3 mt-2">
-        <div className="w-12 h-12 rounded-xl bg-[#107ec2]/15 ring-1 ring-[#107ec2]/30 flex items-center justify-center flex-shrink-0">
+        <div className="w-12 h-12 rounded-xl bg-primary/15 ring-1 ring-primary/30 flex items-center justify-center flex-shrink-0 transition-all duration-500">
           <img
-            src={`${import.meta.env.BASE_URL}images/logo-x-branco.svg`}
-            alt="Tax Group"
+            src={logoUrl}
+            alt={branding.companyName}
             className="w-8 h-8 object-contain"
           />
         </div>
         <div>
-          <h1 className="text-lg font-bold tracking-tight text-white">Tax Group</h1>
-          <p className="text-xs text-[#107ec2] font-semibold tracking-widest uppercase">AI Hub</p>
+          <h1 className="text-lg font-bold tracking-tight text-white transition-all duration-500">
+            {branding.companyName}
+          </h1>
+          <p className="text-[10px] text-primary font-bold tracking-[0.2em] uppercase opacity-80">AI Hub</p>
         </div>
       </SidebarHeader>
 

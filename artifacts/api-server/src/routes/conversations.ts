@@ -1,14 +1,16 @@
 import { Router, type IRouter } from "express";
-import { db } from "@workspace/db";
-import {
-  conversationsTable,
-  messagesTable,
-  knowledgeDocumentsTable,
+import { 
+  db, 
+  conversationsTable, 
+  messagesTable, 
+  knowledgeDocumentsTable, 
   knowledgeChunksTable,
+  usageLogsTable 
 } from "@workspace/db";
-import { eq, desc, count, and, isNotNull, sql } from "drizzle-orm";
+import { eq, desc, count, and, sql } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
-import { getLLMConfig, type LLMConfig, generateEmbeddings } from "../lib/llm-client.js";
+import { generateEmbeddings, callLLM, getLanguageModel } from "../lib/llm-client.js";
+import { streamText } from "ai";
 import { SendMessageBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -312,7 +314,12 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
           })
           .from(knowledgeChunksTable)
           .innerJoin(knowledgeDocumentsTable, eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id))
-          .where(sql`${knowledgeDocumentsTable.agentId} = ${conv.agentId} OR ${knowledgeDocumentsTable.agentId} = 'global'`)
+          .where(
+            and(
+              sql`${knowledgeDocumentsTable.agentId} = ${conv.agentId} OR ${knowledgeDocumentsTable.agentId} = 'global'`,
+              isRealUser(userId) ? eq(knowledgeDocumentsTable.userId, userId) : sql`TRUE`
+            )
+          )
           .orderBy((t) => desc(t.score))
           .limit(5);
 
@@ -346,49 +353,70 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       llmMessages.push({ role: "user", content: content.trim() });
     }
 
-    let assistantContent = "";
-    const llmConfig = await getLLMConfig();
+    // [Refactored for Phase 9] Use unified callLLM for metrics and tool support
+    try {
+      if (isStream) {
+        // For streaming, we'll keep the direct SDK call for now to manage the response object,
+        // but we'll manually log usage at the end.
+        // TODO: Move stream logic to llm-client for full reuse.
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.flushHeaders();
+        
+        res.write(`data: ${JSON.stringify({ type: "start", userMessage: { id: String(userMsg.id), conversationId: String(userMsg.conversationId), role: userMsg.role, content: userMsg.content, createdAt: userMsg.createdAt.toISOString() }, autoTitle })}\n\n`);
 
-    if (llmConfig) {
-      if (modelOverride && llmConfig.provider === "Gemini") {
-        llmConfig.model = modelOverride;
-      }
-      try {
-        if (isStream) {
-          res.setHeader("Content-Type", "text/event-stream");
-          res.setHeader("Cache-Control", "no-cache");
-          res.setHeader("Connection", "keep-alive");
-          res.flushHeaders();
-          
-          res.write(`data: ${JSON.stringify({ type: "start", userMessage: { id: String(userMsg.id), conversationId: String(userMsg.conversationId), role: userMsg.role, content: userMsg.content, createdAt: userMsg.createdAt.toISOString() }, autoTitle })}\n\n`);
-
-          const completion = await llmConfig.client.chat.completions.create({
-            model: llmConfig.model,
-            messages: llmMessages,
-            stream: true,
-          });
-
-          for await (const chunk of completion) {
-            const token = chunk.choices[0]?.delta?.content || "";
-            if (token) {
-              assistantContent += token;
-              res.write(`data: ${JSON.stringify({ type: "token", text: token })}\n\n`);
-            }
+        const { model: aiModel } = await getLanguageModel(undefined, modelOverride);
+        const streamResult = await streamText({
+          model: aiModel,
+          system: systemPrompt,
+          messages: llmMessages,
+          onFinish: async (finish) => {
+             // Log usage
+             await db.insert(usageLogsTable).values({
+               userId: userId || null,
+               conversationId,
+               agentId: conv.agentId,
+               model: finish.modelId,
+               provider: finish.provider,
+               promptTokens: finish.usage.promptTokens,
+               completionTokens: finish.usage.completionTokens,
+               totalTokens: finish.usage.totalTokens,
+               platform: "web"
+             }).catch(e => console.error("Usage log error:", e));
           }
-        } else {
-          const completion = await llmConfig.client.chat.completions.create({
-            model: llmConfig.model,
-            messages: llmMessages,
-          });
-          assistantContent = completion.choices[0]?.message?.content || "Desculpe, não consegui gerar uma resposta. Tente novamente.";
+        });
+
+        for await (const part of streamResult.fullStream) {
+          if (part.type === 'text-delta') {
+            assistantContent += part.textDelta;
+            res.write(`data: ${JSON.stringify({ type: "token", text: part.textDelta })}\n\n`);
+          }
         }
-      } catch (llmErr) {
-        console.error("LLM error:", llmErr);
-        assistantContent = `Erro ao conectar com a IA (${llmConfig.provider}). Verifique as configurações do provedor.`;
-        if (isStream) res.write(`data: ${JSON.stringify({ type: "token", text: assistantContent })}\n\n`);
+      } else {
+        const result = await callLLM(systemPrompt, content.trim(), { 
+          model: modelOverride,
+          toolIds: ["webSearch", "emailSender"] // Enabled tools in chat
+        });
+        assistantContent = result.output;
+
+        // Log usage (standard call)
+        await db.insert(usageLogsTable).values({
+          userId: userId || null,
+          conversationId,
+          agentId: conv.agentId,
+          model: result.model,
+          provider: result.provider,
+          promptTokens: 0, // callLLM only returns totalTokens currently
+          completionTokens: 0,
+          totalTokens: result.tokensUsed,
+          latencyMs: result.executionTimeMs,
+          platform: "web"
+        }).catch(() => {});
       }
-    } else {
-      assistantContent = `**Modo Demo** — Nenhum provedor de IA configurado.\n\n**Agente:** ${agent.name}\n**Sua mensagem:** ${content.trim()}\n\nConfigure OLLAMA_URL ou GEMINI_API_KEY nas variáveis de ambiente.`;
+    } catch (llmErr) {
+      console.error("LLM error:", llmErr);
+      assistantContent = `Erro ao conectar com a IA. Verifique os logs do servidor.`;
       if (isStream) res.write(`data: ${JSON.stringify({ type: "token", text: assistantContent })}\n\n`);
     }
 
@@ -400,7 +428,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
 
     if (isStream) {
-      res.write(`data: ${JSON.stringify({ type: "done", assistantMessage: { id: String(assistantMsg.id), conversationId: String(assistantMsg.conversationId), role: assistantMsg.role, content: assistantMsg.content, createdAt: assistantMsg.createdAt.toISOString() }, model: llmConfig?.model || "nenhum", provider: llmConfig?.provider || "Nenhum" })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: "done", assistantMessage: { id: String(assistantMsg.id), conversationId: String(assistantMsg.conversationId), role: assistantMsg.role, content: assistantMsg.content, createdAt: assistantMsg.createdAt.toISOString() } })}\n\n`);
       res.end();
       return;
     }
@@ -421,8 +449,6 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         createdAt: assistantMsg.createdAt.toISOString(),
       },
       autoTitle,
-      model: llmConfig?.model || "nenhum",
-      provider: llmConfig?.provider || "Nenhum",
     });
   } catch (err) {
     console.error("Error sending message:", err);

@@ -6,15 +6,16 @@ const router: IRouter = Router();
 
 // ─── Execute a single agent ───────────────────────────────────────────
 // POST /api/automate/execute
-// Body: { agentId, input, context?, variables? }
+// Body: { agentId, input, context?, variables?, toolIds? }
 // Use case: Make/n8n sends input, receives agent output
 router.post("/automate/execute", async (req, res) => {
   try {
-    const { agentId, input, context, variables } = req.body as {
+    const { agentId, input, context, variables, toolIds } = req.body as {
       agentId?: string;
       input?: string;
       context?: Record<string, unknown>;
       variables?: Record<string, string>;
+      toolIds?: any[];
     };
 
     if (!agentId?.trim()) {
@@ -40,8 +41,8 @@ router.post("/automate/execute", async (req, res) => {
       }
     }
 
-    // Call LLM (Gemini or Ollama)
-    const result = await callLLM(systemPrompt, input, context);
+    // Call LLM with optional tools
+    const result = await callLLM(systemPrompt, input, { toolIds: toolIds as any });
 
     res.json({
       success: true,
@@ -50,11 +51,44 @@ router.post("/automate/execute", async (req, res) => {
       output: result.output,
       tokensUsed: result.tokensUsed,
       executionTimeMs: result.executionTimeMs,
+      provider: result.provider,
+      model: result.model,
+      toolCalls: result.toolCalls,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
     console.error("Execute error:", err);
     res.status(500).json({ error: "Execution failed", message: (err as Error).message });
+  }
+});
+
+// ... (skipping pipe with // ...) ...
+
+// ─── Trigger: Daily Reforma Tributária insight ────────────────────────
+// POST /api/automate/trigger/reforma-tributaria
+// Auto-runs: Reforma Tributária agent (enabled with Web Search tool)
+router.post("/automate/trigger/reforma-tributaria", async (_req, res) => {
+  try {
+    const agent = getAgentById("reformatributaria-insight");
+    if (!agent) {
+      res.status(500).json({ error: "Reforma Tributária agent not found" });
+      return;
+    }
+
+    const input = "Gere um insight executivo sobre as últimas atualizações da Reforma Tributária (Lei Complementar 214/2025). Use a ferramenta de busca para verificar notícias e prazos de hoje. Foque em impacto prático para empresas de médio e grande porte. Inclua prazos, ações recomendadas e oportunidades.";
+
+    const result = await callLLM(agent.systemPrompt, input, { toolIds: ["webSearch"] });
+
+    res.json({
+      success: true,
+      trigger: "reforma-tributaria",
+      output: result.output,
+      toolUsed: "webSearch",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Reforma Tributária trigger error:", err);
+    res.status(500).json({ error: "Trigger failed", message: (err as Error).message });
   }
 });
 
