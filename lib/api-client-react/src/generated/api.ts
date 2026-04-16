@@ -28,6 +28,7 @@ import type {
   ErrorResponse,
   GenerateImageRequest,
   GenerateImageResponse,
+  GetCustomKeys200,
   HealthStatus,
   ImageGalleryResponse,
   IntegrationSettingsResponse,
@@ -44,6 +45,7 @@ import type {
   SearchKnowledgeResponse,
   SendMessageRequest,
   ServerErrorResponse,
+  SetCustomKeyRequest,
   SuccessResponse,
   UploadKnowledgeDocumentBody,
   UploadUrlRequest,
@@ -1877,3 +1879,248 @@ export function useGetIntegrationSettings<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get custom BYOK API keys
+ */
+export const getGetCustomKeysUrl = () => {
+  return `/api/settings/keys`;
+};
+
+export const getCustomKeys = async (
+  options?: RequestInit,
+): Promise<GetCustomKeys200> => {
+  return customFetch<GetCustomKeys200>(getGetCustomKeysUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCustomKeysQueryKey = () => {
+  return [`/api/settings/keys`] as const;
+};
+
+export const getGetCustomKeysQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCustomKeys>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCustomKeys>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCustomKeysQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCustomKeys>>> = ({
+    signal,
+  }) => getCustomKeys({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCustomKeys>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCustomKeysQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCustomKeys>>
+>;
+export type GetCustomKeysQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get custom BYOK API keys
+ */
+
+export function useGetCustomKeys<
+  TData = Awaited<ReturnType<typeof getCustomKeys>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCustomKeys>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCustomKeysQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Set a custom BYOK API key
+ */
+export const getSetCustomKeyUrl = () => {
+  return `/api/settings/keys`;
+};
+
+export const setCustomKey = async (
+  setCustomKeyRequest: SetCustomKeyRequest,
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getSetCustomKeyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setCustomKeyRequest),
+  });
+};
+
+export const getSetCustomKeyMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setCustomKey>>,
+    TError,
+    { data: BodyType<SetCustomKeyRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setCustomKey>>,
+  TError,
+  { data: BodyType<SetCustomKeyRequest> },
+  TContext
+> => {
+  const mutationKey = ["setCustomKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setCustomKey>>,
+    { data: BodyType<SetCustomKeyRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setCustomKey(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetCustomKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setCustomKey>>
+>;
+export type SetCustomKeyMutationBody = BodyType<SetCustomKeyRequest>;
+export type SetCustomKeyMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Set a custom BYOK API key
+ */
+export const useSetCustomKey = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setCustomKey>>,
+    TError,
+    { data: BodyType<SetCustomKeyRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setCustomKey>>,
+  TError,
+  { data: BodyType<SetCustomKeyRequest> },
+  TContext
+> => {
+  return useMutation(getSetCustomKeyMutationOptions(options));
+};
+
+/**
+ * @summary Delete a custom BYOK API key
+ */
+export const getDeleteCustomKeyUrl = (provider: string) => {
+  return `/api/settings/keys/${provider}`;
+};
+
+export const deleteCustomKey = async (
+  provider: string,
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getDeleteCustomKeyUrl(provider), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCustomKeyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCustomKey>>,
+    TError,
+    { provider: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCustomKey>>,
+  TError,
+  { provider: string },
+  TContext
+> => {
+  const mutationKey = ["deleteCustomKey"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCustomKey>>,
+    { provider: string }
+  > = (props) => {
+    const { provider } = props ?? {};
+
+    return deleteCustomKey(provider, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCustomKeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCustomKey>>
+>;
+
+export type DeleteCustomKeyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a custom BYOK API key
+ */
+export const useDeleteCustomKey = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCustomKey>>,
+    TError,
+    { provider: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCustomKey>>,
+  TError,
+  { provider: string },
+  TContext
+> => {
+  return useMutation(getDeleteCustomKeyMutationOptions(options));
+};

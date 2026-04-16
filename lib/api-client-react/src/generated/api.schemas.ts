@@ -230,6 +230,16 @@ export interface AvailableModelsResponse {
   provider?: string | null;
 }
 
+export interface CustomKey {
+  provider: string;
+  createdAt: string;
+}
+
+export interface SetCustomKeyRequest {
+  provider: string;
+  key: string;
+}
+
 /**
  * Bad request
  */
@@ -263,4 +273,8 @@ export type ListKnowledgeDocuments200 = {
 export type UploadKnowledgeDocumentBody = {
   file: Blob;
   agentId: string;
+};
+
+export type GetCustomKeys200 = {
+  keys: CustomKey[];
 };

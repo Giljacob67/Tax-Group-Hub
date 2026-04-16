@@ -6,8 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface ModelOption {
-  id: string;
-  name: string;
-  description: string;
+export interface SetCustomKeyRequest {
+  provider: string;
+  key: string;
 }

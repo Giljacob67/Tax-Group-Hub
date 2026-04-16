@@ -455,6 +455,67 @@ paths:
               schema:
                 $ref: "#/components/schemas/IntegrationSettingsResponse"
 
+  /settings/keys:
+    get:
+      operationId: getCustomKeys
+      tags: [settings]
+      summary: Get custom BYOK API keys
+      responses:
+        "200":
+          description: Custom keys list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CustomKey"
+                required: [keys]
+    post:
+      operationId: setCustomKey
+      tags: [settings]
+      summary: Set a custom BYOK API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetCustomKeyRequest"
+      responses:
+        "200":
+          description: Key set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /settings/keys/{provider}:
+    delete:
+      operationId: deleteCustomKey
+      tags: [settings]
+      summary: Delete a custom BYOK API key
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Key deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
 components:
   responses:
     BadRequest:
@@ -860,3 +921,22 @@ components:
           type: string
           nullable: true
       required: [models, defaultModel]
+
+    CustomKey:
+      type: object
+      properties:
+        provider:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [provider, createdAt]
+
+    SetCustomKeyRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+        key:
+          type: string
+      required: [provider, key]

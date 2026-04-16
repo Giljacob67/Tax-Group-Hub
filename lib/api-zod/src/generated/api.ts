@@ -370,3 +370,40 @@ export const GetIntegrationSettingsResponse = zod.object({
   ollamaModel: zod.string(),
   openrouterModel: zod.string(),
 });
+
+/**
+ * @summary Get custom BYOK API keys
+ */
+export const GetCustomKeysResponse = zod.object({
+  keys: zod.array(
+    zod.object({
+      provider: zod.string(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Set a custom BYOK API key
+ */
+export const SetCustomKeyBody = zod.object({
+  provider: zod.string(),
+  key: zod.string(),
+});
+
+export const SetCustomKeyResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a custom BYOK API key
+ */
+export const DeleteCustomKeyParams = zod.object({
+  provider: zod.coerce.string(),
+});
+
+export const DeleteCustomKeyResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
