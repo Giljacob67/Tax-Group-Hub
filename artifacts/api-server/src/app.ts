@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import { apiKeyAuth } from "./middlewares/auth.js";
+import { authMiddleware } from "./middlewares/auth.js";
 import { apiLimiter, llmLimiter } from "./middlewares/rate-limit.js";
 import { requestId } from "./middlewares/request-id.js";
 import { errorHandler } from "./middlewares/error-handler.js";
@@ -48,8 +48,8 @@ const UPLOADS_DIR = process.env.VERCEL
   : path.resolve(process.cwd(), "uploads");
 app.use("/uploads", express.static(UPLOADS_DIR));
 
-// Global API key auth — applied to all /api routes
-app.use("/api", apiKeyAuth);
+// Global Authentication Middleware — applied to all /api routes
+app.use("/api", authMiddleware);
 
 // Rate limiting
 app.use("/api", apiLimiter);

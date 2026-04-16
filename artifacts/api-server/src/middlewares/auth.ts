@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 
 // Extend Express Request to carry userId for multi-tenancy
 declare global {
@@ -14,76 +15,82 @@ declare global {
  * Filters out system, demo or unauthenticated fallbacks
  */
 export function isRealUser(userId?: string): userId is string {
-  return typeof userId === "string" && userId !== "default" && userId !== "dev-user" && userId !== "demo-user" && userId.trim() !== "";
+  return typeof userId === "string" && !["default", "dev-user", "demo-user", "system"].includes(userId) && userId.trim() !== "";
 }
 
 /**
- * API key authentication middleware.
- *
- * If API_KEY env var is set, all requests must include:
- *   Authorization: Bearer <API_KEY>
- *   — or —
- *   x-api-key: <API_KEY>
- *
- * Webhook endpoints can alternatively use:
- *   x-webhook-secret: <WEBHOOK_SECRET>
- *
- * If API_KEY is NOT set, the middleware is a no-op (all requests pass).
- * This allows the app to work without auth during development.
- *
- * SECURITY: Query parameter auth is NOT supported to prevent
- * accidental credential leakage in server/proxy logs.
+ * Authentication middleware with support for:
+ * 1. Webhook Secrets (x-webhook-secret) -> For automated external pipelines
+ * 2. System API Key (Authorization: Bearer <API_KEY>) -> For server-to-server internal calls
+ * 3. User JWT (Authorization: Bearer <JWT>) -> For Frontend/Dashboard users via Clerk/Self-hosted auth
+ * 
+ * Orders of precedence: Webhook -> JWT -> Auth Header Key -> x-api-key
  */
-export function apiKeyAuth(req: Request, res: Response, next: NextFunction): void {
-  const apiKey = process.env.API_KEY;
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const jwtSecret = process.env.JWT_SECRET;
+  const systemApiKey = process.env.API_KEY;
   const webhookSecret = process.env.WEBHOOK_SECRET;
 
-  // Exempt health check from auth
-  if (req.path === "/healthz" || req.path === "/api/healthz") {
+  // Exempt health check and public branding from auth
+  const publicPaths = ["/healthz", "/api/healthz", "/api/branding/config"];
+  if (publicPaths.includes(req.path)) {
     next();
     return;
   }
 
-  // 1. Check webhook secret for automate endpoints (Higher priority)
-  if (req.path.startsWith("/automate/") || req.path.startsWith("/api/automate/")) {
-    const providedSecret = req.headers["x-webhook-secret"];
-    if (webhookSecret && providedSecret === webhookSecret) {
-      req.userId = String(req.headers["x-user-id"] || "system");
-      next();
-      return;
-    }
-    // If it's an automate route and webhook secret check failed, we don't return yet,
-    // we allow it to fall back to the standard API_KEY check below.
-  }
-
-  // 2. If no API key is configured, fall back to open access (legacy demo mode)
-  if (!apiKey) {
-    req.userId = String(req.headers["x-user-id"] || "demo-user");
+  // 1. Webhook Authentication (Automate/Webhooks routes)
+  const webhookProvided = req.headers["x-webhook-secret"];
+  if (webhookProvided && webhookSecret && webhookProvided === webhookSecret) {
+    req.userId = String(req.headers["x-user-id"] || "system");
     next();
     return;
   }
 
-  // 3. Check Authorization header
+  // 2. JWT / Bearer Token Authentication
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
-    if (token === apiKey) {
+
+    // Try JWT first if secret is available
+    if (jwtSecret) {
+      try {
+        const decoded = jwt.verify(token, jwtSecret) as { sub?: string; userId?: string };
+        req.userId = decoded.userId || decoded.sub;
+        if (req.userId) {
+          next();
+          return;
+        }
+      } catch (err) {
+        // Token was provided but invalid for JWTS
+        // If it also fails as a system API key next, we'll block
+      }
+    }
+
+    // Fallback/Alternative: System API Key
+    if (systemApiKey && token === systemApiKey) {
       req.userId = String(req.headers["x-user-id"] || "default");
       next();
       return;
     }
   }
 
-  // 4. Check x-api-key header
+  // 3. Simple Header Authentication (x-api-key)
   const headerKey = req.headers["x-api-key"];
-  if (headerKey === apiKey) {
+  if (systemApiKey && headerKey === systemApiKey) {
     req.userId = String(req.headers["x-user-id"] || "default");
+    next();
+    return;
+  }
+
+  // 4. Development/Safe Fallback (Block if strictly configured)
+  if (!systemApiKey && !jwtSecret && process.env.NODE_ENV !== "production") {
+    req.userId = "dev-user";
     next();
     return;
   }
 
   res.status(401).json({
     error: "Unauthorized",
-    message: "Valid API key required. Set API_KEY environment variable and pass it via Authorization header or x-api-key header.",
+    message: "Acesso negado. Credenciais inválidas ou não fornecidas (JWT ou API Key necessária)."
   });
 }
