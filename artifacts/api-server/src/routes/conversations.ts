@@ -434,7 +434,8 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       } else {
         const result = await callLLM(systemPrompt, content.trim(), { 
           model: modelOverride,
-          toolIds: ["webSearch", "emailSender"] // Enabled tools in chat
+          toolIds: ["webSearch", "emailSender"], // Enabled tools in chat
+          userId: userId || undefined
         });
         assistantContent = result.output;
 

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, appConfigTable, channelConfigsTable } from "@workspace/db";
+import { db, appConfigTable, channelConfigsTable, apiKeysTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { encrypt, decrypt } from "../lib/crypto.js";
 
 const router: IRouter = Router();
 
@@ -10,6 +11,9 @@ router.get("/settings", (_req, res) => {
     endpoints: [
       { method: "GET", path: "/api/settings/integrations", description: "List configured integrations" },
       { method: "GET", path: "/api/settings/models", description: "List available AI models" },
+      { method: "GET", path: "/api/settings/keys", description: "List BYOK API Keys" },
+      { method: "POST", path: "/api/settings/keys", description: "Set BYOK API Key" },
+      { method: "DELETE", path: "/api/settings/keys/:provider", description: "Delete BYOK API Key" },
       { method: "GET", path: "/api/settings/ollama", description: "Get Ollama configuration" },
       { method: "PUT", path: "/api/settings/ollama", description: "Update Ollama configuration" },
       { method: "POST", path: "/api/settings/ollama/test", description: "Test Ollama connection" },
@@ -49,10 +53,28 @@ interface IntegrationStatus {
 
 import { isRealUser } from "../middlewares/auth.js";
 
-router.get("/settings/integrations", async (_req, res) => {
+router.get("/settings/integrations", async (req, res) => {
   try {
+    const userId = req.userId;
     const { url: ollamaUrl } = await getEffectiveOllamaUrl();
     const ollamaModel = await getEffectiveOllamaModel();
+
+    // Check DB for BYOK Keys
+    const userKeys = await db
+      .select({ provider: apiKeysTable.provider })
+      .from(apiKeysTable)
+      .where(isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined);
+    
+    // Convert to easy lookup set
+    const hasDbKey = new Set(userKeys.map(k => k.provider));
+
+    const checkStatus = (providerId: string, envKey?: string) => {
+      if (hasDbKey.has(providerId)) return "connected";
+      if (envKey && process.env[envKey]) return "connected";
+      return "disconnected";
+    };
+
+    const isConnected = (providerId: string, envKey?: string) => checkStatus(providerId, envKey) === "connected";
 
     const integrations: IntegrationStatus[] = [
       {
@@ -65,21 +87,21 @@ router.get("/settings/integrations", async (_req, res) => {
       {
         id: "google",
         name: "Google Gemini",
-        status: process.env.GEMINI_API_KEY ? "connected" : "disconnected",
+        status: checkStatus("google", "GEMINI_API_KEY"),
         description: "Performance e Contexto Longo",
         icon: "♊",
       },
       {
         id: "anthropic",
         name: "Anthropic Claude",
-        status: process.env.ANTHROPIC_API_KEY ? "connected" : "disconnected",
+        status: checkStatus("anthropic", "ANTHROPIC_API_KEY"),
         description: "Raciocínio Técnico Superior",
         icon: "🎭",
       },
       {
         id: "openai",
         name: "OpenAI GPT-4",
-        status: process.env.OPENAI_API_KEY ? "connected" : "disconnected",
+        status: checkStatus("openai", "OPENAI_API_KEY"),
         description: "Estabilidade e Multimodalidade",
         icon: "🧠",
       },
@@ -88,8 +110,8 @@ router.get("/settings/integrations", async (_req, res) => {
         name: "Tavily Search",
         description: "Busca em tempo real otimizada para LLMs (RAG).",
         envVar: "TAVILY_API_KEY",
-        configured: !!process.env.TAVILY_API_KEY,
-        active: !!process.env.TAVILY_API_KEY,
+        configured: isConnected("tavily", "TAVILY_API_KEY"),
+        active: isConnected("tavily", "TAVILY_API_KEY"),
         category: "tool",
       },
       {
@@ -97,8 +119,8 @@ router.get("/settings/integrations", async (_req, res) => {
         name: "Resend (Email)",
         description: "Envio de emails transacionais para leads.",
         envVar: "RESEND_API_KEY",
-        configured: !!process.env.RESEND_API_KEY,
-        active: !!process.env.RESEND_API_KEY,
+        configured: isConnected("resend", "RESEND_API_KEY"),
+        active: isConnected("resend", "RESEND_API_KEY"),
         category: "tool",
       },
     ];
@@ -108,9 +130,9 @@ router.get("/settings/integrations", async (_req, res) => {
     let activeLLM: string | null = null;
     if (ollamaUrl) {
       activeLLM = `Ollama (${ollamaModel})`;
-    } else if (process.env.GEMINI_API_KEY) {
+    } else if (isConnected("google", "GEMINI_API_KEY")) {
       activeLLM = `Gemini (${geminiModel})`;
-    } else if (process.env.ANTHROPIC_API_KEY) {
+    } else if (isConnected("anthropic", "ANTHROPIC_API_KEY")) {
       activeLLM = `Anthropic (Claude 3.5)`;
     }
 
@@ -123,6 +145,85 @@ router.get("/settings/integrations", async (_req, res) => {
   } catch (err) {
     console.error("Error fetching integrations:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /settings/keys — List custom active keys for user
+router.get("/settings/keys", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const userKeys = await db
+      .select({ provider: apiKeysTable.provider, createdAt: apiKeysTable.createdAt })
+      .from(apiKeysTable)
+      .where(isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined);
+    
+    res.json({ keys: userKeys });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to list API keys" });
+  }
+});
+
+// POST /settings/keys — Set a custom BYOK key
+router.post("/settings/keys", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { provider, key } = req.body;
+    
+    if (!provider || !key) {
+      res.status(400).json({ error: "Provider and key are required" });
+      return;
+    }
+
+    const encryptedKey = encrypt(key.trim());
+
+    const [existing] = await db
+      .select({ id: apiKeysTable.id })
+      .from(apiKeysTable)
+      .where(
+        and(
+          eq(apiKeysTable.provider, provider),
+          isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      await db.update(apiKeysTable)
+        .set({ key: encryptedKey, updatedAt: new Date() })
+        .where(eq(apiKeysTable.id, existing.id));
+    } else {
+      await db.insert(apiKeysTable).values({
+        userId: isRealUser(userId) ? userId : null,
+        provider,
+        key: encryptedKey,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Failed to set API key:", err);
+    res.status(500).json({ error: "Failed to set API key" });
+  }
+});
+
+// DELETE /settings/keys/:provider — Delete a custom BYOK key
+router.delete("/settings/keys/:provider", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const provider = req.params.provider;
+
+    await db.delete(apiKeysTable)
+      .where(
+        and(
+          eq(apiKeysTable.provider, provider),
+          isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined
+        )
+      );
+    
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete API key" });
   }
 });
 

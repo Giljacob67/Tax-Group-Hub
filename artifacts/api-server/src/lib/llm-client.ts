@@ -35,15 +35,23 @@ export interface LLMResult {
 /**
  * Get a specific API key from DB or Env
  */
-async function getApiKey(provider: string): Promise<string | null> {
+async function getApiKey(provider: string, userId?: string): Promise<string | null> {
   // Try DB first (BYOK)
-  const [dbKey] = await db
+  // Scoped to user if userId provided, or global keys where user_id IS NULL
+  
+  const dbKeys = await db
     .select()
     .from(apiKeysTable)
-    .where(eq(apiKeysTable.provider, provider))
-    .limit(1);
+    .where(eq(apiKeysTable.provider, provider));
   
-  if (dbKey?.key) return decrypt(dbKey.key);
+  // Prefer user specific key, then fallback to global (null)
+  const userKey = userId ? dbKeys.find(k => k.userId === userId) : null;
+  const globalKey = dbKeys.find(k => !k.userId);
+  
+  const selectedDbKey = userKey || globalKey;
+  if (selectedDbKey?.key) {
+    return decrypt(selectedDbKey.key);
+  }
 
   // Fallback to Env
   const envMap: Record<string, string | undefined> = {
@@ -61,7 +69,7 @@ async function getApiKey(provider: string): Promise<string | null> {
  * Returns a configured LanguageModel based on provider and model name.
  * Defaults to Ollama (if available) or Gemini.
  */
-export async function getLanguageModel(requestedProvider?: string, requestedModel?: string): Promise<{ model: LanguageModel; providerName: string; modelId: string }> {
+export async function getLanguageModel(requestedProvider?: string, requestedModel?: string, userId?: string): Promise<{ model: LanguageModel; providerName: string; modelId: string }> {
   // Normalize provider names
   const provider = (requestedProvider || "auto").toLowerCase();
   
@@ -83,7 +91,7 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
   }
 
   // 2. ANTHROPIC
-  const anthropicKey = await getApiKey("anthropic");
+  const anthropicKey = await getApiKey("anthropic", userId);
   if ((provider === "anthropic" || provider === "claude") && anthropicKey) {
     const customAnthropic = createAnthropic({ apiKey: anthropicKey });
     const modelId = requestedModel || "claude-3-5-sonnet-20240620";
@@ -91,7 +99,7 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
   }
 
   // 3. OPENAI
-  const openaiKey = await getApiKey("openai");
+  const openaiKey = await getApiKey("openai", userId);
   if ((provider === "openai" || provider === "gpt") && openaiKey) {
     const customOpenAI = createOpenAI({ apiKey: openaiKey });
     const modelId = requestedModel || "gpt-4o";
@@ -99,7 +107,7 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
   }
 
   // 4. GOOGLE / GEMINI (Default Cloud Fallback)
-  const googleKey = await getApiKey("google");
+  const googleKey = await getApiKey("google", userId);
   if (googleKey) {
     const customGoogle = createGoogleGenerativeAI({ apiKey: googleKey });
     const modelId = requestedModel || process.env.GEMINI_MODEL || "gemini-1.5-flash";
@@ -121,10 +129,11 @@ export async function callLLM(
     model?: string; 
     jsonMode?: boolean;
     toolIds?: string[];
+    userId?: string;
   }
 ): Promise<LLMResult> {
   const startTime = Date.now();
-  const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model);
+  const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model, options?.userId);
 
   // Prepare tools if requested
   const tools: Record<string, any> = {};
@@ -174,26 +183,24 @@ export async function callLLM(
  * Generate embeddings for a given array of texts.
  * Uses a DB cache (MD5 hash) to avoid redundant API calls.
  */
-export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+export async function generateEmbeddings(texts: string[], userId?: string): Promise<number[][]> {
   if (texts.length === 0) return [];
 
   // Use Google as default for embeddings if available, else Ollama
-  const googleKey = await getApiKey("google");
-  const { url: ollamaUrl } = await getEffectiveOllamaUrl();
+  const googleKey = await getApiKey("google", userId);
+  const ollamaUrl = (await getEffectiveOllamaUrl()).url;
 
-  let embeddingModel: EmbeddingModel<string>;
-  let modelId: string;
+  let embeddingModel: any;
 
   if (googleKey) {
     const googleProvider = createGoogleGenerativeAI({ apiKey: googleKey });
-    modelId = "text-embedding-004";
-    embeddingModel = googleProvider.textEmbeddingModel(modelId);
+    embeddingModel = googleProvider.textEmbeddingModel("text-embedding-004");
   } else if (ollamaUrl) {
     const ollamaProvider = createOpenAI({
       baseURL: ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
       apiKey: "ollama",
     });
-    modelId = await getEffectiveOllamaModel() || "nomic-embed-text";
+    const modelId = await getEffectiveOllamaModel() || "nomic-embed-text";
     embeddingModel = ollamaProvider.textEmbeddingModel(modelId);
   } else {
     throw new Error("Nenhum provedor configurado para embeddings.");
