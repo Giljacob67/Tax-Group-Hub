@@ -120,7 +120,13 @@ router.get("/conversations/:conversationId", async (req, res) => {
     }
     const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
     const agent = getAgentById(conv.agentId);
-    const llmConfig = await getLLMConfig();
+    let modelName = conv.model || "nenhum";
+    let providerName = "Nenhum";
+    try {
+      const { providerName: pn, modelId } = await getLanguageModel();
+      modelName = modelId;
+      providerName = pn;
+    } catch {}
 
     res.json({
       id: String(conv.id),
@@ -128,8 +134,8 @@ router.get("/conversations/:conversationId", async (req, res) => {
       title: conv.title,
       createdAt: conv.createdAt.toISOString(),
       updatedAt: conv.updatedAt.toISOString(),
-      model: llmConfig?.model || "nenhum",
-      provider: llmConfig?.provider || "Nenhum",
+      model: modelName,
+      provider: providerName,
       agentName: agent?.name || conv.agentId,
       messages: messages.map((m) => ({
         id: String(m.id),

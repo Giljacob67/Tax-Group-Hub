@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, conversationsTable, messagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
-import { getLLMConfig } from "../lib/llm-client.js";
+import { callLLM } from "../lib/llm-client.js";
 
 const router: IRouter = Router();
 
@@ -57,23 +57,15 @@ async function executeAgentTask(task: OrchestrationTask, context?: string): Prom
       content: task.task,
     });
 
-    const llmConfig = await getLLMConfig();
+    const systemPrompt = context
+      ? `${agent.systemPrompt}\n\nCONTEXTO ADICIONAL DA CAMPANHA:\n${context}`
+      : agent.systemPrompt;
+
     let assistantContent: string;
-
-    if (llmConfig) {
-      const systemPrompt = context
-        ? `${agent.systemPrompt}\n\nCONTEXTO ADICIONAL DA CAMPANHA:\n${context}`
-        : agent.systemPrompt;
-
-      const completion = await llmConfig.client.chat.completions.create({
-        model: llmConfig.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: task.task },
-        ],
-      });
-      assistantContent = completion.choices[0]?.message?.content || "Sem resposta do agente.";
-    } else {
+    try {
+      const result = await callLLM(systemPrompt, task.task);
+      assistantContent = result.output || "Sem resposta do agente.";
+    } catch {
       assistantContent = `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para executar este agente.\n\n**Tarefa recebida:** ${task.task}`;
     }
 
@@ -166,25 +158,17 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
       content: reviewPrompt,
     });
 
-    const llmConfig = await getLLMConfig();
     let reviewContent: string;
 
     // Use a focused supervisor system prompt instead of the full coordinator
     // system prompt (which is ~3000 chars and wastes output token budget)
     const supervisorSystemPrompt = `Você é o Coordenador Geral da Tax Group Maringá — consultoria tributária premium com 250+ escritórios e R$14 bilhões em créditos recuperados. Seu papel agora é revisar o trabalho dos agentes especialistas e emitir um parecer executivo objetivo. Responda SEMPRE em português brasileiro. Seja direto, específico e orientado a ação.`;
 
-    if (llmConfig) {
-      const completion = await llmConfig.client.chat.completions.create({
-        model: llmConfig.model,
-        messages: [
-          { role: "system", content: supervisorSystemPrompt },
-          { role: "user", content: reviewPrompt },
-        ],
-      });
-      const choice = completion.choices[0];
-      console.log(`[Coordinator review] finish_reason=${choice?.finish_reason} tokens=${completion.usage?.total_tokens || 0}`);
-      reviewContent = choice?.message?.content || "Sem parecer disponível.";
-    } else {
+    try {
+      const result = await callLLM(supervisorSystemPrompt, reviewPrompt);
+      console.log(`[Coordinator review] tokens=${result.tokensUsed} duration=${result.executionTimeMs}ms`);
+      reviewContent = result.output || "Sem parecer disponível.";
+    } catch {
       reviewContent = `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para ativar a supervisão do Coordenador.`;
     }
 
