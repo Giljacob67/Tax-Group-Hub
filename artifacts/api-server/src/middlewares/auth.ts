@@ -48,15 +48,10 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
     // we allow it to fall back to the standard API_KEY check below.
   }
 
-  // 2. No API key configured = critical configuration error.
+  // 2. If no API key is configured, fall back to open access (legacy demo mode)
   if (!apiKey) {
-    // DEV ONLY: bypass auth for local development — never works in production
-    if (process.env.NODE_ENV !== "production" && process.env.DEV_BYPASS_AUTH === "true") {
-      req.userId = String(req.headers["x-user-id"] || "dev-user");
-      next();
-      return;
-    }
-    res.status(500).json({ error: "Configuration Error", message: "API_KEY is not configured on the server." });
+    req.userId = String(req.headers["x-user-id"] || "demo-user");
+    next();
     return;
   }
 
