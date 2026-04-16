@@ -22,9 +22,9 @@ export default function Integrations() {
     try {
       const res = await imageMutation.mutateAsync({ data: { prompt: imgPrompt, style: "corporate" } });
       setGeneratedImg(res.imageUrl);
-      toast({ title: "Image generated successfully" });
+      toast({ title: "Imagem gerada com sucesso!" });
     } catch (err) {
-      toast({ title: "Failed to generate image", variant: "destructive" });
+      toast({ title: "Erro ao gerar imagem", variant: "destructive" });
     }
   };
 
@@ -33,7 +33,7 @@ export default function Integrations() {
       const res = await canvaMutation.mutateAsync({ data: { contentType: canvaType } });
       window.open(res.url, "_blank");
     } catch (err) {
-      toast({ title: "Failed to generate Canva link", variant: "destructive" });
+      toast({ title: "Erro ao gerar link do Canva", variant: "destructive" });
     }
   };
 
@@ -57,14 +57,14 @@ export default function Integrations() {
               <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-4 border border-blue-500/30">
                 <ImageIcon className="w-6 h-6 text-blue-400" />
               </div>
-              <h2 className="text-xl font-bold">Image Generation</h2>
-              <p className="text-sm text-muted-foreground mt-1">Powered by Google Gemini / Built-in</p>
+              <h2 className="text-xl font-bold">Geração de Imagens</h2>
+              <p className="text-sm text-muted-foreground mt-1">Tecnologia Google Gemini</p>
             </div>
             
             <div className="p-6">
               <form onSubmit={handleGenerateImage} className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block">Image Prompt</label>
+                  <label className="text-sm font-medium mb-1.5 block">Descreva a imagem desejada</label>
                   <textarea 
                     value={imgPrompt}
                     onChange={(e) => setImgPrompt(e.target.value)}
@@ -77,7 +77,7 @@ export default function Integrations() {
                   disabled={imageMutation.isPending || !imgPrompt}
                   className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center justify-center"
                 >
-                  {imageMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Sparkles className="w-4 h-4 mr-2" /> Generate Image</>}
+                  {imageMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Sparkles className="w-4 h-4 mr-2" /> Gerar Imagem</>}
                 </button>
               </form>
 
@@ -85,7 +85,15 @@ export default function Integrations() {
                 <div className="mt-6 rounded-xl overflow-hidden border border-border relative group">
                   <img src={generatedImg} alt="Generated" className="w-full h-auto" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button className="bg-white/20 hover:bg-white/30 backdrop-blur-md px-4 py-2 rounded-lg text-white font-medium text-sm transition-colors">
+                    <button
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = generatedImg;
+                        link.download = `tax-group-ai-${Date.now()}.png`;
+                        link.click();
+                      }}
+                      className="bg-white/20 hover:bg-white/30 backdrop-blur-md px-4 py-2 rounded-lg text-white font-medium text-sm transition-colors cursor-pointer"
+                    >
                       Download
                     </button>
                   </div>
@@ -104,12 +112,12 @@ export default function Integrations() {
                 <PenTool className="w-6 h-6 text-purple-400" />
               </div>
               <h2 className="text-xl font-bold">Canva Workspace</h2>
-              <p className="text-sm text-muted-foreground mt-1">Deep links for advanced editing</p>
+              <p className="text-sm text-muted-foreground mt-1">Links diretos para edição avançada</p>
             </div>
             
             <div className="p-6 space-y-6">
               <div>
-                <label className="text-sm font-medium mb-3 block">Select Template Type</label>
+                <label className="text-sm font-medium mb-3 block">Selecione o tipo de modelo</label>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { id: "presentation", label: "Presentation" },
@@ -137,7 +145,7 @@ export default function Integrations() {
                 disabled={canvaMutation.isPending}
                 className="w-full py-3 px-4 bg-card border-2 border-purple-500 hover:bg-purple-500/10 text-white rounded-xl font-medium transition-all shadow-md flex items-center justify-center"
               >
-                {canvaMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Link2 className="w-4 h-4 mr-2" /> Open in Canva</>}
+                {canvaMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Link2 className="w-4 h-4 mr-2" /> Abrir no Canva</>}
               </button>
             </div>
           </motion.div>
