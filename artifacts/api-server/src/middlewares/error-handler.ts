@@ -1,5 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { ZodError } from "zod";
+import logger from "../lib/logger.js";
 
 /**
  * Standardized global error handler for the API.
@@ -14,6 +15,7 @@ export const errorHandler = (
   const requestId = (req as any).id || "unknown";
 
   if (err instanceof ZodError) {
+    logger.warn({ requestId, details: err.format() }, "Zod validation failed");
     res.status(400).json({
       error: "Validation failed",
       details: (err as ZodError).format(),
@@ -23,7 +25,12 @@ export const errorHandler = (
   }
 
   // Log critical error
-  console.error(`[Error] (${requestId}) ${err.name}: ${err.message}`, err.stack);
+  logger.error({ 
+    err,
+    requestId,
+    url: req.url,
+    method: req.method
+  }, "unhandled_exception");
 
   const isProduction = process.env.NODE_ENV === "production";
 

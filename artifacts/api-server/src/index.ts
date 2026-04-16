@@ -1,4 +1,5 @@
-import app from "./app";
+import app from "./app.js";
+import logger from "./lib/logger.js";
 
 const rawPort = process.env["PORT"];
 
@@ -15,5 +16,5 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+  logger.info({ port }, `Server listening on port ${port}`);
 });
