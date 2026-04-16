@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
@@ -33,6 +33,16 @@ export default function KnowledgeBase() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
+  const filteredDocs = useMemo(() => {
+    if (!searchQuery.trim()) return docsData?.documents || [];
+    const q = searchQuery.toLowerCase();
+    return (docsData?.documents || []).filter(
+      (doc: any) =>
+        doc.filename?.toLowerCase().includes(q) ||
+        doc.extractedContent?.toLowerCase().includes(q)
+    );
+  }, [docsData?.documents, searchQuery]);
+
   const { data: docsData, isLoading: isLoadingDocs } = useListKnowledgeDocuments(undefined, {
     query: {
       refetchInterval: (data: any) => {
@@ -63,7 +73,7 @@ export default function KnowledgeBase() {
         const hasContent = data.hasContent;
         toast({
           title: `${file.name} enviado com sucesso`,
-          description: hasContent ? "Conteúdo extraído e indexado para RAG." : "Arquivo registrado (sem extração de texto).",
+          description: hasContent ? "ConteÃºdo extraÃ­do e indexado para RAG." : "Arquivo registrado (sem extraÃ§Ã£o de texto).",
         });
       }
       queryClient.invalidateQueries({ queryKey: getListKnowledgeDocumentsQueryKey() });
@@ -81,7 +91,7 @@ export default function KnowledgeBase() {
     try {
       await deleteMutation.mutateAsync({ documentId: deleteTarget });
       queryClient.invalidateQueries({ queryKey: getListKnowledgeDocumentsQueryKey() });
-      toast({ title: "Documento excluído" });
+      toast({ title: "Documento excluÃ­do" });
     } catch {
       toast({ title: "Erro ao excluir documento", variant: "destructive" });
     }
@@ -118,7 +128,7 @@ export default function KnowledgeBase() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Busca semântica nos docs..."
+              placeholder="Busca semÃ¢ntica nos docs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
@@ -140,7 +150,7 @@ export default function KnowledgeBase() {
             {isDragActive ? "Solte os arquivos aqui..." : "Arraste e solte ou clique para enviar"}
           </h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Suporta PDF, Word (.docx), Markdown, TXT, imagens e vídeos até 50MB. O conteúdo textual é extraído automaticamente para uso em RAG.
+            Suporta PDF, Word (.docx), Markdown, TXT, imagens e vÃ­deos atÃ© 50MB. O conteÃºdo textual Ã© extraÃ­do automaticamente para uso em RAG.
           </p>
         </div>
 
@@ -166,9 +176,15 @@ export default function KnowledgeBase() {
               <h3 className="text-lg font-medium text-foreground">Nenhum documento ainda</h3>
               <p className="text-muted-foreground">Envie seu primeiro documento para enriquecer o conhecimento dos agentes.</p>
             </div>
+          ) : filteredDocs.length === 0 && searchQuery ? (
+            <div className="text-center py-16 bg-card/30 rounded-2xl border border-border/50">
+              <Search className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+              <h3 className="text-lg font-medium">Nenhum resultado para "{searchQuery}"</h3>
+              <p className="text-muted-foreground">Tente outro termo de busca.</p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {docsData?.documents?.map((doc, i) => (
+              {filteredDocs.map((doc: any, i: number) => (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -201,7 +217,7 @@ export default function KnowledgeBase() {
                       </div>
                     </div>
                     <button
-                      onClick={() => setDeleteTarget(doc.id)}
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(doc.id); }}
                       disabled={deleteMutation.isPending}
                       className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
                     >
@@ -220,7 +236,7 @@ export default function KnowledgeBase() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir documento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O documento será removido da base de conhecimento dos agentes.
+              Esta aÃ§Ã£o nÃ£o pode ser desfeita. O documento serÃ¡ removido da base de conhecimento dos agentes.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
