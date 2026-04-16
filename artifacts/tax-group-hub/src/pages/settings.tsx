@@ -97,7 +97,7 @@ function OllamaCard({ integration, onSettingsChange }: {
       const data = await res.json();
       setTestResult(data);
     } catch {
-      setTestResult({ success: false, error: "Erro de rede ao testar conexao." });
+      setTestResult({ success: false, error: "Erro de rede ao testar conexão." });
     } finally {
       setTesting(false);
     }
@@ -117,7 +117,7 @@ function OllamaCard({ integration, onSettingsChange }: {
         setOllamaSettings(prev => prev ? { ...prev, url: data.url, source: data.source, model: data.model } : prev);
         setEditUrl(data.url || "");
         setEditModel(data.model || "");
-        setSaveMessage("Configurações salvas com sucesso!");
+        setSaveMessage("ConfiguraÃ§Ãµes salvas com sucesso!");
         onSettingsChange();
         setTimeout(() => setSaveMessage(null), 3000);
       } else {
@@ -194,7 +194,7 @@ function OllamaCard({ integration, onSettingsChange }: {
                     ? 'bg-primary/10 text-primary'
                     : 'bg-muted text-muted-foreground'
                 }`}>
-                  Fonte: {ollamaSettings.source === 'db' ? 'Banco de Dados' : 'Variavel de Ambiente'}
+                  Fonte: {ollamaSettings.source === 'db' ? 'Banco de Dados' : 'Variável de Ambiente'}
                 </span>
               )}
             </div>
@@ -257,7 +257,7 @@ function OllamaCard({ integration, onSettingsChange }: {
               ) : (
                 <Wifi className="w-4 h-4" />
               )}
-              Testar Conexao
+              Testar Conexão
             </button>
             <button
               onClick={handleSave}
@@ -300,19 +300,19 @@ function OllamaCard({ integration, onSettingsChange }: {
                 {testResult.success ? (
                   <>
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span className="text-sm font-medium text-emerald-400">Conexao bem-sucedida!</span>
+                    <span className="text-sm font-medium text-emerald-400">Conexão bem-sucedida!</span>
                   </>
                 ) : (
                   <>
                     <WifiOff className="w-4 h-4 text-red-400" />
-                    <span className="text-sm font-medium text-red-400">Falha na conexao</span>
+                    <span className="text-sm font-medium text-red-400">Falha na conexão</span>
                   </>
                 )}
               </div>
               {testResult.success && testResult.models && testResult.models.length > 0 ? (
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">
-                    {testResult.models.length} modelo(s) disponivel(is):
+                    {testResult.models.length} modelo(s) disponível(is):
                   </p>
                   <div className="space-y-1">
                     {testResult.models.map((m) => (
@@ -357,7 +357,7 @@ function OllamaCard({ integration, onSettingsChange }: {
           {!integration.configured && (
             <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
               <ExternalLink className="w-3 h-3" />
-              Configure no painel Secrets do Replit (icone de cadeado na barra lateral)
+              Configure no painel Secrets do Replit (ícone de cadeado na barra lateral)
             </p>
           )}
         </div>
@@ -402,7 +402,7 @@ function BrandingSection() {
         body: JSON.stringify(branding)
       });
       if (res.ok) {
-        setMsg("Branding atualizado! Recarregue a página para aplicar.");
+        setMsg("Branding atualizado! Recarregue a pÃ¡gina para aplicar.");
         setTimeout(() => window.location.reload(), 1500);
       }
     } catch {
@@ -461,7 +461,7 @@ function BrandingSection() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase">Cor Primária (Hex)</label>
+            <label className="text-xs font-medium text-muted-foreground uppercase">Cor PrimÃ¡ria (Hex)</label>
             <div className="flex gap-3">
               <input
                 type="color"
@@ -479,7 +479,7 @@ function BrandingSection() {
           </div>
           
           <div className="space-y-2">
-             <label className="text-xs font-medium text-muted-foreground uppercase">Domínio Customizado</label>
+             <label className="text-xs font-medium text-muted-foreground uppercase">DomÃ­nio Customizado</label>
              <input
                type="text"
                value={branding.customDomain}
@@ -569,8 +569,8 @@ export default function SettingsPage() {
                 <Settings className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
-                <p className="text-sm text-muted-foreground">Status das integracoes e provedores de IA</p>
+                <h1 className="text-2xl font-bold text-foreground">ConfiguraÃ§Ãµes</h1>
+                <p className="text-sm text-muted-foreground">Status das integrações e provedores de IA</p>
               </div>
             </div>
             <button
@@ -594,7 +594,7 @@ export default function SettingsPage() {
           className="grid grid-cols-1 sm:grid-cols-3 gap-4"
         >
           <div className="bg-card border border-border/50 rounded-2xl p-5">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Total de Integracoes</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Total de Integrações</p>
             <p className="text-3xl font-bold text-foreground">{integrations.length}</p>
           </div>
           <div className="bg-card border border-border/50 rounded-2xl p-5">
@@ -726,16 +726,16 @@ export default function SettingsPage() {
         >
           <h3 className="text-sm font-semibold text-foreground">Como configurar</h3>
           <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside">
-            <li>No Replit, clique no icone de <strong>cadeado</strong> na barra lateral esquerda</li>
+            <li>No Replit, clique no ícone de <strong>cadeado</strong> na barra lateral esquerda</li>
             <li>Clique em <strong>"Add new secret"</strong></li>
-            <li>Insira o nome da variavel (ex: <code className="text-primary">OPENROUTER_API_KEY</code>) e seu valor</li>
-            <li>Reinicie o servidor para aplicar as alteracoes</li>
+            <li>Insira o nome da variável (ex: <code className="text-primary">OPENROUTER_API_KEY</code>) e seu valor</li>
+            <li>Reinicie o servidor para aplicar as alterações</li>
           </ol>
           <div className="pt-2 border-t border-border/30">
             <p className="text-xs text-muted-foreground">
               <strong>Ollama:</strong> Para usar LLM local, rode <code className="text-primary">ollama serve</code> na sua maquina
               e exponha com <code className="text-primary">ngrok http 11434</code>. Depois configure a URL usando o card acima
-              ou defina <code className="text-primary">OLLAMA_URL</code> nas variaveis de ambiente.
+              ou defina <code className="text-primary">OLLAMA_URL</code> nas variáveis de ambiente.
             </p>
           </div>
         </motion.div>
