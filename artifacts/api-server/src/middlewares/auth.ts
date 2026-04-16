@@ -31,18 +31,17 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   const systemApiKey = process.env.API_KEY;
   const webhookSecret = process.env.WEBHOOK_SECRET;
 
-  // Exempt health check and public branding from auth
-  // Public endpoints (no auth required)
-  // /api/agents returns agent metadata WITHOUT systemPrompts — safe to expose
+  // NOTE: This middleware is mounted at app.use("/api", authMiddleware)
+  // So Express strips the "/api" prefix — req.path arrives as "/agents", NOT "/api/agents"
   const publicPaths = [
     "/healthz",
-    "/api/healthz",
-    "/api/branding/config",
-    "/api/agents",
-    "/api/agents/search",
+    "/branding/config",
+    "/branding/resolve",
+    "/agents",
+    "/agents/search",
   ];
-  // Also allow dynamic /api/agents/:id reads (they already redact systemPrompt if no API key)
-  if (req.path.startsWith("/api/agents/") && req.method === "GET") {
+  // Also allow GET /agents/:id (already redacts systemPrompt without API key)
+  if (req.path.startsWith("/agents/") && req.method === "GET") {
     next();
     return;
   }
