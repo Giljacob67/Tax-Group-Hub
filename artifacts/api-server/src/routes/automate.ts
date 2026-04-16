@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAgentById } from "../lib/agents-data.js";
 import { callLLM } from "../lib/llm-client.js";
+import { db, pipelineExecutionsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -157,11 +158,30 @@ router.post("/automate/pipeline", async (req, res) => {
       });
     }
 
+    const totalTokens = results.reduce((sum, r) => sum + r.tokensUsed, 0);
+    const totalTimeMs = results.reduce((sum, r) => sum + r.executionTimeMs, 0);
+
+    // Persist pipeline execution (fire-and-forget — não bloqueia a resposta)
+    db.insert(pipelineExecutionsTable).values({
+      userId: req.userId ?? null,
+      steps: results.map(r => ({
+        agentId: r.agentId,
+        input: steps[r.step - 1]?.input ?? "",
+        output: r.output,
+        tokensUsed: r.tokensUsed,
+        timeMs: r.executionTimeMs,
+        success: true,
+      })),
+      totalTokens,
+      totalTimeMs,
+      status: "completed",
+    }).catch(err => console.error("[pipeline] Failed to persist execution:", err));
+
     res.json({
       success: true,
       pipeline: results.length,
-      totalTokens: results.reduce((sum, r) => sum + r.tokensUsed, 0),
-      totalTimeMs: results.reduce((sum, r) => sum + r.executionTimeMs, 0),
+      totalTokens,
+      totalTimeMs,
       results,
       finalOutput: results[results.length - 1]?.output || "",
     });

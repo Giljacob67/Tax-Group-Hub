@@ -36,8 +36,14 @@ export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   processed: boolean("processed").notNull().default(false),
   retries: integer("retries").notNull().default(0), // Added for resiliency
   errorLog: text("error_log"), // Added for debug
+  // --- Novos campos de classificação e RAG ---
+  category: text("category"), // 'legislacao' | 'jurisprudencia' | 'manual' | 'material_interno'
+  tags: jsonb("tags").$type<string[]>(), // ex: ["IBS", "CBS", "Split Payment"]
+  validUntil: timestamp("valid_until"), // data de validade do documento
+  priority: integer("priority").default(5), // boost no RAG (1-10)
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
 
 export const designGalleryTable = pgTable("design_gallery", {
   id: serial("id").primaryKey(),
@@ -163,3 +169,52 @@ export const tenantBrandingTable = pgTable("tenant_branding", {
 
 export type TenantBranding = typeof tenantBrandingTable.$inferSelect;
 export const insertTenantBrandingSchema = createInsertSchema(tenantBrandingTable).omit({ id: true, createdAt: true, updatedAt: true });
+
+/**
+ * Registra cada execução de pipeline multi-agente (/automate/pipeline)
+ * para analytics e auditoria de uso.
+ */
+export const pipelineExecutionsTable = pgTable("pipeline_executions", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id"),
+  steps: jsonb("steps").notNull().$type<Array<{
+    agentId: string;
+    input: string;
+    output: string;
+    tokensUsed: number;
+    timeMs: number;
+    success: boolean;
+  }>>(),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  totalTimeMs: integer("total_time_ms").notNull().default(0),
+  status: text("status").notNull().default("completed"), // 'completed' | 'partial' | 'failed'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type PipelineExecution = typeof pipelineExecutionsTable.$inferSelect;
+export const insertPipelineExecutionSchema = createInsertSchema(pipelineExecutionsTable).omit({ id: true, createdAt: true });
+export type InsertPipelineExecution = z.infer<typeof insertPipelineExecutionSchema>;
+
+/**
+ * Tracking de performance do conteúdo gerado pelos agentes de marketing.
+ * Permite medir ROI real do conteúdo (impressões → cliques → conversões).
+ */
+export const contentPerformanceTable = pgTable("content_performance", {
+  id: serial("id").primaryKey(),
+  agentId: text("agent_id").notNull(),
+  userId: text("user_id"),
+  channel: text("channel").notNull(),           // 'linkedin' | 'email' | 'whatsapp' | 'video' | 'seo'
+  contentType: text("content_type").notNull(),  // 'post' | 'email' | 'script' | 'one-pager' | 'article'
+  generatedContent: text("generated_content").notNull(),
+  publishedAt: timestamp("published_at"),
+  impressions: integer("impressions").default(0),
+  clicks: integer("clicks").default(0),
+  conversions: integer("conversions").default(0),
+  score: integer("score"),                      // 1-10, avaliação manual
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type ContentPerformance = typeof contentPerformanceTable.$inferSelect;
+export const insertContentPerformanceSchema = createInsertSchema(contentPerformanceTable).omit({ id: true, createdAt: true });
+export type InsertContentPerformance = z.infer<typeof insertContentPerformanceSchema>;
+
