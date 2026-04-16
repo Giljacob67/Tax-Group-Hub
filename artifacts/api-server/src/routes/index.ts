@@ -11,6 +11,7 @@ import systemRouter from "./system.js";
 import webhookRouter from "./webhooks.js";
 import analyticsRouter from "./analytics.js";
 import brandingRouter from "./branding.js";
+import crmRouter from "./crm.js";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(systemRouter);
 router.use(webhookRouter);
 router.use(analyticsRouter);
 router.use(brandingRouter);
+router.use("/crm", crmRouter);
 
 export default router;

@@ -1,5 +1,6 @@
 import { webSearchTool } from "./search.js";
 import { emailSenderTool } from "./email.js";
+import { cnpjLookupTool } from "./cnpj-lookup.js";
 
 /**
  * Registry of all available tools for agents.
@@ -7,6 +8,7 @@ import { emailSenderTool } from "./email.js";
 export const availableTools = {
   webSearch: webSearchTool,
   emailSender: emailSenderTool,
+  cnpjLookup: cnpjLookupTool,
 };
 
 /**

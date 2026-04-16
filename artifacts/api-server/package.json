@@ -14,6 +14,7 @@
     "@ai-sdk/openai": "^3.0.52",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/empresaqui": "workspace:*",
     "ai": "^6.0.154",
     "cors": "^2",
     "drizzle-orm": "catalog:",
