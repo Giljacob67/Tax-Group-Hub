@@ -701,14 +701,47 @@ export default function SettingsPage() {
                       </p>
 
                       <div className="bg-background/50 rounded-lg p-3 border border-border/30">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Variavel de Ambiente</p>
-                        <code className="text-xs font-mono text-primary">{integration.envVar}</code>
-                        {!integration.configured && (
-                          <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
-                            <ExternalLink className="w-3 h-3" />
-                            Configure no painel Secrets do Replit (icone de cadeado na barra lateral)
-                          </p>
-                        )}
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Chave de API</p>
+                          <span className={`text-[10px] px-2 py-0 rounded-full font-medium ${integration.configured ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                            {integration.configured ? 'Ativa' : 'Pendente'}
+                          </span>
+                        </div>
+                        
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="password"
+                            placeholder="Insira sua chave de API (sk-...)"
+                            onChange={(e) => {
+                              // We could bind this to a local component state to submit,
+                              // but for simplicity inline, let's create a wrapper component below or just handle it.
+                            }}
+                            className="flex-1 bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
+                            id={`key-${integration.id}`}
+                          />
+                          <button
+                            onClick={async () => {
+                              const input = document.getElementById(`key-${integration.id}`) as HTMLInputElement;
+                              if (!input.value) return;
+                              try {
+                                await fetch("/api/settings/keys", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ provider: integration.id, key: input.value })
+                                });
+                                input.value = '';
+                                fetchSettings();
+                              } catch(e) {}
+                            }}
+                            className="bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-primary/90"
+                          >
+                            Salvar
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          Armazenamento criptografado (AES-256)
+                        </p>
                       </div>
                     </motion.div>
                   );
@@ -724,18 +757,14 @@ export default function SettingsPage() {
           transition={{ delay: 0.5 }}
           className="bg-card/30 border border-border/30 rounded-2xl p-5 space-y-3"
         >
-          <h3 className="text-sm font-semibold text-foreground">Como configurar</h3>
-          <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside">
-            <li>No Replit, clique no icone de <strong>cadeado</strong> na barra lateral esquerda</li>
-            <li>Clique em <strong>"Add new secret"</strong></li>
-            <li>Insira o nome da variavel (ex: <code className="text-primary">OPENROUTER_API_KEY</code>) e seu valor</li>
-            <li>Reinicie o servidor para aplicar as alteracoes</li>
-          </ol>
+          <h3 className="text-sm font-semibold text-foreground">BYOK (Bring Your Own Keys)</h3>
+          <p className="text-xs text-muted-foreground">
+            Suas chaves são salvas de forma segura no banco de dados com criptografia AES-256 (GCM). Você não precisa definir variáveis de ambiente externamente. Basta salvar as chaves através deste painel e utilizá-las instantaneamente.
+          </p>
           <div className="pt-2 border-t border-border/30">
             <p className="text-xs text-muted-foreground">
               <strong>Ollama:</strong> Para usar LLM local, rode <code className="text-primary">ollama serve</code> na sua maquina
-              e exponha com <code className="text-primary">ngrok http 11434</code>. Depois configure a URL usando o card acima
-              ou defina <code className="text-primary">OLLAMA_URL</code> nas variaveis de ambiente.
+              e exponha o acesso. Depois configure a URL usando o painel superior.
             </p>
           </div>
         </motion.div>
