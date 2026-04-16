@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import multer from "multer";
 import { createRequire } from "node:module";
@@ -26,13 +26,21 @@ const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt", ".md"];
 
 function fileFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
   const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf("."));
+  const lowerName = file.originalname.toLowerCase();
+
+  // Reject SVG files explicitly - they cannot be indexed for RAG
+  if (lowerName.endsWith('.svg') || file.mimetype === 'image/svg+xml') {
+    cb(new Error('Arquivos SVG não são suportados. Use PDF, DOCX, TXT ou Markdown.'));
+    return;
+  }
+
   const mimeOk = ALLOWED_MIME_TYPES.includes(file.mimetype);
   const extOk = ALLOWED_EXTENSIONS.includes(ext);
 
   if (mimeOk || extOk) {
     cb(null, true);
   } else {
-    cb(new Error(`File type not allowed. Accepted: ${ALLOWED_EXTENSIONS.join(", ")}`));
+    cb(new Error(`Tipo de arquivo não permitido. Aceitos: ${ALLOWED_EXTENSIONS.join(", ")}`));
   }
 }
 
@@ -92,7 +100,7 @@ function chunkText(text: string, chunkSize: number = 800, overlap: number = 200)
 
 /**
  * Process a document in the background: extract text, chunk, embed, and store.
- * Updates the document status to 'processing' → 'processed' | 'error'.
+ * Updates the document status to 'processing' â 'processed' | 'error'.
  */
 export async function processDocumentAsync(docId: number, buffer: Buffer, fileType: string, filename: string): Promise<void> {
   try {
@@ -142,7 +150,7 @@ export async function processDocumentAsync(docId: number, buffer: Buffer, fileTy
   }
 }
 
-// GET /knowledge — List documents, filtered by agentId and/or userId
+// GET /knowledge â List documents, filtered by agentId and/or userId
 router.get("/knowledge", async (req, res) => {
   try {
     const { agentId } = req.query;
@@ -190,7 +198,7 @@ router.get("/knowledge", async (req, res) => {
   }
 });
 
-// POST /knowledge/upload — Accept file, return immediately, process in background
+// POST /knowledge/upload â Accept file, return immediately, process in background
 router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -250,7 +258,7 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-// DELETE /knowledge/:id — Remove a document (scoped by userId if provided)
+// DELETE /knowledge/:id â Remove a document (scoped by userId if provided)
 router.delete("/knowledge/:id", async (req, res) => {
   try {
     const { id } = req.params;
