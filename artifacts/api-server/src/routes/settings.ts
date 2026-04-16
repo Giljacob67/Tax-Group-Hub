@@ -48,6 +48,7 @@ interface IntegrationStatus {
 router.get("/settings/integrations", async (_req, res) => {
   try {
     const { url: ollamaUrl } = await getEffectiveOllamaUrl();
+    const ollamaModel = await getEffectiveOllamaModel();
 
     const integrations: IntegrationStatus[] = [
       {

@@ -50,7 +50,8 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
 
   // 2. No API key configured = critical configuration error.
   if (!apiKey) {
-    if (process.env.VITE_BYPASS_AUTH === "true") {
+    // DEV ONLY: bypass auth for local development — never works in production
+    if (process.env.NODE_ENV !== "production" && process.env.DEV_BYPASS_AUTH === "true") {
       req.userId = String(req.headers["x-user-id"] || "dev-user");
       next();
       return;

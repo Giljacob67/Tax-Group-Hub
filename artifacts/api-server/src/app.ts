@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { apiKeyAuth } from "./middlewares/auth.js";
 import { apiLimiter, llmLimiter } from "./middlewares/rate-limit.js";
 import { requestId } from "./middlewares/request-id.js";
@@ -8,11 +9,17 @@ import router from "./routes";
 
 const app: Express = express();
 
+// Trust proxy — required for rate-limit to read real client IP behind Vercel/reverse proxy
+app.set("trust proxy", 1);
+
 const getOrigins = () => {
   if (process.env.CORS_ORIGINS) return process.env.CORS_ORIGINS.split(',');
   if (process.env.NODE_ENV === "production") return [process.env.APP_URL || false];
   return ["http://localhost:5173", "http://127.0.0.1:5173"];
 };
+
+// Security headers (CSP, X-Content-Type-Options, X-Frame-Options, etc.)
+app.use(helmet());
 
 // Request ID tracing
 app.use(requestId);
@@ -30,9 +37,9 @@ app.use(cors({
   credentials: true,
 }));
 
-// Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing — with size limits to prevent payload attacks
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Serve static uploads (Phase 10 Branding)
 import path from "node:path";

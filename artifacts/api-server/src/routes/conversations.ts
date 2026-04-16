@@ -149,6 +149,7 @@ router.get("/conversations/:conversationId", async (req, res) => {
 router.patch("/conversations/:conversationId", async (req, res) => {
   try {
     const conversationId = Number(req.params.conversationId);
+    const userId = req.userId;
     const { title } = req.body as { title?: string };
     if (isNaN(conversationId)) {
       res.status(404).json({ error: "Conversation not found" });
@@ -158,15 +159,21 @@ router.patch("/conversations/:conversationId", async (req, res) => {
       res.status(400).json({ error: "title is required" });
       return;
     }
+    // Tenancy check: verify ownership before mutation
+    const [existing] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+    if (!existing) {
+      res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+    if (isRealUser(userId) && existing.userId && existing.userId !== userId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
     const [conv] = await db
       .update(conversationsTable)
       .set({ title: title.trim(), updatedAt: new Date() })
       .where(eq(conversationsTable.id, conversationId))
       .returning();
-    if (!conv) {
-      res.status(404).json({ error: "Conversation not found" });
-      return;
-    }
     res.json({
       id: String(conv.id),
       agentId: conv.agentId,
@@ -223,9 +230,23 @@ router.get("/conversations/:conversationId/export", async (req, res) => {
 router.delete("/messages/:messageId", async (req, res) => {
   try {
     const messageId = Number(req.params.messageId);
+    const userId = req.userId;
     if (isNaN(messageId)) {
       res.status(400).json({ error: "Invalid messageId" });
       return;
+    }
+    // Tenancy check: verify the message belongs to a conversation owned by the user
+    const [msg] = await db.select().from(messagesTable).where(eq(messagesTable.id, messageId));
+    if (!msg) {
+      res.status(404).json({ error: "Message not found" });
+      return;
+    }
+    if (isRealUser(userId)) {
+      const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, msg.conversationId));
+      if (conv?.userId && conv.userId !== userId) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
     }
     await db.delete(messagesTable).where(eq(messagesTable.id, messageId));
     res.json({ success: true });
@@ -238,8 +259,19 @@ router.delete("/messages/:messageId", async (req, res) => {
 router.delete("/conversations/:conversationId", async (req, res) => {
   try {
     const conversationId = Number(req.params.conversationId);
+    const userId = req.userId;
     if (isNaN(conversationId)) {
       res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+    // Tenancy check: verify ownership before deletion
+    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+    if (!conv) {
+      res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+    if (isRealUser(userId) && conv.userId && conv.userId !== userId) {
+      res.status(403).json({ error: "Access denied" });
       return;
     }
     await db.delete(conversationsTable).where(eq(conversationsTable.id, conversationId));

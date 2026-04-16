@@ -21,6 +21,8 @@ import { embeddingCacheTable, apiKeysTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { availableTools, type ToolId } from "./tools/registry.js";
 
+import { decrypt } from "./crypto.js";
+
 export interface LLMResult {
   output: string;
   tokensUsed: number;
@@ -41,7 +43,7 @@ async function getApiKey(provider: string): Promise<string | null> {
     .where(eq(apiKeysTable.provider, provider))
     .limit(1);
   
-  if (dbKey?.key) return dbKey.key;
+  if (dbKey?.key) return decrypt(dbKey.key);
 
   // Fallback to Env
   const envMap: Record<string, string | undefined> = {
