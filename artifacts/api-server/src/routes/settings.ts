@@ -39,11 +39,15 @@ interface IntegrationStatus {
   id: string;
   name: string;
   description: string;
-  envVar: string;
-  configured: boolean;
-  active: boolean;
-  category: string;
+  envVar?: string;
+  configured?: boolean;
+  active?: boolean;
+  category?: string;
+  status?: string;
+  icon?: string;
 }
+
+import { isRealUser } from "../middlewares/auth.js";
 
 router.get("/settings/integrations", async (_req, res) => {
   try {
@@ -129,7 +133,7 @@ router.get("/settings/channels", async (req, res) => {
     const channels = await db
       .select()
       .from(channelConfigsTable)
-      .where(userId && userId !== "default" && userId !== "dev-user" ? eq(channelConfigsTable.userId, userId) : undefined);
+      .where(isRealUser(userId) ? eq(channelConfigsTable.userId, userId) : undefined);
     
     res.json({ channels });
   } catch (err) {

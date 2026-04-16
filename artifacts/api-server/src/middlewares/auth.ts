@@ -10,6 +10,14 @@ declare global {
 }
 
 /**
+ * Checks if the given userId belongs to a real human user
+ * Filters out system, demo or unauthenticated fallbacks
+ */
+export function isRealUser(userId?: string): userId is string {
+  return typeof userId === "string" && userId !== "default" && userId !== "dev-user" && userId !== "demo-user" && userId.trim() !== "";
+}
+
+/**
  * API key authentication middleware.
  *
  * If API_KEY env var is set, all requests must include:

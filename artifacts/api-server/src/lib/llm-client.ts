@@ -115,12 +115,12 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
  */
 export async function callLLM(
   systemPrompt: string,
-  userMessage: string,
+  userMessage: string | Array<{ role: string; content: string }>,
   options?: { 
     provider?: string; 
     model?: string; 
     jsonMode?: boolean;
-    toolIds?: ToolId[];
+    toolIds?: string[];
   }
 ): Promise<LLMResult> {
   const startTime = Date.now();
@@ -130,25 +130,35 @@ export async function callLLM(
   const tools: Record<string, any> = {};
   if (options?.toolIds) {
     for (const id of options.toolIds) {
-      if (availableTools[id]) {
-        tools[id] = availableTools[id];
+      if (availableTools[id as keyof typeof availableTools]) {
+        tools[id] = availableTools[id as keyof typeof availableTools];
       }
     }
   }
 
-  const result = await generateText({
+  const isArrayPayload = Array.isArray(userMessage);
+
+  const payload: any = {
     model,
     system: systemPrompt,
-    prompt: userMessage,
     maxTokens: 4096,
     tools: Object.keys(tools).length > 0 ? tools : undefined,
     maxSteps: Object.keys(tools).length > 0 ? 5 : 1, // Enable multi-step tools
-  });
+  };
+
+  if (isArrayPayload) {
+    payload.messages = userMessage;
+  } else {
+    payload.prompt = userMessage;
+  }
+
+  const result = await generateText(payload);
 
   const executionTimeMs = Date.now() - startTime;
-  const tokensUsed = (result.usage.promptTokens + result.usage.completionTokens) || 0;
+  const rawUsage = result.usage as any;
+  const tokensUsed = (rawUsage?.promptTokens || 0) + (rawUsage?.completionTokens || 0);
 
-  console.log(`[LLM] ${providerName} (${modelId}) | Tokens: ${tokensUsed} | Steps: ${result.steps.length} | Duration: ${executionTimeMs}ms`);
+  console.log(`[LLM] ${providerName} (${modelId}) | Tokens: ${tokensUsed} | Steps: ${result.steps?.length || 1} | Duration: ${executionTimeMs}ms`);
 
   return {
     output: result.text,
@@ -272,7 +282,7 @@ export async function transcribeAudio(audioBuffer: Buffer, fileName: string): Pr
   // I'll use fetch to be safe and avoid adding new dependencies if possible.
   
   const formData = new FormData();
-  const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+  const blob = new Blob([audioBuffer as any], { type: "audio/mpeg" });
   formData.append("file", blob, fileName);
   formData.append("model", "whisper-1");
 
@@ -285,10 +295,10 @@ export async function transcribeAudio(audioBuffer: Buffer, fileName: string): Pr
   });
 
   if (!response.ok) {
-    const error = await response.json();
+    const error = (await response.json()) as any;
     throw new Error(`Erro na transcrição: ${error.error?.message || response.statusText}`);
   }
 
-  const result = await response.json();
+  const result = (await response.json()) as any;
   return result.text;
 }

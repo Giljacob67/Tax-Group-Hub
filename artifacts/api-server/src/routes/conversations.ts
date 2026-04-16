@@ -12,13 +12,9 @@ import { getAgentById } from "../lib/agents-data.js";
 import { generateEmbeddings, callLLM, getLanguageModel } from "../lib/llm-client.js";
 import { streamText } from "ai";
 import { SendMessageBody } from "@workspace/api-zod";
+import { isRealUser } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
-
-/** Returns true if the userId represents a real user (not a fallback/dev value) */
-function isRealUser(userId?: string): userId is string {
-  return !!userId && userId !== "default" && userId !== "dev-user" && userId !== "system";
-}
 
 function buildRAGContextMock(docs: Array<{ filename: string; extractedContent: string | null }>, userMessage: string): string {
   // kept only for legacy if needed
@@ -290,6 +286,7 @@ router.delete("/conversations/:conversationId", async (req, res) => {
 
 router.post("/conversations/:conversationId/messages", async (req, res) => {
   try {
+    const userId = req.userId;
     const conversationId = Number(req.params.conversationId);
     const parsedBody = SendMessageBody.safeParse(req.body);
     if (!parsedBody.success) {
@@ -411,17 +408,17 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
           model: aiModel,
           system: systemPrompt,
           messages: llmMessages,
-          onFinish: async (finish) => {
+          onFinish: async (finish: any) => {
              // Log usage
              await db.insert(usageLogsTable).values({
                userId: userId || null,
                conversationId,
                agentId: conv.agentId,
-               model: finish.modelId,
-               provider: finish.provider,
-               promptTokens: finish.usage.promptTokens,
-               completionTokens: finish.usage.completionTokens,
-               totalTokens: finish.usage.totalTokens,
+               model: finish.model || finish.response?.modelId || modelOverride || "unknown",
+               provider: finish.provider || finish.response?.provider || "unknown",
+               promptTokens: finish.usage?.promptTokens || 0,
+               completionTokens: finish.usage?.completionTokens || 0,
+               totalTokens: finish.usage?.totalTokens || 0,
                platform: "web"
              }).catch(e => console.error("Usage log error:", e));
           }
@@ -429,8 +426,9 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
 
         for await (const part of streamResult.fullStream) {
           if (part.type === 'text-delta') {
-            assistantContent += part.textDelta;
-            res.write(`data: ${JSON.stringify({ type: "token", text: part.textDelta })}\n\n`);
+            const textChunk = (part as any).textDelta || (part as any).text || "";
+            assistantContent += textChunk;
+            res.write(`data: ${JSON.stringify({ type: "token", text: textChunk })}\n\n`);
           }
         }
       } else {
