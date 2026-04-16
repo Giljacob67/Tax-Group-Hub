@@ -9,10 +9,10 @@ export default function Dashboard() {
   const { data: docsData } = useListKnowledgeDocuments();
 
   const blocks = [
-    { id: "estrategia", title: "Estratégia e Inteligência", desc: "Centro de comando: orquestra campanhas e distribui tarefas entre todos os agentes.", gradient: "from-amber-500/20 to-amber-900/20", border: "border-amber-500/30" },
-    { id: "prospeccao", title: "Prospecção Comercial", desc: "Agentes de abordagem, descoberta, qualificação, deals complexos e follow-up.", gradient: "from-blue-500/20 to-blue-900/20", border: "border-blue-500/30" },
-    { id: "marketing", title: "Agência Virtual de Marketing", desc: "Criação de conteúdo multi-canal: LinkedIn, email, vídeo, WhatsApp e calendário editorial.", gradient: "from-purple-500/20 to-purple-900/20", border: "border-purple-500/30" },
-    { id: "gestao", title: "Gestão e Operação Interna", desc: "Pipeline, reuniões, propostas, relatórios de performance e treinamento de parceiros.", gradient: "from-emerald-500/20 to-emerald-900/20", border: "border-emerald-500/30" }
+    { id: "estrategia", title: "EstratÃ©gia e InteligÃªncia", desc: "Centro de comando: orquestra campanhas e distribui tarefas entre todos os agentes.", gradient: "from-amber-500/20 to-amber-900/20", border: "border-amber-500/30" },
+    { id: "prospeccao", title: "ProspecÃ§Ã£o Comercial", desc: "Agentes de abordagem, descoberta, qualificaÃ§Ã£o, deals complexos e follow-up.", gradient: "from-blue-500/20 to-blue-900/20", border: "border-blue-500/30" },
+    { id: "marketing", title: "AgÃªncia Virtual de Marketing", desc: "CriaÃ§Ã£o de conteÃºdo multi-canal: LinkedIn, email, vÃ­deo, WhatsApp e calendÃ¡rio editorial.", gradient: "from-purple-500/20 to-purple-900/20", border: "border-purple-500/30" },
+    { id: "gestao", title: "GestÃ£o e OperaÃ§Ã£o Interna", desc: "Pipeline, reuniÃµes, propostas, relatÃ³rios de performance e treinamento de parceiros.", gradient: "from-emerald-500/20 to-emerald-900/20", border: "border-emerald-500/30" }
   ];
 
   return (
@@ -41,13 +41,13 @@ export default function Dashboard() {
           />
           <div className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary backdrop-blur-sm mb-6">
             <ShieldCheck className="w-4 h-4 mr-2" />
-            ✦ Inteligência Tributária
+            â¦ InteligÃªncia TributÃ¡ria
           </div>
           <h1 className="text-6xl font-bold tracking-tight mb-4">
             Tax Group <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">AI Hub</span>
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Bem-vindo ao núcleo inteligente da Tax Group. Utilize {agentsData?.agents?.length || "23"} agentes de IA especializados — coordenados por um orquestrador estratégico — para acelerar a prospecção, automatizar o marketing e otimizar as operações internas.
+            Bem-vindo ao nÃºcleo inteligente da Tax Group. Utilize {agentsData?.agents?.length || "23"} agentes de IA especializados â coordenados por um orquestrador estratÃ©gico â para acelerar a prospecÃ§Ã£o, automatizar o marketing e otimizar as operaÃ§Ãµes internas.
           </p>
         </motion.div>
 
@@ -62,7 +62,11 @@ export default function Dashboard() {
             <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mb-4">
               <Bot className="w-6 h-6 text-blue-400" />
             </div>
-            <h3 className="text-3xl font-bold text-foreground">{agentsData?.agents?.length || 0}</h3>
+            {!agentsData ? (
+                <div className="h-9 w-16 bg-muted/30 animate-pulse rounded-md" />
+              ) : (
+                <h3 className="text-3xl font-bold text-foreground">{agentsData.agents?.length ?? 0}</h3>
+              )}
             <p className="text-sm text-muted-foreground mt-1">Agentes de IA Ativos</p>
           </div>
 
@@ -70,7 +74,11 @@ export default function Dashboard() {
             <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mb-4">
               <MessageSquare className="w-6 h-6 text-purple-400" />
             </div>
-            <h3 className="text-3xl font-bold text-foreground">{convData?.conversations?.length || 0}</h3>
+            {!convData ? (
+                <div className="h-9 w-16 bg-muted/30 animate-pulse rounded-md" />
+              ) : (
+                <h3 className="text-3xl font-bold text-foreground">{convData.conversations?.length ?? 0}</h3>
+              )}
             <p className="text-sm text-muted-foreground mt-1">Total de Conversas</p>
           </div>
 
@@ -78,7 +86,11 @@ export default function Dashboard() {
             <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4">
               <Zap className="w-6 h-6 text-emerald-400" />
             </div>
-            <h3 className="text-3xl font-bold text-foreground">{docsData?.documents?.length || 0}</h3>
+            {!docsData ? (
+                <div className="h-9 w-16 bg-muted/30 animate-pulse rounded-md" />
+              ) : (
+                <h3 className="text-3xl font-bold text-foreground">{docsData.documents?.length ?? 0}</h3>
+              )}
             <p className="text-sm text-muted-foreground mt-1">Documentos de Conhecimento</p>
           </div>
         </motion.div>
