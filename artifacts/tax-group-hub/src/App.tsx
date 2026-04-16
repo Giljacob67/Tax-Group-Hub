@@ -46,11 +46,16 @@ function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+import CRMPage from "./pages/crm";
+
 function Router() {
   return (
     <Switch>
       <Route path="/">
         <Layout><Dashboard /></Layout>
+      </Route>
+      <Route path="/crm">
+        <Layout><CRMPage /></Layout>
       </Route>
       <Route path="/agent/:id">
         <Layout><AgentChat /></Layout>

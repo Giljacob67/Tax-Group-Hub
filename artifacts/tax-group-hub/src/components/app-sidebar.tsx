@@ -101,6 +101,16 @@ export function AppSidebar() {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton 
+                  isActive={location.startsWith("/crm")} 
+                  onClick={() => navigate("/crm")} 
+                  className="font-medium cursor-pointer"
+                >
+                  <Briefcase className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <span>CRM e Pipeline</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton 
                   isActive={location === "/integrations"} 
                   onClick={() => navigate("/integrations")} 
                   className="font-medium cursor-pointer"
