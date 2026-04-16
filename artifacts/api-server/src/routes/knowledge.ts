@@ -39,9 +39,15 @@ function fileFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterC
 import path from "node:path";
 import fs from "node:fs";
 
-const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const UPLOADS_DIR = process.env.VERCEL
+  ? path.resolve("/tmp", "uploads")
+  : path.resolve(process.cwd(), "uploads");
+try {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+} catch {
+  // Serverless environments may have read-only FS — uploads will use memory fallback
 }
 
 const storage = multer.diskStorage({

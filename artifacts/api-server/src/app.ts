@@ -43,7 +43,9 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Serve static uploads (Phase 10 Branding)
 import path from "node:path";
-const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
+const UPLOADS_DIR = process.env.VERCEL
+  ? path.resolve("/tmp", "uploads")
+  : path.resolve(process.cwd(), "uploads");
 app.use("/uploads", express.static(UPLOADS_DIR));
 
 // Global API key auth — applied to all /api routes
