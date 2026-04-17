@@ -72,6 +72,8 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@types/papaparse": "^5.5.2",
+    "papaparse": "^5.5.3",
     "react-dropzone": "^15.0.0",
     "react-markdown": "^10.1.0"
   }

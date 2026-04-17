@@ -345,6 +345,12 @@ importers:
 
   artifacts/tax-group-hub:
     dependencies:
+      '@types/papaparse':
+        specifier: ^5.5.2
+        version: 5.5.2
+      papaparse:
+        specifier: ^5.5.3
+        version: 5.5.3
       react-dropzone:
         specifier: ^15.0.0
         version: 15.0.0(react@19.1.0)
@@ -2253,6 +2259,9 @@ packages:
   '@types/node@25.5.0':
     resolution: {integrity: sha512-jp2P3tQMSxWugkCUKLRPVUpGaL5MVFwF8RDuSRztfwgN1wmqJeMSbKlnEtQqU8UrhTmzEmZdu2I6v2dpp7XIxw==}
 
+  '@types/papaparse@5.5.2':
+    resolution: {integrity: sha512-gFnFp/JMzLHCwRf7tQHrNnfhN4eYBVYYI897CGX4MY1tzY9l2aLkVyx2IlKZ/SAqDbB3I1AOZW5gTMGGsqWliA==}
+
   '@types/pdf-parse@1.1.5':
     resolution: {integrity: sha512-kBfrSXsloMnUJOKi25s3+hRmkycHfLK6A09eRGqF/N8BkQoPUmaCr+q8Cli5FnfohEz/rsv82zAiPz/LXtOGhA==}
 
@@ -3482,6 +3491,9 @@ packages:
 
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
+
+  papaparse@5.5.3:
+    resolution: {integrity: sha512-5QvjGxYVjxO59MGU2lHVYpRWBBtKHnlIAcSe1uNFCkkptUh63NFRj0FJQm7nR67puEruUci/ZkjmEFrjCAyP4A==}
 
   parse-entities@4.0.2:
     resolution: {integrity: sha512-GG2AQYWoLgL877gQIKeRPGO1xF9+eG1ujIb5soS5gPvLQ1y2o8FL90w2QWNdf9I361Mpp7726c+lj3U0qK1uGw==}
@@ -5814,6 +5826,10 @@ snapshots:
     dependencies:
       undici-types: 7.18.2
 
+  '@types/papaparse@5.5.2':
+    dependencies:
+      '@types/node': 25.5.0
+
   '@types/pdf-parse@1.1.5':
     dependencies:
       '@types/node': 25.5.0
@@ -7117,6 +7133,8 @@ snapshots:
       p-limit: 4.0.0
 
   pako@1.0.11: {}
+
+  papaparse@5.5.3: {}
 
   parse-entities@4.0.2:
     dependencies:

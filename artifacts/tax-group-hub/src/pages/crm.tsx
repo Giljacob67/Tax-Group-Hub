@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { BulkImportDialog } from "@/components/crm/BulkImportDialog";
+import { UploadCloud } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Contact = {
@@ -33,6 +35,8 @@ type Contact = {
   email: string | null;
   website: string | null;
   nomeDecissor: string | null;
+  faturamentoEstimado: string | null;
+  socios: any[] | null;
   status: string;
   aiScore: number | null;
   aiScoreDetails: any | null;
@@ -87,6 +91,8 @@ function ScoreBadge({ score }: { score: number | null }) {
 export default function CRMPage() {
   const [activeTab, setActiveTab] = useState("contacts");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   return (
     <div className="flex h-full overflow-hidden bg-background">
@@ -103,7 +109,15 @@ export default function CRMPage() {
                 Leads enriquecidos, qualificação por IA e funil comercial.
               </p>
             </div>
-            {activeTab === "contacts" && <AddLeadDialog />}
+            {activeTab === "contacts" && (
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                  <UploadCloud className="w-4 h-4 mr-2" />
+                  Importar
+                </Button>
+                <AddLeadDialog />
+              </div>
+            )}
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -132,6 +146,12 @@ export default function CRMPage() {
           onUpdate={(c) => setSelectedContact(c)}
         />
       )}
+
+      <BulkImportDialog 
+        open={isImportOpen} 
+        onOpenChange={setIsImportOpen} 
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] })} 
+      />
     </div>
   );
 }
