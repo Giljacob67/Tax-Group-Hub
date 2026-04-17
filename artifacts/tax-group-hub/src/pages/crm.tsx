@@ -385,15 +385,18 @@ function ContactDetailPanel({ contact, onClose, onUpdate }: {
               { label: "Regime", value: contact.regimeTributario?.replace(/_/g, " ") },
               { label: "CNAE", value: contact.cnae },
               { label: "Porte", value: contact.porte },
+              { label: "Faturamento", value: contact.faturamentoEstimado },
+              { label: "Website", value: contact.website },
               { label: "Localização", value: contact.cidade && contact.uf ? `${contact.cidade}/${contact.uf}` : contact.uf },
               { label: "Endereço", value: contact.endereco },
               { label: "Telefone", value: contact.telefone },
               { label: "E-mail", value: contact.email },
               { label: "Decissor", value: contact.nomeDecissor },
+              { label: "Sócios", value: Array.isArray(contact.socios) ? contact.socios.map((s:any)=>s.nome).join(", ") : undefined },
             ].filter(f => f.value).map(f => (
               <div key={f.label} className="flex gap-2 text-xs">
-                <span className="text-muted-foreground w-20 flex-shrink-0">{f.label}</span>
-                <span className="text-foreground truncate">{f.value}</span>
+                <span className="text-muted-foreground w-20 flex-shrink-0 pt-0.5">{f.label}</span>
+                <span className="text-foreground flex-1 break-words leading-relaxed">{f.value}</span>
               </div>
             ))}
             {contact.lastEnrichedAt && (
