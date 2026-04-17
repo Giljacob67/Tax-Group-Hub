@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import {
   crmContactsTable, crmDealsTable, crmActivitiesTable,
-  crmEnrichmentLogTable, crmPipelinesTable
+  crmEnrichmentLogTable, crmPipelinesTable, crmAttachmentsTable
 } from "@workspace/db";
 import { eq, and, desc, ilike, or } from "drizzle-orm";
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
@@ -509,4 +509,84 @@ router.post("/contacts/:id/activities", async (req: Request, res: Response) => {
   }
 });
 
+// ─── Attachments: List ────────────────────────────────────────────────────────
+// GET /api/crm/contacts/:id/attachments
+router.get("/contacts/:id/attachments", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const attachments = await db
+      .select()
+      .from(crmAttachmentsTable)
+      .where(and(eq(crmAttachmentsTable.contactId, Number(req.params.id)), eq(crmAttachmentsTable.userId, userId)))
+      .orderBy(desc(crmAttachmentsTable.createdAt));
+    res.json({ success: true, attachments });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to list attachments", message: err.message });
+  }
+});
+
+// ─── Attachments: Create (metadata-only — URL provided by client after upload) ─
+// POST /api/crm/contacts/:id/attachments
+// Body: { fileName, fileSize, mimeType, url, dealId? }
+router.post("/contacts/:id/attachments", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const contactId = Number(req.params.id);
+
+    // Ensure contact belongs to tenant
+    const [contact] = await db
+      .select({ id: crmContactsTable.id })
+      .from(crmContactsTable)
+      .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)));
+    if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
+
+    const { fileName, fileSize, mimeType, url, dealId } = req.body;
+    if (!fileName || !mimeType || !url) {
+      res.status(400).json({ error: "fileName, mimeType e url são obrigatórios." });
+      return;
+    }
+
+    const [attachment] = await db
+      .insert(crmAttachmentsTable)
+      .values({ userId, contactId, dealId: dealId ? Number(dealId) : null, fileName, fileSize, mimeType, url, uploadedBy: userId })
+      .returning();
+
+    // Log na timeline do contato
+    await db.insert(crmActivitiesTable).values({
+      contactId,
+      dealId: dealId ? Number(dealId) : null,
+      userId,
+      type: "note",
+      subject: `Arquivo anexado: ${fileName}`,
+      content: `Arquivo ${mimeType} (${fileSize ? `${Math.round(fileSize / 1024)} KB` : "tamanho desconhecido"}) adicionado.`,
+      completedAt: new Date(),
+    }).catch(() => {});
+
+    res.status(201).json({ success: true, attachment });
+  } catch (err: any) {
+    res.status(400).json({ error: "Failed to create attachment", message: err.message });
+  }
+});
+
+// ─── Attachments: Delete ──────────────────────────────────────────────────────
+// DELETE /api/crm/contacts/:contactId/attachments/:attachmentId
+router.delete("/contacts/:contactId/attachments/:attachmentId", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    await db
+      .delete(crmAttachmentsTable)
+      .where(
+        and(
+          eq(crmAttachmentsTable.id, Number(req.params.attachmentId)),
+          eq(crmAttachmentsTable.contactId, Number(req.params.contactId)),
+          eq(crmAttachmentsTable.userId, userId)
+        )
+      );
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to delete attachment", message: err.message });
+  }
+});
+
 export default router;
+

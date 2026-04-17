@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Building2, Plus, Loader2, Search, MapPin, Phone, Mail,
   Briefcase, Star, Zap, RefreshCw, ChevronRight, X,
   Clock, MessageSquare, Bot, CheckCircle2, TrendingUp,
-  FileText, Calendar, MoreVertical, AlertCircle, Trophy
+  FileText, Calendar, MoreVertical, AlertCircle, Trophy,
+  Download, Paperclip, Trash2, File, FileImage, FilePdf
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,6 +56,44 @@ type Activity = {
   completedAt: string | null;
   createdAt: string;
 };
+
+type Attachment = {
+  id: number;
+  fileName: string;
+  fileSize: number | null;
+  mimeType: string;
+  url: string;
+  uploadedBy: string;
+  createdAt: string;
+};
+
+// ─── XLSX Export ──────────────────────────────────────────────────────────────
+async function exportContactsToXlsx(contacts: Contact[]) {
+  const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
+  const rows = contacts.map(c => ({
+    "CNPJ": c.cnpj,
+    "Razão Social": c.razaoSocial || "",
+    "Nome Fantasia": c.nomeFantasia || "",
+    "Regime Tributário": c.regimeTributario || "",
+    "CNAE": c.cnae || "",
+    "Porte": c.porte || "",
+    "UF": c.uf || "",
+    "Cidade": c.cidade || "",
+    "Telefone": c.telefone || "",
+    "E-mail": c.email || "",
+    "Decissor": c.nomeDecissor || "",
+    "Faturamento Estimado": c.faturamentoEstimado || "",
+    "Score IA": c.aiScore ?? "",
+    "Produto Recomendado": c.aiRecommendedProduct || "",
+    "Status": c.status,
+    "Fonte": c.source,
+    "Cadastrado em": new Date(c.createdAt).toLocaleDateString("pt-BR"),
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Leads");
+  XLSX.writeFile(wb, `leads-tax-group-${new Date().toISOString().slice(0,10)}.xlsx`);
+}
 
 // ─── Status config ───────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -199,6 +238,16 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
             ))}
           </select>
           <span className="text-xs text-muted-foreground whitespace-nowrap">{contacts.length} leads</span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1.5 text-xs"
+            disabled={contacts.length === 0}
+            onClick={() => exportContactsToXlsx(contacts)}
+          >
+            <Download className="w-3.5 h-3.5" />
+            Exportar XLSX
+          </Button>
         </div>
       </CardHeader>
 
@@ -280,6 +329,9 @@ function ContactDetailPanel({ contact, onClose, onUpdate }: {
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [detailTab, setDetailTab] = useState("info");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   const enrichMutation = useMutation({
     mutationFn: async () => {
@@ -319,9 +371,61 @@ function ContactDetailPanel({ contact, onClose, onUpdate }: {
     },
   });
 
+  const { data: attachmentsData, refetch: refetchAttachments } = useQuery<{ attachments: Attachment[] }>({
+    queryKey: [`/api/crm/contacts/${contact.id}/attachments`],
+    queryFn: async () => {
+      const res = await fetch(`/api/crm/contacts/${contact.id}/attachments`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: async (attachmentId: number) => {
+      const res = await fetch(`/api/crm/contacts/${contact.id}/attachments/${attachmentId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Erro ao remover");
+    },
+    onSuccess: () => { refetchAttachments(); toast({ title: "Arquivo removido." }); },
+    onError: () => toast({ title: "Erro ao remover arquivo", variant: "destructive" }),
+  });
+
+  // Simulated upload: reads file as data URL and sends to API
+  async function handleFileUpload(file: File) {
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch(`/api/crm/contacts/${contact.id}/attachments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, fileSize: file.size, mimeType: file.type, url: dataUrl }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+      refetchAttachments();
+      queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
+      toast({ title: `📎 ${file.name} anexado com sucesso!` });
+    } catch (e: any) {
+      toast({ title: "Erro no upload", description: e.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   const activities = activitiesData?.activities || [];
+  const attachments = attachmentsData?.attachments || [];
   const status = STATUS_CONFIG[contact.status] || STATUS_CONFIG.prospect;
   const scoreDetails = contact.aiScoreDetails as any;
+
+  function getMimeIcon(mime: string) {
+    if (mime.startsWith("image/")) return FileImage;
+    if (mime === "application/pdf") return FileText;
+    return File;
+  }
 
   return (
     <div className="w-[380px] flex-shrink-0 border-l border-border/50 bg-card/30 flex flex-col h-full overflow-hidden">
@@ -336,132 +440,203 @@ function ContactDetailPanel({ contact, onClose, onUpdate }: {
         </button>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
-
-          {/* Score + Status */}
-          <div className="flex gap-2">
-            <div className="flex-1 bg-muted/40 rounded-lg p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">Score IA</div>
-              <ScoreBadge score={contact.aiScore} />
-              {scoreDetails?.tier && <div className="text-xs text-muted-foreground mt-0.5">Tier {scoreDetails.tier}</div>}
-            </div>
-            <div className="flex-1 bg-muted/40 rounded-lg p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">Status</div>
-              <Badge variant="outline" className={`text-[10px] border ${status.color}`}>{status.label}</Badge>
-            </div>
-            {contact.aiRecommendedProduct && (
-              <div className="flex-1 bg-primary/10 rounded-lg p-3 text-center">
-                <div className="text-xs text-muted-foreground mb-1">Produto</div>
-                <span className="text-xs font-bold text-primary">{contact.aiRecommendedProduct}</span>
-              </div>
-            )}
+      {/* Score + Status + Actions */}
+      <div className="flex-none p-4 space-y-3 border-b border-border/50">
+        <div className="flex gap-2">
+          <div className="flex-1 bg-muted/40 rounded-lg p-3 text-center">
+            <div className="text-xs text-muted-foreground mb-1">Score IA</div>
+            <ScoreBadge score={contact.aiScore} />
+            {scoreDetails?.tier && <div className="text-xs text-muted-foreground mt-0.5">Tier {scoreDetails.tier}</div>}
           </div>
-
-          {/* AI Actions */}
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1 text-xs"
-              disabled={enrichMutation.isPending}
-              onClick={() => enrichMutation.mutate()}
-            >
-              {enrichMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <RefreshCw className="w-3 h-3 mr-1.5" />}
-              Enriquecer
-            </Button>
-            <Button
-              size="sm"
-              className="flex-1 text-xs bg-primary"
-              disabled={qualifyMutation.isPending}
-              onClick={() => qualifyMutation.mutate()}
-            >
-              {qualifyMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Bot className="w-3 h-3 mr-1.5" />}
-              Qualificar IA
-            </Button>
+          <div className="flex-1 bg-muted/40 rounded-lg p-3 text-center">
+            <div className="text-xs text-muted-foreground mb-1">Status</div>
+            <Badge variant="outline" className={`text-[10px] border ${status.color}`}>{status.label}</Badge>
           </div>
+          {contact.aiRecommendedProduct && (
+            <div className="flex-1 bg-primary/10 rounded-lg p-3 text-center">
+              <div className="text-xs text-muted-foreground mb-1">Produto</div>
+              <span className="text-xs font-bold text-primary">{contact.aiRecommendedProduct}</span>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm" variant="outline" className="flex-1 text-xs"
+            disabled={enrichMutation.isPending} onClick={() => enrichMutation.mutate()}
+          >
+            {enrichMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <RefreshCw className="w-3 h-3 mr-1.5" />}
+            Enriquecer
+          </Button>
+          <Button
+            size="sm" className="flex-1 text-xs bg-primary"
+            disabled={qualifyMutation.isPending} onClick={() => qualifyMutation.mutate()}
+          >
+            {qualifyMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Bot className="w-3 h-3 mr-1.5" />}
+            Qualificar IA
+          </Button>
+        </div>
+      </div>
 
-          {/* AI reasoning */}
-          {scoreDetails?.reasoning && (
-            <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
-              <div className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-2">
-                <Bot className="w-3 h-3" /> Análise do Agente
+      {/* Detail Tabs */}
+      <Tabs value={detailTab} onValueChange={setDetailTab} className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex-none border-b border-border/50 px-4">
+          <TabsList className="bg-transparent p-0 h-9 gap-4">
+            <TabsTrigger value="info" className="text-xs px-0 pb-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Dados</TabsTrigger>
+            <TabsTrigger value="timeline" className="text-xs px-0 pb-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Timeline ({activities.length})</TabsTrigger>
+            <TabsTrigger value="files" className="text-xs px-0 pb-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">Arquivos ({attachments.length})</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <ScrollArea className="flex-1">
+          {/* ── Info Tab ── */}
+          <TabsContent value="info" className="m-0">
+            <div className="p-4 space-y-4">
+              {scoreDetails?.reasoning && (
+                <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
+                  <div className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-2">
+                    <Bot className="w-3 h-3" /> Análise do Agente
+                  </div>
+                  <p className="text-xs text-foreground/80 leading-relaxed">{scoreDetails.reasoning}</p>
+                  {scoreDetails.nextAction && (
+                    <div className="mt-2 pt-2 border-t border-border/50 text-xs text-primary font-medium">
+                      ▶ {scoreDetails.nextAction}
+                    </div>
+                  )}
+                </div>
+              )}
+              <Separator />
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dados da Empresa</h4>
+                {[
+                  { label: "Regime", value: contact.regimeTributario?.replace(/_/g, " ") },
+                  { label: "CNAE", value: contact.cnae },
+                  { label: "Porte", value: contact.porte },
+                  { label: "Faturamento", value: contact.faturamentoEstimado },
+                  { label: "Website", value: contact.website },
+                  { label: "Localização", value: contact.cidade && contact.uf ? `${contact.cidade}/${contact.uf}` : contact.uf },
+                  { label: "Endereço", value: contact.endereco },
+                  { label: "Telefone", value: contact.telefone },
+                  { label: "E-mail", value: contact.email },
+                  { label: "Decissor", value: contact.nomeDecissor },
+                  { label: "Sócios", value: Array.isArray(contact.socios) ? contact.socios.map((s:any)=>s.nome).join(", ") : undefined },
+                ].filter(f => f.value).map(f => (
+                  <div key={f.label} className="flex gap-2 text-xs">
+                    <span className="text-muted-foreground w-20 flex-shrink-0 pt-0.5">{f.label}</span>
+                    <span className="text-foreground flex-1 break-words leading-relaxed">{f.value}</span>
+                  </div>
+                ))}
+                {contact.lastEnrichedAt && (
+                  <div className="flex gap-2 text-xs pt-1">
+                    <span className="text-muted-foreground w-20 flex-shrink-0">Enriquecido</span>
+                    <span className="text-emerald-400 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {new Date(contact.lastEnrichedAt).toLocaleDateString("pt-BR")}
+                    </span>
+                  </div>
+                )}
               </div>
-              <p className="text-xs text-foreground/80 leading-relaxed">{scoreDetails.reasoning}</p>
-              {scoreDetails.nextAction && (
-                <div className="mt-2 pt-2 border-t border-border/50 text-xs text-primary font-medium">
-                  ▶ {scoreDetails.nextAction}
+            </div>
+          </TabsContent>
+
+          {/* ── Timeline Tab ── */}
+          <TabsContent value="timeline" className="m-0">
+            <div className="p-4">
+              {activities.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">Nenhuma atividade registrada.</p>
+              ) : (
+                <div className="space-y-3">
+                  {activities.map((a) => {
+                    const Icon = ACTIVITY_ICONS[a.type] || Clock;
+                    return (
+                      <div key={a.id} className="flex gap-2.5">
+                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Icon className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-foreground truncate">{a.subject || a.type}</div>
+                          {a.content && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{a.content}</p>}
+                          <div className="text-[10px] text-muted-foreground/60 mt-1">
+                            {new Date(a.createdAt).toLocaleString("pt-BR")}
+                            {a.agentId && <span className="ml-1 text-primary/70">· {a.agentId}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          )}
+          </TabsContent>
 
-          <Separator />
-
-          {/* Company info */}
-          <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dados da Empresa</h4>
-            {[
-              { label: "Regime", value: contact.regimeTributario?.replace(/_/g, " ") },
-              { label: "CNAE", value: contact.cnae },
-              { label: "Porte", value: contact.porte },
-              { label: "Faturamento", value: contact.faturamentoEstimado },
-              { label: "Website", value: contact.website },
-              { label: "Localização", value: contact.cidade && contact.uf ? `${contact.cidade}/${contact.uf}` : contact.uf },
-              { label: "Endereço", value: contact.endereco },
-              { label: "Telefone", value: contact.telefone },
-              { label: "E-mail", value: contact.email },
-              { label: "Decissor", value: contact.nomeDecissor },
-              { label: "Sócios", value: Array.isArray(contact.socios) ? contact.socios.map((s:any)=>s.nome).join(", ") : undefined },
-            ].filter(f => f.value).map(f => (
-              <div key={f.label} className="flex gap-2 text-xs">
-                <span className="text-muted-foreground w-20 flex-shrink-0 pt-0.5">{f.label}</span>
-                <span className="text-foreground flex-1 break-words leading-relaxed">{f.value}</span>
+          {/* ── Files Tab ── */}
+          <TabsContent value="files" className="m-0">
+            <div className="p-4 space-y-3">
+              {/* Upload area */}
+              <div
+                className="border-2 border-dashed border-border/50 rounded-lg p-5 text-center hover:border-primary/40 transition-colors cursor-pointer group"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFileUpload(f); }}
+              >
+                <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.docx,.txt" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }} />
+                {uploading ? (
+                  <Loader2 className="w-7 h-7 animate-spin text-primary mx-auto" />
+                ) : (
+                  <Paperclip className="w-7 h-7 text-muted-foreground/40 group-hover:text-primary/50 mx-auto transition-colors" />
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  {uploading ? "Enviando..." : "Clique ou arraste um arquivo"}
+                </p>
+                <p className="text-[10px] text-muted-foreground/50 mt-1">PDF, Imagens, XLSX, Word, TXT</p>
               </div>
-            ))}
-            {contact.lastEnrichedAt && (
-              <div className="flex gap-2 text-xs pt-1">
-                <span className="text-muted-foreground w-20 flex-shrink-0">Enriquecido</span>
-                <span className="text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  {new Date(contact.lastEnrichedAt).toLocaleDateString("pt-BR")}
-                </span>
-              </div>
-            )}
-          </div>
 
-          <Separator />
-
-          {/* Activity timeline */}
-          <div>
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Timeline</h4>
-            {activities.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Nenhuma atividade registrada.</p>
-            ) : (
-              <div className="space-y-3">
-                {activities.map((a) => {
-                  const Icon = ACTIVITY_ICONS[a.type] || Clock;
-                  return (
-                    <div key={a.id} className="flex gap-2.5">
-                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Icon className="w-3 h-3 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-foreground truncate">{a.subject || a.type}</div>
-                        {a.content && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{a.content}</p>}
-                        <div className="text-[10px] text-muted-foreground/60 mt-1">
-                          {new Date(a.createdAt).toLocaleString("pt-BR")}
-                          {a.agentId && <span className="ml-1 text-primary/70">· {a.agentId}</span>}
+              {/* Attachment list */}
+              {attachments.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-3">Nenhum arquivo anexado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {attachments.map((att) => {
+                    const Icon = getMimeIcon(att.mimeType);
+                    const isImage = att.mimeType.startsWith("image/");
+                    return (
+                      <div key={att.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group">
+                        {isImage ? (
+                          <img src={att.url} alt={att.fileName} className="w-8 h-8 rounded object-cover flex-shrink-0 border border-border/50" />
+                        ) : (
+                          <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                            <Icon className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{att.fileName}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {att.fileSize ? `${Math.round(att.fileSize / 1024)} KB · ` : ""}
+                            {new Date(att.createdAt).toLocaleDateString("pt-BR")}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <a href={att.url} download={att.fileName} title="Baixar">
+                            <Button size="icon" variant="ghost" className="w-6 h-6">
+                              <Download className="w-3 h-3" />
+                            </Button>
+                          </a>
+                          <Button
+                            size="icon" variant="ghost" className="w-6 h-6 text-destructive hover:text-destructive"
+                            onClick={() => deleteAttachmentMutation.mutate(att.id)}
+                            title="Remover"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </ScrollArea>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </ScrollArea>
+      </Tabs>
     </div>
   );
 }

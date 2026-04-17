@@ -111,3 +111,20 @@ export const crmEnrichmentLogTable = pgTable("crm_enrichment_log", {
 export const insertCrmEnrichmentLogSchema = createInsertSchema(crmEnrichmentLogTable).omit({ id: true, createdAt: true });
 export type CrmEnrichmentLog = typeof crmEnrichmentLogTable.$inferSelect;
 export type InsertCrmEnrichmentLog = z.infer<typeof insertCrmEnrichmentLogSchema>;
+
+export const crmAttachmentsTable = pgTable("crm_attachments", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  contactId: integer("contact_id").notNull().references(() => crmContactsTable.id, { onDelete: "cascade" }),
+  dealId: integer("deal_id").references(() => crmDealsTable.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size"), // bytes
+  mimeType: text("mime_type").notNull(), // application/pdf, image/png, etc
+  url: text("url").notNull(),
+  uploadedBy: text("uploaded_by").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCrmAttachmentSchema = createInsertSchema(crmAttachmentsTable).omit({ id: true, createdAt: true });
+export type CrmAttachment = typeof crmAttachmentsTable.$inferSelect;
+export type InsertCrmAttachment = z.infer<typeof insertCrmAttachmentSchema>;

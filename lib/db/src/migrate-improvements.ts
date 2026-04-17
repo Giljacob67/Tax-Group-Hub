@@ -156,6 +156,21 @@ async function run() {
   `);
   console.log("✅  crm_enrichment_log");
 
+  // ─── 8. tenant_branding ────────────────────────────────────────────────
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS tenant_branding (
+      id               SERIAL PRIMARY KEY,
+      user_id          TEXT UNIQUE,
+      company_name     TEXT NOT NULL DEFAULT 'Tax Group Hub',
+      logo_storage_key TEXT,
+      primary_color    TEXT NOT NULL DEFAULT '#3b82f6',
+      custom_domain    TEXT,
+      created_at       TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at       TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  console.log("✅  tenant_branding");
+
   console.log("\n🎉 Migração concluída com sucesso!");
   process.exit(0);
 }
