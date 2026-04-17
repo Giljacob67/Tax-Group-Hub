@@ -25,6 +25,7 @@ export const crmContactsTable = pgTable("crm_contacts", {
   socios: jsonb("socios").$type<Array<{ nome: string; cpf?: string; participacao?: string }>>(),
   source: text("source").notNull().default("manual"), // 'manual' | 'empresaqui' | 'webhook' | 'import'
   tags: jsonb("tags").$type<string[]>(),
+  customFields: jsonb("custom_fields").$type<Record<string, any>>(), // Permite campos dinamicos infinitos
   status: text("status").notNull().default("prospect"), // 'prospect' | 'qualified' | 'opportunity' | 'client' | 'churned' | 'lost'
   aiScore: integer("ai_score"),
   aiScoreDetails: jsonb("ai_score_details"),
@@ -39,16 +40,32 @@ export const insertCrmContactSchema = createInsertSchema(crmContactsTable).omit(
 export type CrmContact = typeof crmContactsTable.$inferSelect;
 export type InsertCrmContact = z.infer<typeof insertCrmContactSchema>;
 
+export const crmPipelinesTable = pgTable("crm_pipelines", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  stages: jsonb("stages").$type<string[]>().notNull(), // ex: ["prospecting", "discovery", "proposal", "won"]
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCrmPipelineSchema = createInsertSchema(crmPipelinesTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type CrmPipeline = typeof crmPipelinesTable.$inferSelect;
+export type InsertCrmPipeline = z.infer<typeof insertCrmPipelineSchema>;
+
 export const crmDealsTable = pgTable("crm_deals", {
   id: serial("id").primaryKey(),
   contactId: integer("contact_id").notNull().references(() => crmContactsTable.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull(),
+  pipelineId: text("pipeline_id").notNull().default("default"),
   title: text("title").notNull(),
-  produto: text("produto"), // 'AFD' | 'REP' | 'RTI' | 'TTR' | 'PPS' | 'PSF' | 'DUE' | 'ROT' | 'outro'
-  stage: text("stage").notNull().default("prospecting"), // 'prospecting' | 'discovery' | 'proposal' | 'negotiation' | 'closing' | 'won' | 'lost'
-  value: text("value"), // string to handle currency/big numbers or simply descriptors
+  produto: text("produto"), 
+  stage: text("stage").notNull().default("prospecting"), 
+  value: text("value"), 
   probability: integer("probability").default(0),
   expectedCloseDate: timestamp("expected_close_date"),
+  customFields: jsonb("custom_fields").$type<Record<string, any>>(),
   lostReason: text("lost_reason"),
   wonAt: timestamp("won_at"),
   lostAt: timestamp("lost_at"),

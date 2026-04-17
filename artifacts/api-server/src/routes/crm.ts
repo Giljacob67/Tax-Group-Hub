@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import {
   crmContactsTable, crmDealsTable, crmActivitiesTable,
-  crmEnrichmentLogTable,
+  crmEnrichmentLogTable, crmPipelinesTable
 } from "@workspace/db";
 import { eq, and, desc, ilike, or } from "drizzle-orm";
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
@@ -357,13 +357,34 @@ Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","RE
 router.get("/deals/pipeline", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
+    const pipelineIdParam = (req.query.pipelineId as string) || "default";
+
+    // Grab or initialize the pipeline dynamically
+    let [pipelineMeta] = await db
+      .select({ id: crmPipelinesTable.id, name: crmPipelinesTable.name, stages: crmPipelinesTable.stages })
+      .from(crmPipelinesTable)
+      .where(and(eq(crmPipelinesTable.userId, userId), eq(crmPipelinesTable.id, pipelineIdParam === "default" ? 0 : Number(pipelineIdParam))))
+      .limit(1);
+
+    if (!pipelineMeta && pipelineIdParam === "default") {
+      const defaultStages = ["prospecting", "discovery", "proposal", "negotiation", "closing", "won", "lost"];
+      pipelineMeta = { id: 0, name: "Funil Comercial (Padrão)", stages: defaultStages };
+      // Opcional: Inserir no banco pra uso futuro, mas pode ser resolvido dinamicamente.
+    }
+
+    const stages = pipelineMeta?.stages || ["prospecting", "discovery", "won", "lost"];
+
     const deals = await db
       .select()
       .from(crmDealsTable)
-      .where(eq(crmDealsTable.userId, userId))
+      .where(
+        and(
+          eq(crmDealsTable.userId, userId),
+          eq(crmDealsTable.pipelineId, pipelineIdParam)
+        )
+      )
       .orderBy(desc(crmDealsTable.updatedAt));
 
-    const stages = ["prospecting", "discovery", "proposal", "negotiation", "closing", "won", "lost"];
     const pipeline: Record<string, any[]> = {};
     for (const s of stages) pipeline[s] = deals.filter(d => d.stage === s);
 
@@ -371,7 +392,7 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
       .filter(d => !["lost"].includes(d.stage))
       .reduce((sum, d) => sum + (parseFloat(d.value || "0") || 0), 0);
 
-    res.json({ success: true, pipeline, stats: { total: deals.length, totalValue } });
+    res.json({ success: true, pipeline, stages, meta: pipelineMeta, stats: { total: deals.length, totalValue } });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to fetch pipeline", message: err.message });
   }

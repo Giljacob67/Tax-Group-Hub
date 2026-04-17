@@ -541,17 +541,18 @@ function AddLeadDialog() {
 }
 
 // ─── Pipeline Kanban ──────────────────────────────────────────────────────────
-const STAGES = [
-  { id: "prospecting", name: "Prospecção",   color: "bg-slate-500/20 text-slate-300" },
-  { id: "discovery",   name: "Descoberta",   color: "bg-blue-500/20 text-blue-300" },
-  { id: "proposal",    name: "Proposta",     color: "bg-amber-500/20 text-amber-300" },
-  { id: "negotiation", name: "Negociação",   color: "bg-orange-500/20 text-orange-300" },
-  { id: "closing",     name: "Fechamento",   color: "bg-purple-500/20 text-purple-300" },
-  { id: "won",         name: "Ganhos 🏆",   color: "bg-emerald-500/20 text-emerald-300" },
-];
+const STAGE_DICT: Record<string, { label: string, color: string }> = {
+  prospecting: { label: "Prospecção",   color: "bg-slate-500/20 text-slate-300" },
+  discovery:   { label: "Descoberta",   color: "bg-blue-500/20 text-blue-300" },
+  proposal:    { label: "Proposta",     color: "bg-amber-500/20 text-amber-300" },
+  negotiation: { label: "Negociação",   color: "bg-orange-500/20 text-orange-300" },
+  closing:     { label: "Fechamento",   color: "bg-purple-500/20 text-purple-300" },
+  won:         { label: "Ganhos 🏆",   color: "bg-emerald-500/20 text-emerald-300" },
+  lost:        { label: "Perdidos",     color: "bg-red-500/20 text-red-300" }
+};
 
 function PipelineKanbanView() {
-  const { data, isLoading } = useQuery<{ pipeline: Record<string, any[]>; stats: any }>({
+  const { data, isLoading } = useQuery<{ pipeline: Record<string, any[]>; stages: string[]; meta: any; stats: any }>({
     queryKey: ["/api/crm/deals/pipeline"],
     queryFn: async () => {
       const res = await fetch("/api/crm/deals/pipeline");
@@ -567,10 +568,16 @@ function PipelineKanbanView() {
   );
 
   const pipeline = data?.pipeline || {};
+  const stages = data?.stages || [];
   const totalDeals = Object.values(pipeline).flat().length;
 
   return (
     <div className="space-y-3">
+      <div className="flex justify-between items-center px-1">
+        <h3 className="text-sm font-medium text-muted-foreground">{data?.meta?.name || "Pipeline"}</h3>
+        <Badge variant="outline" className="text-xs font-mono">{totalDeals} oportunidades</Badge>
+      </div>
+
       {totalDeals === 0 && (
         <div className="text-center py-6 text-sm text-muted-foreground border border-dashed rounded-lg">
           <Trophy className="w-10 h-10 mx-auto mb-2 text-muted-foreground/30" />
@@ -580,13 +587,14 @@ function PipelineKanbanView() {
 
       <ScrollArea className="w-full">
         <div className="flex gap-3 pb-4 min-w-max">
-          {STAGES.map((stage) => {
-            const deals = pipeline[stage.id] || [];
+          {stages.map((stageId) => {
+            const deals = pipeline[stageId] || [];
+            const dict = STAGE_DICT[stageId] || { label: stageId.toUpperCase(), color: "bg-slate-500/20 text-slate-300" };
             return (
-              <div key={stage.id} className="w-[260px] flex-shrink-0 bg-card/40 rounded-xl border border-border/50">
+              <div key={stageId} className="w-[260px] flex-shrink-0 bg-card/40 rounded-xl border border-border/50">
                 <div className="p-3 border-b border-border/50 flex items-center justify-between">
-                  <Badge variant="outline" className={`border-0 text-xs font-medium ${stage.color}`}>
-                    {stage.name}
+                  <Badge variant="outline" className={`border-0 text-xs font-medium ${dict.color}`}>
+                    {dict.label}
                   </Badge>
                   <span className="text-xs font-semibold text-muted-foreground w-5 h-5 rounded-full bg-muted flex items-center justify-center">
                     {deals.length}
