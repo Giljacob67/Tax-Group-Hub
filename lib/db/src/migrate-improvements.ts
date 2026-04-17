@@ -171,6 +171,52 @@ async function run() {
   `);
   console.log("✅  tenant_branding");
 
+  // ─── 8.1 API Keys & Channels ───────────────────────────────────────────
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id         SERIAL PRIMARY KEY,
+      provider   TEXT NOT NULL,
+      key        TEXT NOT NULL,
+      user_id    TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  console.log("✅  api_keys");
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS channel_configs (
+      id          SERIAL PRIMARY KEY,
+      platform    TEXT NOT NULL,
+      external_id TEXT NOT NULL,
+      agent_id    TEXT NOT NULL,
+      user_id     TEXT,
+      config      JSONB,
+      active      BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  console.log("✅  channel_configs");
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS usage_logs (
+      id                SERIAL PRIMARY KEY,
+      user_id           TEXT,
+      conversation_id   INTEGER,
+      agent_id          TEXT,
+      model             TEXT,
+      provider          TEXT,
+      prompt_tokens     INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      total_tokens      INTEGER NOT NULL DEFAULT 0,
+      latency_ms        INTEGER,
+      platform          TEXT NOT NULL DEFAULT 'web',
+      created_at        TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  console.log("✅  usage_logs");
+
   // ─── 9. Phase 3: Novas Tabelas e Colunas CRM ──────────────────────────────
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS crm_pipelines (
