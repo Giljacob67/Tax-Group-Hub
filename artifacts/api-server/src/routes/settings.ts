@@ -343,6 +343,8 @@ router.get("/settings/models", async (_req, res) => {
       { id: "llama-3.1-8b", name: "LLaMA 3.1 8B (Ollama Cloud)", description: "Modelo veloz open-source (Ollama Cloud / OpenRouter)." },
       { id: "qwen-2.5-coder-32b", name: "Qwen 2.5 Coder 32B", description: "Excepcional para código na nuvem corporativa." },
       { id: "glm-5.1:cloud", name: "GLM 5.1 Cloud", description: "Modelo poderoso para compreensão profunda (Ollama Cloud)." },
+      { id: "minimax-m2.7:cloud", name: "Minimax M2.7 Cloud", description: "Otimizado para raciocínio em múltiplos cenários (Ollama Cloud)." },
+      { id: "kimi-k2.5:cloud", name: "Kimi K2.5 Cloud", description: "Leitor avançado de contexto ultra-longo na nuvem (Ollama Cloud)." },
     ];
 
     res.json({
