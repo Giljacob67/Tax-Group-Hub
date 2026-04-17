@@ -321,7 +321,33 @@ Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","RE
       agentId: agent.id,
     }).catch(() => {});
 
-    res.json({ success: true, contact: updated, qualification: scoreData });
+    // Auto-create a Deal in Kanban if it doesn't exist and Tier is A/B/C
+    let dealCreated = false;
+    if (["A", "B", "C"].includes(scoreData.tier)) {
+      const [existingDeal] = await db
+        .select({ id: crmDealsTable.id })
+        .from(crmDealsTable)
+        .where(and(eq(crmDealsTable.contactId, contact.id), eq(crmDealsTable.userId, userId)));
+      
+      if (!existingDeal) {
+        const stage = scoreData.tier === "A" ? "discovery" : "prospecting";
+        const probability = scoreData.tier === "A" ? 40 : (scoreData.tier === "B" ? 20 : 10);
+        
+        await db.insert(crmDealsTable).values({
+          contactId: contact.id,
+          userId,
+          title: `Oportunidade - ${contact.razaoSocial || contact.cnpj}`,
+          value: "50000", // Valor simbólico inicial
+          stage,
+          probability,
+          products: scoreData.products || [],
+          expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+        }).catch(() => {});
+        dealCreated = true;
+      }
+    }
+
+    res.json({ success: true, contact: updated, qualification: scoreData, dealCreated });
   } catch (err: any) {
     res.status(500).json({ error: "Qualification failed", message: err.message });
   }
