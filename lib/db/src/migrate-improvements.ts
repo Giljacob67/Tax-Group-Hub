@@ -171,6 +171,43 @@ async function run() {
   `);
   console.log("✅  tenant_branding");
 
+  // ─── 9. Phase 3: Novas Tabelas e Colunas CRM ──────────────────────────────
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS crm_pipelines (
+      id         SERIAL PRIMARY KEY,
+      user_id    TEXT NOT NULL,
+      name       TEXT NOT NULL,
+      stages     JSONB NOT NULL,
+      is_default BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  console.log("✅  crm_pipelines");
+
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS crm_attachments (
+      id          SERIAL PRIMARY KEY,
+      user_id     TEXT NOT NULL,
+      contact_id  INTEGER NOT NULL REFERENCES crm_contacts(id) ON DELETE CASCADE,
+      deal_id     INTEGER REFERENCES crm_deals(id) ON DELETE CASCADE,
+      file_name   TEXT NOT NULL,
+      file_size   INTEGER,
+      mime_type   TEXT NOT NULL,
+      url         TEXT NOT NULL,
+      uploaded_by TEXT NOT NULL,
+      created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  console.log("✅  crm_attachments");
+
+  await db.execute(sql.raw(`ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS custom_fields JSONB;`));
+  console.log("✅  crm_contacts.custom_fields");
+
+  await db.execute(sql.raw(`ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS custom_fields JSONB;`));
+  await db.execute(sql.raw(`ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS pipeline_id TEXT NOT NULL DEFAULT 'default';`));
+  console.log("✅  crm_deals.custom_fields e pipeline_id");
+
   console.log("\n🎉 Migração concluída com sucesso!");
   process.exit(0);
 }
