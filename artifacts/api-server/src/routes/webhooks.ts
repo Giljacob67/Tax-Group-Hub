@@ -4,7 +4,9 @@ import {
   conversationsTable, 
   messagesTable, 
   channelConfigsTable, 
-  usageLogsTable 
+  usageLogsTable,
+  crmContactsTable,
+  crmDealsTable
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { callLLM } from "../lib/llm-client.js";
@@ -12,6 +14,9 @@ import { AGENTS } from "../lib/agents-data.js";
 import { processExternalMedia } from "../lib/media-processor.js";
 
 const router: IRouter = Router();
+
+// ... existing helper and telegram webhook code ...
+// Will inject the actual code efficiently using a simpler replacement to preserve all original telegram lines.
 
 /**
  * Helper to send a message back to Telegram
@@ -198,6 +203,81 @@ router.post("/webhooks/whatsapp/:channelId", async (req, res) => {
   // Logic similar to Telegram but with Meta Cloud API payloads
   res.sendStatus(200);
   console.log("[Webhook WhatsApp] received payload but not fully implemented yet.");
+});
+
+/**
+ * POST /api/webhooks/crm/inbound/:tenantId
+ * Generic inbound webhook to receive leads from external systems (RD Station, Meta Ads, Typeform).
+ */
+router.post("/webhooks/crm/inbound/:tenantId", async (req, res) => {
+  const { tenantId } = req.params;
+  const payload = req.body || {};
+
+  // Reply fast for webhook senders
+  res.sendStatus(200);
+
+  try {
+    const rawCnpj = payload.cnpj || payload.company_cnpj || payload.document || payload.documento || payload.cpf_cnpj;
+    if (!rawCnpj) return;
+
+    const cnpjValid = String(rawCnpj).replace(/\D/g, "");
+    if (cnpjValid.length !== 14) return; // Ignore if not a valid corporate document
+
+    const name = payload.nome || payload.name || payload.razao_social || payload.company_name;
+    const email = payload.email || payload.contato_email || payload.company_email || payload.mail;
+    const phone = payload.telefone || payload.phone || payload.celular || payload.whatsapp;
+    const source = payload.source || payload.origem || "webhook_inbound";
+
+    let [contact] = await db
+      .select()
+      .from(crmContactsTable)
+      .where(and(eq(crmContactsTable.cnpj, cnpjValid), eq(crmContactsTable.userId, tenantId)))
+      .limit(1);
+
+    if (!contact) {
+      const [newContact] = await db.insert(crmContactsTable).values({
+        userId: tenantId,
+        cnpj: cnpjValid,
+        razaoSocial: name || `Lead Sem Nome - ${cnpjValid}`,
+        email: email ? String(email) : null,
+        telefone: phone ? String(phone) : null,
+        source: source,
+      }).returning();
+      contact = newContact;
+    } else {
+      const [updated] = await db.update(crmContactsTable).set({
+        email: contact.email || (email ? String(email) : null),
+        telefone: contact.telefone || (phone ? String(phone) : null),
+        updatedAt: new Date(),
+      }).where(eq(crmContactsTable.id, contact.id)).returning();
+      contact = updated;
+    }
+
+    // Attempt to start a Deal if it doesn't have an active one
+    const activeDeals = await db
+      .select({ id: crmDealsTable.id })
+      .from(crmDealsTable)
+      .where(
+        and(
+          eq(crmDealsTable.contactId, contact.id),
+          eq(crmDealsTable.userId, tenantId)
+        )
+      );
+
+    if (activeDeals.length === 0) {
+      await db.insert(crmDealsTable).values({
+        userId: tenantId,
+        contactId: contact.id,
+        title: `Novo Lead Inbound - ${contact.razaoSocial || contact.cnpj}`,
+        stage: "prospecting",
+        probability: 10,
+        value: "0"
+      });
+    }
+
+  } catch (err) {
+    console.error(`[Webhook CRM Inbound Error Payload]:`, payload, err);
+  }
 });
 
 export default router;
