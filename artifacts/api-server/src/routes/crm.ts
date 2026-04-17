@@ -424,17 +424,47 @@ router.post("/deals", async (req: Request, res: Response) => {
 router.put("/deals/:id", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
+    const [oldDeal] = await db.select().from(crmDealsTable).where(and(eq(crmDealsTable.id, Number(req.params.id)), eq(crmDealsTable.userId, userId)));
+    if (!oldDeal) { res.status(404).json({ error: "Deal not found" }); return; }
+
     const body = req.body;
     // Auto-timestamp on stage moves
-    if (body.stage === "won" && !body.wonAt) body.wonAt = new Date();
-    if (body.stage === "lost" && !body.lostAt) body.lostAt = new Date();
+    if (body.stage && body.stage !== oldDeal.stage) {
+      if (body.stage === "won" && !body.wonAt) body.wonAt = new Date();
+      if (body.stage === "lost" && !body.lostAt) body.lostAt = new Date();
+    }
 
     const [deal] = await db
       .update(crmDealsTable)
       .set({ ...body, updatedAt: new Date() })
-      .where(and(eq(crmDealsTable.id, Number(req.params.id)), eq(crmDealsTable.userId, userId)))
+      .where(eq(crmDealsTable.id, oldDeal.id))
       .returning();
-    if (!deal) { res.status(404).json({ error: "Deal not found" }); return; }
+
+    // ─── Automations (Triggers) ───
+    if (body.stage && body.stage !== oldDeal.stage) {
+      try {
+        const agnt = getAgentById("prospeccao-tax-group");
+        let automationNote = "Avançou de etapa internamente.";
+        
+        if (body.stage === "won") {
+          automationNote = "Contrato e Setup Operacional prontos para envio. Disparar onboarding.";
+        } else if (body.stage === "proposal") {
+          automationNote = "Gerar e enviar Carta de Apresentação e PDF analítico tributário usando a Base de Conhecimento.";
+        }
+
+        await db.insert(crmActivitiesTable).values({
+          contactId: deal.contactId,
+          dealId: deal.id,
+          userId,
+          type: "stage_change",
+          subject: `Etapa movida para: ${body.stage.toUpperCase()}`,
+          content: `Automação Acionada: ${automationNote}`,
+          agentId: agnt ? agnt.id : null,
+          completedAt: new Date(),
+        }).catch(() => {});
+      } catch (err) {}
+    }
+
     res.json({ success: true, deal });
   } catch (err: any) {
     res.status(400).json({ error: "Failed to update deal", message: err.message });
