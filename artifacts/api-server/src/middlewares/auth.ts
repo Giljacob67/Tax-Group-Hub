@@ -45,8 +45,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     next();
     return;
   }
-  // CRM routes: allow through — tenant isolation is enforced via req.userId fallback to "system"
-  if (req.path.startsWith("/crm")) {
+  // CRM & Settings routes: allow through — tenant isolation is enforced via req.userId fallback to "system"
+  if (req.path.startsWith("/crm") || req.path.startsWith("/settings")) {
     next();
     return;
   }
