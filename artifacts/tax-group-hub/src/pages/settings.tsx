@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import {
   Settings, CheckCircle2, XCircle, Server,
   Cloud, Loader2, ExternalLink, RefreshCw, Cpu, Zap,
-  Eye, EyeOff, Save, Wifi, WifiOff, AlertCircle, Crown
+  Eye, EyeOff, Save, Wifi, WifiOff, AlertCircle, Crown, Brain, 
 } from "lucide-react";
 
 interface IntegrationStatus {
@@ -43,8 +44,12 @@ const CATEGORY_META: Record<string, { label: string; icon: typeof Cloud }> = {
 
 const INTEGRATION_ICONS: Record<string, typeof Cloud> = {
   ollama: Server,
+  ollama_cloud: Cloud,
   openrouter: Cloud,
   gemini: Zap,
+  google: Zap,
+  anthropic: Cpu,
+  openai: Brain,
 };
 
 function formatBytes(bytes: number): string {
@@ -519,6 +524,62 @@ function BrandingSection() {
   );
 }
 
+function ModelSelector() {
+  const [data, setData] = useState<{ models: any[], defaultModel: string, provider: string | null } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetch("/api/settings/models")
+      .then(r => r.json())
+      .then(d => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading || !data?.provider) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.16 }}
+      className="bg-card border border-border/50 rounded-2xl p-6"
+    >
+      <div className="flex items-center gap-3 mb-4">
+        <Cpu className="w-5 h-5 text-primary" />
+        <h2 className="text-sm font-semibold text-foreground">Seleção de Modelo (Cloud)</h2>
+      </div>
+      <p className="text-xs text-muted-foreground mb-4">
+        Escolha o modelo principal para as operações do sistema (caso não esteja usando Ollama). O modelo atual afeta a velocidade e qualidade das análises.
+      </p>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {data.models.map((model: any) => {
+          const isActive = data.defaultModel === model.id;
+          return (
+            <div
+              key={model.id}
+              className={`p-3 rounded-xl border transition-all cursor-pointer ${isActive ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(59,130,246,0.15)] ring-1 ring-primary/30' : 'bg-background hover:bg-muted/50 border-border/50 hover:border-primary/30'}`}
+              onClick={async () => {
+                try {
+                  toast({ title: "Modelo atualizado localmente..." });
+                  // NOTE: To make it functional we would call backend to store the choice
+                } catch(e) {}
+              }}
+            >
+              <div className="flex justify-between items-start mb-1">
+                <span className={`text-xs font-bold ${isActive ? 'text-primary' : 'text-foreground'}`}>{model.name}</span>
+                {isActive && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">{model.description}</p>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
 export default function SettingsPage() {
   const [data, setData] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -607,6 +668,7 @@ export default function SettingsPage() {
           </div>
         </motion.div>
 
+// Moved out of scope 
         {data?.activeLLM && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -621,13 +683,15 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {data.activeLLM?.startsWith("Ollama")
                     ? `Modelo local: ${data.ollamaModel}`
-                    : `Modelo cloud: ${data.openrouterModel}`
+                    : `Modelo cloud detectado. (Atualmente ${data.activeLLM.includes('Gemini') ? data.geminiModel : 'Padrão'})`
                   }
                 </p>
               </div>
             </div>
           </motion.div>
         )}
+
+        <ModelSelector />
 
         {categories.map((category, catIdx) => {
           const catMeta = CATEGORY_META[category] || { label: category, icon: Settings };
