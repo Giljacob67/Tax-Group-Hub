@@ -37,6 +37,7 @@ import CRMDashboard from "@/components/crm/CRMDashboard";
 import TasksPanel from "@/components/crm/TasksPanel";
 import GlobalTimeline from "@/components/crm/GlobalTimeline";
 import AutomationsPanel from "@/components/crm/AutomationsPanel";
+import { CompanyAvatar } from "@/components/crm/CompanyAvatar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type CrmSavedView = {
@@ -224,23 +225,6 @@ function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: 
   return sort.dir === "asc"
     ? <ChevronUp className="w-3 h-3 ml-1 text-primary inline" />
     : <ChevronDown className="w-3 h-3 ml-1 text-primary inline" />;
-}
-
-// ─── Avatar Initials ──────────────────────────────────────────────────────────
-function CompanyAvatar({ name, size = "md" }: { name: string | null; size?: "sm" | "md" | "lg" }) {
-  const initials = (name || "?").split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
-  const colors = [
-    "from-blue-600 to-blue-400", "from-emerald-600 to-emerald-400",
-    "from-purple-600 to-purple-400", "from-amber-600 to-amber-400",
-    "from-pink-600 to-pink-400", "from-cyan-600 to-cyan-400",
-  ];
-  const color = colors[(name || "").charCodeAt(0) % colors.length];
-  const sz = size === "sm" ? "w-8 h-8 text-xs" : size === "lg" ? "w-14 h-14 text-xl" : "w-10 h-10 text-sm";
-  return (
-    <div className={`${sz} rounded-xl bg-gradient-to-br ${color} flex items-center justify-center flex-shrink-0 font-bold text-white shadow-sm`}>
-      {initials}
-    </div>
-  );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
