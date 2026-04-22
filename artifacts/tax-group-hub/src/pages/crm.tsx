@@ -2,13 +2,14 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Building2, Plus, Loader2, Search, MapPin, Phone, Mail,
-  Briefcase, Star, Zap, RefreshCw, ChevronRight, X,
+  Briefcase, RefreshCw, ChevronRight, X,
   Clock, MessageSquare, Bot, CheckCircle2, TrendingUp,
-  FileText, Calendar, MoreVertical, AlertCircle, Trophy,
+  FileText, Calendar, Trophy,
   Download, Paperclip, Trash2, File, FileImage,
   ChevronUp, ChevronDown, ChevronsUpDown, DollarSign,
   Target, ArrowRight, Edit2, Save, BarChart3, Percent,
-  PhoneCall, AtSign, Users, StickyNote, Layers
+  PhoneCall, AtSign, Users, StickyNote, Layers,
+  SlidersHorizontal, Check, CheckSquare, Square, AlertTriangle
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,8 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter,
-  DialogHeader, DialogTitle, DialogTrigger
+  Dialog, DialogContent, DialogDescription,
+  DialogFooter, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -71,6 +72,9 @@ type Deal = {
   lostAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // from LEFT JOIN
+  razaoSocial?: string | null;
+  cnpj?: string | null;
 };
 
 type Activity = {
@@ -93,48 +97,30 @@ type Attachment = {
   createdAt: string;
 };
 
-// ─── XLSX Export ──────────────────────────────────────────────────────────────
-async function exportContactsToXlsx(contacts: Contact[]) {
-  const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
-  const rows = contacts.map(c => ({
-    "CNPJ": c.cnpj,
-    "Razão Social": c.razaoSocial || "",
-    "Nome Fantasia": c.nomeFantasia || "",
-    "Regime Tributário": c.regimeTributario || "",
-    "CNAE": c.cnae || "",
-    "Porte": c.porte || "",
-    "UF": c.uf || "",
-    "Cidade": c.cidade || "",
-    "Telefone": c.telefone || "",
-    "E-mail": c.email || "",
-    "Decissor": c.nomeDecissor || "",
-    "Faturamento Estimado": c.faturamentoEstimado || "",
-    "Score IA": c.aiScore ?? "",
-    "Produto Recomendado": c.aiRecommendedProduct || "",
-    "Status": c.status,
-    "Fonte": c.source,
-    "Cadastrado em": new Date(c.createdAt).toLocaleDateString("pt-BR"),
-  }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Leads");
-  XLSX.writeFile(wb, `leads-tax-group-${new Date().toISOString().slice(0, 10)}.xlsx`);
-}
+type Filters = {
+  regime: string;
+  porte: string;
+  uf: string;
+  scoreMin: string;
+  scoreMax: string;
+};
 
-// ─── Formatters ───────────────────────────────────────────────────────────────
-function formatCurrency(value: string | null | undefined): string {
-  const n = parseFloat(value || "0");
-  if (!n) return "—";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
-}
+// ─── Constants ────────────────────────────────────────────────────────────────
+const REGIMES = [
+  { value: "simples",          label: "Simples Nacional" },
+  { value: "lucro_presumido",  label: "Lucro Presumido" },
+  { value: "lucro_real",       label: "Lucro Real" },
+  { value: "mei",              label: "MEI" },
+];
 
-function formatCurrencyShort(value: number): string {
-  if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `R$ ${(value / 1_000).toFixed(0)}k`;
-  return `R$ ${value.toFixed(0)}`;
-}
+const PORTES = [
+  { value: "MEI",    label: "MEI" },
+  { value: "ME",     label: "ME" },
+  { value: "EPP",    label: "EPP" },
+  { value: "Médio",  label: "Médio" },
+  { value: "Grande", label: "Grande" },
+];
 
-// ─── Status config ───────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   prospect:    { label: "Prospect",     color: "bg-slate-500/20 text-slate-300 border-slate-500/30" },
   qualified:   { label: "Qualificado",  color: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
@@ -142,6 +128,16 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   client:      { label: "Cliente",      color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" },
   churned:     { label: "Churned",      color: "bg-red-500/20 text-red-300 border-red-500/30" },
   lost:        { label: "Perdido",      color: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30" },
+};
+
+const STAGE_DICT: Record<string, { label: string; accent: string; header: string }> = {
+  prospecting: { label: "Prospecção",  accent: "border-t-slate-400",   header: "text-slate-300" },
+  discovery:   { label: "Descoberta",  accent: "border-t-blue-400",    header: "text-blue-300" },
+  proposal:    { label: "Proposta",    accent: "border-t-amber-400",   header: "text-amber-300" },
+  negotiation: { label: "Negociação",  accent: "border-t-orange-400",  header: "text-orange-300" },
+  closing:     { label: "Fechamento",  accent: "border-t-purple-400",  header: "text-purple-300" },
+  won:         { label: "Ganhos",      accent: "border-t-emerald-400", header: "text-emerald-300" },
+  lost:        { label: "Perdidos",    accent: "border-t-red-400",     header: "text-red-300" },
 };
 
 const ACTIVITY_ICONS: Record<string, any> = {
@@ -163,16 +159,36 @@ const ACTIVITY_TYPES = [
   { value: "note",     label: "Nota",     icon: StickyNote },
 ];
 
-// ─── Stage config ─────────────────────────────────────────────────────────────
-const STAGE_DICT: Record<string, { label: string; accent: string; header: string }> = {
-  prospecting: { label: "Prospecção",  accent: "border-t-slate-400",   header: "text-slate-300" },
-  discovery:   { label: "Descoberta",  accent: "border-t-blue-400",    header: "text-blue-300" },
-  proposal:    { label: "Proposta",    accent: "border-t-amber-400",   header: "text-amber-300" },
-  negotiation: { label: "Negociação",  accent: "border-t-orange-400",  header: "text-orange-300" },
-  closing:     { label: "Fechamento",  accent: "border-t-purple-400",  header: "text-purple-300" },
-  won:         { label: "Ganhos",      accent: "border-t-emerald-400", header: "text-emerald-300" },
-  lost:        { label: "Perdidos",    accent: "border-t-red-400",     header: "text-red-300" },
-};
+// ─── Formatters ───────────────────────────────────────────────────────────────
+function formatCurrency(value: string | null | undefined): string {
+  const n = parseFloat(value || "0");
+  if (!n) return "—";
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
+}
+
+function formatCurrencyShort(value: number): string {
+  if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000)     return `R$ ${(value / 1_000).toFixed(0)}k`;
+  return `R$ ${value.toFixed(0)}`;
+}
+
+// ─── XLSX Export ──────────────────────────────────────────────────────────────
+async function exportContactsToXlsx(contacts: Contact[]) {
+  const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
+  const rows = contacts.map(c => ({
+    "CNPJ": c.cnpj, "Razão Social": c.razaoSocial || "", "Nome Fantasia": c.nomeFantasia || "",
+    "Regime Tributário": c.regimeTributario || "", "CNAE": c.cnae || "", "Porte": c.porte || "",
+    "UF": c.uf || "", "Cidade": c.cidade || "", "Telefone": c.telefone || "", "E-mail": c.email || "",
+    "Decissor": c.nomeDecissor || "", "Faturamento Estimado": c.faturamentoEstimado || "",
+    "Score IA": c.aiScore ?? "", "Produto Recomendado": c.aiRecommendedProduct || "",
+    "Status": c.status, "Fonte": c.source,
+    "Cadastrado em": new Date(c.createdAt).toLocaleDateString("pt-BR"),
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Leads");
+  XLSX.writeFile(wb, `leads-tax-group-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
 
 // ─── Score Badge ──────────────────────────────────────────────────────────────
 function ScoreBadge({ score }: { score: number | null }) {
@@ -195,9 +211,9 @@ function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CRMPage() {
-  const [activeTab, setActiveTab] = useState("contacts");
+  const [activeTab, setActiveTab]         = useState("contacts");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen]   = useState(false);
   const queryClient = useQueryClient();
 
   return (
@@ -217,8 +233,7 @@ export default function CRMPage() {
             {activeTab === "contacts" && (
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-                  <UploadCloud className="w-4 h-4 mr-2" />
-                  Importar
+                  <UploadCloud className="w-4 h-4 mr-2" />Importar
                 </Button>
                 <AddLeadDialog />
               </div>
@@ -230,7 +245,6 @@ export default function CRMPage() {
               <TabsTrigger value="contacts">Contatos</TabsTrigger>
               <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
             </TabsList>
-
             <div className="mt-4">
               <TabsContent value="contacts" className="m-0 p-0">
                 <ContactsView onSelect={setSelectedContact} selected={selectedContact} />
@@ -266,36 +280,39 @@ export default function CRMPage() {
 
 // ─── Contacts View ────────────────────────────────────────────────────────────
 function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; selected: Contact | null }) {
-  const [search, setSearch] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [search, setSearch]           = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [sort, setSort] = useState<{ field: string; dir: "asc" | "desc" } | null>(null);
+  const [sort, setSort]               = useState<{ field: string; dir: "asc" | "desc" } | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters]         = useState<Filters>({ regime: "", porte: "", uf: "", scoreMin: "", scoreMax: "" });
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+
+  const activeFilterCount = Object.values(filters).filter(v => v !== "").length + (statusFilter ? 1 : 0);
+
+  const queryParams = new URLSearchParams();
+  if (search)              queryParams.set("search",    search);
+  if (statusFilter)        queryParams.set("status",    statusFilter);
+  if (filters.regime)      queryParams.set("regime",    filters.regime);
+  if (filters.porte)       queryParams.set("porte",     filters.porte);
+  if (filters.uf)          queryParams.set("uf",        filters.uf);
+  if (filters.scoreMin)    queryParams.set("scoreMin",  filters.scoreMin);
+  if (filters.scoreMax)    queryParams.set("scoreMax",  filters.scoreMax);
+  if (sort)                { queryParams.set("sort", sort.field); queryParams.set("sortDir", sort.dir); }
 
   const { data, isLoading } = useQuery<{ contacts: Contact[] }>({
-    queryKey: ["/api/crm/contacts", search, statusFilter],
+    queryKey: ["/api/crm/contacts", queryParams.toString()],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (search) params.set("search", search);
-      if (statusFilter) params.set("status", statusFilter);
-      const res = await fetch(`/api/crm/contacts?${params}`);
+      const res = await fetch(`/api/crm/contacts?${queryParams}`);
       if (!res.ok) throw new Error("Failed to fetch contacts");
       return res.json();
     },
   });
 
   const contacts = data?.contacts || [];
-
-  const sorted = [...contacts].sort((a, b) => {
-    if (!sort) return 0;
-    let va: any, vb: any;
-    if (sort.field === "razaoSocial") { va = a.razaoSocial || ""; vb = b.razaoSocial || ""; }
-    else if (sort.field === "aiScore") { va = a.aiScore ?? -1; vb = b.aiScore ?? -1; }
-    else if (sort.field === "status") { va = a.status; vb = b.status; }
-    else if (sort.field === "createdAt") { va = a.createdAt; vb = b.createdAt; }
-    else return 0;
-    if (va < vb) return sort.dir === "asc" ? -1 : 1;
-    if (va > vb) return sort.dir === "asc" ? 1 : -1;
-    return 0;
-  });
 
   function toggleSort(field: string) {
     setSort(prev => {
@@ -305,11 +322,75 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
     });
   }
 
+  function toggleSelectAll() {
+    if (selectedIds.size === contacts.length && contacts.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(contacts.map(c => c.id)));
+    }
+  }
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      const res = await fetch("/api/crm/contacts/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error("Falha ao deletar");
+      return res.json();
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+      setSelectedIds(new Set());
+      toast({ title: `${ids.length} contato(s) removido(s).` });
+    },
+    onError: () => toast({ title: "Erro ao deletar", variant: "destructive" }),
+  });
+
+  const bulkStatusMutation = useMutation({
+    mutationFn: async ({ ids, status }: { ids: number[]; status: string }) => {
+      const res = await fetch("/api/crm/contacts/bulk-update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, status }),
+      });
+      if (!res.ok) throw new Error("Falha ao atualizar");
+      return res.json();
+    },
+    onSuccess: (_, { ids }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+      setSelectedIds(new Set());
+      setBulkStatusOpen(false);
+      toast({ title: `${ids.length} contato(s) atualizados.` });
+    },
+    onError: () => toast({ title: "Erro ao atualizar status", variant: "destructive" }),
+  });
+
+  const selectedArray = Array.from(selectedIds);
+  const allSelected   = contacts.length > 0 && selectedIds.size === contacts.length;
+  const someSelected  = selectedIds.size > 0 && !allSelected;
+
+  function clearFilters() {
+    setFilters({ regime: "", porte: "", uf: "", scoreMin: "", scoreMax: "" });
+    setStatusFilter("");
+    setSearch("");
+  }
+
   return (
     <Card className="border-border/50 bg-card/50">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
+      <CardHeader className="pb-3 space-y-3">
+        {/* Search + status + filter button row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por Razão Social ou CNPJ..."
@@ -318,6 +399,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               className="pl-9"
             />
           </div>
+
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -328,18 +410,173 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               <option key={k} value={k}>{v.label}</option>
             ))}
           </select>
-          <span className="text-xs text-muted-foreground whitespace-nowrap">{sorted.length} leads</span>
+
           <Button
-            variant="outline"
+            variant={showFilters || activeFilterCount > 0 ? "default" : "outline"}
             size="sm"
-            className="flex items-center gap-1.5 text-xs"
-            disabled={sorted.length === 0}
-            onClick={() => exportContactsToXlsx(sorted)}
+            className="gap-1.5 text-xs"
+            onClick={() => setShowFilters(p => !p)}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Filtros
+            {activeFilterCount > 0 && (
+              <span className="bg-primary-foreground text-primary rounded-full text-[10px] w-4 h-4 flex items-center justify-center font-bold">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+
+          <span className="text-xs text-muted-foreground whitespace-nowrap">{contacts.length} leads</span>
+
+          <Button
+            variant="outline" size="sm" className="gap-1.5 text-xs"
+            disabled={contacts.length === 0}
+            onClick={() => exportContactsToXlsx(contacts)}
           >
             <Download className="w-3.5 h-3.5" />
-            Exportar XLSX
+            Exportar
           </Button>
         </div>
+
+        {/* Advanced filter panel */}
+        {showFilters && (
+          <div className="border border-border/50 rounded-lg p-3 bg-muted/20 space-y-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">Regime</Label>
+                <Select value={filters.regime} onValueChange={(v) => setFilters(f => ({ ...f, regime: v === "_all" ? "" : v }))}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Qualquer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Qualquer</SelectItem>
+                    {REGIMES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">Porte</Label>
+                <Select value={filters.porte} onValueChange={(v) => setFilters(f => ({ ...f, porte: v === "_all" ? "" : v }))}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Qualquer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Qualquer</SelectItem>
+                    {PORTES.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">UF</Label>
+                <Input
+                  placeholder="Ex: SP"
+                  value={filters.uf}
+                  onChange={(e) => setFilters(f => ({ ...f, uf: e.target.value.toUpperCase().slice(0, 2) }))}
+                  className="h-8 text-xs"
+                  maxLength={2}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">Score mín.</Label>
+                <Input
+                  type="number" min={0} max={100} placeholder="0"
+                  value={filters.scoreMin}
+                  onChange={(e) => setFilters(f => ({ ...f, scoreMin: e.target.value }))}
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">Score máx.</Label>
+                <Input
+                  type="number" min={0} max={100} placeholder="100"
+                  value={filters.scoreMax}
+                  onChange={(e) => setFilters(f => ({ ...f, scoreMax: e.target.value }))}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            {activeFilterCount > 0 && (
+              <div className="flex items-center gap-2 pt-1 border-t border-border/40">
+                <span className="text-[10px] text-muted-foreground">{activeFilterCount} filtro(s) ativo(s)</span>
+                <button
+                  onClick={clearFilters}
+                  className="text-[10px] text-primary hover:underline"
+                >
+                  Limpar todos
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Bulk action bar */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-primary/10 border border-primary/20">
+            <CheckSquare className="w-4 h-4 text-primary flex-shrink-0" />
+            <span className="text-xs font-medium text-primary">{selectedIds.size} selecionado(s)</span>
+            <div className="flex items-center gap-1.5 ml-auto">
+              {/* Bulk status */}
+              <Dialog open={bulkStatusOpen} onOpenChange={setBulkStatusOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-xs h-7">Alterar Status</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[300px]">
+                  <DialogHeader>
+                    <DialogTitle>Alterar Status em Massa</DialogTitle>
+                    <DialogDescription>{selectedIds.size} contato(s) selecionado(s)</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-2 py-3">
+                    {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                      <button
+                        key={k}
+                        onClick={() => bulkStatusMutation.mutate({ ids: selectedArray, status: k })}
+                        disabled={bulkStatusMutation.isPending}
+                        className="w-full flex items-center gap-2 p-2.5 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors text-left"
+                      >
+                        <Badge variant="outline" className={`text-[10px] border ${v.color}`}>{v.label}</Badge>
+                      </button>
+                    ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Bulk export */}
+              <Button
+                variant="outline" size="sm" className="text-xs h-7 gap-1"
+                onClick={() => exportContactsToXlsx(contacts.filter(c => selectedIds.has(c.id)))}
+              >
+                <Download className="w-3 h-3" /> Exportar
+              </Button>
+
+              {/* Bulk delete */}
+              <Button
+                variant="outline" size="sm" className="text-xs h-7 gap-1 text-destructive hover:text-destructive border-destructive/30"
+                onClick={() => {
+                  if (confirm(`Deletar ${selectedIds.size} contato(s)? Esta ação não pode ser desfeita.`))
+                    bulkDeleteMutation.mutate(selectedArray);
+                }}
+                disabled={bulkDeleteMutation.isPending}
+              >
+                {bulkDeleteMutation.isPending
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : <Trash2 className="w-3 h-3" />}
+                Excluir
+              </Button>
+
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="text-muted-foreground hover:text-foreground ml-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="p-0">
@@ -347,17 +584,31 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
           <div className="flex justify-center p-12">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : sorted.length === 0 ? (
+        ) : contacts.length === 0 ? (
           <div className="text-center py-14 border-t border-border/50">
             <Building2 className="w-14 h-14 text-muted-foreground/20 mx-auto mb-3" />
             <h3 className="text-base font-medium">Nenhum lead encontrado</h3>
-            <p className="text-sm text-muted-foreground mt-1">Adicione o primeiro CNPJ ou ajuste os filtros.</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {activeFilterCount > 0 ? (
+                <>Nenhum resultado para os filtros aplicados. <button onClick={clearFilters} className="text-primary hover:underline">Limpar filtros</button></>
+              ) : "Adicione o primeiro CNPJ ou importe uma lista."}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-y border-border/50 bg-muted/30">
                 <tr>
+                  {/* Select all */}
+                  <th className="px-3 py-2.5 w-8">
+                    <button onClick={toggleSelectAll} className="flex items-center justify-center">
+                      {allSelected
+                        ? <CheckSquare className="w-4 h-4 text-primary" />
+                        : someSelected
+                          ? <div className="w-4 h-4 border-2 border-primary rounded-sm bg-primary/20" />
+                          : <Square className="w-4 h-4 text-muted-foreground/50" />}
+                    </button>
+                  </th>
                   <th
                     className="px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors"
                     onClick={() => toggleSort("razaoSocial")}
@@ -385,23 +636,35 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                   >
                     Entrada <SortIcon field="createdAt" sort={sort} />
                   </th>
-                  <th className="px-4 py-2.5"></th>
+                  <th className="px-4 py-2.5 w-6" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {sorted.map((contact) => {
-                  const s = STATUS_CONFIG[contact.status] || STATUS_CONFIG.prospect;
+                {contacts.map((contact) => {
+                  const s          = STATUS_CONFIG[contact.status] || STATUS_CONFIG.prospect;
                   const isSelected = selected?.id === contact.id;
+                  const isBulkSel  = selectedIds.has(contact.id);
+
                   return (
                     <tr
                       key={contact.id}
-                      onClick={() => onSelect(contact)}
-                      className={`cursor-pointer transition-colors ${isSelected
-                        ? "bg-primary/10 border-l-2 border-l-primary"
+                      className={`cursor-pointer transition-colors ${
+                        isBulkSel   ? "bg-primary/5 border-l-2 border-l-primary/50"
+                        : isSelected ? "bg-primary/10 border-l-2 border-l-primary"
                         : "hover:bg-muted/30 border-l-2 border-l-transparent"
                       }`}
                     >
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => toggleSelect(contact.id)}
+                          className="flex items-center justify-center"
+                        >
+                          {isBulkSel
+                            ? <CheckSquare className="w-4 h-4 text-primary" />
+                            : <Square className="w-4 h-4 text-muted-foreground/30 hover:text-muted-foreground" />}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3" onClick={() => onSelect(contact)}>
                         <div className="font-medium text-foreground">{contact.razaoSocial || "—"}</div>
                         <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                           <span className="font-mono">{contact.cnpj}</span>
@@ -410,27 +673,29 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         <span className="text-xs text-muted-foreground">{contact.regimeTributario?.replace(/_/g, " ") || "—"}</span>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         <Badge variant="secondary" className="text-[10px]">{contact.porte || "—"}</Badge>
                       </td>
-                      <td className="px-4 py-3 text-center"><ScoreBadge score={contact.aiScore} /></td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
+                        <ScoreBadge score={contact.aiScore} />
+                      </td>
+                      <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         <Badge variant="outline" className={`text-[10px] border ${s.color}`}>{s.label}</Badge>
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         {contact.aiRecommendedProduct
                           ? <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">{contact.aiRecommendedProduct}</Badge>
                           : <span className="text-muted-foreground text-xs">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         <span className="text-xs text-muted-foreground">
                           {new Date(contact.createdAt).toLocaleDateString("pt-BR")}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right" onClick={() => onSelect(contact)}>
                         <ChevronRight className="w-4 h-4 text-muted-foreground inline" />
                       </td>
                     </tr>
@@ -454,19 +719,19 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [detailTab, setDetailTab] = useState("info");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const [detailTab, setDetailTab]           = useState("info");
+  const fileInputRef                        = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading]           = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showActivityForm, setShowActivityForm] = useState(false);
-  const [activityType, setActivityType] = useState("note");
-  const [activitySubject, setActivitySubject] = useState("");
-  const [activityContent, setActivityContent] = useState("");
+  const [showActivityForm, setShowActivityForm]   = useState(false);
+  const [activityType, setActivityType]           = useState("note");
+  const [activitySubject, setActivitySubject]     = useState("");
+  const [activityContent, setActivityContent]     = useState("");
 
   const enrichMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/crm/contacts/${contact.id}/enrich`, { method: "POST" });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Falha no enriquecimento"); }
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Falha"); }
       return res.json();
     },
     onSuccess: (data) => {
@@ -480,7 +745,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
   const qualifyMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/crm/contacts/${contact.id}/qualify`, { method: "POST" });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Qualificação falhou"); }
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Falha"); }
       return res.json();
     },
     onSuccess: (data) => {
@@ -488,7 +753,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
       queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
-      toast({ title: `🤖 Score IA: ${data.qualification?.score}/100 — Tier ${data.qualification?.tier}` });
+      toast({ title: `🤖 Score: ${data.qualification?.score}/100 — Tier ${data.qualification?.tier}` });
     },
     onError: (e: any) => toast({ title: "Erro na qualificação", description: e.message, variant: "destructive" }),
   });
@@ -500,7 +765,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      if (!res.ok) throw new Error("Falha ao atualizar status");
+      if (!res.ok) throw new Error("Falha");
       return res.json();
     },
     onSuccess: (data) => {
@@ -514,12 +779,9 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
   const deleteMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/crm/contacts/${contact.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Falha ao deletar");
+      if (!res.ok) throw new Error("Falha");
     },
-    onSuccess: () => {
-      toast({ title: "Contato removido." });
-      onDelete();
-    },
+    onSuccess: () => { toast({ title: "Contato removido." }); onDelete(); },
     onError: () => toast({ title: "Erro ao deletar contato", variant: "destructive" }),
   });
 
@@ -535,45 +797,35 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           completedAt: new Date().toISOString(),
         }),
       });
-      if (!res.ok) throw new Error("Erro ao registrar");
+      if (!res.ok) throw new Error("Erro");
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
       toast({ title: "Atividade registrada!" });
       setShowActivityForm(false);
-      setActivitySubject("");
-      setActivityContent("");
-      setActivityType("note");
+      setActivitySubject(""); setActivityContent(""); setActivityType("note");
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
-  const { data: activitiesData } = useQuery<{ activities: Activity[] }>({
+  const { data: activitiesData }   = useQuery<{ activities: Activity[] }>({
     queryKey: [`/api/crm/contacts/${contact.id}/activities`],
-    queryFn: async () => {
-      const res = await fetch(`/api/crm/contacts/${contact.id}/activities`);
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
+    queryFn: async () => { const r = await fetch(`/api/crm/contacts/${contact.id}/activities`); return r.json(); },
   });
 
   const { data: attachmentsData, refetch: refetchAttachments } = useQuery<{ attachments: Attachment[] }>({
     queryKey: [`/api/crm/contacts/${contact.id}/attachments`],
-    queryFn: async () => {
-      const res = await fetch(`/api/crm/contacts/${contact.id}/attachments`);
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
+    queryFn: async () => { const r = await fetch(`/api/crm/contacts/${contact.id}/attachments`); return r.json(); },
   });
 
   const deleteAttachmentMutation = useMutation({
-    mutationFn: async (attachmentId: number) => {
-      const res = await fetch(`/api/crm/contacts/${contact.id}/attachments/${attachmentId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Erro ao remover");
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/crm/contacts/${contact.id}/attachments/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Erro");
     },
     onSuccess: () => { refetchAttachments(); toast({ title: "Arquivo removido." }); },
-    onError: () => toast({ title: "Erro ao remover arquivo", variant: "destructive" }),
+    onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
   });
 
   async function handleFileUpload(file: File) {
@@ -593,7 +845,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
       if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
       refetchAttachments();
       queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
-      toast({ title: `📎 ${file.name} anexado com sucesso!` });
+      toast({ title: `📎 ${file.name} anexado!` });
     } catch (e: any) {
       toast({ title: "Erro no upload", description: e.message, variant: "destructive" });
     } finally {
@@ -602,9 +854,9 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
     }
   }
 
-  const activities = activitiesData?.activities || [];
+  const activities  = activitiesData?.attachments  as any || activitiesData?.activities  || [];
   const attachments = attachmentsData?.attachments || [];
-  const status = STATUS_CONFIG[contact.status] || STATUS_CONFIG.prospect;
+  const status      = STATUS_CONFIG[contact.status] || STATUS_CONFIG.prospect;
   const scoreDetails = contact.aiScoreDetails as any;
 
   function getMimeIcon(mime: string) {
@@ -627,14 +879,10 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Delete button */}
           {showDeleteConfirm ? (
             <div className="flex items-center gap-1">
-              <Button
-                size="sm" variant="destructive" className="text-xs h-7 px-2"
-                onClick={() => deleteMutation.mutate()}
-                disabled={deleteMutation.isPending}
-              >
+              <Button size="sm" variant="destructive" className="text-xs h-7 px-2"
+                onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
                 {deleteMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Confirmar"}
               </Button>
               <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setShowDeleteConfirm(false)}>
@@ -666,10 +914,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           </div>
           <div className="flex-1 bg-muted/40 rounded-lg p-3 text-center">
             <div className="text-xs text-muted-foreground mb-1">Status</div>
-            <Select
-              value={contact.status}
-              onValueChange={(val) => updateStatusMutation.mutate(val)}
-            >
+            <Select value={contact.status} onValueChange={(v) => updateStatusMutation.mutate(v)}>
               <SelectTrigger className="h-auto border-0 bg-transparent p-0 text-center focus:ring-0 shadow-none">
                 <Badge variant="outline" className={`text-[10px] border ${status.color} cursor-pointer`}>
                   {status.label}
@@ -692,37 +937,30 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           )}
         </div>
         <div className="flex gap-2">
-          <Button
-            size="sm" variant="outline" className="flex-1 text-xs"
-            disabled={enrichMutation.isPending} onClick={() => enrichMutation.mutate()}
-          >
+          <Button size="sm" variant="outline" className="flex-1 text-xs"
+            disabled={enrichMutation.isPending} onClick={() => enrichMutation.mutate()}>
             {enrichMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <RefreshCw className="w-3 h-3 mr-1.5" />}
             Enriquecer
           </Button>
-          <Button
-            size="sm" className="flex-1 text-xs bg-primary"
-            disabled={qualifyMutation.isPending} onClick={() => qualifyMutation.mutate()}
-          >
+          <Button size="sm" className="flex-1 text-xs bg-primary"
+            disabled={qualifyMutation.isPending} onClick={() => qualifyMutation.mutate()}>
             {qualifyMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Bot className="w-3 h-3 mr-1.5" />}
             Qualificar IA
           </Button>
         </div>
       </div>
 
-      {/* Detail Tabs */}
+      {/* Tabs */}
       <Tabs value={detailTab} onValueChange={setDetailTab} className="flex flex-col flex-1 overflow-hidden">
         <div className="flex-none border-b border-border/50 px-4">
           <TabsList className="bg-transparent p-0 h-9 gap-4">
             {[
-              { value: "info", label: "Dados" },
-              { value: "timeline", label: `Timeline (${activities.length})` },
-              { value: "files", label: `Arquivos (${attachments.length})` },
+              { value: "info",     label: "Dados" },
+              { value: "timeline", label: `Timeline (${(activitiesData as any)?.activities?.length ?? 0})` },
+              { value: "files",    label: `Arquivos (${attachments.length})` },
             ].map(t => (
-              <TabsTrigger
-                key={t.value}
-                value={t.value}
-                className="text-xs px-0 pb-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
-              >
+              <TabsTrigger key={t.value} value={t.value}
+                className="text-xs px-0 pb-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
                 {t.label}
               </TabsTrigger>
             ))}
@@ -750,17 +988,17 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dados da Empresa</h4>
                 {[
-                  { label: "Regime",     value: contact.regimeTributario?.replace(/_/g, " ") },
-                  { label: "CNAE",       value: contact.cnae },
-                  { label: "Porte",      value: contact.porte },
-                  { label: "Faturamento",value: contact.faturamentoEstimado },
-                  { label: "Website",    value: contact.website },
-                  { label: "Localização",value: contact.cidade && contact.uf ? `${contact.cidade}/${contact.uf}` : contact.uf },
-                  { label: "Endereço",   value: contact.endereco },
-                  { label: "Telefone",   value: contact.telefone },
-                  { label: "E-mail",     value: contact.email },
-                  { label: "Decissor",   value: contact.nomeDecissor },
-                  { label: "Sócios",     value: Array.isArray(contact.socios) ? contact.socios.map((s: any) => s.nome).join(", ") : undefined },
+                  { label: "Regime",      value: contact.regimeTributario?.replace(/_/g, " ") },
+                  { label: "CNAE",        value: contact.cnae },
+                  { label: "Porte",       value: contact.porte },
+                  { label: "Faturamento", value: contact.faturamentoEstimado },
+                  { label: "Website",     value: contact.website },
+                  { label: "Localização", value: contact.cidade && contact.uf ? `${contact.cidade}/${contact.uf}` : contact.uf },
+                  { label: "Endereço",    value: contact.endereco },
+                  { label: "Telefone",    value: contact.telefone },
+                  { label: "E-mail",      value: contact.email },
+                  { label: "Decissor",    value: contact.nomeDecissor },
+                  { label: "Sócios",      value: Array.isArray(contact.socios) ? contact.socios.map((s: any) => s.nome).join(", ") : undefined },
                 ].filter(f => f.value).map(f => (
                   <div key={f.label} className="flex gap-2 text-xs">
                     <span className="text-muted-foreground w-20 flex-shrink-0 pt-0.5">{f.label}</span>
@@ -783,12 +1021,9 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           {/* ── Timeline Tab ── */}
           <TabsContent value="timeline" className="m-0">
             <div className="p-4 space-y-3">
-              {/* Log activity button */}
               {!showActivityForm ? (
-                <Button
-                  variant="outline" size="sm" className="w-full text-xs gap-1.5"
-                  onClick={() => setShowActivityForm(true)}
-                >
+                <Button variant="outline" size="sm" className="w-full text-xs gap-1.5"
+                  onClick={() => setShowActivityForm(true)}>
                   <Plus className="w-3.5 h-3.5" /> Registrar Atividade
                 </Button>
               ) : (
@@ -801,49 +1036,37 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   </div>
                   <div className="flex gap-1 flex-wrap">
                     {ACTIVITY_TYPES.map(t => (
-                      <button
-                        key={t.value}
-                        onClick={() => setActivityType(t.value)}
+                      <button key={t.value} onClick={() => setActivityType(t.value)}
                         className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border transition-colors ${
                           activityType === t.value
                             ? "bg-primary/20 border-primary/40 text-primary"
                             : "border-border/50 text-muted-foreground hover:border-border"
-                        }`}
-                      >
+                        }`}>
                         <t.icon className="w-2.5 h-2.5" /> {t.label}
                       </button>
                     ))}
                   </div>
-                  <Input
-                    placeholder="Assunto (opcional)"
-                    value={activitySubject}
-                    onChange={(e) => setActivitySubject(e.target.value)}
-                    className="text-xs h-8"
-                  />
-                  <Textarea
-                    placeholder="Anotações..."
-                    value={activityContent}
+                  <Input placeholder="Assunto (opcional)" value={activitySubject}
+                    onChange={(e) => setActivitySubject(e.target.value)} className="text-xs h-8" />
+                  <Textarea placeholder="Anotações..." value={activityContent}
                     onChange={(e) => setActivityContent(e.target.value)}
-                    className="text-xs min-h-[64px] resize-none"
-                  />
-                  <Button
-                    size="sm" className="w-full text-xs"
+                    className="text-xs min-h-[64px] resize-none" />
+                  <Button size="sm" className="w-full text-xs"
                     onClick={() => logActivityMutation.mutate()}
-                    disabled={logActivityMutation.isPending || (!activitySubject && !activityContent)}
-                  >
-                    {logActivityMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Save className="w-3 h-3 mr-1.5" />}
+                    disabled={logActivityMutation.isPending || (!activitySubject && !activityContent)}>
+                    {logActivityMutation.isPending
+                      ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
+                      : <Save className="w-3 h-3 mr-1.5" />}
                     Salvar
                   </Button>
                 </div>
               )}
-
               <Separator />
-
-              {activities.length === 0 ? (
+              {(activitiesData as any)?.activities?.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">Nenhuma atividade registrada.</p>
               ) : (
                 <div className="space-y-3">
-                  {activities.map((a) => {
+                  {((activitiesData as any)?.activities || []).map((a: Activity) => {
                     const Icon = ACTIVITY_ICONS[a.type] || Clock;
                     return (
                       <div key={a.id} className="flex gap-2.5">
@@ -875,24 +1098,15 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFileUpload(f); }}
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
+                <input ref={fileInputRef} type="file" className="hidden"
                   accept=".pdf,.png,.jpg,.jpeg,.xlsx,.docx,.txt"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }}
-                />
-                {uploading ? (
-                  <Loader2 className="w-7 h-7 animate-spin text-primary mx-auto" />
-                ) : (
-                  <Paperclip className="w-7 h-7 text-muted-foreground/40 group-hover:text-primary/50 mx-auto transition-colors" />
-                )}
-                <p className="text-xs text-muted-foreground mt-2">
-                  {uploading ? "Enviando..." : "Clique ou arraste um arquivo"}
-                </p>
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }} />
+                {uploading
+                  ? <Loader2 className="w-7 h-7 animate-spin text-primary mx-auto" />
+                  : <Paperclip className="w-7 h-7 text-muted-foreground/40 group-hover:text-primary/50 mx-auto transition-colors" />}
+                <p className="text-xs text-muted-foreground mt-2">{uploading ? "Enviando..." : "Clique ou arraste um arquivo"}</p>
                 <p className="text-[10px] text-muted-foreground/50 mt-1">PDF, Imagens, XLSX, Word, TXT</p>
               </div>
-
               {attachments.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-3">Nenhum arquivo anexado.</p>
               ) : (
@@ -902,13 +1116,11 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                     const isImage = att.mimeType.startsWith("image/");
                     return (
                       <div key={att.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group">
-                        {isImage ? (
-                          <img src={att.url} alt={att.fileName} className="w-8 h-8 rounded object-cover flex-shrink-0 border border-border/50" />
-                        ) : (
-                          <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                            <Icon className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                        )}
+                        {isImage
+                          ? <img src={att.url} alt={att.fileName} className="w-8 h-8 rounded object-cover flex-shrink-0 border border-border/50" />
+                          : <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                              <Icon className="w-4 h-4 text-muted-foreground" />
+                            </div>}
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{att.fileName}</p>
                           <p className="text-[10px] text-muted-foreground">
@@ -918,14 +1130,10 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <a href={att.url} download={att.fileName}>
-                            <Button size="icon" variant="ghost" className="w-6 h-6">
-                              <Download className="w-3 h-3" />
-                            </Button>
+                            <Button size="icon" variant="ghost" className="w-6 h-6"><Download className="w-3 h-3" /></Button>
                           </a>
-                          <Button
-                            size="icon" variant="ghost" className="w-6 h-6 text-destructive hover:text-destructive"
-                            onClick={() => deleteAttachmentMutation.mutate(att.id)}
-                          >
+                          <Button size="icon" variant="ghost" className="w-6 h-6 text-destructive hover:text-destructive"
+                            onClick={() => deleteAttachmentMutation.mutate(att.id)}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         </div>
@@ -960,8 +1168,7 @@ function AddLeadDialog() {
   const mutation = useMutation({
     mutationFn: async (raw: string) => {
       const res = await fetch("/api/crm/contacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cnpj: raw.replace(/\D/g, "") }),
       });
       const data = await res.json();
@@ -970,10 +1177,8 @@ function AddLeadDialog() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      const enrichedMsg = data.enriched ? " Dados enriquecidos via EmpresAqui!" : "";
-      toast({ title: "✅ Lead criado!" + enrichedMsg });
-      setOpen(false);
-      setCnpj("");
+      toast({ title: "✅ Lead criado!" + (data.enriched ? " Dados enriquecidos!" : "") });
+      setOpen(false); setCnpj("");
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
@@ -988,25 +1193,16 @@ function AddLeadDialog() {
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle>Adicionar Lead via CNPJ</DialogTitle>
-          <DialogDescription>
-            O sistema busca automaticamente os dados no EmpresAqui (se configurado).
-          </DialogDescription>
+          <DialogDescription>Busca automaticamente os dados no EmpresAqui (se configurado).</DialogDescription>
         </DialogHeader>
         <div className="py-4">
           <Label htmlFor="cnpj" className="mb-2 block">CNPJ</Label>
-          <Input
-            id="cnpj"
-            placeholder="00.000.000/0001-00"
-            value={cnpj}
-            onChange={(e) => setCnpj(formatCnpj(e.target.value))}
-          />
+          <Input id="cnpj" placeholder="00.000.000/0001-00" value={cnpj}
+            onChange={(e) => setCnpj(formatCnpj(e.target.value))} />
         </div>
         <DialogFooter>
-          <Button
-            onClick={() => mutation.mutate(cnpj)}
-            disabled={mutation.isPending || cnpj.replace(/\D/g, "").length < 14}
-            className="w-full"
-          >
+          <Button onClick={() => mutation.mutate(cnpj)}
+            disabled={mutation.isPending || cnpj.replace(/\D/g, "").length < 14} className="w-full">
             {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
             {mutation.isPending ? "Buscando..." : "Criar e Enriquecer"}
           </Button>
@@ -1024,12 +1220,12 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
   onDeleted: () => void;
 }) {
   const { toast } = useToast();
-  const [title, setTitle] = useState(deal.title);
-  const [value, setValue] = useState(deal.value || "");
-  const [probability, setProbability] = useState(deal.probability ?? 0);
-  const [stage, setStage] = useState(deal.stage);
-  const [notes, setNotes] = useState(deal.notes || "");
-  const [produto, setProduto] = useState(deal.produto || "");
+  const [title, setTitle]               = useState(deal.title);
+  const [value, setValue]               = useState(deal.value || "");
+  const [probability, setProbability]   = useState(deal.probability ?? 0);
+  const [stage, setStage]               = useState(deal.stage);
+  const [notes, setNotes]               = useState(deal.notes || "");
+  const [produto, setProduto]           = useState(deal.produto || "");
   const [expectedClose, setExpectedClose] = useState(
     deal.expectedCloseDate ? new Date(deal.expectedCloseDate).toISOString().slice(0, 10) : ""
   );
@@ -1038,37 +1234,23 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/crm/deals/${deal.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          value,
-          probability,
-          stage,
-          notes,
-          produto,
-          expectedCloseDate: expectedClose ? new Date(expectedClose).toISOString() : null,
-        }),
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, value, probability, stage, notes, produto,
+          expectedCloseDate: expectedClose ? new Date(expectedClose).toISOString() : null }),
       });
       if (!res.ok) throw new Error("Erro ao salvar");
       return res.json();
     },
-    onSuccess: () => {
-      toast({ title: "Deal atualizado!" });
-      onSaved();
-    },
+    onSuccess: () => { toast({ title: "Deal atualizado!" }); onSaved(); },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/crm/deals/${deal.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Erro ao deletar");
+      if (!res.ok) throw new Error("Erro");
     },
-    onSuccess: () => {
-      toast({ title: "Deal removido." });
-      onDeleted();
-    },
+    onSuccess: () => { toast({ title: "Deal removido." }); onDeleted(); },
     onError: () => toast({ title: "Erro ao deletar", variant: "destructive" }),
   });
 
@@ -1078,6 +1260,12 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
         <DialogTitle className="flex items-center gap-2">
           <Layers className="w-5 h-5 text-primary" /> Editar Oportunidade
         </DialogTitle>
+        {(deal.razaoSocial || deal.cnpj) && (
+          <DialogDescription className="flex items-center gap-1">
+            <Building2 className="w-3.5 h-3.5" />
+            {deal.razaoSocial || deal.cnpj}
+          </DialogDescription>
+        )}
       </DialogHeader>
 
       <div className="space-y-4 py-2">
@@ -1085,54 +1273,37 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
           <Label className="text-xs text-muted-foreground">Título</Label>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} className="text-sm" />
         </div>
-
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground flex items-center gap-1">
               <DollarSign className="w-3 h-3" /> Valor (R$)
             </Label>
-            <Input
-              type="number"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="0"
-              className="text-sm"
-            />
+            <Input type="number" value={value} onChange={(e) => setValue(e.target.value)} placeholder="0" className="text-sm" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Produto</Label>
             <Input value={produto} onChange={(e) => setProduto(e.target.value)} placeholder="Ex: RTI, AFD..." className="text-sm" />
           </div>
         </div>
-
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground flex items-center gap-1">
             <Percent className="w-3 h-3" /> Probabilidade: {probability}%
           </Label>
-          <input
-            type="range"
-            min={0} max={100} step={5}
-            value={probability}
+          <input type="range" min={0} max={100} step={5} value={probability}
             onChange={(e) => setProbability(Number(e.target.value))}
-            className="w-full h-1.5 rounded-full accent-primary cursor-pointer"
-          />
+            className="w-full h-1.5 rounded-full accent-primary cursor-pointer" />
           <div className="flex justify-between text-[10px] text-muted-foreground/60">
             <span>0%</span><span>50%</span><span>100%</span>
           </div>
         </div>
-
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Etapa</Label>
             <Select value={stage} onValueChange={setStage}>
-              <SelectTrigger className="text-sm h-9">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(STAGE_DICT).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>
-                    <span className={v.header}>{v.label}</span>
-                  </SelectItem>
+                  <SelectItem key={k} value={k}><span className={v.header}>{v.label}</span></SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1141,34 +1312,20 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
             <Label className="text-xs text-muted-foreground flex items-center gap-1">
               <Calendar className="w-3 h-3" /> Fechamento Previsto
             </Label>
-            <Input
-              type="date"
-              value={expectedClose}
-              onChange={(e) => setExpectedClose(e.target.value)}
-              className="text-sm h-9"
-            />
+            <Input type="date" value={expectedClose} onChange={(e) => setExpectedClose(e.target.value)} className="text-sm h-9" />
           </div>
         </div>
-
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Notas</Label>
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Contexto, próximos passos..."
-            className="text-sm min-h-[80px] resize-none"
-          />
+          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)}
+            placeholder="Contexto, próximos passos..." className="text-sm min-h-[80px] resize-none" />
         </div>
       </div>
 
       <DialogFooter className="flex items-center gap-2">
         {showDeleteConfirm ? (
           <>
-            <Button
-              variant="destructive" size="sm"
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-            >
+            <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
               {deleteMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
               Confirmar exclusão
             </Button>
@@ -1176,10 +1333,8 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
           </>
         ) : (
           <>
-            <Button
-              variant="ghost" size="sm" className="text-destructive hover:text-destructive mr-auto"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive mr-auto"
+              onClick={() => setShowDeleteConfirm(true)}>
               <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Excluir deal
             </Button>
             <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
@@ -1194,14 +1349,96 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
   );
 }
 
+// ─── Quick Add Deal Form ──────────────────────────────────────────────────────
+function QuickAddDealForm({ stage, onDone }: { stage: string; onDone: () => void }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [title, setTitle]   = useState("");
+  const [value, setValue]   = useState("");
+  const [contactId, setContactId] = useState("");
+
+  const { data: contactsData } = useQuery<{ contacts: Contact[] }>({
+    queryKey: ["/api/crm/contacts", ""],
+    queryFn: async () => { const r = await fetch("/api/crm/contacts"); return r.json(); },
+  });
+
+  const contacts = contactsData?.contacts || [];
+  const stageInfo = STAGE_DICT[stage];
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/crm/deals", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title || "Nova Oportunidade",
+          stage,
+          value: value || null,
+          contactId: contactId ? Number(contactId) : contacts[0]?.id,
+          probability: 20,
+          pipelineId: "default",
+        }),
+      });
+      if (!res.ok) throw new Error("Erro ao criar deal");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
+      toast({ title: `Deal criado em ${stageInfo?.label || stage}!` });
+      onDone();
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="p-2 space-y-2 border-t border-border/50 mt-1">
+      <Input
+        placeholder="Título da oportunidade"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="text-xs h-7"
+        autoFocus
+      />
+      {contacts.length > 1 && (
+        <select
+          value={contactId}
+          onChange={(e) => setContactId(e.target.value)}
+          className="w-full text-xs bg-muted/50 border border-border/50 rounded px-2 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+        >
+          <option value="">Selecionar contato...</option>
+          {contacts.map(c => (
+            <option key={c.id} value={c.id}>{c.razaoSocial || c.cnpj}</option>
+          ))}
+        </select>
+      )}
+      <Input
+        type="number"
+        placeholder="Valor (R$)"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="text-xs h-7"
+      />
+      <div className="flex gap-1.5">
+        <Button size="sm" className="flex-1 text-xs h-7"
+          onClick={() => mutation.mutate()} disabled={mutation.isPending || contacts.length === 0}>
+          {mutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Criar"}
+        </Button>
+        <Button size="sm" variant="ghost" className="text-xs h-7" onClick={onDone}>
+          <X className="w-3 h-3" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Pipeline Kanban ──────────────────────────────────────────────────────────
 function PipelineKanbanView() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const [draggedDealId, setDraggedDealId] = useState<number | null>(null);
+  const { toast }   = useToast();
+  const [draggedDealId, setDraggedDealId]       = useState<number | null>(null);
   const [draggedFromStage, setDraggedFromStage] = useState<string | null>(null);
-  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
-  const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
+  const [dragOverStage, setDragOverStage]       = useState<string | null>(null);
+  const [editingDeal, setEditingDeal]           = useState<Deal | null>(null);
+  const [addingInStage, setAddingInStage]       = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<{
     pipeline: Record<string, Deal[]>;
@@ -1220,17 +1457,15 @@ function PipelineKanbanView() {
   const moveDealMutation = useMutation({
     mutationFn: async ({ dealId, stage }: { dealId: number; stage: string }) => {
       const res = await fetch(`/api/crm/deals/${dealId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stage }),
       });
-      if (!res.ok) throw new Error("Falha ao mover deal");
+      if (!res.ok) throw new Error("Falha ao mover");
       return res.json();
     },
     onSuccess: (_, { stage }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
-      const stageLabel = STAGE_DICT[stage]?.label || stage;
-      toast({ title: `Deal movido para ${stageLabel}` });
+      toast({ title: `Deal movido para ${STAGE_DICT[stage]?.label || stage}` });
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
@@ -1239,45 +1474,33 @@ function PipelineKanbanView() {
   });
 
   function handleDragStart(dealId: number, fromStage: string) {
-    setDraggedDealId(dealId);
-    setDraggedFromStage(fromStage);
+    setDraggedDealId(dealId); setDraggedFromStage(fromStage);
   }
 
   function handleDragOver(e: React.DragEvent, stageId: string) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    e.preventDefault(); e.dataTransfer.dropEffect = "move";
     setDragOverStage(stageId);
   }
 
   function handleDrop(e: React.DragEvent, targetStage: string) {
     e.preventDefault();
     if (draggedDealId && targetStage !== draggedFromStage) {
-      // Optimistic update in cache
       queryClient.setQueryData<any>(["/api/crm/deals/pipeline"], (old: any) => {
         if (!old) return old;
         const newPipeline = { ...old.pipeline };
-        // Remove from old stage
-        const oldStage = draggedFromStage!;
-        newPipeline[oldStage] = (newPipeline[oldStage] || []).filter((d: Deal) => d.id !== draggedDealId);
-        // Add to new stage (find the deal)
+        newPipeline[draggedFromStage!] = (newPipeline[draggedFromStage!] || []).filter((d: Deal) => d.id !== draggedDealId);
         const allDeals = Object.values(old.pipeline).flat() as Deal[];
         const deal = allDeals.find((d: Deal) => d.id === draggedDealId);
-        if (deal) {
-          newPipeline[targetStage] = [{ ...deal, stage: targetStage }, ...(newPipeline[targetStage] || [])];
-        }
+        if (deal) newPipeline[targetStage] = [{ ...deal, stage: targetStage }, ...(newPipeline[targetStage] || [])];
         return { ...old, pipeline: newPipeline };
       });
       moveDealMutation.mutate({ dealId: draggedDealId, stage: targetStage });
     }
-    setDraggedDealId(null);
-    setDraggedFromStage(null);
-    setDragOverStage(null);
+    setDraggedDealId(null); setDraggedFromStage(null); setDragOverStage(null);
   }
 
   function handleDragEnd() {
-    setDraggedDealId(null);
-    setDraggedFromStage(null);
-    setDragOverStage(null);
+    setDraggedDealId(null); setDraggedFromStage(null); setDragOverStage(null);
   }
 
   if (isLoading) return (
@@ -1286,27 +1509,27 @@ function PipelineKanbanView() {
     </div>
   );
 
-  const pipeline = data?.pipeline || {};
-  const stages = data?.stages || [];
-  const allDeals = Object.values(pipeline).flat() as Deal[];
+  const pipeline    = data?.pipeline || {};
+  const stages      = data?.stages || [];
+  const allDeals    = Object.values(pipeline).flat() as Deal[];
   const activeDeals = allDeals.filter(d => !["lost"].includes(d.stage));
-  const totalActiveValue = activeDeals.reduce((sum, d) => sum + (parseFloat(d.value || "0") || 0), 0);
-  const weightedValue = activeDeals.reduce((sum, d) => sum + (parseFloat(d.value || "0") || 0) * ((d.probability || 0) / 100), 0);
-  const wonDeals = allDeals.filter(d => d.stage === "won");
-  const wonValue = wonDeals.reduce((sum, d) => sum + (parseFloat(d.value || "0") || 0), 0);
+  const totalActiveValue = activeDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
+  const weightedValue    = activeDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0) * ((d.probability || 0) / 100), 0);
+  const wonDeals         = allDeals.filter(d => d.stage === "won");
+  const wonValue         = wonDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
 
   return (
     <div className="space-y-4">
       {/* Stats bar */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "Pipeline Ativo", value: formatCurrencyShort(totalActiveValue), icon: BarChart3, color: "text-blue-400" },
-          { label: "Valor Ponderado", value: formatCurrencyShort(weightedValue), icon: Target, color: "text-amber-400" },
-          { label: "Ganhos", value: formatCurrencyShort(wonValue), icon: Trophy, color: "text-emerald-400" },
-          { label: "Oportunidades", value: `${activeDeals.length} deals`, icon: Layers, color: "text-purple-400" },
+          { label: "Pipeline Ativo",   value: formatCurrencyShort(totalActiveValue), icon: BarChart3, color: "text-blue-400" },
+          { label: "Valor Ponderado",  value: formatCurrencyShort(weightedValue),    icon: Target,    color: "text-amber-400" },
+          { label: "Ganhos",           value: formatCurrencyShort(wonValue),          icon: Trophy,    color: "text-emerald-400" },
+          { label: "Oportunidades",    value: `${activeDeals.length} deals`,          icon: Layers,    color: "text-purple-400" },
         ].map(stat => (
           <div key={stat.label} className="bg-card/50 border border-border/40 rounded-xl p-3 flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0`}>
+            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
               <stat.icon className={`w-4 h-4 ${stat.color}`} />
             </div>
             <div className="min-w-0">
@@ -1320,17 +1543,18 @@ function PipelineKanbanView() {
       {allDeals.length === 0 && (
         <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-xl">
           <Trophy className="w-10 h-10 mx-auto mb-2 text-muted-foreground/30" />
-          Nenhum deal criado ainda. Qualifique um lead para criar oportunidades.
+          Nenhum deal criado ainda. Qualifique um lead ou use o "+" em qualquer coluna.
         </div>
       )}
 
       <ScrollArea className="w-full">
         <div className="flex gap-3 pb-4 min-w-max">
           {stages.map((stageId) => {
-            const deals = (pipeline[stageId] || []) as Deal[];
-            const dict = STAGE_DICT[stageId] || { label: stageId.toUpperCase(), accent: "border-t-slate-400", header: "text-slate-300" };
-            const stageValue = deals.reduce((sum, d) => sum + (parseFloat(d.value || "0") || 0), 0);
+            const deals      = (pipeline[stageId] || []) as Deal[];
+            const dict       = STAGE_DICT[stageId] || { label: stageId.toUpperCase(), accent: "border-t-slate-400", header: "text-slate-300" };
+            const stageValue = deals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
             const isDropTarget = dragOverStage === stageId && draggedFromStage !== stageId;
+            const isAdding     = addingInStage === stageId;
 
             return (
               <div
@@ -1350,21 +1574,36 @@ function PipelineKanbanView() {
                       {deals.length}
                     </span>
                   </div>
-                  {stageValue > 0 && (
-                    <span className="text-[10px] text-muted-foreground font-mono flex-shrink-0">
-                      {formatCurrencyShort(stageValue)}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {stageValue > 0 && (
+                      <span className="text-[10px] text-muted-foreground font-mono">{formatCurrencyShort(stageValue)}</span>
+                    )}
+                    <button
+                      onClick={() => setAddingInStage(isAdding ? null : stageId)}
+                      className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      title={`Adicionar deal em ${dict.label}`}
+                    >
+                      {isAdding ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                    </button>
+                  </div>
                 </div>
 
+                {/* Quick add form */}
+                {isAdding && (
+                  <QuickAddDealForm
+                    stage={stageId}
+                    onDone={() => setAddingInStage(null)}
+                  />
+                )}
+
                 {/* Drop indicator */}
-                {isDropTarget && (
+                {isDropTarget && !isAdding && (
                   <div className="mx-2 mt-2 h-1 rounded-full bg-primary/40 animate-pulse" />
                 )}
 
                 {/* Deal cards */}
-                <div className={`p-2 space-y-2 min-h-[140px] transition-colors ${isDropTarget ? "bg-primary/3" : ""}`}>
-                  {deals.length === 0 ? (
+                <div className={`p-2 space-y-2 min-h-[140px] ${isDropTarget ? "bg-primary/3" : ""}`}>
+                  {deals.length === 0 && !isAdding ? (
                     <div className={`h-16 flex items-center justify-center border border-dashed rounded-lg transition-colors ${
                       isDropTarget ? "border-primary/40 text-primary/50" : "border-border/30 text-muted-foreground/40"
                     }`}>
@@ -1418,7 +1657,7 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
   onDragEnd: () => void;
   onClick: () => void;
 }) {
-  const prob = deal.probability ?? 0;
+  const prob      = deal.probability ?? 0;
   const probColor = prob >= 70 ? "bg-emerald-500" : prob >= 40 ? "bg-amber-500" : "bg-slate-500";
 
   return (
@@ -1434,18 +1673,21 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
       }`}
     >
       <div className="p-3">
-        <div className="flex items-start justify-between gap-1.5 mb-2">
+        <div className="flex items-start justify-between gap-1.5 mb-1.5">
           <p className="text-xs font-semibold leading-snug line-clamp-2 flex-1">{deal.title}</p>
           <Edit2 className="w-3 h-3 text-muted-foreground/30 group-hover:text-muted-foreground flex-shrink-0 mt-0.5 transition-colors" />
         </div>
 
+        {/* Contact name */}
+        {deal.razaoSocial && (
+          <p className="text-[10px] text-muted-foreground/70 mb-1.5 flex items-center gap-1 truncate">
+            <Building2 className="w-2.5 h-2.5 flex-shrink-0" /> {deal.razaoSocial}
+          </p>
+        )}
+
         <div className="flex items-center justify-between gap-2 mb-2">
-          {deal.produto && (
-            <Badge variant="secondary" className="text-[9px] py-0 px-1.5">{deal.produto}</Badge>
-          )}
-          {deal.value && (
-            <span className="text-xs font-bold text-primary ml-auto">{formatCurrency(deal.value)}</span>
-          )}
+          {deal.produto && <Badge variant="secondary" className="text-[9px] py-0 px-1.5">{deal.produto}</Badge>}
+          {deal.value && <span className="text-xs font-bold text-primary ml-auto">{formatCurrency(deal.value)}</span>}
         </div>
 
         {deal.expectedCloseDate && (
