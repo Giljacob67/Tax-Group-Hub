@@ -37,6 +37,16 @@ import CRMDashboard from "@/components/crm/CRMDashboard";
 import TasksPanel from "@/components/crm/TasksPanel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+type CrmSavedView = {
+  id: number;
+  name: string;
+  emoji: string | null;
+  filters: Record<string, any>;
+  isDefault: boolean | null;
+  sortField: string | null;
+  sortDir: string | null;
+};
+
 type Contact = {
   id: number;
   cnpj: string;
@@ -422,9 +432,150 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
     setSearch("");
   }
 
+  const PRESET_VIEWS: { id: string; name: string; emoji: string; filters: Record<string, string> }[] = [
+    { id: "all", name: "Todos", emoji: "📋", filters: {} },
+    { id: "hot", name: "Leads Quentes", emoji: "🔥", filters: { scoreMin: "70", status: "qualified" } },
+    { id: "opps", name: "Oportunidades", emoji: "💰", filters: { status: "opportunity" } },
+    { id: "lost", name: "Perdidos", emoji: "⚠️", filters: { status: "lost" } },
+  ];
+
+  const [activeViewId, setActiveViewId] = useState("all");
+  const [isSaveViewOpen, setIsSaveViewOpen] = useState(false);
+  const [newViewName, setNewViewName] = useState("");
+
+  const { data: savedViewsData } = useQuery<{ views: CrmSavedView[] }>({
+    queryKey: ["/api/crm/views"],
+    queryFn: async () => {
+      const r = await fetch("/api/crm/views");
+      return r.json();
+    }
+  });
+
+  const saveViewMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/crm/views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newViewName,
+          emoji: "🔖",
+          filters: { ...filters, status: statusFilter }
+        }),
+      });
+      if (!res.ok) throw new Error("Erro ao salvar view");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/views"] });
+      setIsSaveViewOpen(false);
+      setNewViewName("");
+      toast({ title: "View salva com sucesso." });
+    },
+    onError: () => toast({ title: "Erro ao salvar view", variant: "destructive" }),
+  });
+
+  const deleteViewMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/crm/views/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Erro");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/views"] });
+      setActiveViewId("all");
+      toast({ title: "View removida." });
+    }
+  });
+
+  function applyView(viewId: string, viewFilters: Record<string, string>) {
+    setActiveViewId(viewId);
+    setSearch("");
+    setStatusFilter(viewFilters.status || "");
+    setFilters({
+      regime: viewFilters.regime || "",
+      porte: viewFilters.porte || "",
+      uf: viewFilters.uf || "",
+      scoreMin: viewFilters.scoreMin || "",
+      scoreMax: viewFilters.scoreMax || "",
+    });
+  }
+
+  const userViews = savedViewsData?.views || [];
+
+
   return (
     <Card className="border-border/50 bg-card/50">
-      <CardHeader className="pb-3 space-y-3">
+      <CardHeader className="pb-3 space-y-4">
+        {/* Smart Views Row */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-2 px-2 items-center">
+          {PRESET_VIEWS.map(v => (
+            <button
+              key={v.id}
+              onClick={() => applyView(v.id, v.filters)}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-colors ${
+                activeViewId === v.id
+                  ? "bg-primary/10 border-primary/30 text-primary font-medium"
+                  : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              }`}
+            >
+              <span>{v.emoji}</span> {v.name}
+            </button>
+          ))}
+          
+          {userViews.length > 0 && <div className="w-px h-5 bg-border mx-1" />}
+
+          {userViews.map(v => (
+            <button
+              key={`user-${v.id}`}
+              onClick={() => applyView(`user-${v.id}`, v.filters)}
+              onDoubleClick={() => {
+                if (confirm(`Excluir view "${v.name}"?`)) {
+                  deleteViewMutation.mutate(v.id);
+                }
+              }}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-colors ${
+                activeViewId === `user-${v.id}`
+                  ? "bg-primary/10 border-primary/30 text-primary font-medium"
+                  : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              }`}
+              title="Duplo clique para excluir"
+            >
+              <span>{v.emoji}</span> {v.name}
+            </button>
+          ))}
+
+          <Dialog open={isSaveViewOpen} onOpenChange={setIsSaveViewOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="rounded-full px-3 h-8 text-xs text-muted-foreground border border-dashed border-border/50 ml-1">
+                <Plus className="w-3.5 h-3.5 mr-1" /> Salvar Filtro
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Salvar Visualização</DialogTitle>
+                <DialogDescription>
+                  Dê um nome para esta combinação de filtros.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <Label>Nome da View</Label>
+                <Input
+                  autoFocus
+                  placeholder="Ex: Contatos SP Quentes"
+                  value={newViewName}
+                  onChange={e => setNewViewName(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsSaveViewOpen(false)}>Cancelar</Button>
+                <Button onClick={() => saveViewMutation.mutate()} disabled={!newViewName.trim() || saveViewMutation.isPending}>
+                  {saveViewMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Salvar"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
         {/* Search + status + filter button row */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
