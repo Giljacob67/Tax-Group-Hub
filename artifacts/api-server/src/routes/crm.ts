@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import {
   crmContactsTable, crmDealsTable, crmActivitiesTable,
   crmEnrichmentLogTable, crmPipelinesTable, crmAttachmentsTable,
-  crmTasksTable, crmSavedViewsTable,
+  crmTasksTable, crmSavedViewsTable, crmAutomationsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, ilike, or, gte, lte, inArray } from "drizzle-orm";
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
@@ -15,6 +15,58 @@ const router = Router();
 // ─── Helper ───────────────────────────────────────────────────────────────────
 async function getEmpresAquiToken(): Promise<string | null> {
   return process.env.EMPRESAQUI_API_KEY || null;
+}
+
+// ─── Automation Engine ────────────────────────────────────────────────────────
+async function evaluateAutomations(userId: string, contactId: number, triggerType: string, currentValue: any) {
+  try {
+    // Busca automações ativas do usuário para este gatilho
+    const automations = await db.select().from(crmAutomationsTable)
+      .where(and(
+        eq(crmAutomationsTable.userId, userId),
+        eq(crmAutomationsTable.isActive, true),
+        eq(crmAutomationsTable.triggerType, triggerType)
+      ));
+
+    for (const auto of automations) {
+      let shouldTrigger = false;
+
+      // Avalia a condição
+      if (triggerType === "status_changed" && auto.triggerValue === currentValue) {
+        shouldTrigger = true;
+      } else if (triggerType === "score_above" && typeof currentValue === "number" && currentValue >= Number(auto.triggerValue)) {
+        shouldTrigger = true;
+      } else if (triggerType === "score_below" && typeof currentValue === "number" && currentValue <= Number(auto.triggerValue)) {
+        shouldTrigger = true;
+      }
+
+      if (shouldTrigger) {
+        // Executa a ação
+        if (auto.actionType === "create_task" && auto.actionPayload) {
+          const payload = auto.actionPayload as any;
+          await db.insert(crmTasksTable).values({
+            userId,
+            contactId,
+            title: payload.title || `Tarefa Automática: ${auto.name}`,
+            type: payload.type || "call",
+            priority: payload.priority || "high",
+            status: "pending",
+            dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // +1 dia
+          });
+        } else if (auto.actionType === "log_activity") {
+          await db.insert(crmActivitiesTable).values({
+            userId,
+            contactId,
+            type: "ai_generated",
+            subject: "Ação Automática Executada",
+            content: `A automação '${auto.name}' foi disparada (Gatilho: ${triggerType} = ${currentValue}).`,
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error evaluating automations:", error);
+  }
 }
 
 // ─── Contacts: List ───────────────────────────────────────────────────────────
@@ -131,12 +183,24 @@ router.post("/contacts", async (req: Request, res: Response) => {
 router.put("/contacts/:id", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
+    
+    // Check if status changed for automation
+    const [oldContact] = await db.select({ status: crmContactsTable.status }).from(crmContactsTable)
+      .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
+
     const [updated] = await db
       .update(crmContactsTable)
       .set({ ...req.body, updatedAt: new Date() })
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)))
       .returning();
+    
     if (!updated) { res.status(404).json({ error: "Contact not found" }); return; }
+
+    // Trigger automations if status changed
+    if (oldContact && req.body.status && oldContact.status !== req.body.status) {
+      await evaluateAutomations(userId, updated.id, "status_changed", updated.status);
+    }
+
     res.json({ success: true, contact: updated });
   } catch (err: any) {
     res.status(400).json({ error: "Failed to update contact", message: err.message });
@@ -185,6 +249,12 @@ router.post("/contacts/bulk-update-status", async (req: Request, res: Response) 
     await db.update(crmContactsTable)
       .set({ status, updatedAt: new Date() })
       .where(and(inArray(crmContactsTable.id, ids), eq(crmContactsTable.userId, userId)));
+    
+    // Trigger automations for all updated contacts
+    for (const id of ids) {
+      await evaluateAutomations(userId, id, "status_changed", status);
+    }
+
     res.json({ success: true, updated: ids.length });
   } catch (err: any) {
     res.status(500).json({ error: "Bulk update failed", message: err.message });
@@ -310,6 +380,18 @@ Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","RE
       })
       .where(eq(crmContactsTable.id, contact.id))
       .returning();
+
+    // Trigger score automations
+    if (updated.aiScore !== null) {
+      // triggers > X
+      await evaluateAutomations(userId, updated.id, "score_above", updated.aiScore);
+      // triggers < X
+      await evaluateAutomations(userId, updated.id, "score_below", updated.aiScore);
+    }
+    // Also trigger status if changed
+    if (updated.status !== contact.status) {
+      await evaluateAutomations(userId, updated.id, "status_changed", updated.status);
+    }
 
     await db.insert(crmActivitiesTable).values({
       contactId: contact.id, userId, type: "ai_generated",
@@ -832,6 +914,56 @@ router.get("/analytics/funnel", async (req: Request, res: Response) => {
     res.json({ success: true, funnel, avgDaysPerStage });
   } catch (err: any) {
     res.status(500).json({ error: "Funnel analytics failed", message: err.message });
+  }
+});
+
+// ─── Automations: CRUD ────────────────────────────────────────────────────────
+router.get("/automations", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const automations = await db.select().from(crmAutomationsTable)
+      .where(eq(crmAutomationsTable.userId, userId))
+      .orderBy(desc(crmAutomationsTable.createdAt));
+    res.json({ success: true, automations });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to list automations", message: err.message });
+  }
+});
+
+router.post("/automations", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const [auto] = await db.insert(crmAutomationsTable)
+      .values({ ...req.body, userId })
+      .returning();
+    res.status(201).json({ success: true, automation: auto });
+  } catch (err: any) {
+    res.status(400).json({ error: "Failed to create automation", message: err.message });
+  }
+});
+
+router.put("/automations/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const [auto] = await db.update(crmAutomationsTable)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(and(eq(crmAutomationsTable.id, Number(req.params.id)), eq(crmAutomationsTable.userId, userId)))
+      .returning();
+    if (!auto) { res.status(404).json({ error: "Automation not found" }); return; }
+    res.json({ success: true, automation: auto });
+  } catch (err: any) {
+    res.status(400).json({ error: "Failed to update automation", message: err.message });
+  }
+});
+
+router.delete("/automations/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    await db.delete(crmAutomationsTable)
+      .where(and(eq(crmAutomationsTable.id, Number(req.params.id)), eq(crmAutomationsTable.userId, userId)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to delete automation", message: err.message });
   }
 });
 

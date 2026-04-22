@@ -165,6 +165,20 @@ export const crmSavedViewsTable = pgTable("crm_saved_views", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const crmAutomationsTable = pgTable("crm_automations", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  triggerType: text("trigger_type").notNull(), // 'status_changed', 'score_above', 'score_below'
+  triggerValue: text("trigger_value").notNull(), // e.g. 'lost', '80'
+  actionType: text("action_type").notNull(), // 'create_task', 'log_activity'
+  actionPayload: jsonb("action_payload"), // details of the task or activity
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+
 export const insertCrmSavedViewSchema = createInsertSchema(crmSavedViewsTable).omit({ id: true, createdAt: true });
 export type CrmSavedView = typeof crmSavedViewsTable.$inferSelect;
 export type InsertCrmSavedView = z.infer<typeof insertCrmSavedViewSchema>;

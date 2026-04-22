@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import CRMDashboard from "@/components/crm/CRMDashboard";
 import TasksPanel from "@/components/crm/TasksPanel";
 import GlobalTimeline from "@/components/crm/GlobalTimeline";
+import AutomationsPanel from "@/components/crm/AutomationsPanel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type CrmSavedView = {
@@ -254,16 +255,15 @@ export default function CRMPage() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="flex-none px-6 pt-6 pb-3">
           <div className="flex items-center justify-between mb-5">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                  <Briefcase className="w-5 h-5 text-primary" />
-                </div>
-                CRM &amp; Pipeline
-              </h1>
-              <p className="text-muted-foreground text-sm mt-1 ml-11">
-                Leads enriquecidos, qualificação por IA e funil comercial.
-              </p>
+            <div className="flex items-center gap-6">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">CRM</h1>
+              <TabsList className="bg-muted/50 border border-border/50">
+                <TabsTrigger value="dashboard" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Dashboard</TabsTrigger>
+                <TabsTrigger value="contacts" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Contatos</TabsTrigger>
+                <TabsTrigger value="pipeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Pipeline</TabsTrigger>
+                <TabsTrigger value="timeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Timeline</TabsTrigger>
+                <TabsTrigger value="automations" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Automações</TabsTrigger>
+              </TabsList>
             </div>
             {activeTab === "contacts" && (
               <div className="flex gap-2">
@@ -276,18 +276,6 @@ export default function CRMPage() {
           </div>
 
           <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v !== "contacts") setSelectedContact(null); }}>
-            <TabsList className="h-9">
-              <TabsTrigger value="contacts" className="gap-1.5 text-xs">
-                <Users className="w-3.5 h-3.5" />Contatos
-              </TabsTrigger>
-              <TabsTrigger value="pipeline" className="gap-1.5 text-xs">
-                <Layers className="w-3.5 h-3.5" />Pipeline
-              </TabsTrigger>
-              <TabsTrigger value="dashboard" className="gap-1.5 text-xs">
-                <BarChart3 className="w-3.5 h-3.5" />Dashboard
-              </TabsTrigger>
-            </TabsList>
-
             <div className="mt-4">
               <TabsContent value="contacts" className="m-0 p-0">
                 <ContactsView onSelect={setSelectedContact} selected={selectedContact} />
@@ -295,7 +283,13 @@ export default function CRMPage() {
               <TabsContent value="pipeline" className="m-0 p-0">
                 <PipelineKanbanView />
               </TabsContent>
-              <TabsContent value="dashboard" className="m-0 p-0">
+              <TabsContent value="timeline" className="h-full m-0 max-w-4xl mx-auto">
+              <GlobalTimeline />
+            </TabsContent>
+            <TabsContent value="automations" className="h-full m-0 max-w-4xl mx-auto">
+              <AutomationsPanel />
+            </TabsContent>
+            <TabsContent value="dashboard" className="h-full m-0">
                 <div className="overflow-y-auto max-h-[calc(100vh-160px)] pb-6">
                   <CRMDashboard />
                 </div>
