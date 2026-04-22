@@ -629,6 +629,38 @@ router.delete("/tasks/:id", async (req: Request, res: Response) => {
   }
 });
 
+// ─── Activities: Global (Timeline Global) ───────────────────────────────────────
+router.get("/activities", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    
+    // Join with contacts to get company name
+    const activities = await db.select({
+      activity: crmActivitiesTable,
+      contact: {
+        razaoSocial: crmContactsTable.razaoSocial,
+        cnpj: crmContactsTable.cnpj,
+      }
+    })
+    .from(crmActivitiesTable)
+    .innerJoin(crmContactsTable, eq(crmActivitiesTable.contactId, crmContactsTable.id))
+    .where(eq(crmActivitiesTable.userId, userId))
+    .orderBy(desc(crmActivitiesTable.createdAt))
+    .limit(100);
+
+    // Format the response to be a flat array for easier UI rendering
+    const formatted = activities.map(row => ({
+      ...row.activity,
+      contactName: row.contact.razaoSocial || "—",
+      contactCnpj: row.contact.cnpj
+    }));
+
+    res.json({ success: true, activities: formatted });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to fetch global activities", message: err.message });
+  }
+});
+
 // ─── Saved Views: CRUD ────────────────────────────────────────────────────────
 router.get("/views", async (req: Request, res: Response) => {
   try {

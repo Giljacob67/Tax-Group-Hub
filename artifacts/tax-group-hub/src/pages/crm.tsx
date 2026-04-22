@@ -35,6 +35,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import CRMDashboard from "@/components/crm/CRMDashboard";
 import TasksPanel from "@/components/crm/TasksPanel";
+import GlobalTimeline from "@/components/crm/GlobalTimeline";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type CrmSavedView = {
