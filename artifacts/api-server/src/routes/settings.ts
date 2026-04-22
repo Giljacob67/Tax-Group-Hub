@@ -66,7 +66,7 @@ router.get("/settings/integrations", async (req, res) => {
       .where(isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined);
     
     // Convert to easy lookup set
-    const hasDbKey = new Set(userKeys.map(k => k.provider));
+    const hasDbKey = new Set(userKeys.map((k: any) => k.provider));
 
     const checkStatus = (providerId: string, envKey?: string) => {
       if (hasDbKey.has(providerId)) return "connected";
@@ -179,7 +179,7 @@ router.get("/settings/integrations", async (req, res) => {
       ollamaModel,
       geminiModel,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error fetching integrations:", err);
     res.status(500).json({ error: "Internal server error" });
   }

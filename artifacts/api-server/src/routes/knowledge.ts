@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import multer from "multer";
 import { createRequire } from "node:module";

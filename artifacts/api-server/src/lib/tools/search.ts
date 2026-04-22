@@ -6,7 +6,7 @@ export const webSearchTool = tool({
   parameters: z.object({
     query: z.string().describe("A string de busca (em português) otimizada para a web."),
   }),
-  execute: async ({ query }) => {
+  execute: async ({ query }: { query: string }) => {
     const apiKey = process.env.TAVILY_API_KEY;
     if (!apiKey) {
       return { 

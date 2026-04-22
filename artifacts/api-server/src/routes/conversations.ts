@@ -53,7 +53,7 @@ router.get("/conversations", async (req, res) => {
     const conversations = whereClause ? await query.where(whereClause) : await query;
 
     res.json({
-      conversations: conversations.map((c) => ({
+      conversations: conversations.map((c: any) => ({
         ...c,
         id: String(c.id),
         createdAt: c.createdAt.toISOString(),
@@ -90,7 +90,7 @@ router.post("/conversations", async (req, res) => {
       updatedAt: conv.updatedAt.toISOString(),
       messageCount: 0,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error creating conversation:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -133,7 +133,7 @@ router.get("/conversations/:conversationId", async (req, res) => {
       model: modelName,
       provider: providerName,
       agentName: agent?.name || conv.agentId,
-      messages: messages.map((m) => ({
+      messages: messages.map((m: any) => ({
         id: String(m.id),
         conversationId: String(m.conversationId),
         role: m.role,
@@ -142,7 +142,7 @@ router.get("/conversations/:conversationId", async (req, res) => {
         metadata: m.metadata,
       })),
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error getting conversation:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -182,7 +182,7 @@ router.patch("/conversations/:conversationId", async (req, res) => {
       title: conv.title,
       updatedAt: conv.updatedAt.toISOString(),
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error renaming conversation:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -223,7 +223,7 @@ router.get("/conversations/:conversationId/export", async (req, res) => {
     res.setHeader("Content-Type", "text/markdown; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="conversa-${conversationId}.md"`);
     res.send(md);
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error exporting conversation:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -252,7 +252,7 @@ router.delete("/messages/:messageId", async (req, res) => {
     }
     await db.delete(messagesTable).where(eq(messagesTable.id, messageId));
     res.json({ success: true });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error deleting message:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -278,7 +278,7 @@ router.delete("/conversations/:conversationId", async (req, res) => {
     }
     await db.delete(conversationsTable).where(eq(conversationsTable.id, conversationId));
     res.json({ success: true, message: "Conversation deleted" });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error deleting conversation:", err);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -355,7 +355,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
               isRealUser(userId) ? eq(knowledgeDocumentsTable.userId, userId) : sql`TRUE`
             )
           )
-          .orderBy((t) => desc(t.score))
+          .orderBy((t: any) => desc(t.score))
           .limit(5);
 
         const relevantChunks = results.filter((r) => r.score > 0.3);
@@ -489,7 +489,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       },
       autoTitle,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error sending message:", err);
     res.status(500).json({ error: "Internal server error" });
   }

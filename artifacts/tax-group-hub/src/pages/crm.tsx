@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import {
-  Building2, Plus, Loader2, Search, MapPin, Phone, Mail,
+  Building2, Plus, Loader2, Search, MapPin,
   Briefcase, RefreshCw, ChevronRight, X,
   Clock, MessageSquare, Bot, CheckCircle2, TrendingUp,
   FileText, Calendar, Trophy,
@@ -9,7 +10,9 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown, DollarSign,
   Target, ArrowRight, Edit2, Save, BarChart3, Percent,
   PhoneCall, AtSign, Users, StickyNote, Layers,
-  SlidersHorizontal, Check, CheckSquare, Square, AlertTriangle
+  SlidersHorizontal, CheckSquare, Square,
+  LayoutGrid, List, AlertCircle, Link2, ExternalLink,
+  Flame
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,6 +33,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import CRMDashboard from "@/components/crm/CRMDashboard";
+import TasksPanel from "@/components/crm/TasksPanel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Contact = {
@@ -209,30 +214,49 @@ function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: 
     : <ChevronDown className="w-3 h-3 ml-1 text-primary inline" />;
 }
 
+// ─── Avatar Initials ──────────────────────────────────────────────────────────
+function CompanyAvatar({ name, size = "md" }: { name: string | null; size?: "sm" | "md" | "lg" }) {
+  const initials = (name || "?").split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
+  const colors = [
+    "from-blue-600 to-blue-400", "from-emerald-600 to-emerald-400",
+    "from-purple-600 to-purple-400", "from-amber-600 to-amber-400",
+    "from-pink-600 to-pink-400", "from-cyan-600 to-cyan-400",
+  ];
+  const color = colors[(name || "").charCodeAt(0) % colors.length];
+  const sz = size === "sm" ? "w-8 h-8 text-xs" : size === "lg" ? "w-14 h-14 text-xl" : "w-10 h-10 text-sm";
+  return (
+    <div className={`${sz} rounded-xl bg-gradient-to-br ${color} flex items-center justify-center flex-shrink-0 font-bold text-white shadow-sm`}>
+      {initials}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CRMPage() {
-  const [activeTab, setActiveTab]         = useState("contacts");
+  const [activeTab, setActiveTab]             = useState("contacts");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [isImportOpen, setIsImportOpen]   = useState(false);
+  const [isImportOpen, setIsImportOpen]       = useState(false);
   const queryClient = useQueryClient();
 
   return (
     <div className="flex h-full overflow-hidden bg-background">
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="flex-none p-6 pb-4">
-          <div className="flex items-center justify-between mb-4">
+        <div className="flex-none px-6 pt-6 pb-3">
+          <div className="flex items-center justify-between mb-5">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                <Briefcase className="w-7 h-7 text-primary" />
-                CRM e Pipeline
+              <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                  <Briefcase className="w-5 h-5 text-primary" />
+                </div>
+                CRM &amp; Pipeline
               </h1>
-              <p className="text-muted-foreground text-sm mt-0.5">
+              <p className="text-muted-foreground text-sm mt-1 ml-11">
                 Leads enriquecidos, qualificação por IA e funil comercial.
               </p>
             </div>
             {activeTab === "contacts" && (
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
                   <UploadCloud className="w-4 h-4 mr-2" />Importar
                 </Button>
                 <AddLeadDialog />
@@ -240,17 +264,30 @@ export default function CRMPage() {
             )}
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full max-w-xs grid-cols-2">
-              <TabsTrigger value="contacts">Contatos</TabsTrigger>
-              <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v !== "contacts") setSelectedContact(null); }}>
+            <TabsList className="h-9">
+              <TabsTrigger value="contacts" className="gap-1.5 text-xs">
+                <Users className="w-3.5 h-3.5" />Contatos
+              </TabsTrigger>
+              <TabsTrigger value="pipeline" className="gap-1.5 text-xs">
+                <Layers className="w-3.5 h-3.5" />Pipeline
+              </TabsTrigger>
+              <TabsTrigger value="dashboard" className="gap-1.5 text-xs">
+                <BarChart3 className="w-3.5 h-3.5" />Dashboard
+              </TabsTrigger>
             </TabsList>
+
             <div className="mt-4">
               <TabsContent value="contacts" className="m-0 p-0">
                 <ContactsView onSelect={setSelectedContact} selected={selectedContact} />
               </TabsContent>
               <TabsContent value="pipeline" className="m-0 p-0">
                 <PipelineKanbanView />
+              </TabsContent>
+              <TabsContent value="dashboard" className="m-0 p-0">
+                <div className="overflow-y-auto max-h-[calc(100vh-160px)] pb-6">
+                  <CRMDashboard />
+                </div>
               </TabsContent>
             </div>
           </Tabs>
@@ -664,13 +701,18 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                             : <Square className="w-4 h-4 text-muted-foreground/30 hover:text-muted-foreground" />}
                         </button>
                       </td>
-                      <td className="px-4 py-3" onClick={() => onSelect(contact)}>
-                        <div className="font-medium text-foreground">{contact.razaoSocial || "—"}</div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <span className="font-mono">{contact.cnpj}</span>
-                          {contact.cidade && (
-                            <><span>·</span><MapPin className="w-3 h-3" />{contact.cidade}/{contact.uf}</>
-                          )}
+                      <td className="px-4 py-2.5" onClick={() => onSelect(contact)}>
+                        <div className="flex items-center gap-2.5">
+                          <CompanyAvatar name={contact.razaoSocial} size="sm" />
+                          <div className="min-w-0">
+                            <div className="font-medium text-foreground text-sm truncate">{contact.razaoSocial || "—"}</div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <span className="font-mono">{contact.cnpj}</span>
+                              {contact.cidade && (
+                                <><span>·</span><MapPin className="w-3 h-3" />{contact.cidade}/{contact.uf}</>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
@@ -854,7 +896,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
     }
   }
 
-  const activities  = activitiesData?.attachments  as any || activitiesData?.activities  || [];
+  const activities  = activitiesData?.activities || [];
   const attachments = attachmentsData?.attachments || [];
   const status      = STATUS_CONFIG[contact.status] || STATUS_CONFIG.prospect;
   const scoreDetails = contact.aiScoreDetails as any;
@@ -866,41 +908,67 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
   }
 
   return (
-    <div className="w-[390px] flex-shrink-0 border-l border-border/50 bg-card/30 flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex-none p-4 border-b border-border/50 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="font-semibold text-sm truncate">{contact.razaoSocial || "Empresa"}</h3>
-          <p className="text-xs text-muted-foreground font-mono mt-0.5">{contact.cnpj}</p>
-          {contact.cidade && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-              <MapPin className="w-3 h-3" /> {contact.cidade}/{contact.uf}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {showDeleteConfirm ? (
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="destructive" className="text-xs h-7 px-2"
-                onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
-                {deleteMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Confirmar"}
-              </Button>
-              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setShowDeleteConfirm(false)}>
-                Cancelar
-              </Button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="p-1 hover:bg-destructive/10 hover:text-destructive rounded-md transition-colors"
-              title="Deletar contato"
-            >
-              <Trash2 className="w-4 h-4 text-muted-foreground" />
+    <div className="w-[480px] flex-shrink-0 border-l border-border/50 bg-card/30 flex flex-col h-full overflow-hidden">
+      {/* Header with avatar */}
+      <div className="flex-none p-4 border-b border-border/50 bg-card/50">
+        <div className="flex items-start gap-3">
+          <CompanyAvatar name={contact.razaoSocial} size="lg" />
+          <div className="min-w-0 flex-1">
+            <h3 className="font-bold text-sm leading-tight truncate">{contact.razaoSocial || "Empresa"}</h3>
+            <p className="text-xs text-muted-foreground font-mono mt-0.5">{contact.cnpj}</p>
+            {contact.cidade && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                <MapPin className="w-3 h-3" /> {contact.cidade}/{contact.uf}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {showDeleteConfirm ? (
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="destructive" className="text-xs h-7 px-2"
+                  onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
+                  {deleteMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Confirmar"}
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setShowDeleteConfirm(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-1 hover:bg-destructive/10 hover:text-destructive rounded-md transition-colors"
+                title="Deletar contato"
+              >
+                <Trash2 className="w-4 h-4 text-muted-foreground" />
+              </button>
+            )}
+            <button onClick={onClose} className="p-1 hover:bg-muted rounded-md transition-colors">
+              <X className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+
+        {/* Quick action buttons */}
+        <div className="flex gap-1.5 mt-3">
+          {contact.telefone && (
+            <a href={`tel:${contact.telefone}`}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/50">
+              <PhoneCall className="w-3 h-3" /> Ligar
+            </a>
           )}
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded-md transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          {contact.email && (
+            <a href={`mailto:${contact.email}`}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/50">
+              <AtSign className="w-3 h-3" /> Email
+            </a>
+          )}
+          {contact.website && (
+            <a href={contact.website.startsWith("http") ? contact.website : `https://${contact.website}`}
+              target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/50">
+              <ExternalLink className="w-3 h-3" /> Site
+            </a>
+          )}
         </div>
       </div>
 
@@ -956,6 +1024,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           <TabsList className="bg-transparent p-0 h-9 gap-4">
             {[
               { value: "info",     label: "Dados" },
+              { value: "tasks",    label: "Tarefas" },
               { value: "timeline", label: `Timeline (${(activitiesData as any)?.activities?.length ?? 0})` },
               { value: "files",    label: `Arquivos (${attachments.length})` },
             ].map(t => (
@@ -1018,6 +1087,11 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
             </div>
           </TabsContent>
 
+          {/* ── Tasks Tab ── */}
+          <TabsContent value="tasks" className="m-0">
+            <TasksPanel contactId={contact.id} />
+          </TabsContent>
+
           {/* ── Timeline Tab ── */}
           <TabsContent value="timeline" className="m-0">
             <div className="p-4 space-y-3">
@@ -1062,7 +1136,11 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                 </div>
               )}
               <Separator />
-              {(activitiesData as any)?.activities?.length === 0 ? (
+              {!activitiesData ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary/40" />
+                </div>
+              ) : (activitiesData as any)?.activities?.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">Nenhuma atividade registrada.</p>
               ) : (
                 <div className="space-y-3">
@@ -1660,51 +1738,77 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
   const prob      = deal.probability ?? 0;
   const probColor = prob >= 70 ? "bg-emerald-500" : prob >= 40 ? "bg-amber-500" : "bg-slate-500";
 
+  // Days in current stage (proxy: days since updatedAt)
+  const daysSinceUpdate = Math.round(
+    (Date.now() - new Date(deal.updatedAt).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const isUrgent  = daysSinceUpdate >= 14;
+  const isWarning = daysSinceUpdate >= 7 && !isUrgent;
+  const urgencyColor = isUrgent
+    ? "text-red-400 bg-red-500/10 border-red-500/20"
+    : isWarning
+    ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+    : "text-muted-foreground/50 bg-muted/30 border-transparent";
+
   return (
     <div
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onClick}
-      className={`group cursor-grab active:cursor-grabbing rounded-lg border bg-background/70 hover:bg-background transition-all select-none ${
+      className={`group cursor-grab active:cursor-grabbing rounded-xl border bg-background/80 hover:bg-background transition-all select-none ${
         isDragging
           ? "opacity-40 border-primary/50 shadow-lg scale-95"
           : "border-border/50 hover:border-primary/40 hover:shadow-md"
       }`}
     >
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-1.5 mb-1.5">
+      <div className="p-3 space-y-2">
+        {/* Header: title + edit icon */}
+        <div className="flex items-start justify-between gap-1.5">
           <p className="text-xs font-semibold leading-snug line-clamp-2 flex-1">{deal.title}</p>
           <Edit2 className="w-3 h-3 text-muted-foreground/30 group-hover:text-muted-foreground flex-shrink-0 mt-0.5 transition-colors" />
         </div>
 
-        {/* Contact name */}
+        {/* Contact row */}
         {deal.razaoSocial && (
-          <p className="text-[10px] text-muted-foreground/70 mb-1.5 flex items-center gap-1 truncate">
-            <Building2 className="w-2.5 h-2.5 flex-shrink-0" /> {deal.razaoSocial}
-          </p>
-        )}
-
-        <div className="flex items-center justify-between gap-2 mb-2">
-          {deal.produto && <Badge variant="secondary" className="text-[9px] py-0 px-1.5">{deal.produto}</Badge>}
-          {deal.value && <span className="text-xs font-bold text-primary ml-auto">{formatCurrency(deal.value)}</span>}
-        </div>
-
-        {deal.expectedCloseDate && (
-          <div className="flex items-center gap-1 mb-2">
-            <Calendar className="w-2.5 h-2.5 text-muted-foreground/50" />
-            <span className="text-[9px] text-muted-foreground">
-              {new Date(deal.expectedCloseDate).toLocaleDateString("pt-BR")}
-            </span>
+          <div className="flex items-center gap-1.5">
+            <CompanyAvatar name={deal.razaoSocial} size="sm" />
+            <p className="text-[10px] text-muted-foreground truncate flex-1">{deal.razaoSocial}</p>
           </div>
         )}
 
+        {/* Product + Value */}
+        <div className="flex items-center justify-between gap-2">
+          {deal.produto && (
+            <Badge variant="secondary" className="text-[9px] py-0 px-1.5 h-4">{deal.produto}</Badge>
+          )}
+          {deal.value && (
+            <span className="text-xs font-bold text-primary ml-auto">{formatCurrency(deal.value)}</span>
+          )}
+        </div>
+
+        {/* Footer: close date + urgency */}
+        <div className="flex items-center justify-between gap-2">
+          {deal.expectedCloseDate && (
+            <div className="flex items-center gap-1">
+              <Calendar className="w-2.5 h-2.5 text-muted-foreground/50" />
+              <span className="text-[9px] text-muted-foreground">
+                {new Date(deal.expectedCloseDate).toLocaleDateString("pt-BR")}
+              </span>
+            </div>
+          )}
+          <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium ml-auto ${urgencyColor}`}>
+            {daysSinceUpdate === 0 ? "Hoje" : `${daysSinceUpdate}d`}
+          </span>
+        </div>
+
+        {/* Probability bar */}
         {prob > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <div className="h-1 bg-muted rounded-full overflow-hidden">
               <div className={`h-full rounded-full transition-all ${probColor}`} style={{ width: `${prob}%` }} />
             </div>
-            <span className="text-[9px] text-muted-foreground">{prob}% probabilidade</span>
+            <span className="text-[9px] text-muted-foreground">{prob}% prob.</span>
           </div>
         )}
       </div>

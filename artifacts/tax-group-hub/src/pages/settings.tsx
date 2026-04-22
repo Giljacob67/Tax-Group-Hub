@@ -22,6 +22,7 @@ interface SettingsData {
   activeLLM: string | null;
   ollamaModel: string;
   openrouterModel: string;
+  geminiModel?: string;
 }
 
 interface OllamaSettings {
@@ -683,7 +684,7 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {data.activeLLM?.startsWith("Ollama")
                     ? `Modelo local: ${data.ollamaModel}`
-                    : `Modelo cloud detectado. (Atualmente ${data.activeLLM.includes('Gemini') ? data.geminiModel : 'Padrão'})`
+                    : `Modelo cloud detectado. (Atualmente ${data.activeLLM.includes('Gemini') ? (data as any).geminiModel : 'Padrão'})`
                   }
                 </p>
               </div>

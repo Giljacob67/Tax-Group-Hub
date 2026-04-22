@@ -112,7 +112,7 @@ export default function Dashboard() {
                   <p className="text-white/70 text-sm mb-6 h-10">{block.desc}</p>
                   
                   <div className="space-y-2">
-                    {agentsData?.agents?.filter(a => a.block === block.id).map(agent => (
+                    {agentsData?.agents?.filter((a: any) => a.block === block.id).map((agent: any) => (
                       <Link key={agent.id} href={`/agent/${agent.id}`} className="block w-full text-left px-4 py-3 rounded-xl bg-black/40 hover:bg-black/60 border border-white/5 hover:border-white/20 transition-all duration-200 group/link">
                           <div className="flex items-center justify-between">
                             <span className="font-medium text-sm text-white/90 group-hover/link:text-white truncate pr-4">{agent.name}</span>

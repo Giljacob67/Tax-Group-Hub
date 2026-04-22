@@ -2,7 +2,8 @@ import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import {
   crmContactsTable, crmDealsTable, crmActivitiesTable,
-  crmEnrichmentLogTable, crmPipelinesTable, crmAttachmentsTable
+  crmEnrichmentLogTable, crmPipelinesTable, crmAttachmentsTable,
+  crmTasksTable, crmSavedViewsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, ilike, or, gte, lte, inArray } from "drizzle-orm";
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
@@ -392,11 +393,11 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
       .orderBy(desc(crmDealsTable.updatedAt));
 
     const pipeline: Record<string, any[]> = {};
-    for (const s of stages) pipeline[s] = deals.filter(d => d.stage === s);
+    for (const s of stages) pipeline[s] = deals.filter((d: typeof deals[number]) => d.stage === s);
 
     const totalValue = deals
-      .filter(d => !["lost"].includes(d.stage))
-      .reduce((sum, d) => sum + (parseFloat(d.value || "0") || 0), 0);
+      .filter((d: typeof deals[number]) => !["lost"].includes(d.stage))
+      .reduce((sum: number, d: typeof deals[number]) => sum + (parseFloat(d.value || "0") || 0), 0);
 
     res.json({ success: true, pipeline, stages, meta: pipelineMeta, stats: { total: deals.length, totalValue } });
   } catch (err: any) {
@@ -561,6 +562,244 @@ router.delete("/contacts/:contactId/attachments/:attachmentId", async (req: Requ
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to delete attachment", message: err.message });
+  }
+});
+
+// ─── Tasks: CRUD ──────────────────────────────────────────────────────────────
+// GET  /api/crm/tasks?contactId=&status=&priority=&dueToday=
+router.get("/tasks", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const { contactId, status, priority, dueToday } = req.query as Record<string, string>;
+    const conditions: any[] = [eq(crmTasksTable.userId, userId)];
+    if (contactId) conditions.push(eq(crmTasksTable.contactId, Number(contactId)));
+    if (status)    conditions.push(eq(crmTasksTable.status, status));
+    if (priority)  conditions.push(eq(crmTasksTable.priority, priority));
+    if (dueToday === "true") {
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      const todayEnd   = new Date(); todayEnd.setHours(23,59,59,999);
+      conditions.push(gte(crmTasksTable.dueDate, todayStart));
+      conditions.push(lte(crmTasksTable.dueDate, todayEnd));
+    }
+    const tasks = await db.select().from(crmTasksTable)
+      .where(and(...conditions))
+      .orderBy(asc(crmTasksTable.dueDate));
+    res.json({ success: true, tasks });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to list tasks", message: err.message });
+  }
+});
+
+router.post("/tasks", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const [task] = await db.insert(crmTasksTable)
+      .values({ ...req.body, userId })
+      .returning();
+    res.status(201).json({ success: true, task });
+  } catch (err: any) {
+    res.status(400).json({ error: "Failed to create task", message: err.message });
+  }
+});
+
+router.put("/tasks/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const body = req.body;
+    if (body.status === "done" && !body.completedAt) body.completedAt = new Date();
+    const [task] = await db.update(crmTasksTable)
+      .set({ ...body, updatedAt: new Date() })
+      .where(and(eq(crmTasksTable.id, Number(req.params.id)), eq(crmTasksTable.userId, userId)))
+      .returning();
+    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
+    res.json({ success: true, task });
+  } catch (err: any) {
+    res.status(400).json({ error: "Failed to update task", message: err.message });
+  }
+});
+
+router.delete("/tasks/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    await db.delete(crmTasksTable)
+      .where(and(eq(crmTasksTable.id, Number(req.params.id)), eq(crmTasksTable.userId, userId)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to delete task", message: err.message });
+  }
+});
+
+// ─── Saved Views: CRUD ────────────────────────────────────────────────────────
+router.get("/views", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const views = await db.select().from(crmSavedViewsTable)
+      .where(eq(crmSavedViewsTable.userId, userId))
+      .orderBy(asc(crmSavedViewsTable.createdAt));
+    res.json({ success: true, views });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to list views", message: err.message });
+  }
+});
+
+router.post("/views", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const [view] = await db.insert(crmSavedViewsTable)
+      .values({ ...req.body, userId })
+      .returning();
+    res.status(201).json({ success: true, view });
+  } catch (err: any) {
+    res.status(400).json({ error: "Failed to create view", message: err.message });
+  }
+});
+
+router.delete("/views/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    await db.delete(crmSavedViewsTable)
+      .where(and(eq(crmSavedViewsTable.id, Number(req.params.id)), eq(crmSavedViewsTable.userId, userId)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to delete view", message: err.message });
+  }
+});
+
+// ─── Analytics: Overview KPIs ────────────────────────────────────────────────
+// GET /api/crm/analytics/overview
+router.get("/analytics/overview", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+
+    const [contacts, deals, activities] = await Promise.all([
+      db.select().from(crmContactsTable).where(eq(crmContactsTable.userId, userId)),
+      db.select().from(crmDealsTable).where(eq(crmDealsTable.userId, userId)),
+      db.select().from(crmActivitiesTable).where(eq(crmActivitiesTable.userId, userId)),
+    ]);
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const newLeadsThisMonth = contacts.filter(c => new Date(c.createdAt) >= startOfMonth).length;
+    const newLeadsLastMonth = contacts.filter(c => {
+      const d = new Date(c.createdAt);
+      return d >= startOfLastMonth && d <= endOfLastMonth;
+    }).length;
+
+    const activeDeals = deals.filter(d => !["lost"].includes(d.stage));
+    const wonDeals = deals.filter(d => d.stage === "won");
+    const wonThisMonth = wonDeals.filter(d => d.wonAt && new Date(d.wonAt) >= startOfMonth);
+
+    const pipelineValue = activeDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
+    const weightedValue = activeDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0) * ((d.probability || 0) / 100), 0);
+    const wonValue = wonDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
+    const wonValueThisMonth = wonThisMonth.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
+
+    const qualifiedCount = contacts.filter(c => ["qualified", "opportunity", "client"].includes(c.status)).length;
+    const qualificationRate = contacts.length > 0 ? Math.round((qualifiedCount / contacts.length) * 100) : 0;
+
+    const winRate = (deals.length > 0)
+      ? Math.round((wonDeals.length / Math.max(1, wonDeals.length + deals.filter(d => d.stage === "lost").length)) * 100)
+      : 0;
+
+    const activitiesThisMonth = activities.filter(a => new Date(a.createdAt) >= startOfMonth).length;
+
+    // Status distribution
+    const statusDist: Record<string, number> = {};
+    for (const c of contacts) {
+      statusDist[c.status] = (statusDist[c.status] || 0) + 1;
+    }
+
+    // Regime distribution
+    const regimeDist: Record<string, number> = {};
+    for (const c of contacts) {
+      const regime = c.regimeTributario || "desconhecido";
+      regimeDist[regime] = (regimeDist[regime] || 0) + 1;
+    }
+
+    // New leads last 8 weeks
+    const weeklyLeads: { week: string; leads: number; deals: number }[] = [];
+    for (let i = 7; i >= 0; i--) {
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - i * 7);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+      weeklyLeads.push({
+        week: weekStart.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+        leads: contacts.filter(c => {
+          const d = new Date(c.createdAt);
+          return d >= weekStart && d < weekEnd;
+        }).length,
+        deals: deals.filter(d => {
+          const created = new Date(d.createdAt);
+          return created >= weekStart && created < weekEnd;
+        }).length,
+      });
+    }
+
+    res.json({
+      success: true,
+      kpis: {
+        totalContacts: contacts.length,
+        newLeadsThisMonth,
+        newLeadsLastMonth,
+        leadsGrowth: newLeadsLastMonth > 0
+          ? Math.round(((newLeadsThisMonth - newLeadsLastMonth) / newLeadsLastMonth) * 100)
+          : null,
+        pipelineValue,
+        weightedValue,
+        wonValue,
+        wonValueThisMonth,
+        qualificationRate,
+        winRate,
+        activeDeals: activeDeals.length,
+        activitiesThisMonth,
+      },
+      statusDist,
+      regimeDist,
+      weeklyLeads,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "Analytics overview failed", message: err.message });
+  }
+});
+
+// ─── Analytics: Pipeline Funnel ───────────────────────────────────────────────
+// GET /api/crm/analytics/funnel
+router.get("/analytics/funnel", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const deals = await db.select().from(crmDealsTable).where(eq(crmDealsTable.userId, userId));
+
+    const stageOrder = ["prospecting", "discovery", "proposal", "negotiation", "closing", "won", "lost"];
+    const funnel = stageOrder.map(stage => {
+      const stageDeals = deals.filter(d => d.stage === stage);
+      const value = stageDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
+      return { stage, count: stageDeals.length, value };
+    });
+
+    // Average days per stage (from updatedAt - createdAt approximation)
+    // More accurate would require stage-history, but this is a good proxy
+    const now = new Date();
+    const dealsWithAge = deals.map(d => ({
+      stage: d.stage,
+      agedays: Math.round((now.getTime() - new Date(d.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+    }));
+
+    const avgDaysPerStage: Record<string, number> = {};
+    for (const stage of stageOrder) {
+      const stageDeal = dealsWithAge.filter(d => d.stage === stage);
+      avgDaysPerStage[stage] = stageDeal.length > 0
+        ? Math.round(stageDeal.reduce((s, d) => s + d.agedays, 0) / stageDeal.length)
+        : 0;
+    }
+
+    res.json({ success: true, funnel, avgDaysPerStage });
+  } catch (err: any) {
+    res.status(500).json({ error: "Funnel analytics failed", message: err.message });
   }
 });
 

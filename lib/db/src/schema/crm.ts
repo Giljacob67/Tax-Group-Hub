@@ -128,3 +128,43 @@ export const crmAttachmentsTable = pgTable("crm_attachments", {
 export const insertCrmAttachmentSchema = createInsertSchema(crmAttachmentsTable).omit({ id: true, createdAt: true });
 export type CrmAttachment = typeof crmAttachmentsTable.$inferSelect;
 export type InsertCrmAttachment = z.infer<typeof insertCrmAttachmentSchema>;
+
+// ─── Tasks (Phase 3) ──────────────────────────────────────────────────────────
+export const crmTasksTable = pgTable("crm_tasks", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  contactId: integer("contact_id").references(() => crmContactsTable.id, { onDelete: "cascade" }),
+  dealId: integer("deal_id").references(() => crmDealsTable.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default("note"), // 'call' | 'email' | 'whatsapp' | 'meeting' | 'proposal' | 'note'
+  priority: text("priority").notNull().default("medium"), // 'low' | 'medium' | 'high' | 'urgent'
+  status: text("status").notNull().default("pending"), // 'pending' | 'done' | 'snoozed' | 'cancelled'
+  dueDate: timestamp("due_date"),
+  reminderAt: timestamp("reminder_at"),
+  assignedTo: text("assigned_to"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCrmTaskSchema = createInsertSchema(crmTasksTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type CrmTask = typeof crmTasksTable.$inferSelect;
+export type InsertCrmTask = z.infer<typeof insertCrmTaskSchema>;
+
+// ─── Saved Views (Phase 4) ────────────────────────────────────────────────────
+export const crmSavedViewsTable = pgTable("crm_saved_views", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  emoji: text("emoji").default("📋"),
+  filters: jsonb("filters").$type<Record<string, any>>().notNull().default({}),
+  isDefault: boolean("is_default").default(false),
+  sortField: text("sort_field"),
+  sortDir: text("sort_dir"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCrmSavedViewSchema = createInsertSchema(crmSavedViewsTable).omit({ id: true, createdAt: true });
+export type CrmSavedView = typeof crmSavedViewsTable.$inferSelect;
+export type InsertCrmSavedView = z.infer<typeof insertCrmSavedViewSchema>;

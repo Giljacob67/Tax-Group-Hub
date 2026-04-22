@@ -150,7 +150,7 @@ export default function KnowledgeBase() {
           </h2>
           {isLoadingDocs ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3].map((i) => (
+              {[1, 2, 3].map((i: number) => (
                 <div key={i} className="bg-card/50 border border-border/50 rounded-xl p-5 h-28 animate-pulse flex items-start space-x-3">
                    <div className="w-10 h-10 bg-muted/40 rounded-lg" />
                    <div className="flex-1 space-y-2">
@@ -168,7 +168,7 @@ export default function KnowledgeBase() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {docsData?.documents?.map((doc, i) => (
+              {docsData?.documents?.map((doc: any, i: number) => (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}

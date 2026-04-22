@@ -175,7 +175,7 @@ router.post("/automate/pipeline", async (req, res) => {
       totalTokens,
       totalTimeMs,
       status: "completed",
-    }).catch(err => console.error("[pipeline] Failed to persist execution:", err));
+    }).catch((err: any) => console.error("[pipeline] Failed to persist execution:", err));
 
     res.json({
       success: true,

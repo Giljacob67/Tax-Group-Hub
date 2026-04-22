@@ -114,7 +114,7 @@ export class EmpresAquiClient {
         },
       });
 
-      const body = await response.json().catch(() => ({} as any));
+      const body = await response.json().catch(() => ({} as any)) as any;
 
       // API retorna 200 com { "Erro": "..." } em caso de erros lógicos
       if (body?.Erro) {

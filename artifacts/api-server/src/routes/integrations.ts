@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, designGalleryTable, knowledgeChunksTable, knowledgeDocumentsTable } from "@workspace/db";
-import { eq, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 
 const router: IRouter = Router();
@@ -104,7 +104,7 @@ router.post("/integrations/generate-image", async (req, res) => {
     res.json({
       imageUrl,
       prompt: fullPrompt,
-      gallery: gallery.map((g) => ({ url: g.imageUrl, prompt: g.prompt, createdAt: g.createdAt.toISOString() })),
+      gallery: gallery.map((g: any) => ({ url: g.imageUrl, prompt: g.prompt, createdAt: g.createdAt.toISOString() })),
     });
   } catch (err) {
     console.error("Error generating image:", err);
@@ -129,7 +129,7 @@ router.get("/integrations/image-gallery/:agentId", async (req, res) => {
       .orderBy(desc(designGalleryTable.createdAt));
 
     res.json({
-      images: images.map((g) => ({ url: g.imageUrl, prompt: g.prompt, createdAt: g.createdAt.toISOString() })),
+      images: images.map((g: any) => ({ url: g.imageUrl, prompt: g.prompt, createdAt: g.createdAt.toISOString() })),
     });
   } catch (err) {
     console.error("Error fetching image gallery:", err);
@@ -197,7 +197,7 @@ router.post("/integrations/search-knowledge", async (req, res) => {
             userId ? eq(knowledgeDocumentsTable.userId, userId) : sql`TRUE`
           )
         )
-        .orderBy((t) => desc(t.score))
+        .orderBy((t: any) => desc(t.score))
         .limit(limit || 5);
 
       res.json({

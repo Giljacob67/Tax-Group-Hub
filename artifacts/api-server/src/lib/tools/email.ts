@@ -8,7 +8,7 @@ export const emailSenderTool = tool({
     subject: z.string().describe("O assunto formal do e-mail."),
     body: z.string().describe("O conteúdo do e-mail formatado em HTML simples."),
   }),
-  execute: async ({ to, subject, body }) => {
+  execute: async ({ to, subject, body }: { to: string; subject: string; body: string }) => {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
       console.warn("[Email Tool] Simulação ativada. Nenhuma RESEND_API_KEY configurada.");

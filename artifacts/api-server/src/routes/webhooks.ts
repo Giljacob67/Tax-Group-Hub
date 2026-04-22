@@ -160,7 +160,7 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
       .orderBy(messagesTable.createdAt);
 
     const recentHistory = history.slice(-14);
-    const context = recentHistory.map(m => `${m.role === "user" ? "Usuário" : "Assistente"}: ${m.content}`).join("\n");
+    const context = recentHistory.map((m: any) => `${m.role === "user" ? "Usuário" : "Assistente"}: ${m.content}`).join("\n");
 
     const llmResponse = await callLLM(
        agent.systemPrompt, 
@@ -190,7 +190,7 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
        platform: "telegram"
     }).catch((e: Error) => console.error("[Analytics] Telegram log error:", e));
 
-  } catch (err) {
+  } catch (err: any) {
     console.error("[Webhook Telegram Error]:", err);
   }
 });
@@ -275,7 +275,7 @@ router.post("/webhooks/crm/inbound/:tenantId", async (req, res) => {
       });
     }
 
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[Webhook CRM Inbound Error Payload]:`, payload, err);
   }
 });
