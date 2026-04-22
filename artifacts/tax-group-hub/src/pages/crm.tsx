@@ -236,7 +236,7 @@ export default function CRMPage() {
 
   return (
     <div className="flex h-full overflow-hidden bg-background">
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v !== "contacts") setSelectedContact(null); }} className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="flex-none px-6 pt-6 pb-3">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-6">
@@ -259,8 +259,7 @@ export default function CRMPage() {
             )}
           </div>
 
-          <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v !== "contacts") setSelectedContact(null); }}>
-            <div className="mt-4">
+          <div className="mt-4 flex-1 overflow-hidden relative">
               <TabsContent value="contacts" className="m-0 p-0">
                 <ContactsView onSelect={setSelectedContact} selected={selectedContact} />
               </TabsContent>
@@ -279,9 +278,8 @@ export default function CRMPage() {
                 </div>
               </TabsContent>
             </div>
-          </Tabs>
         </div>
-      </div>
+      </Tabs>
 
       {selectedContact && (
         <ContactDetailPanel
