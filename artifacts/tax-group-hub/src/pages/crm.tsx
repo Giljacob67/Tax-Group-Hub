@@ -1753,8 +1753,8 @@ function PipelineKanbanView() {
         </div>
       )}
 
-      <ScrollArea className="flex-1 w-full">
-        <div className="flex gap-3 pb-4 min-w-max h-full">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="flex gap-3 pb-4 h-full" style={{ minWidth: "max-content" }}>
           {stages.map((stageId) => {
             const deals      = (pipeline[stageId] || []) as Deal[];
             const dict       = STAGE_DICT[stageId] || { label: stageId.toUpperCase(), accent: "border-t-slate-400", header: "text-slate-300" };
@@ -1832,7 +1832,7 @@ function PipelineKanbanView() {
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Deal edit modal */}
       {editingDeal && (

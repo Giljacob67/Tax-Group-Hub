@@ -46,7 +46,7 @@ export function AppSidebar() {
     : `${import.meta.env.BASE_URL}images/logo-x-branco.svg`;
 
   return (
-    <Sidebar collapsible="icon" variant="inset" className="border-r border-border/50 bg-background/50 backdrop-blur-xl">
+    <Sidebar collapsible="offcanvas" variant="inset" className="border-r border-border/50 bg-background/50 backdrop-blur-xl">
       <SidebarHeader className="p-4 flex flex-row items-center space-x-3 mt-2">
         <div className="w-12 h-12 rounded-xl bg-primary/15 ring-1 ring-primary/30 flex items-center justify-center flex-shrink-0 transition-all duration-500">
           <img
