@@ -34,9 +34,6 @@ function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen w-full bg-background overflow-hidden selection:bg-primary/30">
         <AppSidebar />
         <div className="flex flex-col flex-1 relative w-full min-w-0">
-          <div className="absolute top-4 left-4 z-50">
-            <SidebarTrigger className="bg-background/80 backdrop-blur border border-border shadow-md hover:bg-muted/50 transition-colors" />
-          </div>
           <main className="flex-1 overflow-hidden flex flex-col w-full h-full">
             {children}
           </main>
