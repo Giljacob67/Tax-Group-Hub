@@ -37,6 +37,7 @@ import CRMDashboard from "@/components/crm/CRMDashboard";
 import TasksPanel from "@/components/crm/TasksPanel";
 import GlobalTimeline from "@/components/crm/GlobalTimeline";
 import AutomationsPanel from "@/components/crm/AutomationsPanel";
+import TodayView from "@/components/crm/TodayView";
 import { CompanyAvatar } from "@/components/crm/CompanyAvatar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -234,6 +235,16 @@ export default function CRMPage() {
   const [isImportOpen, setIsImportOpen]       = useState(false);
   const queryClient = useQueryClient();
 
+  // Pending tasks count for badge
+  const { data: pendingTasksData } = useQuery<{ tasks: any[] }>({
+    queryKey: ["/api/crm/tasks?status=pending"],
+    queryFn: async () => { const r = await fetch("/api/crm/tasks?status=pending"); return r.json(); },
+    refetchInterval: 60_000,
+  });
+  const pendingCount = pendingTasksData?.tasks?.filter(t =>
+    t.dueDate && new Date(t.dueDate) <= new Date(new Date().setHours(23,59,59,999))
+  ).length || 0;
+
   return (
     <div className="flex h-full overflow-hidden bg-background">
       <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v !== "contacts") setSelectedContact(null); }} className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -245,6 +256,14 @@ export default function CRMPage() {
                 <TabsTrigger value="dashboard" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Dashboard</TabsTrigger>
                 <TabsTrigger value="contacts" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Contatos</TabsTrigger>
                 <TabsTrigger value="pipeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Pipeline</TabsTrigger>
+                <TabsTrigger value="today" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative">
+                  Hoje
+                  {pendingCount > 0 && (
+                    <span className="ml-1.5 text-[9px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                      {pendingCount}
+                    </span>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="timeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Timeline</TabsTrigger>
                 <TabsTrigger value="automations" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Automações</TabsTrigger>
               </TabsList>
@@ -264,8 +283,11 @@ export default function CRMPage() {
           <TabsContent value="contacts" className="h-full m-0 p-0 overflow-y-auto">
             <ContactsView onSelect={setSelectedContact} selected={selectedContact} />
           </TabsContent>
-          <TabsContent value="pipeline" className="h-full m-0 p-0 overflow-x-auto">
+          <TabsContent value="pipeline" className="h-full m-0 p-0">
             <PipelineKanbanView />
+          </TabsContent>
+          <TabsContent value="today" className="h-full m-0 p-0">
+            <TodayView />
           </TabsContent>
           <TabsContent value="timeline" className="h-full m-0 p-6 overflow-y-auto max-w-4xl mx-auto">
             <GlobalTimeline />
@@ -1076,24 +1098,80 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           </div>
         </div>
 
-        {/* Quick action buttons */}
-        <div className="flex gap-1.5 mt-3">
+        {/* Quick action buttons — each opens channel AND logs activity */}
+        <div className="flex gap-1.5 mt-3 flex-wrap">
           {contact.telefone && (
-            <a href={`tel:${contact.telefone}`}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/50">
+            <button
+              onClick={() => {
+                window.open(`tel:${contact.telefone}`, "_self");
+                logActivityMutation.mutate();
+                setActivityType("call");
+                setActivitySubject("Ligação realizada");
+                setActivityContent(`Ligação para ${contact.telefone}`);
+                setTimeout(() => logActivityMutation.mutate(), 100);
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-xs text-emerald-400 hover:text-emerald-300 transition-colors border border-emerald-500/20"
+              title={contact.telefone}
+            >
               <PhoneCall className="w-3 h-3" /> Ligar
-            </a>
+            </button>
+          )}
+          {contact.telefone && (
+            <button
+              onClick={async () => {
+                const phone = contact.telefone!.replace(/\D/g, "");
+                const fullPhone = phone.startsWith("55") ? phone : `55${phone}`;
+                const name = contact.razaoSocial || "empresa";
+                const text = encodeURIComponent(`Olá, tudo bem? Meu nome é da Tax Group Hub e gostaria de conversar sobre oportunidades de otimização tributária para a ${name}.`);
+                window.open(`https://wa.me/${fullPhone}?text=${text}`, "_blank");
+                // Auto-log the activity
+                await fetch(`/api/crm/contacts/${contact.id}/activities`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    type: "whatsapp",
+                    subject: "WhatsApp enviado",
+                    content: `Mensagem WhatsApp enviada para ${contact.telefone}`,
+                    completedAt: new Date().toISOString(),
+                  }),
+                });
+                queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
+                toast({ title: "💬 WhatsApp aberto e atividade registrada!" });
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-xs text-green-400 hover:text-green-300 transition-colors border border-green-500/20"
+              title="Abrir WhatsApp"
+            >
+              <MessageSquare className="w-3 h-3" /> WhatsApp
+            </button>
           )}
           {contact.email && (
-            <a href={`mailto:${contact.email}`}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/50">
+            <button
+              onClick={async () => {
+                window.open(`mailto:${contact.email}`, "_self");
+                await fetch(`/api/crm/contacts/${contact.id}/activities`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    type: "email",
+                    subject: "E-mail enviado",
+                    content: `E-mail para ${contact.email}`,
+                    completedAt: new Date().toISOString(),
+                  }),
+                });
+                queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
+                toast({ title: "📧 Cliente de e-mail aberto e atividade registrada!" });
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-xs text-blue-400 hover:text-blue-300 transition-colors border border-blue-500/20"
+              title={contact.email}
+            >
               <AtSign className="w-3 h-3" /> Email
-            </a>
+            </button>
           )}
           {contact.website && (
             <a href={contact.website.startsWith("http") ? contact.website : `https://${contact.website}`}
               target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/50">
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/50"
+            >
               <ExternalLink className="w-3 h-3" /> Site
             </a>
           )}
@@ -1724,10 +1802,93 @@ function PipelineKanbanView() {
   const wonDeals         = allDeals.filter(d => d.stage === "won");
   const wonValue         = wonDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
 
+  // Forecast bar — monthly goal (configurable via localStorage)
+  const MONTHLY_GOAL_KEY = "crm_monthly_goal";
+  const savedGoal = typeof window !== "undefined" ? Number(localStorage.getItem(MONTHLY_GOAL_KEY) || 50000) : 50000;
+  const [monthlyGoal, setMonthlyGoal] = useState(savedGoal);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState(String(savedGoal));
+  const progressPct = Math.min(100, Math.round((wonValue / monthlyGoal) * 100));
+  const pipelinePct = Math.min(100, Math.round(((wonValue + weightedValue) / monthlyGoal) * 100));
+
   return (
-    <div className="h-full flex flex-col space-y-4 p-6">
-      {/* Stats bar */}
-      <div className="grid grid-cols-4 gap-3">
+    <div className="h-full flex flex-col gap-3 p-6">
+
+      {/* ── Forecast Bar ─────────────────────────────────────────── */}
+      <div className="bg-card/50 border border-border/40 rounded-xl p-3 flex-none">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Target className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold">Forecast do Mês</span>
+            <span className="text-[10px] text-muted-foreground">
+              {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {editingGoal ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-muted-foreground">Meta R$</span>
+                <input
+                  type="number"
+                  value={goalInput}
+                  onChange={e => setGoalInput(e.target.value)}
+                  className="w-24 text-xs bg-muted border border-border rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      const v = Number(goalInput);
+                      if (v > 0) { setMonthlyGoal(v); localStorage.setItem(MONTHLY_GOAL_KEY, String(v)); }
+                      setEditingGoal(false);
+                    } else if (e.key === "Escape") {
+                      setEditingGoal(false);
+                    }
+                  }}
+                  autoFocus
+                />
+                <button onClick={() => {
+                  const v = Number(goalInput);
+                  if (v > 0) { setMonthlyGoal(v); localStorage.setItem(MONTHLY_GOAL_KEY, String(v)); }
+                  setEditingGoal(false);
+                }} className="text-[10px] text-primary hover:text-primary/80 font-medium">Salvar</button>
+              </div>
+            ) : (
+              <button onClick={() => { setGoalInput(String(monthlyGoal)); setEditingGoal(true); }}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                Meta: {formatCurrencyShort(monthlyGoal)} ✏️
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="relative h-4 bg-muted/60 rounded-full overflow-hidden">
+          {/* Pipeline ponderado (background) */}
+          <div
+            className="absolute inset-y-0 left-0 bg-primary/20 rounded-full transition-all duration-700"
+            style={{ width: `${pipelinePct}%` }}
+          />
+          {/* Ganhos reais */}
+          <div
+            className="absolute inset-y-0 left-0 bg-emerald-500 rounded-full transition-all duration-700"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-1.5">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1 text-[10px]">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              Ganhos: <strong className="text-emerald-400">{formatCurrencyShort(wonValue)}</strong>
+            </span>
+            <span className="flex items-center gap-1 text-[10px]">
+              <span className="w-2 h-2 rounded-full bg-primary/40 inline-block" />
+              Pipeline: <strong className="text-primary/80">{formatCurrencyShort(weightedValue)}</strong>
+            </span>
+          </div>
+          <span className={`text-[10px] font-bold ${progressPct >= 100 ? "text-emerald-400" : progressPct >= 70 ? "text-amber-400" : "text-muted-foreground"}`}>
+            {progressPct}% da meta
+          </span>
+        </div>
+      </div>
+
+      {/* ── Stats bar ──────────────────────────────────────────────── */}
+      <div className="grid grid-cols-4 gap-3 flex-none">
         {[
           { label: "Pipeline Ativo",   value: formatCurrencyShort(totalActiveValue), icon: BarChart3, color: "text-blue-400" },
           { label: "Valor Ponderado",  value: formatCurrencyShort(weightedValue),    icon: Target,    color: "text-amber-400" },
@@ -1915,8 +2076,8 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
           )}
         </div>
 
-        {/* Footer: close date + urgency */}
-        <div className="flex items-center justify-between gap-2">
+        {/* Footer: close date + urgency + risk badge */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           {deal.expectedCloseDate && (
             <div className="flex items-center gap-1">
               <Calendar className="w-2.5 h-2.5 text-muted-foreground/50" />
@@ -1925,6 +2086,20 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
               </span>
             </div>
           )}
+          {/* Risk badge: stale deal with close date approaching */}
+          {(() => {
+            const daysToClose = deal.expectedCloseDate
+              ? Math.ceil((new Date(deal.expectedCloseDate).getTime() - Date.now()) / (1000*60*60*24))
+              : null;
+            const isAtRisk = daysSinceUpdate >= 5 && daysToClose !== null && daysToClose <= 15 && daysToClose >= 0
+              && !['won','lost'].includes(deal.stage);
+            if (!isAtRisk) return null;
+            return (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full border bg-red-500/10 border-red-500/30 text-red-400 font-semibold flex items-center gap-0.5">
+                <AlertCircle className="w-2.5 h-2.5" /> Em Risco
+              </span>
+            );
+          })()}
           <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium ml-auto ${urgencyColor}`}>
             {daysSinceUpdate === 0 ? "Hoje" : `${daysSinceUpdate}d`}
           </span>
