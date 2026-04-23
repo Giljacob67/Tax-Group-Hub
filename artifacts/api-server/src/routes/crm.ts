@@ -967,4 +967,78 @@ router.delete("/automations/:id", async (req: Request, res: Response) => {
   }
 });
 
+// ─── Pipelines: CRUD ──────────────────────────────────────────────────────────
+// GET /api/crm/pipelines — list all pipelines for user
+router.get("/pipelines", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const pipelines = await db.select().from(crmPipelinesTable)
+      .where(eq(crmPipelinesTable.userId, userId))
+      .orderBy(asc(crmPipelinesTable.createdAt));
+    res.json({ success: true, pipelines });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to list pipelines", message: err.message });
+  }
+});
+
+// POST /api/crm/pipelines — create a new pipeline
+router.post("/pipelines", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const { name, stages, isDefault } = req.body as { name: string; stages: string[]; isDefault?: boolean };
+    if (!name || !Array.isArray(stages) || stages.length === 0) {
+      res.status(400).json({ error: "name e stages são obrigatórios." }); return;
+    }
+    // If new pipeline is set as default, unset others
+    if (isDefault) {
+      await db.update(crmPipelinesTable)
+        .set({ isDefault: false })
+        .where(eq(crmPipelinesTable.userId, userId));
+    }
+    const [pipeline] = await db.insert(crmPipelinesTable)
+      .values({ userId, name, stages, isDefault: isDefault ?? false })
+      .returning();
+    res.status(201).json({ success: true, pipeline });
+  } catch (err: any) {
+    res.status(400).json({ error: "Failed to create pipeline", message: err.message });
+  }
+});
+
+// PUT /api/crm/pipelines/:id — update pipeline name, stages, or isDefault
+router.put("/pipelines/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const { name, stages, isDefault } = req.body as { name?: string; stages?: string[]; isDefault?: boolean };
+    if (isDefault) {
+      await db.update(crmPipelinesTable)
+        .set({ isDefault: false })
+        .where(eq(crmPipelinesTable.userId, userId));
+    }
+    const [pipeline] = await db.update(crmPipelinesTable)
+      .set({ ...(name && { name }), ...(stages && { stages }), ...(isDefault !== undefined && { isDefault }), updatedAt: new Date() })
+      .where(and(eq(crmPipelinesTable.id, Number(req.params.id)), eq(crmPipelinesTable.userId, userId)))
+      .returning();
+    if (!pipeline) { res.status(404).json({ error: "Pipeline not found" }); return; }
+    res.json({ success: true, pipeline });
+  } catch (err: any) {
+    res.status(400).json({ error: "Failed to update pipeline", message: err.message });
+  }
+});
+
+// DELETE /api/crm/pipelines/:id — delete pipeline (not default)
+router.delete("/pipelines/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const [pipeline] = await db.select().from(crmPipelinesTable)
+      .where(and(eq(crmPipelinesTable.id, Number(req.params.id)), eq(crmPipelinesTable.userId, userId)));
+    if (!pipeline) { res.status(404).json({ error: "Pipeline not found" }); return; }
+    if (pipeline.isDefault) { res.status(400).json({ error: "Não é possível excluir o funil padrão." }); return; }
+    await db.delete(crmPipelinesTable)
+      .where(and(eq(crmPipelinesTable.id, Number(req.params.id)), eq(crmPipelinesTable.userId, userId)));
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to delete pipeline", message: err.message });
+  }
+});
+
 export default router;

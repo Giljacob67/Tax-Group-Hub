@@ -38,6 +38,7 @@ import TasksPanel from "@/components/crm/TasksPanel";
 import GlobalTimeline from "@/components/crm/GlobalTimeline";
 import AutomationsPanel from "@/components/crm/AutomationsPanel";
 import TodayView from "@/components/crm/TodayView";
+import PipelineManager from "@/components/crm/PipelineManager";
 import { CompanyAvatar } from "@/components/crm/CompanyAvatar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1723,6 +1724,10 @@ function PipelineKanbanView() {
   const [dragOverStage, setDragOverStage]       = useState<string | null>(null);
   const [editingDeal, setEditingDeal]           = useState<Deal | null>(null);
   const [addingInStage, setAddingInStage]       = useState<string | null>(null);
+  const [activePipelineId, setActivePipelineId] = useState("default");
+  const [showPipelineMgr, setShowPipelineMgr]   = useState(false);
+
+  const pipelineQueryParam = activePipelineId === "default" ? "" : `?pipelineId=${activePipelineId}`;
 
   const { data, isLoading } = useQuery<{
     pipeline: Record<string, Deal[]>;
@@ -1730,9 +1735,9 @@ function PipelineKanbanView() {
     meta: any;
     stats: any;
   }>({
-    queryKey: ["/api/crm/deals/pipeline"],
+    queryKey: ["/api/crm/deals/pipeline", activePipelineId],
     queryFn: async () => {
-      const res = await fetch("/api/crm/deals/pipeline");
+      const res = await fetch(`/api/crm/deals/pipeline${pipelineQueryParam}`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -1824,7 +1829,32 @@ function PipelineKanbanView() {
               {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Pipeline selector */}
+            <div className="relative">
+              <button
+                onClick={() => setShowPipelineMgr(v => !v)}
+                className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg border border-border/50 hover:border-border bg-muted/30 hover:bg-muted/60 transition-colors"
+              >
+                <Layers className="w-3 h-3 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  {activePipelineId === "default" ? "Funil Padrão" : `Funil #${activePipelineId}`}
+                </span>
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+              </button>
+              {showPipelineMgr && (
+                <div className="absolute top-full right-0 mt-2 z-50">
+                  <PipelineManager
+                    activePipelineId={activePipelineId}
+                    onSelect={(id) => {
+                      setActivePipelineId(id);
+                      setShowPipelineMgr(false);
+                      queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline", id] });
+                    }}
+                  />
+                </div>
+              )}
+            </div>
             {editingGoal ? (
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-muted-foreground">Meta R$</span>
