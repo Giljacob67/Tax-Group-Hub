@@ -258,26 +258,24 @@ export default function CRMPage() {
               </div>
             )}
           </div>
+        </div>
 
-          <div className="mt-4 flex-1 overflow-hidden relative">
-              <TabsContent value="contacts" className="m-0 p-0">
-                <ContactsView onSelect={setSelectedContact} selected={selectedContact} />
-              </TabsContent>
-              <TabsContent value="pipeline" className="m-0 p-0">
-                <PipelineKanbanView />
-              </TabsContent>
-              <TabsContent value="timeline" className="h-full m-0 max-w-4xl mx-auto">
-              <GlobalTimeline />
-            </TabsContent>
-            <TabsContent value="automations" className="h-full m-0 max-w-4xl mx-auto">
-              <AutomationsPanel />
-            </TabsContent>
-            <TabsContent value="dashboard" className="h-full m-0">
-                <div className="overflow-y-auto max-h-[calc(100vh-160px)] pb-6">
-                  <CRMDashboard />
-                </div>
-              </TabsContent>
-            </div>
+        <div className="flex-1 overflow-hidden relative bg-muted/10">
+          <TabsContent value="contacts" className="h-full m-0 p-0 overflow-y-auto">
+            <ContactsView onSelect={setSelectedContact} selected={selectedContact} />
+          </TabsContent>
+          <TabsContent value="pipeline" className="h-full m-0 p-0 overflow-x-auto">
+            <PipelineKanbanView />
+          </TabsContent>
+          <TabsContent value="timeline" className="h-full m-0 p-6 overflow-y-auto max-w-4xl mx-auto">
+            <GlobalTimeline />
+          </TabsContent>
+          <TabsContent value="automations" className="h-full m-0 p-6 overflow-y-auto max-w-4xl mx-auto">
+            <AutomationsPanel />
+          </TabsContent>
+          <TabsContent value="dashboard" className="h-full m-0 p-6 overflow-y-auto">
+            <CRMDashboard />
+          </TabsContent>
         </div>
       </Tabs>
 
@@ -480,8 +478,8 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
 
 
   return (
-    <Card className="border-border/50 bg-card/50">
-      <CardHeader className="pb-3 space-y-4">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-none px-6 pt-3 pb-2 border-b border-border/50 bg-card/50 space-y-3">
         {/* Smart Views Row */}
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-2 px-2 items-center">
           {PRESET_VIEWS.map(v => (
@@ -552,7 +550,9 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
             </DialogContent>
           </Dialog>
         </div>
+      </div>
 
+      <div className="flex-none px-6 py-2 border-b border-border/50 bg-card/50 space-y-2">
         {/* Search + status + filter button row */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
@@ -742,9 +742,9 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
             </div>
           </div>
         )}
-      </CardHeader>
+      </div>
 
-      <CardContent className="p-0">
+      <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex justify-center p-12">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -875,8 +875,8 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
             </table>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -1725,7 +1725,7 @@ function PipelineKanbanView() {
   const wonValue         = wonDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
 
   return (
-    <div className="space-y-4">
+    <div className="h-full flex flex-col space-y-4 p-6">
       {/* Stats bar */}
       <div className="grid grid-cols-4 gap-3">
         {[
@@ -1753,8 +1753,8 @@ function PipelineKanbanView() {
         </div>
       )}
 
-      <ScrollArea className="w-full">
-        <div className="flex gap-3 pb-4 min-w-max">
+      <ScrollArea className="flex-1 w-full">
+        <div className="flex gap-3 pb-4 min-w-max h-full">
           {stages.map((stageId) => {
             const deals      = (pipeline[stageId] || []) as Deal[];
             const dict       = STAGE_DICT[stageId] || { label: stageId.toUpperCase(), accent: "border-t-slate-400", header: "text-slate-300" };
