@@ -71,9 +71,45 @@ async function getApiKey(provider: string, userId?: string): Promise<string | nu
  */
 export async function getLanguageModel(requestedProvider?: string, requestedModel?: string, userId?: string): Promise<{ model: LanguageModel; providerName: string; modelId: string }> {
   // Normalize provider names
-  const provider = (requestedProvider || "auto").toLowerCase();
+  let provider = (requestedProvider || "auto").toLowerCase();
   
-  // 1. OLLAMA (Local First)
+  // ── Read active provider preference from DB ──────────────────────────────────
+  const activeProviderDb = await getConfigValue("ACTIVE_LLM_PROVIDER");
+  const activeLlmUrl     = await getConfigValue("ACTIVE_LLM_URL");
+  const activeLlmModel   = await getConfigValue("ACTIVE_LLM_MODEL");
+
+  // Only override provider when the caller has not explicitly specified one
+  if ((provider === "auto" || !requestedProvider) && activeProviderDb && activeProviderDb !== "auto") {
+    provider = activeProviderDb.toLowerCase();
+    if (activeLlmModel && !requestedModel) requestedModel = activeLlmModel;
+  }
+
+  // 1. OLLAMA CLOUD (custom URL Ollama-compatible endpoint)
+  if (provider === "ollama_cloud") {
+    const cloudUrl = activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "";
+    if (!cloudUrl) throw new Error("Ollama Cloud URL não configurada. Configure-a nas Integrações.");
+    const cloudKey = await getApiKey("ollama_cloud", userId);
+    const customOpenAI = createOpenAI({
+      baseURL: cloudUrl.endsWith("/v1") ? cloudUrl : `${cloudUrl.replace(/\/+$/, "")}/v1`,
+      apiKey: cloudKey || "ollama",
+    });
+    const modelId = requestedModel || activeLlmModel || "llama3.2";
+    return { model: customOpenAI(modelId), providerName: "Ollama Cloud", modelId };
+  }
+
+  // 2. OPENROUTER (OpenAI-compatible API with many models)
+  if (provider === "openrouter") {
+    const openrouterKey = await getApiKey("openrouter", userId);
+    if (!openrouterKey) throw new Error("OpenRouter API Key não configurada.");
+    const customOpenAI = createOpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: openrouterKey,
+    });
+    const modelId = requestedModel || activeLlmModel || "meta-llama/llama-3.1-70b-instruct";
+    return { model: customOpenAI(modelId), providerName: "OpenRouter", modelId };
+  }
+
+  // 3. OLLAMA LOCAL
   const { url: ollamaUrl } = await getEffectiveOllamaUrl();
   const ollamaDefaultModel = await getEffectiveOllamaModel();
   

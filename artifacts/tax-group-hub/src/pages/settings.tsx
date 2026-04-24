@@ -582,21 +582,53 @@ function ModelSelector() {
 }
 
 export default function SettingsPage() {
+  const { toast } = useToast();
   const [data, setData] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<string>("auto");
+  const [activeLlmUrl, setActiveLlmUrl] = useState<string>("");
+  const [activeLlmModel, setActiveLlmModel] = useState<string>("");
+  const [activating, setActivating] = useState<string | null>(null);
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch("/api/settings/integrations");
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
+      const [intRes, provRes] = await Promise.all([
+        fetch("/api/settings/integrations"),
+        fetch("/api/settings/active-provider"),
+      ]);
+      if (intRes.ok) setData(await intRes.json());
+      if (provRes.ok) {
+        const p = await provRes.json();
+        setActiveProvider(p.provider || "auto");
+        setActiveLlmUrl(p.customUrl || "");
+        setActiveLlmModel(p.model || "");
       }
     } catch {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const activateProvider = async (provider: string, customUrl?: string, model?: string) => {
+    setActivating(provider);
+    try {
+      const res = await fetch("/api/settings/active-provider", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, customUrl: customUrl || "", model: model || "" }),
+      });
+      if (!res.ok) throw new Error("Falha ao salvar");
+      setActiveProvider(provider);
+      if (customUrl !== undefined) setActiveLlmUrl(customUrl);
+      if (model !== undefined) setActiveLlmModel(model);
+      toast({ title: `Provedor "${provider}" ativado com sucesso!` });
+      fetchSettings();
+    } catch (e: any) {
+      toast({ title: "Erro ao ativar provedor", description: e.message, variant: "destructive" });
+    } finally {
+      setActivating(null);
     }
   };
 
@@ -669,7 +701,6 @@ export default function SettingsPage() {
           </div>
         </motion.div>
 
-// Moved out of scope 
         {data?.activeLLM && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -723,6 +754,8 @@ export default function SettingsPage() {
                   }
 
                   const IntIcon = INTEGRATION_ICONS[integration.id] || Cloud;
+                  const isThisActive = activeProvider === integration.id;
+                  const needsCustomUrl = ["ollama_cloud"].includes(integration.id);
                   return (
                     <motion.div
                       key={integration.id}
@@ -730,20 +763,27 @@ export default function SettingsPage() {
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: 0.25 + i * 0.05 }}
                       className={`bg-card border rounded-2xl p-5 transition-all ${
-                        integration.configured
-                          ? 'border-emerald-500/20 hover:border-emerald-500/40'
-                          : 'border-border/50 hover:border-yellow-500/30'
+                        isThisActive
+                          ? 'border-primary/50 ring-1 ring-primary/20'
+                          : integration.configured
+                            ? 'border-emerald-500/20 hover:border-emerald-500/40'
+                            : 'border-border/50 hover:border-yellow-500/30'
                       }`}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                            integration.configured ? 'bg-emerald-500/10' : 'bg-muted/50'
+                            isThisActive ? 'bg-primary/10' : integration.configured ? 'bg-emerald-500/10' : 'bg-muted/50'
                           }`}>
-                            <IntIcon className={`w-5 h-5 ${integration.configured ? 'text-emerald-400' : 'text-muted-foreground'}`} />
+                            <IntIcon className={`w-5 h-5 ${isThisActive ? 'text-primary' : integration.configured ? 'text-emerald-400' : 'text-muted-foreground'}`} />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-foreground">{integration.name}</h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-foreground">{integration.name}</h3>
+                              {isThisActive && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold border border-primary/30 animate-pulse">✓ ATIVO</span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               {integration.configured ? (
                                 <>
@@ -778,8 +818,7 @@ export default function SettingsPage() {
                             type="password"
                             placeholder="Insira sua chave de API (sk-...)"
                             onChange={(e) => {
-                              // We could bind this to a local component state to submit,
-                              // but for simplicity inline, let's create a wrapper component below or just handle it.
+                              // handled via getElementById
                             }}
                             className="flex-1 bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
                             id={`key-${integration.id}`}
@@ -808,6 +847,52 @@ export default function SettingsPage() {
                           Armazenamento criptografado (AES-256)
                         </p>
                       </div>
+
+                      {/* URL customizada para Ollama Cloud */}
+                      {needsCustomUrl && (
+                        <div className="mt-3 bg-background/50 rounded-lg p-3 border border-border/30 space-y-2">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">URL do Endpoint</p>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="https://ollama.example.com"
+                              defaultValue={activeLlmUrl}
+                              className="flex-1 bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
+                              id={`url-${integration.id}`}
+                            />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">Endpoint compatível com API OpenAI (Ollama serve). Ex: https://meuollama.com</p>
+                        </div>
+                      )}
+
+                      {/* Botão Ativar este provedor */}
+                      {integration.category === "llm" && (
+                        <div className="mt-3 pt-3 border-t border-border/30">
+                          {isThisActive ? (
+                            <div className="flex items-center gap-2 text-xs text-primary font-medium">
+                              <CheckCircle2 className="w-4 h-4" />
+                              Este é o provedor LLM ativo. Todos os agentes usarão este modelo.
+                            </div>
+                          ) : (
+                            <button
+                              disabled={activating === integration.id}
+                              onClick={() => {
+                                const urlEl = document.getElementById(`url-${integration.id}`) as HTMLInputElement | null;
+                                const customUrl = urlEl?.value || "";
+                                activateProvider(integration.id, customUrl);
+                              }}
+                              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-xs font-semibold transition-all disabled:opacity-50"
+                            >
+                              {activating === integration.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Zap className="w-3.5 h-3.5" />
+                              )}
+                              Usar este provedor
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </motion.div>
                   );
                 })}

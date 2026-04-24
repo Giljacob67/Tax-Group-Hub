@@ -264,6 +264,56 @@ router.delete("/settings/keys/:provider", async (req, res) => {
   }
 });
 
+// ─── Active LLM Provider ─────────────────────────────────────────────────────
+// GET /settings/active-provider — returns current active provider config
+router.get("/settings/active-provider", async (_req, res) => {
+  try {
+    const provider = await getConfigValue("ACTIVE_LLM_PROVIDER");
+    const customUrl = await getConfigValue("ACTIVE_LLM_URL");
+    const model = await getConfigValue("ACTIVE_LLM_MODEL");
+    res.json({ provider: provider || "auto", customUrl: customUrl || null, model: model || null });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to get active provider" });
+  }
+});
+
+// PUT /settings/active-provider — sets active provider
+// body: { provider: "ollama_cloud" | "openrouter" | "google" | "openai" | "anthropic" | "ollama" | "auto", customUrl?: string, model?: string }
+router.put("/settings/active-provider", async (req, res) => {
+  try {
+    const { provider, customUrl, model } = req.body as { provider: string; customUrl?: string; model?: string };
+
+    if (!provider) {
+      res.status(400).json({ error: "provider é obrigatório." }); return;
+    }
+
+    await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_PROVIDER", value: provider, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: appConfigTable.key, set: { value: provider, updatedAt: new Date() } });
+
+    if (customUrl !== undefined) {
+      if (customUrl) {
+        await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_URL", value: customUrl.trim(), updatedAt: new Date() })
+          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: customUrl.trim(), updatedAt: new Date() } });
+      } else {
+        await db.delete(appConfigTable).where(eq(appConfigTable.key, "ACTIVE_LLM_URL"));
+      }
+    }
+
+    if (model !== undefined) {
+      if (model) {
+        await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_MODEL", value: model.trim(), updatedAt: new Date() })
+          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: model.trim(), updatedAt: new Date() } });
+      } else {
+        await db.delete(appConfigTable).where(eq(appConfigTable.key, "ACTIVE_LLM_MODEL"));
+      }
+    }
+
+    res.json({ success: true, provider, customUrl: customUrl || null, model: model || null });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to set active provider", message: err.message });
+  }
+});
+
 // GET /settings/channels — List omnichannel channel configurations
 router.get("/settings/channels", async (req, res) => {
   try {
