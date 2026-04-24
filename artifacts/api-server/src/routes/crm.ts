@@ -5,7 +5,7 @@ import {
   crmEnrichmentLogTable, crmPipelinesTable, crmAttachmentsTable,
   crmTasksTable, crmSavedViewsTable, crmAutomationsTable,
 } from "@workspace/db";
-import { eq, and, desc, asc, ilike, or, gte, lte, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, ilike, or, gte, lte, inArray, sql } from "drizzle-orm";
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
 import { callLLM } from "../lib/llm-client.js";
 import { getAgentById } from "../lib/agents-data.js";
@@ -70,11 +70,11 @@ async function evaluateAutomations(userId: string, contactId: number, triggerTyp
 }
 
 // ─── Contacts: List ───────────────────────────────────────────────────────────
-// GET /api/crm/contacts?search=&status=&regime=&porte=&uf=&scoreMin=&scoreMax=&sort=&sortDir=
+// GET /api/crm/contacts?search=&status=&regime=&porte=&uf=&scoreMin=&scoreMax=&sort=&sortDir=&tag=
 router.get("/contacts", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    const { search, status, regime, porte, uf, scoreMin, scoreMax, sort, sortDir } =
+    const { search, status, regime, porte, uf, scoreMin, scoreMax, sort, sortDir, tag } =
       req.query as Record<string, string>;
 
     const conditions: any[] = [eq(crmContactsTable.userId, userId)];
@@ -94,6 +94,12 @@ router.get("/contacts", async (req: Request, res: Response) => {
     if (uf)       conditions.push(ilike(crmContactsTable.uf, `%${uf}%`));
     if (scoreMin) conditions.push(gte(crmContactsTable.aiScore, Number(scoreMin)));
     if (scoreMax) conditions.push(lte(crmContactsTable.aiScore, Number(scoreMax)));
+    
+    // Filtro por tag (lista)
+    if (tag) {
+      const sqlFrag = sql`${crmContactsTable.tags} @> ${JSON.stringify([tag])}::jsonb`;
+      conditions.push(sqlFrag);
+    }
 
     const isAsc = sortDir !== "desc";
     let orderByCol: any = desc(crmContactsTable.createdAt); // default
@@ -258,6 +264,52 @@ router.post("/contacts/bulk-update-status", async (req: Request, res: Response) 
     res.json({ success: true, updated: ids.length });
   } catch (err: any) {
     res.status(500).json({ error: "Bulk update failed", message: err.message });
+  }
+});
+
+// ─── Contacts: Bulk Tags ──────────────────────────────────────────────────────
+// POST /api/crm/contacts/bulk-tags  body: { ids: number[], tag: string, action: "add" | "remove" }
+router.post("/contacts/bulk-tags", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const { ids, tag, action } = req.body as { ids: number[]; tag: string; action: "add" | "remove" };
+    if (!Array.isArray(ids) || ids.length === 0 || !tag) {
+      res.status(400).json({ error: "ids e tag são obrigatórios." }); return;
+    }
+
+    const contactsToUpdate = await db.select({ id: crmContactsTable.id, tags: crmContactsTable.tags })
+      .from(crmContactsTable)
+      .where(and(inArray(crmContactsTable.id, ids), eq(crmContactsTable.userId, userId)));
+
+    for (const c of contactsToUpdate) {
+      let currentTags = c.tags || [];
+      if (action === "add" && !currentTags.includes(tag)) {
+        currentTags = [...currentTags, tag];
+      } else if (action === "remove") {
+        currentTags = currentTags.filter(t => t !== tag);
+      }
+      await db.update(crmContactsTable).set({ tags: currentTags }).where(eq(crmContactsTable.id, c.id));
+    }
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: "Bulk tags update failed", message: err.message });
+  }
+});
+
+// ─── Contacts: Get Tags (Lists) ───────────────────────────────────────────────
+router.get("/tags", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const result = await db.execute(sql`
+      SELECT DISTINCT unnest(tags) as tag 
+      FROM ${crmContactsTable} 
+      WHERE user_id = ${userId} AND tags IS NOT NULL
+    `);
+    const tags = result.rows.map((r: any) => r.tag).sort();
+    res.json({ success: true, tags });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to fetch tags", message: err.message });
   }
 });
 
@@ -780,10 +832,11 @@ router.delete("/views/:id", async (req: Request, res: Response) => {
 });
 
 // ─── Analytics: Overview KPIs ────────────────────────────────────────────────
-// GET /api/crm/analytics/overview
+// GET /api/crm/analytics/overview?period=
 router.get("/analytics/overview", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
+    const period = (req.query.period as string) || "this_month";
 
     const [contacts, deals, activities] = await Promise.all([
       db.select().from(crmContactsTable).where(eq(crmContactsTable.userId, userId)),
@@ -792,24 +845,40 @@ router.get("/analytics/overview", async (req: Request, res: Response) => {
     ]);
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    let startDate = new Date(0);
+    let endDate = new Date();
 
-    const newLeadsThisMonth = contacts.filter(c => new Date(c.createdAt) >= startOfMonth).length;
-    const newLeadsLastMonth = contacts.filter(c => {
+    switch (period) {
+      case "7d": startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7); break;
+      case "30d": startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30); break;
+      case "90d": startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 90); break;
+      case "this_month": startDate = new Date(now.getFullYear(), now.getMonth(), 1); break;
+      case "all": default: startDate = new Date(0); break;
+    }
+
+    // Filter by period
+    const newLeadsInPeriod = contacts.filter(c => {
       const d = new Date(c.createdAt);
-      return d >= startOfLastMonth && d <= endOfLastMonth;
+      return d >= startDate && d <= endDate;
+    }).length;
+
+    // Last period calculation for growth
+    const periodDurationMs = endDate.getTime() - startDate.getTime();
+    const lastPeriodStart = new Date(startDate.getTime() - periodDurationMs);
+    const lastPeriodEnd = new Date(startDate.getTime());
+    const newLeadsLastPeriod = contacts.filter(c => {
+      const d = new Date(c.createdAt);
+      return d >= lastPeriodStart && d < lastPeriodEnd;
     }).length;
 
     const activeDeals = deals.filter(d => !["lost"].includes(d.stage));
     const wonDeals = deals.filter(d => d.stage === "won");
-    const wonThisMonth = wonDeals.filter(d => d.wonAt && new Date(d.wonAt) >= startOfMonth);
+    const wonInPeriod = wonDeals.filter(d => d.wonAt && new Date(d.wonAt) >= startDate && new Date(d.wonAt) <= endDate);
 
     const pipelineValue = activeDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
     const weightedValue = activeDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0) * ((d.probability || 0) / 100), 0);
     const wonValue = wonDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
-    const wonValueThisMonth = wonThisMonth.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
+    const wonValueInPeriod = wonInPeriod.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
 
     const qualifiedCount = contacts.filter(c => ["qualified", "opportunity", "client"].includes(c.status)).length;
     const qualificationRate = contacts.length > 0 ? Math.round((qualifiedCount / contacts.length) * 100) : 0;
@@ -818,15 +887,24 @@ router.get("/analytics/overview", async (req: Request, res: Response) => {
       ? Math.round((wonDeals.length / Math.max(1, wonDeals.length + deals.filter(d => d.stage === "lost").length)) * 100)
       : 0;
 
-    const activitiesThisMonth = activities.filter(a => new Date(a.createdAt) >= startOfMonth).length;
+    const periodActivities = activities.filter(a => {
+      const d = new Date(a.createdAt);
+      return d >= startDate && d <= endDate;
+    });
 
-    // Status distribution
+    const activitiesByType: Record<string, number> = {};
+    for (const a of periodActivities) {
+      const t = a.type || "note";
+      activitiesByType[t] = (activitiesByType[t] || 0) + 1;
+    }
+
+    // Status distribution (all time)
     const statusDist: Record<string, number> = {};
     for (const c of contacts) {
       statusDist[c.status] = (statusDist[c.status] || 0) + 1;
     }
 
-    // Regime distribution
+    // Regime distribution (all time)
     const regimeDist: Record<string, number> = {};
     for (const c of contacts) {
       const regime = c.regimeTributario || "desconhecido";
@@ -858,20 +936,21 @@ router.get("/analytics/overview", async (req: Request, res: Response) => {
       success: true,
       kpis: {
         totalContacts: contacts.length,
-        newLeadsThisMonth,
-        newLeadsLastMonth,
-        leadsGrowth: newLeadsLastMonth > 0
-          ? Math.round(((newLeadsThisMonth - newLeadsLastMonth) / newLeadsLastMonth) * 100)
+        newLeadsInPeriod,
+        newLeadsLastPeriod,
+        leadsGrowth: newLeadsLastPeriod > 0
+          ? Math.round(((newLeadsInPeriod - newLeadsLastPeriod) / newLeadsLastPeriod) * 100)
           : null,
         pipelineValue,
         weightedValue,
         wonValue,
-        wonValueThisMonth,
+        wonValueInPeriod,
         qualificationRate,
         winRate,
         activeDeals: activeDeals.length,
-        activitiesThisMonth,
+        activitiesInPeriod: periodActivities.length,
       },
+      activitiesByType,
       statusDist,
       regimeDist,
       weeklyLeads,
@@ -882,11 +961,30 @@ router.get("/analytics/overview", async (req: Request, res: Response) => {
 });
 
 // ─── Analytics: Pipeline Funnel ───────────────────────────────────────────────
-// GET /api/crm/analytics/funnel
+// ─── Analytics: Pipeline Funnel ───────────────────────────────────────────────
+// GET /api/crm/analytics/funnel?period=
 router.get("/analytics/funnel", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    const deals = await db.select().from(crmDealsTable).where(eq(crmDealsTable.userId, userId));
+    const period = (req.query.period as string) || "all";
+
+    let deals = await db.select().from(crmDealsTable).where(eq(crmDealsTable.userId, userId));
+
+    if (period !== "all") {
+      const now = new Date();
+      let startDate = new Date(0);
+      let endDate = new Date();
+      switch (period) {
+        case "7d": startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7); break;
+        case "30d": startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30); break;
+        case "90d": startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 90); break;
+        case "this_month": startDate = new Date(now.getFullYear(), now.getMonth(), 1); break;
+      }
+      deals = deals.filter(d => {
+        const dDate = new Date(d.createdAt);
+        return dDate >= startDate && dDate <= endDate;
+      });
+    }
 
     const stageOrder = ["prospecting", "discovery", "proposal", "negotiation", "closing", "won", "lost"];
     const funnel = stageOrder.map(stage => {

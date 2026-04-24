@@ -330,6 +330,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
 
   const [search, setSearch]           = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [listFilter, setListFilter]     = useState("");
   const [sort, setSort]               = useState<{ field: string; dir: "asc" | "desc" } | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters]         = useState<Filters>({ regime: "", porte: "", uf: "", scoreMin: "", scoreMax: "" });
@@ -341,12 +342,21 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
   const queryParams = new URLSearchParams();
   if (search)              queryParams.set("search",    search);
   if (statusFilter)        queryParams.set("status",    statusFilter);
+  if (listFilter)          queryParams.set("tag",       listFilter);
   if (filters.regime)      queryParams.set("regime",    filters.regime);
   if (filters.porte)       queryParams.set("porte",     filters.porte);
   if (filters.uf)          queryParams.set("uf",        filters.uf);
   if (filters.scoreMin)    queryParams.set("scoreMin",  filters.scoreMin);
   if (filters.scoreMax)    queryParams.set("scoreMax",  filters.scoreMax);
   if (sort)                { queryParams.set("sort", sort.field); queryParams.set("sortDir", sort.dir); }
+
+  const { data: tagsData } = useQuery<{ tags: string[] }>({
+    queryKey: ["/api/crm/tags"],
+    queryFn: async () => {
+      const res = await fetch("/api/crm/tags");
+      return res.json();
+    },
+  });
 
   const { data, isLoading } = useQuery<{ contacts: Contact[] }>({
     queryKey: ["/api/crm/contacts", queryParams.toString()],
@@ -420,13 +430,38 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
     onError: () => toast({ title: "Erro ao atualizar status", variant: "destructive" }),
   });
 
+  const bulkTagsMutation = useMutation({
+    mutationFn: async ({ ids, tag, action }: { ids: number[]; tag: string; action: "add" | "remove" }) => {
+      const res = await fetch("/api/crm/contacts/bulk-tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, tag, action }),
+      });
+      if (!res.ok) throw new Error("Falha ao atualizar lista");
+      return res.json();
+    },
+    onSuccess: (_, { ids, tag, action }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+      setSelectedIds(new Set());
+      setBulkListOpen(false);
+      setNewListName("");
+      toast({ title: `${ids.length} contato(s) ${action === "add" ? "adicionados à" : "removidos da"} lista "${tag}".` });
+    },
+    onError: () => toast({ title: "Erro ao atualizar lista", variant: "destructive" }),
+  });
+
+  const [bulkListOpen, setBulkListOpen] = useState(false);
+  const [newListName, setNewListName] = useState("");
+
   const selectedArray = Array.from(selectedIds);
   const allSelected   = contacts.length > 0 && selectedIds.size === contacts.length;
   const someSelected  = selectedIds.size > 0 && !allSelected;
+  const allTags       = tagsData?.tags || [];
 
   function clearFilters() {
     setFilters({ regime: "", porte: "", uf: "", scoreMin: "", scoreMax: "" });
     setStatusFilter("");
+    setListFilter("");
     setSearch("");
   }
 
@@ -457,7 +492,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
         body: JSON.stringify({
           name: newViewName,
           emoji: "🔖",
-          filters: { ...filters, status: statusFilter }
+          filters: { ...filters, status: statusFilter, tag: listFilter }
         }),
       });
       if (!res.ok) throw new Error("Erro ao salvar view");
@@ -488,6 +523,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
     setActiveViewId(viewId);
     setSearch("");
     setStatusFilter(viewFilters.status || "");
+    setListFilter(viewFilters.tag || "");
     setFilters({
       regime: viewFilters.regime || "",
       porte: viewFilters.porte || "",
@@ -596,6 +632,17 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
             <option value="">Todos os status</option>
             {Object.entries(STATUS_CONFIG).map(([k, v]) => (
               <option key={k} value={k}>{v.label}</option>
+            ))}
+          </select>
+
+          <select
+            value={listFilter}
+            onChange={(e) => setListFilter(e.target.value)}
+            className="text-sm bg-muted/50 border border-border/50 rounded-md px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+          >
+            <option value="">Todas as listas</option>
+            {allTags.map(tag => (
+              <option key={tag} value={tag}>{tag}</option>
             ))}
           </select>
 
@@ -729,6 +776,60 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                         <Badge variant="outline" className={`text-[10px] border ${v.color}`}>{v.label}</Badge>
                       </button>
                     ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Bulk List/Tag */}
+              <Dialog open={bulkListOpen} onOpenChange={setBulkListOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
+                    <List className="w-3.5 h-3.5" /> Adicionar à Lista
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[320px]">
+                  <DialogHeader>
+                    <DialogTitle>Gerenciar Listas</DialogTitle>
+                    <DialogDescription>{selectedIds.size} contato(s) selecionado(s)</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-2">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Nova Lista</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Ex: Campanha SP"
+                          value={newListName}
+                          onChange={e => setNewListName(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs"
+                          disabled={!newListName.trim() || bulkTagsMutation.isPending}
+                          onClick={() => bulkTagsMutation.mutate({ ids: selectedArray, tag: newListName.trim(), action: "add" })}
+                        >
+                          Criar
+                        </Button>
+                      </div>
+                    </div>
+                    {allTags.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-xs">Listas Existentes</Label>
+                        <div className="flex flex-col gap-1 max-h-[150px] overflow-y-auto">
+                          {allTags.map(tag => (
+                            <button
+                              key={tag}
+                              onClick={() => bulkTagsMutation.mutate({ ids: selectedArray, tag, action: "add" })}
+                              disabled={bulkTagsMutation.isPending}
+                              className="text-left px-3 py-2 text-xs border border-border/50 rounded-md hover:bg-muted/50 transition-colors flex items-center justify-between group"
+                            >
+                              <span>{tag}</span>
+                              <Plus className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -1012,6 +1113,11 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
     queryFn: async () => { const r = await fetch(`/api/crm/contacts/${contact.id}/attachments`); return r.json(); },
   });
 
+  const { data: dealsData } = useQuery<{ deals: Deal[] }>({
+    queryKey: [`/api/crm/deals`, { contactId: contact.id }],
+    queryFn: async () => { const r = await fetch(`/api/crm/deals?contactId=${contact.id}`); return r.json(); },
+  });
+
   const deleteAttachmentMutation = useMutation({
     mutationFn: async (id: number) => {
       const res = await fetch(`/api/crm/contacts/${contact.id}/attachments/${id}`, { method: "DELETE" });
@@ -1049,8 +1155,23 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
 
   const activities  = activitiesData?.activities || [];
   const attachments = attachmentsData?.attachments || [];
+  const deals       = dealsData?.deals || [];
   const status      = STATUS_CONFIG[contact.status] || STATUS_CONFIG.prospect;
   const scoreDetails = contact.aiScoreDetails as any;
+
+  // Score de Saúde / Relacionamento
+  let healthColor = "bg-slate-400";
+  let healthLabel = "Sem Atividades";
+  if (activities.length > 0) {
+    const daysSince = Math.floor((Date.now() - new Date(activities[0].createdAt).getTime()) / (1000 * 60 * 60 * 24));
+    if (daysSince <= 3) {
+      healthColor = "bg-emerald-500"; healthLabel = "Quente";
+    } else if (daysSince <= 7) {
+      healthColor = "bg-amber-400"; healthLabel = "Morno";
+    } else {
+      healthColor = "bg-red-500"; healthLabel = "Frio";
+    }
+  }
 
   function getMimeIcon(mime: string) {
     if (mime.startsWith("image/")) return FileImage;
@@ -1066,9 +1187,15 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           <CompanyAvatar name={contact.razaoSocial} size="lg" />
           <div className="min-w-0 flex-1">
             <h3 className="font-bold text-sm leading-tight truncate">{contact.razaoSocial || "Empresa"}</h3>
-            <p className="text-xs text-muted-foreground font-mono mt-0.5">{contact.cnpj}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="flex items-center gap-1.5 text-[10px] font-medium bg-muted px-1.5 py-0.5 rounded-full border border-border/50">
+                <span className={`w-2 h-2 rounded-full ${healthColor}`} />
+                {healthLabel}
+              </span>
+              <p className="text-[11px] text-muted-foreground font-mono">{contact.cnpj}</p>
+            </div>
             {contact.cidade && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1">
                 <MapPin className="w-3 h-3" /> {contact.cidade}/{contact.uf}
               </p>
             )}
@@ -1231,8 +1358,9 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           <TabsList className="bg-transparent p-0 h-9 gap-4">
             {[
               { value: "info",     label: "Dados" },
+              { value: "deals",    label: `Negócios (${deals.length})` },
               { value: "tasks",    label: "Tarefas" },
-              { value: "timeline", label: `Timeline (${(activitiesData as any)?.activities?.length ?? 0})` },
+              { value: "timeline", label: `Timeline (${activities.length})` },
               { value: "files",    label: `Arquivos (${attachments.length})` },
             ].map(t => (
               <TabsTrigger key={t.value} value={t.value}
@@ -1297,6 +1425,44 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           {/* ── Tasks Tab ── */}
           <TabsContent value="tasks" className="m-0">
             <TasksPanel contactId={contact.id} />
+          </TabsContent>
+
+          {/* ── Deals Tab ── */}
+          <TabsContent value="deals" className="m-0">
+            <div className="p-4 space-y-3">
+              <Button size="sm" variant="outline" className="w-full text-xs gap-1.5"
+                onClick={() => {
+                  toast({ title: "Ir para o pipeline para criar" });
+                  // Poderia abrir o DealModal diretamente se quisermos
+                }}>
+                <Plus className="w-3.5 h-3.5" /> Novo Negócio
+              </Button>
+              {deals.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-xl border-border/50">
+                  <Briefcase className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+                  Nenhum negócio ativo.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {deals.map(d => (
+                    <div key={d.id} className="p-3 rounded-lg border border-border/50 bg-card hover:border-primary/30 transition-colors">
+                      <div className="flex justify-between items-start gap-2">
+                        <p className="text-xs font-semibold">{d.title}</p>
+                        <Badge variant="outline" className="text-[9px] whitespace-nowrap bg-muted/50">{d.stage}</Badge>
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-[11px] text-muted-foreground">
+                          {d.produto || "Sem produto"}
+                        </span>
+                        <span className="text-xs font-bold text-primary">
+                          {formatCurrency(d.value)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* ── Timeline Tab ── */}

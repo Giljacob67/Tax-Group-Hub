@@ -15,18 +15,19 @@ import { Loader2 } from "lucide-react";
 interface OverviewData {
   kpis: {
     totalContacts: number;
-    newLeadsThisMonth: number;
-    newLeadsLastMonth: number;
+    newLeadsInPeriod: number;
+    newLeadsLastPeriod: number;
     leadsGrowth: number | null;
     pipelineValue: number;
     weightedValue: number;
     wonValue: number;
-    wonValueThisMonth: number;
+    wonValueInPeriod: number;
     qualificationRate: number;
     winRate: number;
     activeDeals: number;
-    activitiesThisMonth: number;
+    activitiesInPeriod: number;
   };
+  activitiesByType?: Record<string, number>;
   statusDist: Record<string, number>;
   regimeDist: Record<string, number>;
   weeklyLeads: { week: string; leads: number; deals: number }[];
@@ -167,10 +168,12 @@ function CustomTooltip({ active, payload, label }: any) {
 
 // ─── Main Dashboard ────────────────────────────────────────────────────────────
 export default function CRMDashboard() {
+  const [period, setPeriod] = React.useState("this_month");
+
   const { data: overview, isLoading: loadingOverview } = useQuery<OverviewData>({
-    queryKey: ["/api/crm/analytics/overview"],
+    queryKey: ["/api/crm/analytics/overview", period],
     queryFn: async () => {
-      const r = await fetch("/api/crm/analytics/overview");
+      const r = await fetch(`/api/crm/analytics/overview?period=${period}`);
       if (!r.ok) throw new Error("Failed");
       return r.json();
     },
@@ -178,9 +181,9 @@ export default function CRMDashboard() {
   });
 
   const { data: funnelData, isLoading: loadingFunnel } = useQuery<FunnelData>({
-    queryKey: ["/api/crm/analytics/funnel"],
+    queryKey: ["/api/crm/analytics/funnel", period],
     queryFn: async () => {
-      const r = await fetch("/api/crm/analytics/funnel");
+      const r = await fetch(`/api/crm/analytics/funnel?period=${period}`);
       if (!r.ok) throw new Error("Failed");
       return r.json();
     },
@@ -222,12 +225,28 @@ export default function CRMDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Period Selector */}
+      <div className="flex justify-end items-center gap-2">
+        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Período:</span>
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value)}
+          className="text-sm bg-card border border-border/50 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
+        >
+          <option value="7d">Últimos 7 dias</option>
+          <option value="30d">Últimos 30 dias</option>
+          <option value="90d">Últimos 90 dias</option>
+          <option value="this_month">Este Mês</option>
+          <option value="all">Todo o Período</option>
+        </select>
+      </div>
+
       {/* KPI Row 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Total de Leads"
           value={String(kpis?.totalContacts || 0)}
-          sub={`${kpis?.newLeadsThisMonth || 0} novos este mês`}
+          sub={`${kpis?.newLeadsInPeriod || 0} leads no período`}
           growth={kpis?.leadsGrowth}
           icon={Users}
           color="bg-blue-500/10 text-blue-400"
@@ -252,7 +271,7 @@ export default function CRMDashboard() {
         <KpiCard
           label="Win Rate"
           value={`${kpis?.winRate || 0}%`}
-          sub={`${fmt(kpis?.wonValueThisMonth || 0)} ganhos este mês`}
+          sub={`${fmt(kpis?.wonValueInPeriod || 0)} ganhos no período`}
           icon={Trophy}
           color="bg-emerald-500/10 text-emerald-400"
           delay={0.15}
@@ -277,17 +296,17 @@ export default function CRMDashboard() {
           delay={0.25}
         />
         <KpiCard
-          label="Atividades no Mês"
-          value={String(kpis?.activitiesThisMonth || 0)}
+          label="Atividades no Período"
+          value={String(kpis?.activitiesInPeriod || 0)}
           sub="Ligações, emails, reuniões"
           icon={Activity}
           color="bg-pink-500/10 text-pink-400"
           delay={0.3}
         />
         <KpiCard
-          label="Leads Novos no Mês"
-          value={String(kpis?.newLeadsThisMonth || 0)}
-          sub={`Mês anterior: ${kpis?.newLeadsLastMonth || 0}`}
+          label="Leads Novos (Período)"
+          value={String(kpis?.newLeadsInPeriod || 0)}
+          sub={`Período anterior: ${kpis?.newLeadsLastPeriod || 0}`}
           growth={kpis?.leadsGrowth}
           icon={TrendingUp}
           color="bg-cyan-500/10 text-cyan-400"
@@ -395,6 +414,38 @@ export default function CRMDashboard() {
             )}
           </ChartCard>
         </div>
+      </div>
+      {/* Charts Row 3: Activities */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ChartCard title="Relatório de Atividades da Equipe" delay={0.6}>
+          {!overview?.activitiesByType || Object.keys(overview.activitiesByType).length === 0 ? (
+            <div className="flex items-center justify-center h-[220px] text-xs text-muted-foreground">
+              Nenhuma atividade registrada no período
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart
+                data={Object.entries(overview.activitiesByType).map(([k, v]) => ({
+                  name: k === "call" ? "Ligação" : k === "email" ? "E-mail" : k === "whatsapp" ? "WhatsApp" : k === "meeting" ? "Reunião" : k === "proposal" ? "Proposta" : "Nota",
+                  count: v,
+                  fill: k === "call" ? "#3b82f6" : k === "email" ? "#f59e0b" : k === "whatsapp" ? "#10b981" : k === "meeting" ? "#a855f7" : k === "proposal" ? "#ef4444" : "#64748b",
+                })).sort((a, b) => b.count - a.count)}
+                layout="vertical"
+                margin={{ top: 4, right: 8, bottom: 0, left: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 10, fill: "#71717a" }} />
+                <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#foreground" }} width={80} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="count" name="Atividades" radius={[0, 4, 4, 0]}>
+                  {Object.entries(overview.activitiesByType).map((_, i) => (
+                    <Cell key={i} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
       </div>
     </div>
   );
