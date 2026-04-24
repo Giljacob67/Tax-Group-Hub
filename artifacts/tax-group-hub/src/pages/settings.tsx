@@ -372,6 +372,251 @@ function OllamaCard({ integration, onSettingsChange }: {
   );
 }
 
+// ─── Model lists per provider ────────────────────────────────────────────────
+const PROVIDER_MODELS: Record<string, { id: string; label: string }[]> = {
+  google: [
+    { id: "gemini-1.5-flash",              label: "Gemini 1.5 Flash (rápido)" },
+    { id: "gemini-1.5-pro",                label: "Gemini 1.5 Pro (avançado)" },
+    { id: "gemini-2.0-flash-lite",         label: "Gemini 2.0 Flash Lite" },
+    { id: "gemini-2.5-pro-preview-05-06",  label: "Gemini 2.5 Pro Preview" },
+  ],
+  anthropic: [
+    { id: "claude-3-5-sonnet-20241022",  label: "Claude 3.5 Sonnet (recomendado)" },
+    { id: "claude-3-5-haiku-20241022",   label: "Claude 3.5 Haiku (rápido)" },
+    { id: "claude-3-opus-20240229",      label: "Claude 3 Opus (poderoso)" },
+  ],
+  openai: [
+    { id: "gpt-4o",      label: "GPT-4o (recomendado)" },
+    { id: "gpt-4o-mini", label: "GPT-4o Mini (rápido)" },
+    { id: "gpt-4-turbo", label: "GPT-4 Turbo" },
+    { id: "o3-mini",     label: "o3-mini (raciocínio)" },
+  ],
+  openrouter: [
+    { id: "meta-llama/llama-3.1-70b-instruct",  label: "LLaMA 3.1 70B" },
+    { id: "meta-llama/llama-3.1-8b-instruct",   label: "LLaMA 3.1 8B (rápido)" },
+    { id: "mistralai/mistral-7b-instruct",       label: "Mistral 7B" },
+    { id: "qwen/qwen-2.5-72b-instruct",          label: "Qwen 2.5 72B" },
+    { id: "google/gemini-flash-1.5",             label: "Gemini 1.5 Flash (via OR)" },
+  ],
+  ollama_cloud: [],  // free-text
+};
+
+function LLMProviderCard({
+  integration,
+  activeProvider,
+  activeModel,
+  onActivate,
+}: {
+  integration: IntegrationStatus;
+  activeProvider: string;
+  activeModel: string | null;
+  onActivate: (provider: string, url: string, model: string) => Promise<void>;
+}) {
+  const IntIcon = INTEGRATION_ICONS[integration.id] || Cloud;
+  const isThisActive = activeProvider === integration.id;
+  const models = PROVIDER_MODELS[integration.id] ?? [];
+  const needsUrl = integration.id === "ollama_cloud";
+  const hasFreeTextModel = integration.id === "ollama_cloud";
+
+  const [customUrl, setCustomUrl] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [activating, setActivating] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; provider?: string; model?: string; response?: string; error?: string } | null>(null);
+
+  // Pre-fill model with active model when this card is the active one
+  useEffect(() => {
+    if (isThisActive && activeModel && !selectedModel) {
+      setSelectedModel(activeModel);
+    }
+  }, [isThisActive, activeModel]);
+
+  const handleActivate = async () => {
+    setActivating(true);
+    setTestResult(null);
+    await onActivate(integration.id, customUrl, selectedModel);
+    setActivating(false);
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/settings/active-provider/test", { method: "POST" });
+      const data = await res.json();
+      setTestResult(data);
+    } catch {
+      setTestResult({ success: false, error: "Erro de rede ao testar." });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className={`bg-card border rounded-2xl p-5 transition-all ${
+        isThisActive
+          ? 'border-primary/50 ring-1 ring-primary/20'
+          : integration.configured
+            ? 'border-emerald-500/20 hover:border-emerald-500/40'
+            : 'border-border/50 hover:border-border'
+      }`}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+            isThisActive ? 'bg-primary/10' : integration.configured ? 'bg-emerald-500/10' : 'bg-muted/50'
+          }`}>
+            <IntIcon className={`w-5 h-5 ${
+              isThisActive ? 'text-primary' : integration.configured ? 'text-emerald-400' : 'text-muted-foreground'
+            }`} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-foreground">{integration.name}</h3>
+              {isThisActive && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold border border-primary/30">
+                  ✓ ATIVO
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {integration.configured ? (
+                <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs text-emerald-400 font-medium">Configurado</span></>
+              ) : (
+                <><XCircle className="w-3.5 h-3.5 text-yellow-500" /><span className="text-xs text-yellow-500 font-medium">Chave pendente</span></>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground leading-relaxed mb-4">{integration.description}</p>
+
+      {/* API Key input */}
+      <div className="bg-background/50 rounded-lg p-3 border border-border/30 mb-3">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Chave de API</p>
+          <span className={`text-[10px] px-2 py-0 rounded-full font-medium ${
+            integration.configured ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+          }`}>
+            {integration.configured ? 'Salva' : 'Pendente'}
+          </span>
+        </div>
+        <div className="flex gap-2 items-center">
+          <input
+            type="password"
+            placeholder="Cole sua chave de API aqui..."
+            className="flex-1 bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
+            id={`key-${integration.id}`}
+          />
+          <button
+            onClick={async () => {
+              const input = document.getElementById(`key-${integration.id}`) as HTMLInputElement;
+              if (!input?.value) return;
+              await fetch("/api/settings/keys", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ provider: integration.id, key: input.value }),
+              });
+              input.value = '';
+            }}
+            className="bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-primary/90"
+          >Salvar</button>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+          <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Armazenamento criptografado (AES-256)
+        </p>
+      </div>
+
+      {/* URL for Ollama Cloud */}
+      {needsUrl && (
+        <div className="bg-background/50 rounded-lg p-3 border border-border/30 mb-3 space-y-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">URL do Endpoint (obrigatório)</p>
+          <input
+            type="text"
+            placeholder="https://meuollama.com"
+            value={customUrl}
+            onChange={e => setCustomUrl(e.target.value)}
+            className="w-full bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
+          />
+          <p className="text-[10px] text-muted-foreground">Endpoint compatível com API OpenAI (Ollama serve)</p>
+        </div>
+      )}
+
+      {/* Model selector */}
+      {(models.length > 0 || hasFreeTextModel) && (
+        <div className="bg-background/50 rounded-lg p-3 border border-border/30 mb-3 space-y-1.5">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Modelo</p>
+          {hasFreeTextModel ? (
+            <input
+              type="text"
+              placeholder="llama3.2, qwen2.5, etc."
+              value={selectedModel}
+              onChange={e => setSelectedModel(e.target.value)}
+              className="w-full bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
+            />
+          ) : (
+            <select
+              value={selectedModel}
+              onChange={e => setSelectedModel(e.target.value)}
+              className="w-full bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-primary/50"
+            >
+              <option value="">— Selecionar modelo —</option>
+              {models.map(m => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {/* Activate + Test buttons */}
+      <div className="space-y-2 pt-1 border-t border-border/30">
+        {isThisActive ? (
+          <>
+            <div className="flex items-center gap-2 py-2 text-xs text-primary font-medium">
+              <CheckCircle2 className="w-4 h-4" />
+              {activeModel ? `Ativo: ${activeModel}` : 'Provedor LLM ativo'} — todos os agentes usam este.
+            </div>
+            <button
+              disabled={testing}
+              onClick={handleTest}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-background hover:bg-muted/50 border border-border/50 text-xs font-medium transition-all disabled:opacity-50"
+            >
+              {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5" />}
+              Testar conexão
+            </button>
+            {testResult && (
+              <div className={`text-xs rounded-lg px-3 py-2 border ${
+                testResult.success
+                  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400'
+                  : 'bg-red-500/5 border-red-500/20 text-red-400'
+              }`}>
+                {testResult.success
+                  ? `✓ ${testResult.provider} · ${testResult.model} — ${testResult.response}`
+                  : `✗ ${testResult.error}`}
+              </div>
+            )}
+          </>
+        ) : (
+          <button
+            disabled={activating}
+            onClick={handleActivate}
+            className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-xs font-semibold transition-all disabled:opacity-50"
+          >
+            {activating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+            Usar este provedor
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 function BrandingSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -525,7 +770,11 @@ function BrandingSection() {
   );
 }
 
-function ModelSelector() {
+function ModelSelector({ activeProvider, activeModel, onModelChange }: {
+  activeProvider: string;
+  activeModel: string | null;
+  onModelChange: () => void;
+}) {
   const [data, setData] = useState<{ models: any[], defaultModel: string, provider: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -537,7 +786,8 @@ function ModelSelector() {
       .catch(() => setLoading(false));
   }, []);
 
-  if (loading || !data?.provider) return null;
+  // Only show if provider is not ollama (Ollama has its own card)
+  if (loading || !data?.provider || activeProvider === "ollama" || activeProvider === "ollama_cloud") return null;
 
   return (
     <motion.div
@@ -551,21 +801,32 @@ function ModelSelector() {
         <h2 className="text-sm font-semibold text-foreground">Seleção de Modelo (Cloud)</h2>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
-        Escolha o modelo principal para as operações do sistema (caso não esteja usando Ollama). O modelo atual afeta a velocidade e qualidade das análises.
+        Escolha o modelo para as operações do sistema. O modelo atual afeta a velocidade e qualidade das análises.
       </p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {data.models.map((model: any) => {
-          const isActive = data.defaultModel === model.id;
+          const isActive = activeModel === model.id;
           return (
             <div
               key={model.id}
-              className={`p-3 rounded-xl border transition-all cursor-pointer ${isActive ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(59,130,246,0.15)] ring-1 ring-primary/30' : 'bg-background hover:bg-muted/50 border-border/50 hover:border-primary/30'}`}
+              className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(59,130,246,0.15)] ring-1 ring-primary/30'
+                  : 'bg-background hover:bg-muted/50 border-border/50 hover:border-primary/30'
+              }`}
               onClick={async () => {
                 try {
-                  toast({ title: "Modelo atualizado localmente..." });
-                  // NOTE: To make it functional we would call backend to store the choice
-                } catch(e) {}
+                  await fetch("/api/settings/active-provider", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ provider: activeProvider, model: model.id }),
+                  });
+                  toast({ title: `Modelo "${model.name}" selecionado.` });
+                  onModelChange();
+                } catch {
+                  toast({ title: "Erro ao salvar modelo", variant: "destructive" });
+                }
               }}
             >
               <div className="flex justify-between items-start mb-1">
@@ -723,7 +984,11 @@ export default function SettingsPage() {
           </motion.div>
         )}
 
-        <ModelSelector />
+        <ModelSelector
+          activeProvider={activeProvider}
+          activeModel={activeLlmModel || null}
+          onModelChange={fetchSettings}
+        />
 
         {categories.map((category, catIdx) => {
           const catMeta = CATEGORY_META[category] || { label: category, icon: Settings };
@@ -743,6 +1008,7 @@ export default function SettingsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {catIntegrations.map((integration, i) => {
+                  // Ollama local has its own dedicated card
                   if (integration.id === "ollama") {
                     return (
                       <OllamaCard
@@ -753,9 +1019,23 @@ export default function SettingsPage() {
                     );
                   }
 
+                  // All other LLM providers use LLMProviderCard
+                  if (category === "llm") {
+                    return (
+                      <LLMProviderCard
+                        key={integration.id}
+                        integration={integration}
+                        activeProvider={activeProvider}
+                        activeModel={activeLlmModel || null}
+                        onActivate={async (provider, url, model) => {
+                          await activateProvider(provider, url, model);
+                        }}
+                      />
+                    );
+                  }
+
+                  // Non-LLM integrations (google, tool, etc.) — simple card
                   const IntIcon = INTEGRATION_ICONS[integration.id] || Cloud;
-                  const isThisActive = activeProvider === integration.id;
-                  const needsCustomUrl = ["ollama_cloud"].includes(integration.id);
                   return (
                     <motion.div
                       key={integration.id}
@@ -763,136 +1043,33 @@ export default function SettingsPage() {
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: 0.25 + i * 0.05 }}
                       className={`bg-card border rounded-2xl p-5 transition-all ${
-                        isThisActive
-                          ? 'border-primary/50 ring-1 ring-primary/20'
-                          : integration.configured
-                            ? 'border-emerald-500/20 hover:border-emerald-500/40'
-                            : 'border-border/50 hover:border-yellow-500/30'
+                        integration.configured
+                          ? 'border-emerald-500/20 hover:border-emerald-500/40'
+                          : 'border-border/50 hover:border-yellow-500/30'
                       }`}
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                            isThisActive ? 'bg-primary/10' : integration.configured ? 'bg-emerald-500/10' : 'bg-muted/50'
-                          }`}>
-                            <IntIcon className={`w-5 h-5 ${isThisActive ? 'text-primary' : integration.configured ? 'text-emerald-400' : 'text-muted-foreground'}`} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-foreground">{integration.name}</h3>
-                              {isThisActive && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold border border-primary/30 animate-pulse">✓ ATIVO</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              {integration.configured ? (
-                                <>
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                  <span className="text-xs text-emerald-400 font-medium">Configurado</span>
-                                </>
-                              ) : (
-                                <>
-                                  <XCircle className="w-3.5 h-3.5 text-yellow-500" />
-                                  <span className="text-xs text-yellow-500 font-medium">Nao configurado</span>
-                                </>
-                              )}
-                            </div>
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          integration.configured ? 'bg-emerald-500/10' : 'bg-muted/50'
+                        }`}>
+                          <IntIcon className={`w-5 h-5 ${integration.configured ? 'text-emerald-400' : 'text-muted-foreground'}`} />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-foreground">{integration.name}</h3>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {integration.configured ? (
+                              <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs text-emerald-400 font-medium">Configurado</span></>
+                            ) : (
+                              <><XCircle className="w-3.5 h-3.5 text-yellow-500" /><span className="text-xs text-yellow-500 font-medium">Nao configurado</span></>
+                            )}
                           </div>
                         </div>
                       </div>
-
-                      <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                        {integration.description}
-                      </p>
-
+                      <p className="text-xs text-muted-foreground leading-relaxed mb-3">{integration.description}</p>
                       <div className="bg-background/50 rounded-lg p-3 border border-border/30">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Chave de API</p>
-                          <span className={`text-[10px] px-2 py-0 rounded-full font-medium ${integration.configured ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                            {integration.configured ? 'Ativa' : 'Pendente'}
-                          </span>
-                        </div>
-                        
-                        <div className="flex gap-2 items-center">
-                          <input
-                            type="password"
-                            placeholder="Insira sua chave de API (sk-...)"
-                            onChange={(e) => {
-                              // handled via getElementById
-                            }}
-                            className="flex-1 bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
-                            id={`key-${integration.id}`}
-                          />
-                          <button
-                            onClick={async () => {
-                              const input = document.getElementById(`key-${integration.id}`) as HTMLInputElement;
-                              if (!input.value) return;
-                              try {
-                                await fetch("/api/settings/keys", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ provider: integration.id, key: input.value })
-                                });
-                                input.value = '';
-                                fetchSettings();
-                              } catch(e) {}
-                            }}
-                            className="bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-primary/90"
-                          >
-                            Salvar
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          Armazenamento criptografado (AES-256)
-                        </p>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Variavel de Ambiente</p>
+                        <code className="text-xs font-mono text-primary">{integration.envVar}</code>
                       </div>
-
-                      {/* URL customizada para Ollama Cloud */}
-                      {needsCustomUrl && (
-                        <div className="mt-3 bg-background/50 rounded-lg p-3 border border-border/30 space-y-2">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">URL do Endpoint</p>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              placeholder="https://ollama.example.com"
-                              defaultValue={activeLlmUrl}
-                              className="flex-1 bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
-                              id={`url-${integration.id}`}
-                            />
-                          </div>
-                          <p className="text-[10px] text-muted-foreground">Endpoint compatível com API OpenAI (Ollama serve). Ex: https://meuollama.com</p>
-                        </div>
-                      )}
-
-                      {/* Botão Ativar este provedor */}
-                      {integration.category === "llm" && (
-                        <div className="mt-3 pt-3 border-t border-border/30">
-                          {isThisActive ? (
-                            <div className="flex items-center gap-2 text-xs text-primary font-medium">
-                              <CheckCircle2 className="w-4 h-4" />
-                              Este é o provedor LLM ativo. Todos os agentes usarão este modelo.
-                            </div>
-                          ) : (
-                            <button
-                              disabled={activating === integration.id}
-                              onClick={() => {
-                                const urlEl = document.getElementById(`url-${integration.id}`) as HTMLInputElement | null;
-                                const customUrl = urlEl?.value || "";
-                                activateProvider(integration.id, customUrl);
-                              }}
-                              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-xs font-semibold transition-all disabled:opacity-50"
-                            >
-                              {activating === integration.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Zap className="w-3.5 h-3.5" />
-                              )}
-                              Usar este provedor
-                            </button>
-                          )}
-                        </div>
-                      )}
                     </motion.div>
                   );
                 })}

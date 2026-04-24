@@ -164,18 +164,37 @@ router.get("/settings/integrations", async (req, res) => {
 
     const geminiModel = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
+    // Read active provider from DB (set via PUT /settings/active-provider)
+    const activeProviderDb = await getConfigValue("ACTIVE_LLM_PROVIDER");
+    const activeLlmModelDb = await getConfigValue("ACTIVE_LLM_MODEL");
+
+    const PROVIDER_LABELS: Record<string, string> = {
+      ollama: `Ollama Local`,
+      ollama_cloud: `Ollama Cloud`,
+      google: `Google Gemini`,
+      anthropic: `Anthropic Claude`,
+      openai: `OpenAI GPT`,
+      openrouter: `OpenRouter`,
+    };
+
     let activeLLM: string | null = null;
-    if (ollamaUrl) {
-      activeLLM = `Ollama (${ollamaModel})`;
+    if (activeProviderDb && activeProviderDb !== "auto") {
+      const label = PROVIDER_LABELS[activeProviderDb] || activeProviderDb;
+      const modelLabel = activeLlmModelDb || (activeProviderDb === "ollama" ? ollamaModel : null);
+      activeLLM = modelLabel ? `${label} · ${modelLabel}` : label;
+    } else if (ollamaUrl) {
+      activeLLM = `Ollama Local · ${ollamaModel}`;
     } else if (isConnected("google", "GEMINI_API_KEY")) {
-      activeLLM = `Gemini (${geminiModel})`;
+      activeLLM = `Google Gemini · ${geminiModel}`;
     } else if (isConnected("anthropic", "ANTHROPIC_API_KEY")) {
-      activeLLM = `Anthropic (Claude 3.5)`;
+      activeLLM = `Anthropic Claude`;
     }
 
     res.json({
       integrations,
       activeLLM,
+      activeProvider: activeProviderDb || "auto",
+      activeModel: activeLlmModelDb || null,
       ollamaModel,
       geminiModel,
     });
@@ -311,6 +330,28 @@ router.put("/settings/active-provider", async (req, res) => {
     res.json({ success: true, provider, customUrl: customUrl || null, model: model || null });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to set active provider", message: err.message });
+  }
+});
+
+// POST /settings/active-provider/test — Test current active provider
+router.post("/settings/active-provider/test", async (_req, res) => {
+  try {
+    // Dynamic import to avoid circular deps
+    const { callLLM } = await import("../lib/llm-client.js");
+    const result = await callLLM(
+      "You are a connectivity test assistant. Be concise.",
+      "Reply with exactly: 'OK · <your model name>'"
+    );
+    res.json({
+      success: true,
+      response: result.output,
+      provider: result.provider,
+      model: result.model,
+      tokensUsed: result.tokensUsed,
+      executionTimeMs: result.executionTimeMs,
+    });
+  } catch (err: any) {
+    res.json({ success: false, error: err.message || "Erro desconhecido" });
   }
 });
 

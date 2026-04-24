@@ -142,15 +142,15 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
     return { model: customOpenAI(modelId), providerName: "OpenAI", modelId };
   }
 
-  // 4. GOOGLE / GEMINI (Default Cloud Fallback)
+  // 4. GOOGLE / GEMINI
   const googleKey = await getApiKey("google", userId);
-  if (googleKey) {
+  if ((provider === "google" || provider === "gemini" || provider === "auto") && googleKey) {
     const customGoogle = createGoogleGenerativeAI({ apiKey: googleKey });
-    const modelId = requestedModel || process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    const modelId = requestedModel || activeLlmModel || process.env.GEMINI_MODEL || "gemini-1.5-flash";
     return { model: customGoogle(modelId), providerName: "Google", modelId };
   }
 
-  throw new Error(`Nenhum provedor de IA disponível ou configurado para: ${provider}`);
+  throw new Error(`Nenhum provedor de IA disponível para: "${provider}". Verifique se a chave de API está configurada em Configurações.`);
 }
 
 /**
