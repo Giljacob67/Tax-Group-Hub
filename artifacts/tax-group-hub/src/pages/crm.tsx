@@ -1893,6 +1893,13 @@ function PipelineKanbanView() {
   const [activePipelineId, setActivePipelineId] = useState("default");
   const [showPipelineMgr, setShowPipelineMgr]   = useState(false);
 
+  // Forecast goal — must be declared before any conditional return
+  const MONTHLY_GOAL_KEY = "crm_monthly_goal";
+  const savedGoal = typeof window !== "undefined" ? Number(localStorage.getItem(MONTHLY_GOAL_KEY) || 50000) : 50000;
+  const [monthlyGoal, setMonthlyGoal] = useState(savedGoal);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalInput, setGoalInput]     = useState(String(savedGoal));
+
   const pipelineQueryParam = activePipelineId === "default" ? "" : `?pipelineId=${activePipelineId}`;
 
   const { data, isLoading } = useQuery<{
@@ -1973,12 +1980,7 @@ function PipelineKanbanView() {
   const wonDeals         = allDeals.filter(d => d.stage === "won");
   const wonValue         = wonDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
 
-  // Forecast bar — monthly goal (configurable via localStorage)
-  const MONTHLY_GOAL_KEY = "crm_monthly_goal";
-  const savedGoal = typeof window !== "undefined" ? Number(localStorage.getItem(MONTHLY_GOAL_KEY) || 50000) : 50000;
-  const [monthlyGoal, setMonthlyGoal] = useState(savedGoal);
-  const [editingGoal, setEditingGoal] = useState(false);
-  const [goalInput, setGoalInput] = useState(String(savedGoal));
+  // Forecast bar
   const progressPct = Math.min(100, Math.round((wonValue / monthlyGoal) * 100));
   const pipelinePct = Math.min(100, Math.round(((wonValue + weightedValue) / monthlyGoal) * 100));
 
