@@ -333,14 +333,16 @@ router.put("/settings/active-provider", async (req, res) => {
   }
 });
 
-// POST /settings/active-provider/test — Test current active provider
-router.post("/settings/active-provider/test", async (_req, res) => {
+// POST /settings/active-provider/test — Test a specific provider (or current active if none specified)
+router.post("/settings/active-provider/test", async (req, res) => {
   try {
+    const { provider, customUrl, model } = req.body as { provider?: string; customUrl?: string; model?: string };
     // Dynamic import to avoid circular deps
     const { callLLM } = await import("../lib/llm-client.js");
     const result = await callLLM(
       "You are a connectivity test assistant. Be concise.",
-      "Reply with exactly: 'OK · <your model name>'"
+      "Reply with exactly: 'OK · <your model name>'",
+      { provider, model, customUrl }
     );
     res.json({
       success: true,
@@ -354,7 +356,6 @@ router.post("/settings/active-provider/test", async (_req, res) => {
     res.json({ success: false, error: err.message || "Erro desconhecido" });
   }
 });
-
 // GET /settings/channels — List omnichannel channel configurations
 router.get("/settings/channels", async (req, res) => {
   try {

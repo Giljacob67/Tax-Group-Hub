@@ -69,7 +69,7 @@ async function getApiKey(provider: string, userId?: string): Promise<string | nu
  * Returns a configured LanguageModel based on provider and model name.
  * Defaults to Ollama (if available) or Gemini.
  */
-export async function getLanguageModel(requestedProvider?: string, requestedModel?: string, userId?: string): Promise<{ model: LanguageModel; providerName: string; modelId: string }> {
+export async function getLanguageModel(requestedProvider?: string, requestedModel?: string, userId?: string, requestedCustomUrl?: string): Promise<{ model: LanguageModel; providerName: string; modelId: string }> {
   // Normalize provider names
   let provider = (requestedProvider || "auto").toLowerCase();
   
@@ -86,7 +86,7 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
 
   // 1. OLLAMA CLOUD (custom URL Ollama-compatible endpoint)
   if (provider === "ollama_cloud") {
-    const cloudUrl = activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "";
+    const cloudUrl = requestedCustomUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "";
     if (!cloudUrl) throw new Error("Ollama Cloud URL não configurada. Configure-a nas Integrações.");
     const cloudKey = await getApiKey("ollama_cloud", userId);
     const customOpenAI = createOpenAI({
@@ -163,13 +163,14 @@ export async function callLLM(
   options?: { 
     provider?: string; 
     model?: string; 
+    customUrl?: string;
     jsonMode?: boolean;
     toolIds?: string[];
     userId?: string;
   }
 ): Promise<LLMResult> {
   const startTime = Date.now();
-  const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model, options?.userId);
+  const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model, options?.userId, options?.customUrl);
 
   // Prepare tools if requested
   const tools: Record<string, any> = {};

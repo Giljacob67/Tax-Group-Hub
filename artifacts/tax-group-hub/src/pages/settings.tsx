@@ -61,9 +61,11 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-function OllamaCard({ integration, onSettingsChange }: {
+function OllamaCard({ integration, onSettingsChange, activeProvider, onActivate }: {
   integration: IntegrationStatus;
   onSettingsChange: () => void;
+  activeProvider: string;
+  onActivate: (provider: string, url: string, model: string) => Promise<void>;
 }) {
   const IntIcon = INTEGRATION_ICONS[integration.id] || Cloud;
   const [ollamaSettings, setOllamaSettings] = useState<OllamaSettings | null>(null);
@@ -72,8 +74,10 @@ function OllamaCard({ integration, onSettingsChange }: {
   const [editModel, setEditModel] = useState("");
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [activating, setActivating] = useState(false);
   const [testResult, setTestResult] = useState<OllamaTestResult | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const isThisActive = activeProvider === "ollama";
 
   useEffect(() => {
     fetchOllamaSettings();
@@ -368,6 +372,29 @@ function OllamaCard({ integration, onSettingsChange }: {
           )}
         </div>
       )}
+
+      {/* Activate button */}
+      <div className="pt-2 border-t border-border/30">
+        {isThisActive ? (
+          <div className="flex items-center gap-2 py-2 text-xs text-primary font-medium">
+            <CheckCircle2 className="w-4 h-4" />
+            {editModel ? `Ativo: ${editModel}` : 'Provedor Ollama ativo'} — todos os agentes usam este.
+          </div>
+        ) : (
+          <button
+            disabled={activating || !editUrl.trim()}
+            onClick={async () => {
+              setActivating(true);
+              await onActivate("ollama", "", editModel);
+              setActivating(false);
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-xs font-semibold transition-all disabled:opacity-50"
+          >
+            {activating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+            Usar este provedor
+          </button>
+        )}
+      </div>
     </motion.div>
   );
 }
@@ -442,7 +469,15 @@ function LLMProviderCard({
     setTesting(true);
     setTestResult(null);
     try {
-      const res = await fetch("/api/settings/active-provider/test", { method: "POST" });
+      const res = await fetch("/api/settings/active-provider/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: integration.id,
+          customUrl: needsUrl ? customUrl : undefined,
+          model: selectedModel || undefined,
+        }),
+      });
       const data = await res.json();
       setTestResult(data);
     } catch {
@@ -1015,6 +1050,10 @@ export default function SettingsPage() {
                         key={integration.id}
                         integration={integration}
                         onSettingsChange={fetchSettings}
+                          activeProvider={activeProvider}
+                          onActivate={async (provider, url, model) => {
+                            await activateProvider(provider, url, model);
+                          }}
                       />
                     );
                   }
