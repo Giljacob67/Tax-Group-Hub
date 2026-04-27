@@ -174,9 +174,12 @@ export async function callLLM(
   // â”€â”€ Special handling for Ollama Cloud (native Ollama API, not OpenAI-compatible)
   const provider = (options?.provider || "auto").toLowerCase();
   if (provider === "ollama_cloud") {
-    const cloudUrl = (options?.customUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\/+$/, "");
+    let cloudUrl = (options?.customUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\/+$/, "");
     const modelId = options?.model || "llama3.2";
     if (!cloudUrl) throw new Error("Ollama Cloud URL nÃ£o configurada.");
+
+    // Normalize: avoid /api duplication if user already entered /api
+    const chatEndpoint = cloudUrl.endsWith("/api") ? `${cloudUrl}/chat` : `${cloudUrl}/api/chat`;
 
     const messages: Array<{ role: string; content: string }> = Array.isArray(userMessage)
       ? [{ role: "system", content: systemPrompt }, ...userMessage]
@@ -186,7 +189,7 @@ export async function callLLM(
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (ollamaKey) headers["Authorization"] = `Bearer ${ollamaKey}`;
 
-    const response = await fetch(`${cloudUrl}/api/chat`, {
+    const response = await fetch(chatEndpoint, {
       method: "POST",
       headers,
       body: JSON.stringify({ model: modelId, messages, stream: false }),
