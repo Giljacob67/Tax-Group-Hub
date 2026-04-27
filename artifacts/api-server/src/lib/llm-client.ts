@@ -170,6 +170,47 @@ export async function callLLM(
   }
 ): Promise<LLMResult> {
   const startTime = Date.now();
+
+  // â”€â”€ Special handling for Ollama Cloud (native Ollama API, not OpenAI-compatible)
+  const provider = (options?.provider || "auto").toLowerCase();
+  if (provider === "ollama_cloud") {
+    const cloudUrl = (options?.customUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\/+$/, "");
+    const modelId = options?.model || "llama3.2";
+    if (!cloudUrl) throw new Error("Ollama Cloud URL nÃ£o configurada.");
+
+    const messages: Array<{ role: string; content: string }> = Array.isArray(userMessage)
+      ? [{ role: "system", content: systemPrompt }, ...userMessage]
+      : [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }];
+
+    const ollamaKey = await getApiKey("ollama_cloud", options?.userId);
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (ollamaKey) headers["Authorization"] = `Bearer ${ollamaKey}`;
+
+    const response = await fetch(`${cloudUrl}/api/chat`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ model: modelId, messages, stream: false }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Ollama Cloud erro ${response.status}: ${errText}`);
+    }
+
+    const data = await response.json() as { message?: { content?: string }; response?: string };
+    const output = data.message?.content || data.response || "";
+    const executionTimeMs = Date.now() - startTime;
+
+    return {
+      output,
+      tokensUsed: 0,
+      executionTimeMs,
+      model: modelId,
+      provider: "Ollama Cloud",
+      toolCalls: undefined,
+    };
+  }
+
   const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model, options?.userId, options?.customUrl);
 
   // Prepare tools if requested
