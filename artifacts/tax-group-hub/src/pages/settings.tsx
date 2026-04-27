@@ -171,14 +171,7 @@ function OllamaCard({ integration, onSettingsChange, activeProvider, onActivate 
             <IntIcon className={`w-5 h-5 ${integration.configured ? 'text-emerald-400' : 'text-muted-foreground'}`} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-foreground">{integration.name}</h3>
-              {isThisActive && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold border border-primary/30">
-                  ✓ ATIVO
-                </span>
-              )}
-            </div>
+            <h3 className="font-semibold text-foreground">{integration.name}</h3>
             <div className="flex items-center gap-1.5 mt-0.5">
               {integration.configured ? (
                 <>
@@ -518,14 +511,7 @@ function LLMProviderCard({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2">
               <h3 className="font-semibold text-foreground">{integration.name}</h3>
-              {isThisActive && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold border border-primary/30">
-                  ✓ ATIVO
-                </span>
-              )}
-            </div>
               {isThisActive && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold border border-primary/30">
                   ✓ ATIVO
@@ -1108,14 +1094,7 @@ export default function SettingsPage() {
                           <IntIcon className={`w-5 h-5 ${integration.configured ? 'text-emerald-400' : 'text-muted-foreground'}`} />
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-foreground">{integration.name}</h3>
-              {isThisActive && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold border border-primary/30">
-                  ✓ ATIVO
-                </span>
-              )}
-            </div>
+                          <h3 className="font-semibold text-foreground">{integration.name}</h3>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {integration.configured ? (
                               <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs text-emerald-400 font-medium">Configurado</span></>
