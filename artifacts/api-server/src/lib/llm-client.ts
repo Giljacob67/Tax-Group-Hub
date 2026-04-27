@@ -176,6 +176,7 @@ export async function callLLM(
   if (provider === "ollama_cloud") {
     let cloudUrl = (options?.customUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\/+$/, "");
     const modelId = options?.model || "llama3.2";
+    console.log(`[Ollama Cloud Debug] URL: ${cloudUrl}, Model: ${modelId}, Provider: ${provider}`);
     if (!cloudUrl) throw new Error("Ollama Cloud URL nÃ£o configurada.");
 
     // Normalize: avoid /api duplication if user already entered /api
@@ -201,6 +202,7 @@ export async function callLLM(
     }
 
     const data = await response.json() as { message?: { content?: string }; response?: string };
+    console.log(`[Ollama Cloud Debug] Response:`, JSON.stringify(data).substring(0, 200));
     const output = data.message?.content || data.response || "";
     const executionTimeMs = Date.now() - startTime;
 

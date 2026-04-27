@@ -99,9 +99,9 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  // 4. Development/Safe Fallback (Block if strictly configured)
-  if (!systemApiKey && !jwtSecret && process.env.NODE_ENV !== "production") {
-    req.userId = "dev-user";
+  // 4. Safe Fallback: if no auth is configured, allow through (legacy demo mode)
+  if (!systemApiKey && !jwtSecret) {
+    req.userId = String(req.headers["x-user-id"] || "demo-user");
     next();
     return;
   }
