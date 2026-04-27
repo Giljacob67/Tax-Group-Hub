@@ -86,8 +86,8 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
 
   // 1. OLLAMA CLOUD (custom URL Ollama-compatible endpoint)
   if (provider === "ollama_cloud") {
-    const cloudUrl = requestedCustomUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "";
-    if (!cloudUrl) throw new Error("Ollama Cloud URL não configurada. Configure-a nas Integrações.");
+    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
+    let cloudUrl = (options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\\/+$/, "");
     const cloudKey = await getApiKey("ollama_cloud", userId);
     const customOpenAI = createOpenAI({
       baseURL: cloudUrl.endsWith("/v1") ? cloudUrl : `${cloudUrl.replace(/\/+$/, "")}/v1`,
@@ -174,7 +174,8 @@ export async function callLLM(
   // â”€â”€ Special handling for Ollama Cloud (native Ollama API, not OpenAI-compatible)
   const provider = (options?.provider || "auto").toLowerCase();
   if (provider === "ollama_cloud") {
-    let cloudUrl = (options?.customUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\/+$/, "");
+    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
+    let cloudUrl = (options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\\/+$/, "");
     const modelId = options?.model || "llama3.2";
     console.log(`[Ollama Cloud Debug] URL: ${cloudUrl}, Model: ${modelId}, Provider: ${provider}`);
     if (!cloudUrl) throw new Error("Ollama Cloud URL nÃ£o configurada.");

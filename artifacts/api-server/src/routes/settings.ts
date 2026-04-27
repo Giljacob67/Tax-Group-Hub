@@ -58,6 +58,8 @@ router.get("/settings/integrations", async (req, res) => {
     const userId = req.userId;
     const { url: ollamaUrl } = await getEffectiveOllamaUrl();
     const ollamaModel = await getEffectiveOllamaModel();
+    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
+    const activeLlmModel = await getConfigValue("ACTIVE_LLM_MODEL");
 
     // Check DB for BYOK Keys
     const userKeys = await db
@@ -112,12 +114,11 @@ router.get("/settings/integrations", async (req, res) => {
       {
         id: "ollama_cloud",
         name: "Ollama Cloud",
-        status: checkStatus("ollama_cloud", "OLLAMA_CLOUD_API_KEY"),
+        status: (isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY") || !!activeLlmUrl) ? "connected" : "disconnected",
         description: "Instância gerenciada de Ollama em Nuvem (Hosted Ollama)",
         icon: "☁️",
-        envVar: "OLLAMA_CLOUD_API_KEY",
-        configured: isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY"),
-        active: isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY"),
+        configured: isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY") || !!activeLlmUrl,
+        active: isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY") || !!activeLlmUrl,
         category: "llm",
       },
       {
