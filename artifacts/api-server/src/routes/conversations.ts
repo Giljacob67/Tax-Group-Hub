@@ -410,62 +410,32 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         res.write(`data: ${JSON.stringify({ type: "start", userMessage: { id: String(userMsg.id), conversationId: String(userMsg.conversationId), role: userMsg.role, content: userMsg.content, createdAt: userMsg.createdAt.toISOString() }, autoTitle })}\n\n`);
 
         // Special handling for Ollama Cloud (native API, not OpenAI-compatible)
+        // For streaming mode, we simulate streaming by splitting the response into words
         if (activeProviderDb === "ollama_cloud") {
-          const cloudUrl = (activeLlmUrl || "").replace(/\/+$/, "");
-          const modelId = modelOverride || activeLlmModel || "llama3.2";
-          if (!cloudUrl) throw new Error("Ollama Cloud URL não configurada.");
-
-          const chatEndpoint = cloudUrl.endsWith("/api") ? `${cloudUrl}/chat` : `${cloudUrl}/api/chat`;
-          const ollamaKeyRes = await db.select({ key: db.schema?.apiKeysTable?.key }).from(db.schema?.apiKeysTable).where(eq(db.schema?.apiKeysTable.provider, "ollama_cloud")).limit(1).catch(() => []);
-
-          const headers: Record<string, string> = { "Content-Type": "application/json" };
-          // Note: API keys for ollama_cloud stored in DB; fetch without auth for now
-
-          const ollamaRes = await fetch(chatEndpoint, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ model: modelId, messages: llmMessages, stream: true }),
+          const result = await callLLM(systemPrompt, content.trim(), { 
+            provider: "ollama_cloud",
+            model: modelOverride || activeLlmModel || undefined,
+            customUrl: activeLlmUrl || undefined,
+            toolIds: ["webSearch", "emailSender"],
+            userId: userId || undefined
           });
-
-          if (!ollamaRes.ok) {
-            const errText = await ollamaRes.text();
-            throw new Error(`Ollama Cloud erro ${ollamaRes.status}: ${errText}`);
+          assistantContent = result.output;
+          
+          // Simulate streaming by sending word by word
+          const words = assistantContent.split(/(\s+)/);
+          for (const word of words) {
+            res.write(`data: ${JSON.stringify({ type: "token", text: word })}\n\n`);
           }
-
-          // Stream the response (Ollama returns NDJSON for streaming)
-          const reader = ollamaRes.body?.getReader();
-          if (!reader) throw new Error("Ollama Cloud: resposta sem body");
-
-          const decoder = new TextDecoder();
-          let done = false;
-          while (!done) {
-            const { value, done: d } = await reader.read();
-            done = d;
-            if (!value) continue;
-            const chunk = decoder.decode(value, { stream: true });
-            for (const line of chunk.split("\n")) {
-              if (!line.trim()) continue;
-              try {
-                const parsed = JSON.parse(line);
-                const textChunk = parsed.message?.content || parsed.response || "";
-                if (textChunk) {
-                  assistantContent += textChunk;
-                  res.write(`data: ${JSON.stringify({ type: "token", text: textChunk })}\n\n`);
-                }
-              } catch { /* ignore parse errors */ }
-            }
-          }
-
           // Log usage
           await db.insert(usageLogsTable).values({
             userId: userId || null,
             conversationId,
             agentId: conv.agentId,
-            model: modelId,
-            provider: "Ollama Cloud",
+            model: result.model,
+            provider: result.provider,
             promptTokens: 0,
             completionTokens: 0,
-            totalTokens: 0,
+            totalTokens: result.tokensUsed,
             platform: "web"
           }).catch(() => {});
         } else {
