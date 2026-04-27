@@ -10,6 +10,7 @@ import {
 import { eq, desc, count, and, sql } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
 import { generateEmbeddings, callLLM, getLanguageModel } from "../lib/llm-client.js";
+import { getConfigValue } from "./settings.js";
 import { streamText } from "ai";
 import { SendMessageBody } from "@workspace/api-zod";
 import { isRealUser } from "../middlewares/auth.js";
@@ -390,6 +391,11 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
 
     let assistantContent = "";
 
+    // Read active provider config from DB
+    const activeProviderDb = await getConfigValue("ACTIVE_LLM_PROVIDER");
+    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
+    const activeLlmModel = await getConfigValue("ACTIVE_LLM_MODEL");
+
     // [Refactored for Phase 9] Use unified callLLM for metrics and tool support
     try {
       if (isStream) {
@@ -403,12 +409,72 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         
         res.write(`data: ${JSON.stringify({ type: "start", userMessage: { id: String(userMsg.id), conversationId: String(userMsg.conversationId), role: userMsg.role, content: userMsg.content, createdAt: userMsg.createdAt.toISOString() }, autoTitle })}\n\n`);
 
-        const { model: aiModel } = await getLanguageModel(undefined, modelOverride);
-        const streamResult = await streamText({
-          model: aiModel,
-          system: systemPrompt,
-          messages: llmMessages,
-          onFinish: async (finish: any) => {
+        // Special handling for Ollama Cloud (native API, not OpenAI-compatible)
+        if (activeProviderDb === "ollama_cloud") {
+          const cloudUrl = (activeLlmUrl || "").replace(/\/+$/, "");
+          const modelId = modelOverride || activeLlmModel || "llama3.2";
+          if (!cloudUrl) throw new Error("Ollama Cloud URL não configurada.");
+
+          const chatEndpoint = cloudUrl.endsWith("/api") ? `${cloudUrl}/chat` : `${cloudUrl}/api/chat`;
+          const ollamaKeyRes = await db.select({ key: db.schema?.apiKeysTable?.key }).from(db.schema?.apiKeysTable).where(eq(db.schema?.apiKeysTable.provider, "ollama_cloud")).limit(1).catch(() => []);
+
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          // Note: API keys for ollama_cloud stored in DB; fetch without auth for now
+
+          const ollamaRes = await fetch(chatEndpoint, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ model: modelId, messages: llmMessages, stream: true }),
+          });
+
+          if (!ollamaRes.ok) {
+            const errText = await ollamaRes.text();
+            throw new Error(`Ollama Cloud erro ${ollamaRes.status}: ${errText}`);
+          }
+
+          // Stream the response (Ollama returns NDJSON for streaming)
+          const reader = ollamaRes.body?.getReader();
+          if (!reader) throw new Error("Ollama Cloud: resposta sem body");
+
+          const decoder = new TextDecoder();
+          let done = false;
+          while (!done) {
+            const { value, done: d } = await reader.read();
+            done = d;
+            if (!value) continue;
+            const chunk = decoder.decode(value, { stream: true });
+            for (const line of chunk.split("\n")) {
+              if (!line.trim()) continue;
+              try {
+                const parsed = JSON.parse(line);
+                const textChunk = parsed.message?.content || parsed.response || "";
+                if (textChunk) {
+                  assistantContent += textChunk;
+                  res.write(`data: ${JSON.stringify({ type: "token", text: textChunk })}\n\n`);
+                }
+              } catch { /* ignore parse errors */ }
+            }
+          }
+
+          // Log usage
+          await db.insert(usageLogsTable).values({
+            userId: userId || null,
+            conversationId,
+            agentId: conv.agentId,
+            model: modelId,
+            provider: "Ollama Cloud",
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            platform: "web"
+          }).catch(() => {});
+        } else {
+          const { model: aiModel } = await getLanguageModel(undefined, modelOverride);
+          const streamResult = await streamText({
+            model: aiModel,
+            system: systemPrompt,
+            messages: llmMessages,
+            onFinish: async (finish: any) => {
              // Log usage
              await db.insert(usageLogsTable).values({
                userId: userId || null,
@@ -431,9 +497,12 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
             res.write(`data: ${JSON.stringify({ type: "token", text: textChunk })}\n\n`);
           }
         }
+        }
       } else {
         const result = await callLLM(systemPrompt, content.trim(), { 
-          model: modelOverride,
+          provider: activeProviderDb || undefined,
+          model: modelOverride || activeLlmModel || undefined,
+          customUrl: activeLlmUrl || undefined,
           toolIds: ["webSearch", "emailSender"], // Enabled tools in chat
           userId: userId || undefined
         });
