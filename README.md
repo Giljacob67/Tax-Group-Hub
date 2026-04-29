@@ -39,7 +39,6 @@ TAVILY_API_KEY=sua_chave_tavily_aqui
 
 # Configurações de Segurança
 API_KEY=sua_chave_mestra_da_api  # Obrigatório em produção!
-DEV_BYPASS_AUTH=true              # Somente em node_env !== production (ignora chave)
 ENCRYPTION_KEY=sua_chave_aes_hex  # Chave de 32 bytes (64 chars hex) para cifrar strings
 ```
 
@@ -63,7 +62,7 @@ pnpm run dev
 
 ## 🔒 Segurança (Fatores Importantes)
 
-- **Auth Bypass:** O ambiente só ignora autenticação localmente se o `NODE_ENV` for diferente de `production` e `DEV_BYPASS_AUTH` ser `true`. No servidor de deploy (Vercel), você precisa expor o `API_KEY`.
+- **Auth Fallback:** Se `API_KEY` e `JWT_SECRET` não estiverem configurados, a API entra em modo demo e usa o tenant `demo-user`. Em produção, configure `API_KEY` e/ou `JWT_SECRET`.
 - **Read-Only FS na Vercel:** Os uploads de mídia, extração de pdfs e armazenamento persistentes operam na partição provisória `/tmp/uploads` para contornar limitações "Read Only" do ambiente *Serverless*.
 
 ## Documentação Extra
