@@ -10,7 +10,7 @@ import {
 import { eq, desc, count, and, sql } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
 import { generateEmbeddings, callLLM, getLanguageModel } from "../lib/llm-client.js";
-import { getConfigValue } from "./settings.js";
+import { getActiveLlmPreference } from "./settings.js";
 import { streamText } from "ai";
 import { SendMessageBody } from "@workspace/api-zod";
 import { isRealUser } from "../middlewares/auth.js";
@@ -20,6 +20,23 @@ const router: IRouter = Router();
 function buildRAGContextMock(docs: Array<{ filename: string; extractedContent: string | null }>, userMessage: string): string {
   // kept only for legacy if needed
   return "";
+}
+
+async function loadConversationForRequest(conversationId: number, userId?: string) {
+  const [conv] = await db
+    .select()
+    .from(conversationsTable)
+    .where(eq(conversationsTable.id, conversationId));
+
+  if (!conv) {
+    return { conv: null, error: "not_found" as const };
+  }
+
+  if (isRealUser(userId) && conv.userId && conv.userId !== userId) {
+    return { conv: null, error: "forbidden" as const };
+  }
+
+  return { conv, error: null };
 }
 
 router.get("/conversations", async (req, res) => {
@@ -192,15 +209,22 @@ router.patch("/conversations/:conversationId", async (req, res) => {
 router.get("/conversations/:conversationId/export", async (req, res) => {
   try {
     const conversationId = Number(req.params.conversationId);
+    const userId = req.userId;
     if (isNaN(conversationId)) {
       res.status(404).json({ error: "Conversation not found" });
       return;
     }
-    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
-    if (!conv) {
+
+    const { conv, error } = await loadConversationForRequest(conversationId, userId);
+    if (error === "not_found") {
       res.status(404).json({ error: "Conversation not found" });
       return;
     }
+    if (error === "forbidden") {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
     const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
     const agent = getAgentById(conv.agentId);
 
@@ -302,9 +326,13 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       return;
     }
 
-    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
-    if (!conv) {
+    const { conv, error } = await loadConversationForRequest(conversationId, userId);
+    if (error === "not_found") {
       res.status(404).json({ error: "Conversation not found" });
+      return;
+    }
+    if (error === "forbidden") {
+      res.status(403).json({ error: "Access denied" });
       return;
     }
 
@@ -392,9 +420,10 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     let assistantContent = "";
 
     // Read active provider config from DB
-    const activeProviderDb = await getConfigValue("ACTIVE_LLM_PROVIDER");
-    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
-    const activeLlmModel = await getConfigValue("ACTIVE_LLM_MODEL");
+    const activeLlmPreference = await getActiveLlmPreference(userId);
+    const activeProviderDb = activeLlmPreference.provider;
+    const activeLlmUrl = activeLlmPreference.customUrl;
+    const activeLlmModel = activeLlmPreference.model;
 
     // [Refactored for Phase 9] Use unified callLLM for metrics and tool support
     try {

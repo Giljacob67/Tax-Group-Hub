@@ -1,9 +1,60 @@
 import { Router, type IRouter } from "express";
-import { db, appConfigTable, channelConfigsTable, apiKeysTable } from "@workspace/db";
+import { db, appConfigTable, channelConfigsTable, apiKeysTable, activeLlmSettingsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { encrypt, decrypt } from "../lib/crypto.js";
 
 const router: IRouter = Router();
+
+function getScopedUserId(userId?: string): string {
+  return typeof userId === "string" && userId.trim() !== "" ? userId : "demo-user";
+}
+
+function isPrivateHostname(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "[::1]" ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+  );
+}
+
+export function normalizeServiceUrl(
+  rawUrl: string,
+  options?: {
+    allowPrivateEnvVar?: string;
+    label?: string;
+  },
+): string {
+  const trimmed = rawUrl.trim();
+  const label = options?.label || "URL";
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(`${label} invalida. Use o formato: http://host:porta`);
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`${label} invalida. Use apenas http ou https.`);
+  }
+
+  if (
+    isPrivateHostname(parsed.hostname) &&
+    options?.allowPrivateEnvVar &&
+    process.env[options.allowPrivateEnvVar] !== "true"
+  ) {
+    throw new Error(
+      `Seguranca: URLs de rede privada/local nao sao permitidas por padrao para ${label}.`,
+    );
+  }
+
+  return trimmed.replace(/\/+$/, "");
+}
 
 // Root GET - list available settings endpoints
 router.get("/settings", (_req, res) => {
@@ -51,21 +102,67 @@ interface IntegrationStatus {
   icon?: string;
 }
 
-import { isRealUser } from "../middlewares/auth.js";
+export interface ActiveLlmPreference {
+  provider: string;
+  customUrl: string | null;
+  model: string | null;
+  source: "tenant" | "legacy" | "default";
+}
+
+export async function getActiveLlmPreference(userId?: string): Promise<ActiveLlmPreference> {
+  const scopedUserId = getScopedUserId(userId);
+  const [tenantPreference] = await db
+    .select()
+    .from(activeLlmSettingsTable)
+    .where(eq(activeLlmSettingsTable.userId, scopedUserId))
+    .limit(1);
+
+  if (tenantPreference) {
+    return {
+      provider: tenantPreference.provider || "auto",
+      customUrl: tenantPreference.customUrl || null,
+      model: tenantPreference.model || null,
+      source: "tenant",
+    };
+  }
+
+  const [legacyProvider, legacyCustomUrl, legacyModel] = await Promise.all([
+    getConfigValue("ACTIVE_LLM_PROVIDER"),
+    getConfigValue("ACTIVE_LLM_URL"),
+    getConfigValue("ACTIVE_LLM_MODEL"),
+  ]);
+
+  if (legacyProvider || legacyCustomUrl || legacyModel) {
+    return {
+      provider: legacyProvider || "auto",
+      customUrl: legacyCustomUrl || null,
+      model: legacyModel || null,
+      source: "legacy",
+    };
+  }
+
+  return {
+    provider: "auto",
+    customUrl: null,
+    model: null,
+    source: "default",
+  };
+}
 
 router.get("/settings/integrations", async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = getScopedUserId(req.userId);
     const { url: ollamaUrl } = await getEffectiveOllamaUrl();
     const ollamaModel = await getEffectiveOllamaModel();
-    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
-    const activeLlmModel = await getConfigValue("ACTIVE_LLM_MODEL");
+    const activeLlmPreference = await getActiveLlmPreference(userId);
+    const activeLlmUrl = activeLlmPreference.customUrl;
+    const activeLlmModel = activeLlmPreference.model;
 
     // Check DB for BYOK Keys
     const userKeys = await db
       .select({ provider: apiKeysTable.provider })
       .from(apiKeysTable)
-      .where(isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined);
+      .where(eq(apiKeysTable.userId, userId));
     
     // Convert to easy lookup set
     const hasDbKey = new Set(userKeys.map((k: any) => k.provider));
@@ -166,8 +263,8 @@ router.get("/settings/integrations", async (req, res) => {
     const geminiModel = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
     // Read active provider from DB (set via PUT /settings/active-provider)
-    const activeProviderDb = await getConfigValue("ACTIVE_LLM_PROVIDER");
-    const activeLlmModelDb = await getConfigValue("ACTIVE_LLM_MODEL");
+    const activeProviderDb = activeLlmPreference.provider;
+    const activeLlmModelDb = activeLlmPreference.model;
 
     const PROVIDER_LABELS: Record<string, string> = {
       ollama: `Ollama Local`,
@@ -208,11 +305,11 @@ router.get("/settings/integrations", async (req, res) => {
 // GET /settings/keys — List custom active keys for user
 router.get("/settings/keys", async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = getScopedUserId(req.userId);
     const userKeys = await db
       .select({ provider: apiKeysTable.provider, createdAt: apiKeysTable.createdAt })
       .from(apiKeysTable)
-      .where(isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined);
+      .where(eq(apiKeysTable.userId, userId));
     
     res.json({ keys: userKeys });
   } catch (err) {
@@ -223,7 +320,7 @@ router.get("/settings/keys", async (req, res) => {
 // POST /settings/keys — Set a custom BYOK key
 router.post("/settings/keys", async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = getScopedUserId(req.userId);
     const { provider, key } = req.body;
     
     if (!provider || !key) {
@@ -239,7 +336,7 @@ router.post("/settings/keys", async (req, res) => {
       .where(
         and(
           eq(apiKeysTable.provider, provider),
-          isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined
+          eq(apiKeysTable.userId, userId)
         )
       )
       .limit(1);
@@ -250,7 +347,7 @@ router.post("/settings/keys", async (req, res) => {
         .where(eq(apiKeysTable.id, existing.id));
     } else {
       await db.insert(apiKeysTable).values({
-        userId: isRealUser(userId) ? userId : null,
+        userId,
         provider,
         key: encryptedKey,
         createdAt: new Date(),
@@ -267,14 +364,14 @@ router.post("/settings/keys", async (req, res) => {
 // DELETE /settings/keys/:provider — Delete a custom BYOK key
 router.delete("/settings/keys/:provider", async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = getScopedUserId(req.userId);
     const provider = req.params.provider;
 
     await db.delete(apiKeysTable)
       .where(
         and(
           eq(apiKeysTable.provider, provider),
-          isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined
+          eq(apiKeysTable.userId, userId)
         )
       );
     
@@ -286,12 +383,15 @@ router.delete("/settings/keys/:provider", async (req, res) => {
 
 // ─── Active LLM Provider ─────────────────────────────────────────────────────
 // GET /settings/active-provider — returns current active provider config
-router.get("/settings/active-provider", async (_req, res) => {
+router.get("/settings/active-provider", async (req, res) => {
   try {
-    const provider = await getConfigValue("ACTIVE_LLM_PROVIDER");
-    const customUrl = await getConfigValue("ACTIVE_LLM_URL");
-    const model = await getConfigValue("ACTIVE_LLM_MODEL");
-    res.json({ provider: provider || "auto", customUrl: customUrl || null, model: model || null });
+    const preference = await getActiveLlmPreference(req.userId);
+    res.json({
+      provider: preference.provider,
+      customUrl: preference.customUrl,
+      model: preference.model,
+      source: preference.source,
+    });
   } catch (err) {
     res.status(500).json({ error: "Failed to get active provider" });
   }
@@ -302,33 +402,58 @@ router.get("/settings/active-provider", async (_req, res) => {
 router.put("/settings/active-provider", async (req, res) => {
   try {
     const { provider, customUrl, model } = req.body as { provider: string; customUrl?: string; model?: string };
+    const userId = getScopedUserId(req.userId);
 
     if (!provider) {
       res.status(400).json({ error: "provider é obrigatório." }); return;
     }
 
-    await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_PROVIDER", value: provider, updatedAt: new Date() })
-      .onConflictDoUpdate({ target: appConfigTable.key, set: { value: provider, updatedAt: new Date() } });
+    const existingPreference = await getActiveLlmPreference(userId);
 
-    if (customUrl !== undefined) {
-      if (customUrl) {
-        await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_URL", value: customUrl.trim(), updatedAt: new Date() })
-          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: customUrl.trim(), updatedAt: new Date() } });
-      } else {
-        await db.delete(appConfigTable).where(eq(appConfigTable.key, "ACTIVE_LLM_URL"));
-      }
-    }
+    const normalizedCustomUrl =
+      customUrl === undefined
+        ? undefined
+        : customUrl
+          ? normalizeServiceUrl(customUrl, {
+              allowPrivateEnvVar: "ALLOW_PRIVATE_OLLAMA",
+              label: "URL do provedor",
+            })
+          : null;
+    const normalizedModel =
+      model === undefined ? undefined : model.trim() ? model.trim() : null;
+    const nextCustomUrl =
+      normalizedCustomUrl === undefined ? existingPreference.customUrl : normalizedCustomUrl;
+    const nextModel =
+      normalizedModel === undefined ? existingPreference.model : normalizedModel;
 
-    if (model !== undefined) {
-      if (model) {
-        await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_MODEL", value: model.trim(), updatedAt: new Date() })
-          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: model.trim(), updatedAt: new Date() } });
-      } else {
-        await db.delete(appConfigTable).where(eq(appConfigTable.key, "ACTIVE_LLM_MODEL"));
-      }
-    }
+    await db
+      .insert(activeLlmSettingsTable)
+      .values({
+        userId,
+        provider,
+        customUrl: nextCustomUrl,
+        model: nextModel,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: activeLlmSettingsTable.userId,
+        set: {
+          provider,
+          customUrl: nextCustomUrl,
+          model: nextModel,
+          updatedAt: new Date(),
+        },
+      });
 
-    res.json({ success: true, provider, customUrl: customUrl || null, model: model || null });
+    const savedPreference = await getActiveLlmPreference(userId);
+    res.json({
+      success: true,
+      provider: savedPreference.provider,
+      customUrl: savedPreference.customUrl,
+      model: savedPreference.model,
+      source: savedPreference.source,
+    });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to set active provider", message: err.message });
   }
@@ -338,12 +463,19 @@ router.put("/settings/active-provider", async (req, res) => {
 router.post("/settings/active-provider/test", async (req, res) => {
   try {
     const { provider, customUrl, model } = req.body as { provider?: string; customUrl?: string; model?: string };
+    const userId = getScopedUserId(req.userId);
+    const normalizedCustomUrl = customUrl
+      ? normalizeServiceUrl(customUrl, {
+          allowPrivateEnvVar: "ALLOW_PRIVATE_OLLAMA",
+          label: "URL do provedor",
+        })
+      : undefined;
     // Dynamic import to avoid circular deps
     const { callLLM } = await import("../lib/llm-client.js");
     const result = await callLLM(
       "You are a connectivity test assistant. Be concise.",
       "Reply with exactly: 'OK · <your model name>'",
-      { provider, model, customUrl }
+      { provider, model, customUrl: normalizedCustomUrl, userId }
     );
     res.json({
       success: true,
@@ -360,11 +492,11 @@ router.post("/settings/active-provider/test", async (req, res) => {
 // GET /settings/channels — List omnichannel channel configurations
 router.get("/settings/channels", async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = getScopedUserId(req.userId);
     const channels = await db
       .select()
       .from(channelConfigsTable)
-      .where(isRealUser(userId) ? eq(channelConfigsTable.userId, userId) : undefined);
+      .where(eq(channelConfigsTable.userId, userId));
     
     res.json({ channels });
   } catch (err) {
@@ -377,7 +509,7 @@ router.get("/settings/channels", async (req, res) => {
 router.post("/settings/channels", async (req, res) => {
   try {
     const { platform, externalId, agentId, config } = req.body;
-    const userId = req.userId;
+    const userId = getScopedUserId(req.userId);
 
     if (!platform || !externalId || !agentId) {
       res.status(400).json({ error: "platform, externalId and agentId are required" });
@@ -388,7 +520,13 @@ router.post("/settings/channels", async (req, res) => {
     const [existing] = await db
       .select()
       .from(channelConfigsTable)
-      .where(and(eq(channelConfigsTable.platform, platform), eq(channelConfigsTable.externalId, externalId)))
+      .where(
+        and(
+          eq(channelConfigsTable.platform, platform),
+          eq(channelConfigsTable.externalId, externalId),
+          eq(channelConfigsTable.userId, userId),
+        )
+      )
       .limit(1);
 
     if (existing) {
@@ -402,12 +540,12 @@ router.post("/settings/channels", async (req, res) => {
        const [newChan] = await db
          .insert(channelConfigsTable)
          .values({
-           platform,
-           externalId,
-           agentId,
-           userId: userId || null,
-           config: config || {},
-         })
+            platform,
+            externalId,
+            agentId,
+            userId,
+            config: config || {},
+          })
          .returning();
        res.json({ success: true, channel: newChan });
     }
@@ -467,48 +605,20 @@ router.put("/settings/ollama", async (req, res) => {
     const { url, model } = req.body as { url?: string; model?: string };
     if (url !== undefined && url !== null && url !== "") {
       try {
-        const u = new URL(url);
-        if (u.protocol !== "http:" && u.protocol !== "https:") {
-          throw new Error("Protocolo invalido");
-        }
-        
-        const host = u.hostname.toLowerCase();
-        const isPrivate = 
-          host === "localhost" || 
-          host === "127.0.0.1" || 
-          host === "::1" || 
-          host.startsWith("192.168.") || 
-          host.startsWith("10.") || 
-          host.startsWith("172.16.") || 
-          host.startsWith("172.17.") || 
-          host.startsWith("172.18.") || 
-          host.startsWith("172.19.") || 
-          host.startsWith("172.20.") || 
-          host.startsWith("172.21.") || 
-          host.startsWith("172.22.") || 
-          host.startsWith("172.23.") || 
-          host.startsWith("172.24.") || 
-          host.startsWith("172.25.") || 
-          host.startsWith("172.26.") || 
-          host.startsWith("172.27.") || 
-          host.startsWith("172.28.") || 
-          host.startsWith("172.29.") || 
-          host.startsWith("172.30.") || 
-          host.startsWith("172.31.");
-
-        if (isPrivate && process.env.ALLOW_PRIVATE_OLLAMA !== "true") {
-          res.status(400).json({ error: "Seguranca: URLs de rede privada/local nao sao permitidas por padrao." });
-          return;
-        }
-      } catch {
-        res.status(400).json({ error: "URL invalida. Use o formato: http://host:porta" });
+        const cleanUrl = normalizeServiceUrl(url, {
+          allowPrivateEnvVar: "ALLOW_PRIVATE_OLLAMA",
+          label: "URL do Ollama",
+        });
+        await db
+          .insert(appConfigTable)
+          .values({ key: "OLLAMA_URL", value: cleanUrl, updatedAt: new Date() })
+          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: cleanUrl, updatedAt: new Date() } });
+      } catch (error) {
+        res.status(400).json({
+          error: error instanceof Error ? error.message : "URL invalida. Use o formato: http://host:porta",
+        });
         return;
       }
-      const cleanUrl = url.replace(/\/+$/, "");
-      await db
-        .insert(appConfigTable)
-        .values({ key: "OLLAMA_URL", value: cleanUrl, updatedAt: new Date() })
-        .onConflictDoUpdate({ target: appConfigTable.key, set: { value: cleanUrl, updatedAt: new Date() } });
     } else if (url === "" || url === null) {
       await db.delete(appConfigTable).where(eq(appConfigTable.key, "OLLAMA_URL"));
     }
@@ -539,19 +649,35 @@ router.post("/settings/ollama/test", async (req, res) => {
 
     if (url) {
       try {
-        new URL(url);
-      } catch {
-        res.json({ success: false, error: "URL invalida. Use o formato: http://host:porta" });
+        testUrl = normalizeServiceUrl(url, {
+          allowPrivateEnvVar: "ALLOW_PRIVATE_OLLAMA",
+          label: "URL do Ollama",
+        });
+      } catch (error) {
+        res.json({
+          success: false,
+          error: error instanceof Error ? error.message : "URL invalida. Use o formato: http://host:porta",
+        });
         return;
       }
-      testUrl = url.replace(/\/+$/, "");
     } else {
       const { url: effectiveUrl } = await getEffectiveOllamaUrl();
       if (!effectiveUrl) {
         res.json({ success: false, error: "Nenhuma URL do Ollama configurada." });
         return;
       }
-      testUrl = effectiveUrl;
+      try {
+        testUrl = normalizeServiceUrl(effectiveUrl, {
+          allowPrivateEnvVar: "ALLOW_PRIVATE_OLLAMA",
+          label: "URL do Ollama",
+        });
+      } catch (error) {
+        res.json({
+          success: false,
+          error: error instanceof Error ? error.message : "URL invalida. Use o formato: http://host:porta",
+        });
+        return;
+      }
     }
 
     const controller = new AbortController();

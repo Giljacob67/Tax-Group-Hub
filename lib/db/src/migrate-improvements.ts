@@ -173,6 +173,19 @@ async function run() {
 
   // ─── 8.1 API Keys & Channels ───────────────────────────────────────────
   await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS active_llm_settings (
+      id         SERIAL PRIMARY KEY,
+      user_id    TEXT NOT NULL UNIQUE,
+      provider   TEXT NOT NULL DEFAULT 'auto',
+      custom_url TEXT,
+      model      TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+  console.log("active_llm_settings");
+
+  await db.execute(sql`
     CREATE TABLE IF NOT EXISTS api_keys (
       id         SERIAL PRIMARY KEY,
       provider   TEXT NOT NULL,

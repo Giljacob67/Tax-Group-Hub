@@ -60,9 +60,20 @@ export const appConfigTable = pgTable("app_config", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const activeLlmSettingsTable = pgTable("active_llm_settings", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().unique(),
+  provider: text("provider").notNull().default("auto"),
+  customUrl: text("custom_url"),
+  model: text("model"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertDesignGallerySchema = createInsertSchema(designGalleryTable).omit({ id: true, createdAt: true });
 export type DesignGalleryItem = typeof designGalleryTable.$inferSelect;
 export type InsertDesignGalleryItem = z.infer<typeof insertDesignGallerySchema>;
+export type ActiveLlmSettings = typeof activeLlmSettingsTable.$inferSelect;
 
 export const insertConversationSchema = createInsertSchema(conversationsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMessageSchema = createInsertSchema(messagesTable).omit({ id: true, createdAt: true });

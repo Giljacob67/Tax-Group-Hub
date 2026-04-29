@@ -83,7 +83,7 @@ router.get("/branding/resolve", async (req, res) => {
  */
 router.get("/branding/config", async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId || "demo-user";
     const [branding] = await db
       .select()
       .from(tenantBrandingTable)
@@ -102,7 +102,7 @@ router.get("/branding/config", async (req, res) => {
  */
 router.post("/branding/update", async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId || "demo-user";
     const { companyName, primaryColor, customDomain } = req.body;
 
     const [existing] = await db
@@ -136,7 +136,7 @@ router.post("/branding/update", async (req, res) => {
  */
 router.post("/branding/logo", upload.single("logo"), async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.userId || "demo-user";
     if (!req.file) {
       res.status(400).json({ error: "No file uploaded" });
       return;

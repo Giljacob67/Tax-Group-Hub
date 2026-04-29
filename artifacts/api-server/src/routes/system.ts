@@ -16,18 +16,21 @@ router.post("/system/jobs/retry", async (req, res) => {
     // Enforce admin/system level restriction here if needed
     // For now, allow retry on user's own docs or any doc if global admin.
     
-    let query = db.select().from(knowledgeDocumentsTable).where(inArray(knowledgeDocumentsTable.status, ["error", "pending"]));
-    
+    const conditions = [inArray(knowledgeDocumentsTable.status, ["error", "pending"])];
+
     if (docIds && docIds.length > 0) {
-      query = query.where(inArray(knowledgeDocumentsTable.id, docIds));
+      conditions.push(inArray(knowledgeDocumentsTable.id, docIds));
     }
     
     // Strict tenancy: regular users can only retry their own jobs
     if (userId && userId !== "system" && userId !== "dev-user") {
-      query = query.where(eq(knowledgeDocumentsTable.userId, userId));
+      conditions.push(eq(knowledgeDocumentsTable.userId, userId));
     }
 
-    const stuckDocs = await query;
+    const stuckDocs = await db
+      .select()
+      .from(knowledgeDocumentsTable)
+      .where(and(...conditions));
 
     if (stuckDocs.length === 0) {
       res.json({ success: true, message: "No stuck or failed documents found to retry.", retriedCount: 0 });

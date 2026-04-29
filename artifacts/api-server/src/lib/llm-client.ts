@@ -15,7 +15,13 @@ import {
 import { createOpenAI, openai } from "@ai-sdk/openai";
 import { createAnthropic, anthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI, google } from "@ai-sdk/google";
-import { getEffectiveOllamaUrl, getEffectiveOllamaModel, getConfigValue } from "../routes/settings.js";
+import {
+  getEffectiveOllamaUrl,
+  getEffectiveOllamaModel,
+  getConfigValue,
+  getActiveLlmPreference,
+  normalizeServiceUrl,
+} from "../routes/settings.js";
 import { db } from "@workspace/db";
 import { embeddingCacheTable, apiKeysTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
@@ -74,9 +80,10 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
   let provider = (requestedProvider || "auto").toLowerCase();
   
   // ── Read active provider preference from DB ──────────────────────────────────
-  const activeProviderDb = await getConfigValue("ACTIVE_LLM_PROVIDER");
-  const activeLlmUrl     = await getConfigValue("ACTIVE_LLM_URL");
-  const activeLlmModel   = await getConfigValue("ACTIVE_LLM_MODEL");
+  const activeLlmPreference = await getActiveLlmPreference(userId);
+  const activeProviderDb = activeLlmPreference.provider;
+  const activeLlmUrl = activeLlmPreference.customUrl;
+  const activeLlmModel = activeLlmPreference.model;
 
   // Only override provider when the caller has not explicitly specified one
   if ((provider === "auto" || !requestedProvider) && activeProviderDb && activeProviderDb !== "auto") {
@@ -86,8 +93,13 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
 
   // 1. OLLAMA CLOUD (custom URL Ollama-compatible endpoint)
   if (provider === "ollama_cloud") {
-    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
-    let cloudUrl = (options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\\/+$/, "");
+    const cloudUrl = normalizeServiceUrl(
+      requestedCustomUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "",
+      {
+        allowPrivateEnvVar: "ALLOW_PRIVATE_OLLAMA",
+        label: "URL do Ollama Cloud",
+      },
+    );
     const cloudKey = await getApiKey("ollama_cloud", userId);
     const customOpenAI = createOpenAI({
       baseURL: cloudUrl.endsWith("/v1") ? cloudUrl : `${cloudUrl.replace(/\/+$/, "")}/v1`,
@@ -174,8 +186,15 @@ export async function callLLM(
   // â”€â”€ Special handling for Ollama Cloud (native Ollama API, not OpenAI-compatible)
   const provider = (options?.provider || "auto").toLowerCase();
   if (provider === "ollama_cloud") {
-    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
-    let cloudUrl = (options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\\/+$/, "");
+    const activeLlmPreference = await getActiveLlmPreference(options?.userId);
+    const activeLlmUrl = activeLlmPreference.customUrl;
+    const cloudUrl = normalizeServiceUrl(
+      options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "",
+      {
+        allowPrivateEnvVar: "ALLOW_PRIVATE_OLLAMA",
+        label: "URL do Ollama Cloud",
+      },
+    );
     const modelId = options?.model || "llama3.2";
     console.log(`[Ollama Cloud Debug] URL: ${cloudUrl}, Model: ${modelId}, Provider: ${provider}`);
     if (!cloudUrl) throw new Error("Ollama Cloud URL nÃ£o configurada.");

@@ -51,7 +51,7 @@ async function evaluateAutomations(userId: string, contactId: number, triggerTyp
             type: payload.type || "call",
             priority: payload.priority || "high",
             status: "pending",
-            dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // +1 dia
+            dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // +1 dia
           });
         } else if (auto.actionType === "log_activity") {
           await db.insert(crmActivitiesTable).values({

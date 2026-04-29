@@ -35,18 +35,12 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   // So Express strips the "/api" prefix — req.path arrives as "/agents", NOT "/api/agents"
   const publicPaths = [
     "/healthz",
-    "/branding/config",
     "/branding/resolve",
     "/agents",
     "/agents/search",
   ];
   // Also allow GET /agents/:id (already redacts systemPrompt without API key)
   if (req.path.startsWith("/agents/") && req.method === "GET") {
-    next();
-    return;
-  }
-  // CRM & Settings routes: allow through — tenant isolation is enforced via req.userId fallback to "system"
-  if (req.path.startsWith("/crm") || req.path.startsWith("/settings")) {
     next();
     return;
   }

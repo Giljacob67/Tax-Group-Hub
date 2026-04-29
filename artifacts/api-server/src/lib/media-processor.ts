@@ -52,7 +52,7 @@ export async function processExternalMedia(
           role: "user",
           content: [
             { type: "text", text: "Descreva o que está nesta imagem ou transcreva o texto se for um documento/nota fiscal. Recupere o máximo de detalhes possível." },
-            { type: "image", image: buffer, mimeType },
+            { type: "image", image: buffer, mediaType: mimeType },
           ],
         },
       ],
