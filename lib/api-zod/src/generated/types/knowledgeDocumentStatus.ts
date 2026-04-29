@@ -11,6 +11,7 @@ export type KnowledgeDocumentStatus =
 
 export const KnowledgeDocumentStatus = {
   pending: "pending",
+  processing: "processing",
   processed: "processed",
   error: "error",
 } as const;

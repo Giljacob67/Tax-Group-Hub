@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
+import { knowledgeDocumentsTable, knowledgeChunksTable, documentJobsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
+import logger from "../lib/logger.js";
 import multer from "multer";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
@@ -100,8 +101,26 @@ function chunkText(text: string, chunkSize: number = 800, overlap: number = 200)
  * Process a document in the background: extract text, chunk, embed, and store.
  * Updates the document status to 'processing' → 'processed' | 'error'.
  */
-export async function processDocumentAsync(docId: number, buffer: Buffer, fileType: string, filename: string): Promise<void> {
+export async function processDocumentAsync(
+  docId: number,
+  buffer: Buffer,
+  fileType: string,
+  filename: string,
+  filePath?: string | null,
+  jobId?: number | null,
+): Promise<void> {
   try {
+    if (jobId) {
+      await db
+        .update(documentJobsTable)
+        .set({
+          status: "processing",
+          attempts: sql`${documentJobsTable.attempts} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(documentJobsTable.id, jobId));
+    }
+
     // Increment retries and mark as processing
     await db
       .update(knowledgeDocumentsTable)
@@ -136,15 +155,42 @@ export async function processDocumentAsync(docId: number, buffer: Buffer, fileTy
       .set({ status: "processed", processed: true, errorLog: null })
       .where(eq(knowledgeDocumentsTable.id, docId));
 
-    console.log(`[Knowledge] Document ${docId} (${filename}) processed successfully. ${chunks.length} chunks indexed.`);
+    if (jobId) {
+      await db
+        .update(documentJobsTable)
+        .set({
+          status: "processed",
+          errorLog: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(documentJobsTable.id, jobId));
+    }
+
+    logger.info({ docId, jobId, filename, chunks: chunks.length }, "knowledge_document_processed");
   } catch (err) {
     const errorMsg = (err as Error).message || String(err);
-    console.error(`[Knowledge] Error processing document ${docId}:`, errorMsg);
+    logger.error({ err, docId, jobId, filename }, "knowledge_document_processing_failed");
     await db
       .update(knowledgeDocumentsTable)
       .set({ status: "error", errorLog: errorMsg })
       .where(eq(knowledgeDocumentsTable.id, docId))
       .catch(() => {});
+
+    if (jobId) {
+      await db
+        .update(documentJobsTable)
+        .set({
+          status: "failed",
+          errorLog: errorMsg,
+          updatedAt: new Date(),
+        })
+        .where(eq(documentJobsTable.id, jobId))
+        .catch(() => {});
+    }
+  } finally {
+    if (filePath) {
+      await fs.promises.unlink(filePath).catch(() => {});
+    }
   }
 }
 
@@ -191,7 +237,7 @@ router.get("/knowledge", async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error("Knowledge list error:", err);
+    logger.error({ err, requestId: (req as any).id, userId: req.userId }, "knowledge_list_failed");
     res.status(500).json({ error: "Failed to list documents" });
   }
 });
@@ -223,6 +269,18 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
       })
       .returning();
 
+    const [job] = await db
+      .insert(documentJobsTable)
+      .values({
+        documentId: doc.id,
+        status: "pending",
+        attempts: 0,
+        errorLog: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
     // 2. Return immediately to the client
     res.status(202).json({
       success: true,
@@ -236,6 +294,7 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
         status: "pending",
         processed: false,
         hasContent: false,
+        jobId: String(job.id),
         createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
       },
     });
@@ -248,10 +307,10 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
     const fileName = req.file.originalname;
     
     setImmediate(() => {
-      processDocumentAsync(doc.id, fileBuffer, fileMime, fileName).catch(() => {});
+      processDocumentAsync(doc.id, fileBuffer, fileMime, fileName, filePath, job.id).catch(() => {});
     });
   } catch (err) {
-    console.error("Knowledge upload error:", err);
+    logger.error({ err, requestId: (req as any).id, userId: req.userId }, "knowledge_upload_failed");
     res.status(500).json({ error: "Failed to upload document", message: (err as Error).message });
   }
 });
@@ -277,7 +336,7 @@ router.delete("/knowledge/:id", async (req, res) => {
     await db.delete(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.id, Number(id)));
     res.json({ success: true });
   } catch (err) {
-    console.error("Knowledge delete error:", err);
+    logger.error({ err, requestId: (req as any).id, userId: req.userId, documentId: req.params.id }, "knowledge_delete_failed");
     res.status(500).json({ error: "Failed to delete document" });
   }
 });

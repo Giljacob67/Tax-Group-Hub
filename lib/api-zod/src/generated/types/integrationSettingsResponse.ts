@@ -12,4 +12,6 @@ export interface IntegrationSettingsResponse {
   activeLLM?: string | null;
   ollamaModel: string;
   openrouterModel: string;
+  activeProvider?: string;
+  activeModel?: string | null;
 }

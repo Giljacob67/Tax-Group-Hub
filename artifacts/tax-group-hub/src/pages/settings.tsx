@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { AuthSessionCard } from "@/components/auth-session-card";
 import {
   Settings, CheckCircle2, XCircle, Server,
   Cloud, Loader2, ExternalLink, RefreshCw, Cpu, Zap,
@@ -975,6 +976,8 @@ export default function SettingsPage() {
         </motion.div>
 
         {/* Phase 10 Branding */}
+        <AuthSessionCard />
+
         <BrandingSection />
 
         <motion.div

@@ -1,3 +1,5 @@
+import { applyApiSessionHeaders } from "./api-session";
+
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
 };
@@ -296,6 +298,8 @@ export async function customFetch<T = unknown>(
   if (responseType === "json" && !headers.has("accept")) {
     headers.set("accept", DEFAULT_JSON_ACCEPT);
   }
+
+  applyApiSessionHeaders(headers);
 
   const requestInfo = { method, url: resolveUrl(input) };
 

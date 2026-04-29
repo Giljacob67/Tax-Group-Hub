@@ -98,6 +98,20 @@ export const insertKnowledgeChunkSchema = createInsertSchema(knowledgeChunksTabl
 export type KnowledgeChunk = typeof knowledgeChunksTable.$inferSelect;
 export type InsertKnowledgeChunk = z.infer<typeof insertKnowledgeChunkSchema>;
 
+export const documentJobsTable = pgTable("document_jobs", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull().references(() => knowledgeDocumentsTable.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  errorLog: text("error_log"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertDocumentJobSchema = createInsertSchema(documentJobsTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type DocumentJob = typeof documentJobsTable.$inferSelect;
+export type InsertDocumentJob = z.infer<typeof insertDocumentJobSchema>;
+
 /**
  * Embedding cache: avoids calling the embedding API for identical text chunks.
  * Key: MD5 hash of the text. Value: the embedding vector.
@@ -118,6 +132,7 @@ export const apiKeysTable = pgTable("api_keys", {
   id: serial("id").primaryKey(),
   provider: text("provider").notNull(), // 'openai', 'anthropic', 'resend', 'tavily', 'whatsapp', etc
   key: text("key").notNull(),
+  keyLast4: text("key_last4"),
   userId: text("user_id"), // Added for future tenancy (Bring Your Own Key)
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

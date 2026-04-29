@@ -16,5 +16,7 @@ export interface KnowledgeDocument {
   storageKey: string;
   status: KnowledgeDocumentStatus;
   hasContent?: boolean;
+  processed?: boolean;
+  jobId?: string | null;
   createdAt: Date;
 }

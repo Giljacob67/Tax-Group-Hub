@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.2.0
  */
 
+export * from "./activeProviderResponse";
+export * from "./activeProviderResponseSource";
+export * from "./activeProviderSaveResponse";
 export * from "./agent";
 export * from "./agentBlock";
 export * from "./availableModelsResponse";
@@ -27,6 +30,7 @@ export * from "./integrationItem";
 export * from "./integrationSettingsResponse";
 export * from "./knowledgeDocument";
 export * from "./knowledgeDocumentStatus";
+export * from "./knowledgeUploadResponse";
 export * from "./listAgents200";
 export * from "./listConversations200";
 export * from "./listConversationsParams";
@@ -44,8 +48,11 @@ export * from "./searchKnowledgeResponse";
 export * from "./searchKnowledgeResponseResultsItem";
 export * from "./sendMessageRequest";
 export * from "./serverErrorResponse";
+export * from "./setActiveProviderRequest";
 export * from "./setCustomKeyRequest";
 export * from "./successResponse";
+export * from "./testActiveProviderRequest";
+export * from "./testActiveProviderResponse";
 export * from "./uploadKnowledgeDocumentBody";
 export * from "./uploadUrlRequest";
 export * from "./uploadUrlResponse";

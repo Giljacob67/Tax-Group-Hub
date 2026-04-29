@@ -14,6 +14,10 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16; // 128-bit IV for GCM
 const AUTH_TAG_LENGTH = 16; // 128-bit auth tag
 
+function isProductionEnvironment(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+}
+
 function getMasterKey(): Buffer | null {
   const hex = process.env.ENCRYPTION_KEY;
   if (!hex) return null;
@@ -30,7 +34,12 @@ function getMasterKey(): Buffer | null {
  */
 export function encrypt(plaintext: string): string {
   const key = getMasterKey();
-  if (!key) return plaintext;
+  if (!key) {
+    if (isProductionEnvironment()) {
+      throw new Error("ENCRYPTION_KEY is required in production for BYOK.");
+    }
+    return plaintext;
+  }
 
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });

@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  ActiveProviderResponse,
+  ActiveProviderSaveResponse,
   Agent,
   AvailableModelsResponse,
   BadRequestResponse,
@@ -32,7 +34,7 @@ import type {
   HealthStatus,
   ImageGalleryResponse,
   IntegrationSettingsResponse,
-  KnowledgeDocument,
+  KnowledgeUploadResponse,
   ListAgents200,
   ListConversations200,
   ListConversationsParams,
@@ -45,8 +47,11 @@ import type {
   SearchKnowledgeResponse,
   SendMessageRequest,
   ServerErrorResponse,
+  SetActiveProviderRequest,
   SetCustomKeyRequest,
   SuccessResponse,
+  TestActiveProviderRequest,
+  TestActiveProviderResponse,
   UploadKnowledgeDocumentBody,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -1127,12 +1132,12 @@ export const getUploadKnowledgeDocumentUrl = () => {
 export const uploadKnowledgeDocument = async (
   uploadKnowledgeDocumentBody: UploadKnowledgeDocumentBody,
   options?: RequestInit,
-): Promise<KnowledgeDocument> => {
+): Promise<KnowledgeUploadResponse> => {
   const formData = new FormData();
   formData.append(`file`, uploadKnowledgeDocumentBody.file);
   formData.append(`agentId`, uploadKnowledgeDocumentBody.agentId);
 
-  return customFetch<KnowledgeDocument>(getUploadKnowledgeDocumentUrl(), {
+  return customFetch<KnowledgeUploadResponse>(getUploadKnowledgeDocumentUrl(), {
     ...options,
     method: "POST",
     body: formData,
@@ -1879,6 +1884,254 @@ export function useGetIntegrationSettings<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get the tenant-scoped active LLM provider
+ */
+export const getGetActiveProviderUrl = () => {
+  return `/api/settings/active-provider`;
+};
+
+export const getActiveProvider = async (
+  options?: RequestInit,
+): Promise<ActiveProviderResponse> => {
+  return customFetch<ActiveProviderResponse>(getGetActiveProviderUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetActiveProviderQueryKey = () => {
+  return [`/api/settings/active-provider`] as const;
+};
+
+export const getGetActiveProviderQueryOptions = <
+  TData = Awaited<ReturnType<typeof getActiveProvider>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getActiveProvider>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetActiveProviderQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getActiveProvider>>
+  > = ({ signal }) => getActiveProvider({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getActiveProvider>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetActiveProviderQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getActiveProvider>>
+>;
+export type GetActiveProviderQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the tenant-scoped active LLM provider
+ */
+
+export function useGetActiveProvider<
+  TData = Awaited<ReturnType<typeof getActiveProvider>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getActiveProvider>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetActiveProviderQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Set the tenant-scoped active LLM provider
+ */
+export const getSetActiveProviderUrl = () => {
+  return `/api/settings/active-provider`;
+};
+
+export const setActiveProvider = async (
+  setActiveProviderRequest: SetActiveProviderRequest,
+  options?: RequestInit,
+): Promise<ActiveProviderSaveResponse> => {
+  return customFetch<ActiveProviderSaveResponse>(getSetActiveProviderUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setActiveProviderRequest),
+  });
+};
+
+export const getSetActiveProviderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setActiveProvider>>,
+    TError,
+    { data: BodyType<SetActiveProviderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setActiveProvider>>,
+  TError,
+  { data: BodyType<SetActiveProviderRequest> },
+  TContext
+> => {
+  const mutationKey = ["setActiveProvider"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setActiveProvider>>,
+    { data: BodyType<SetActiveProviderRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setActiveProvider(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetActiveProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setActiveProvider>>
+>;
+export type SetActiveProviderMutationBody = BodyType<SetActiveProviderRequest>;
+export type SetActiveProviderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Set the tenant-scoped active LLM provider
+ */
+export const useSetActiveProvider = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setActiveProvider>>,
+    TError,
+    { data: BodyType<SetActiveProviderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setActiveProvider>>,
+  TError,
+  { data: BodyType<SetActiveProviderRequest> },
+  TContext
+> => {
+  return useMutation(getSetActiveProviderMutationOptions(options));
+};
+
+/**
+ * @summary Test an LLM provider without changing the saved preference
+ */
+export const getTestActiveProviderUrl = () => {
+  return `/api/settings/active-provider/test`;
+};
+
+export const testActiveProvider = async (
+  testActiveProviderRequest: TestActiveProviderRequest,
+  options?: RequestInit,
+): Promise<TestActiveProviderResponse> => {
+  return customFetch<TestActiveProviderResponse>(getTestActiveProviderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(testActiveProviderRequest),
+  });
+};
+
+export const getTestActiveProviderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testActiveProvider>>,
+    TError,
+    { data: BodyType<TestActiveProviderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof testActiveProvider>>,
+  TError,
+  { data: BodyType<TestActiveProviderRequest> },
+  TContext
+> => {
+  const mutationKey = ["testActiveProvider"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof testActiveProvider>>,
+    { data: BodyType<TestActiveProviderRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return testActiveProvider(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TestActiveProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof testActiveProvider>>
+>;
+export type TestActiveProviderMutationBody =
+  BodyType<TestActiveProviderRequest>;
+export type TestActiveProviderMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Test an LLM provider without changing the saved preference
+ */
+export const useTestActiveProvider = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testActiveProvider>>,
+    TError,
+    { data: BodyType<TestActiveProviderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof testActiveProvider>>,
+  TError,
+  { data: BodyType<TestActiveProviderRequest> },
+  TContext
+> => {
+  return useMutation(getTestActiveProviderMutationOptions(options));
+};
 
 /**
  * @summary Get custom BYOK API keys

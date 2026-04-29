@@ -190,12 +190,18 @@ async function run() {
       id         SERIAL PRIMARY KEY,
       provider   TEXT NOT NULL,
       key        TEXT NOT NULL,
+      key_last4  TEXT,
       user_id    TEXT,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `);
-  console.log("✅  api_keys");
+  console.log("api_keys");
+
+  await db.execute(sql`
+    ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS key_last4 TEXT;
+  `);
+  console.log("api_keys.key_last4");
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS channel_configs (

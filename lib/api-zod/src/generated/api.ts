@@ -217,8 +217,10 @@ export const ListKnowledgeDocumentsResponse = zod.object({
       fileType: zod.string(),
       fileSize: zod.number(),
       storageKey: zod.string(),
-      status: zod.enum(["pending", "processed", "error"]),
+      status: zod.enum(["pending", "processing", "processed", "error"]),
       hasContent: zod.boolean().optional(),
+      processed: zod.boolean().optional(),
+      jobId: zod.string().nullish(),
       createdAt: zod.date(),
     }),
   ),
@@ -369,6 +371,59 @@ export const GetIntegrationSettingsResponse = zod.object({
   activeLLM: zod.string().nullish(),
   ollamaModel: zod.string(),
   openrouterModel: zod.string(),
+  activeProvider: zod.string().optional(),
+  activeModel: zod.string().nullish(),
+});
+
+/**
+ * @summary Get the tenant-scoped active LLM provider
+ */
+export const GetActiveProviderResponse = zod.object({
+  provider: zod.string(),
+  customUrl: zod.string().nullable(),
+  model: zod.string().nullable(),
+  source: zod.enum(["tenant", "legacy", "default"]),
+});
+
+/**
+ * @summary Set the tenant-scoped active LLM provider
+ */
+export const SetActiveProviderBody = zod.object({
+  provider: zod.string(),
+  customUrl: zod.string().optional(),
+  model: zod.string().optional(),
+});
+
+export const SetActiveProviderResponse = zod
+  .object({
+    provider: zod.string(),
+    customUrl: zod.string().nullable(),
+    model: zod.string().nullable(),
+    source: zod.enum(["tenant", "legacy", "default"]),
+  })
+  .and(
+    zod.object({
+      success: zod.boolean(),
+    }),
+  );
+
+/**
+ * @summary Test an LLM provider without changing the saved preference
+ */
+export const TestActiveProviderBody = zod.object({
+  provider: zod.string().optional(),
+  customUrl: zod.string().optional(),
+  model: zod.string().optional(),
+});
+
+export const TestActiveProviderResponse = zod.object({
+  success: zod.boolean(),
+  response: zod.string().optional(),
+  provider: zod.string().optional(),
+  model: zod.string().optional(),
+  tokensUsed: zod.number().optional(),
+  executionTimeMs: zod.number().optional(),
+  error: zod.string().optional(),
 });
 
 /**
@@ -379,6 +434,8 @@ export const GetCustomKeysResponse = zod.object({
     zod.object({
       provider: zod.string(),
       createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+      keyLast4: zod.string().nullish(),
     }),
   ),
 });

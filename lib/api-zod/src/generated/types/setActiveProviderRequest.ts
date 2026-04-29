@@ -6,9 +6,8 @@
  * OpenAPI spec version: 0.2.0
  */
 
-export interface CustomKey {
+export interface SetActiveProviderRequest {
   provider: string;
-  createdAt: Date;
-  updatedAt?: Date;
-  keyLast4?: string | null;
+  customUrl?: string;
+  model?: string;
 }

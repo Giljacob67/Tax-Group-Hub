@@ -120,6 +120,7 @@ export type KnowledgeDocumentStatus =
 
 export const KnowledgeDocumentStatus = {
   pending: "pending",
+  processing: "processing",
   processed: "processed",
   error: "error",
 } as const;
@@ -133,7 +134,15 @@ export interface KnowledgeDocument {
   storageKey: string;
   status: KnowledgeDocumentStatus;
   hasContent?: boolean;
+  processed?: boolean;
+  jobId?: string | null;
   createdAt: string;
+}
+
+export interface KnowledgeUploadResponse {
+  success: boolean;
+  message: string;
+  document: KnowledgeDocument;
 }
 
 export interface UploadUrlRequest {
@@ -216,6 +225,50 @@ export interface IntegrationSettingsResponse {
   activeLLM?: string | null;
   ollamaModel: string;
   openrouterModel: string;
+  activeProvider?: string;
+  activeModel?: string | null;
+}
+
+export type ActiveProviderResponseSource =
+  (typeof ActiveProviderResponseSource)[keyof typeof ActiveProviderResponseSource];
+
+export const ActiveProviderResponseSource = {
+  tenant: "tenant",
+  legacy: "legacy",
+  default: "default",
+} as const;
+
+export interface ActiveProviderResponse {
+  provider: string;
+  customUrl: string | null;
+  model: string | null;
+  source: ActiveProviderResponseSource;
+}
+
+export interface SetActiveProviderRequest {
+  provider: string;
+  customUrl?: string;
+  model?: string;
+}
+
+export type ActiveProviderSaveResponse = ActiveProviderResponse & {
+  success: boolean;
+};
+
+export interface TestActiveProviderRequest {
+  provider?: string;
+  customUrl?: string;
+  model?: string;
+}
+
+export interface TestActiveProviderResponse {
+  success: boolean;
+  response?: string;
+  provider?: string;
+  model?: string;
+  tokensUsed?: number;
+  executionTimeMs?: number;
+  error?: string;
 }
 
 export interface ModelOption {
@@ -233,6 +286,8 @@ export interface AvailableModelsResponse {
 export interface CustomKey {
   provider: string;
   createdAt: string;
+  updatedAt?: string;
+  keyLast4?: string | null;
 }
 
 export interface SetCustomKeyRequest {

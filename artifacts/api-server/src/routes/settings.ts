@@ -2,58 +2,13 @@ import { Router, type IRouter } from "express";
 import { db, appConfigTable, channelConfigsTable, apiKeysTable, activeLlmSettingsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { encrypt, decrypt } from "../lib/crypto.js";
+import logger from "../lib/logger.js";
+import { normalizeServiceUrl } from "../lib/outbound-url.js";
 
 const router: IRouter = Router();
 
 function getScopedUserId(userId?: string): string {
   return typeof userId === "string" && userId.trim() !== "" ? userId : "demo-user";
-}
-
-function isPrivateHostname(hostname: string): boolean {
-  const host = hostname.toLowerCase();
-  return (
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "::1" ||
-    host === "[::1]" ||
-    host.startsWith("10.") ||
-    host.startsWith("192.168.") ||
-    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
-  );
-}
-
-export function normalizeServiceUrl(
-  rawUrl: string,
-  options?: {
-    allowPrivateEnvVar?: string;
-    label?: string;
-  },
-): string {
-  const trimmed = rawUrl.trim();
-  const label = options?.label || "URL";
-
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    throw new Error(`${label} invalida. Use o formato: http://host:porta`);
-  }
-
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error(`${label} invalida. Use apenas http ou https.`);
-  }
-
-  if (
-    isPrivateHostname(parsed.hostname) &&
-    options?.allowPrivateEnvVar &&
-    process.env[options.allowPrivateEnvVar] !== "true"
-  ) {
-    throw new Error(
-      `Seguranca: URLs de rede privada/local nao sao permitidas por padrao para ${label}.`,
-    );
-  }
-
-  return trimmed.replace(/\/+$/, "");
 }
 
 // Root GET - list available settings endpoints
@@ -297,7 +252,7 @@ router.get("/settings/integrations", async (req, res) => {
       geminiModel,
     });
   } catch (err: any) {
-    console.error("Error fetching integrations:", err);
+    logger.error({ err, requestId: (req as any).id, userId: req.userId }, "settings_integrations_failed");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -307,12 +262,18 @@ router.get("/settings/keys", async (req, res) => {
   try {
     const userId = getScopedUserId(req.userId);
     const userKeys = await db
-      .select({ provider: apiKeysTable.provider, createdAt: apiKeysTable.createdAt })
+      .select({
+        provider: apiKeysTable.provider,
+        createdAt: apiKeysTable.createdAt,
+        updatedAt: apiKeysTable.updatedAt,
+        keyLast4: apiKeysTable.keyLast4,
+      })
       .from(apiKeysTable)
       .where(eq(apiKeysTable.userId, userId));
     
     res.json({ keys: userKeys });
   } catch (err) {
+    logger.error({ err, requestId: (req as any).id, userId: req.userId }, "settings_keys_list_failed");
     res.status(500).json({ error: "Failed to list API keys" });
   }
 });
@@ -328,7 +289,9 @@ router.post("/settings/keys", async (req, res) => {
       return;
     }
 
-    const encryptedKey = encrypt(key.trim());
+    const normalizedKey = key.trim();
+    const encryptedKey = encrypt(normalizedKey);
+    const keyLast4 = normalizedKey.slice(-4) || null;
 
     const [existing] = await db
       .select({ id: apiKeysTable.id })
@@ -343,20 +306,21 @@ router.post("/settings/keys", async (req, res) => {
 
     if (existing) {
       await db.update(apiKeysTable)
-        .set({ key: encryptedKey, updatedAt: new Date() })
+        .set({ key: encryptedKey, keyLast4, updatedAt: new Date() })
         .where(eq(apiKeysTable.id, existing.id));
     } else {
       await db.insert(apiKeysTable).values({
         userId,
         provider,
         key: encryptedKey,
+        keyLast4,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
     }
     res.json({ success: true });
   } catch (err) {
-    console.error("Failed to set API key:", err);
+    logger.error({ err, requestId: (req as any).id, userId: req.userId, provider: req.body?.provider }, "settings_key_save_failed");
     res.status(500).json({ error: "Failed to set API key" });
   }
 });
@@ -377,6 +341,7 @@ router.delete("/settings/keys/:provider", async (req, res) => {
     
     res.json({ success: true });
   } catch (err) {
+    logger.error({ err, requestId: (req as any).id, userId: req.userId, provider: req.params.provider }, "settings_key_delete_failed");
     res.status(500).json({ error: "Failed to delete API key" });
   }
 });
@@ -393,6 +358,7 @@ router.get("/settings/active-provider", async (req, res) => {
       source: preference.source,
     });
   } catch (err) {
+    logger.error({ err, requestId: (req as any).id, userId: req.userId }, "settings_active_provider_get_failed");
     res.status(500).json({ error: "Failed to get active provider" });
   }
 });
@@ -455,6 +421,7 @@ router.put("/settings/active-provider", async (req, res) => {
       source: savedPreference.source,
     });
   } catch (err: any) {
+    logger.error({ err, requestId: (req as any).id, userId: req.userId, provider: req.body?.provider }, "settings_active_provider_save_failed");
     res.status(500).json({ error: "Failed to set active provider", message: err.message });
   }
 });
@@ -486,6 +453,7 @@ router.post("/settings/active-provider/test", async (req, res) => {
       executionTimeMs: result.executionTimeMs,
     });
   } catch (err: any) {
+    logger.warn({ err, requestId: (req as any).id, userId: req.userId, provider: req.body?.provider }, "settings_active_provider_test_failed");
     res.json({ success: false, error: err.message || "Erro desconhecido" });
   }
 });
@@ -500,7 +468,7 @@ router.get("/settings/channels", async (req, res) => {
     
     res.json({ channels });
   } catch (err) {
-    console.error("Error listing channels:", err);
+    logger.error({ err, requestId: (req as any).id, userId: req.userId }, "settings_channels_list_failed");
     res.status(500).json({ error: "Failed to list channels" });
   }
 });
@@ -550,7 +518,7 @@ router.post("/settings/channels", async (req, res) => {
        res.json({ success: true, channel: newChan });
     }
   } catch (err) {
-    console.error("Error saving channel config:", err);
+    logger.error({ err, requestId: (req as any).id, userId: req.userId, platform: req.body?.platform }, "settings_channel_save_failed");
     res.status(500).json({ error: "Failed to save channel config" });
   }
 });
@@ -561,7 +529,7 @@ interface ModelOption {
   description: string;
 }
 
-router.get("/settings/models", async (_req, res) => {
+router.get("/settings/models", async (req, res) => {
   try {
     const { url: ollamaUrl } = await getEffectiveOllamaUrl();
 
@@ -584,18 +552,18 @@ router.get("/settings/models", async (_req, res) => {
       provider: ollamaUrl ? "ollama" : process.env.GEMINI_API_KEY ? "gemini" : null,
     });
   } catch (err) {
-    console.error("Error fetching models:", err);
+    logger.error({ err, requestId: (req as any).id }, "settings_models_failed");
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.get("/settings/ollama", async (_req, res) => {
+router.get("/settings/ollama", async (req, res) => {
   try {
     const { url, source } = await getEffectiveOllamaUrl();
     const model = await getEffectiveOllamaModel();
     res.json({ url, source, model });
   } catch (err) {
-    console.error("Error fetching ollama settings:", err);
+    logger.error({ err, requestId: (req as any).id }, "settings_ollama_get_failed");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -637,7 +605,7 @@ router.put("/settings/ollama", async (req, res) => {
     const newModel = await getEffectiveOllamaModel();
     res.json({ url: newUrl, source, model: newModel, saved: true });
   } catch (err) {
-    console.error("Error saving ollama settings:", err);
+    logger.error({ err, requestId: (req as any).id, userId: req.userId }, "settings_ollama_save_failed");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -710,7 +678,7 @@ router.post("/settings/ollama/test", async (req, res) => {
       }
     }
   } catch (err) {
-    console.error("Error testing ollama connection:", err);
+    logger.error({ err, requestId: (req as any).id, userId: req.userId }, "settings_ollama_test_failed");
     res.status(500).json({ error: "Internal server error" });
   }
 });

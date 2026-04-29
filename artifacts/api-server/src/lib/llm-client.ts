@@ -20,7 +20,6 @@ import {
   getEffectiveOllamaModel,
   getConfigValue,
   getActiveLlmPreference,
-  normalizeServiceUrl,
 } from "../routes/settings.js";
 import { db } from "@workspace/db";
 import { embeddingCacheTable, apiKeysTable } from "@workspace/db";
@@ -28,6 +27,8 @@ import { eq, inArray } from "drizzle-orm";
 import { availableTools, type ToolId } from "./tools/registry.js";
 
 import { decrypt } from "./crypto.js";
+import logger from "./logger.js";
+import { normalizeServiceUrl } from "./outbound-url.js";
 
 export interface LLMResult {
   output: string;
@@ -196,7 +197,15 @@ export async function callLLM(
       },
     );
     const modelId = options?.model || "llama3.2";
-    console.log(`[Ollama Cloud Debug] URL: ${cloudUrl}, Model: ${modelId}, Provider: ${provider}`);
+    logger.info(
+      {
+        provider,
+        model: modelId,
+        host: new URL(cloudUrl).host,
+        userId: options?.userId,
+      },
+      "ollama_cloud_request",
+    );
     if (!cloudUrl) throw new Error("Ollama Cloud URL nÃ£o configurada.");
 
     // Normalize: avoid /api duplication if user already entered /api
@@ -222,7 +231,10 @@ export async function callLLM(
     }
 
     const data = await response.json() as { message?: { content?: string }; response?: string };
-    console.log(`[Ollama Cloud Debug] Response:`, JSON.stringify(data).substring(0, 200));
+    logger.debug(
+      { provider, model: modelId, hasMessage: !!data.message?.content, hasResponse: !!data.response },
+      "ollama_cloud_response_received",
+    );
     const output = data.message?.content || data.response || "";
     const executionTimeMs = Date.now() - startTime;
 
@@ -270,7 +282,17 @@ export async function callLLM(
   const rawUsage = result.usage as any;
   const tokensUsed = (rawUsage?.promptTokens || 0) + (rawUsage?.completionTokens || 0);
 
-  console.log(`[LLM] ${providerName} (${modelId}) | Tokens: ${tokensUsed} | Steps: ${result.steps?.length || 1} | Duration: ${executionTimeMs}ms`);
+  logger.info(
+    {
+      provider: providerName,
+      model: modelId,
+      tokensUsed,
+      steps: result.steps?.length || 1,
+      executionTimeMs,
+      userId: options?.userId,
+    },
+    "llm_call_completed",
+  );
 
   return {
     output: result.text,
@@ -320,7 +342,7 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
       .from(embeddingCacheTable)
       .where(inArray(embeddingCacheTable.textHash, hashes));
   } catch (e) {
-    console.warn("[Embedding Cache] DB error:", e);
+    logger.warn({ err: e }, "embedding_cache_lookup_failed");
   }
 
   const cacheMap = new Map(cachedRows.map((r) => [r.textHash, r.embedding]));
@@ -336,7 +358,7 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
 
   const newEmbeddings: number[][] = [];
   if (missingTexts.length > 0) {
-    console.log(`[Embedding Cache] MISS - calling API for ${missingTexts.length}/${texts.length} texts`);
+    logger.info({ missing: missingTexts.length, total: texts.length }, "embedding_cache_miss");
     const { embeddings } = await embedMany({
       model: embeddingModel,
       values: missingTexts,
@@ -356,7 +378,7 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
             embedding: newEmbeddings[i] 
           })
           .onConflictDoNothing()
-          .catch((e: Error) => console.warn("[Embedding Cache] Save failed:", e.message)),
+          .catch((e: Error) => logger.warn({ err: e }, "embedding_cache_save_failed")),
       )
     ).catch(() => {});
   }

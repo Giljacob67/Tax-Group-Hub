@@ -308,12 +308,12 @@ paths:
                   type: string
               required: [file, agentId]
       responses:
-        "201":
-          description: Document uploaded and processed
+        "202":
+          description: Document accepted and queued for background processing
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/KnowledgeDocument"
+                $ref: "#/components/schemas/KnowledgeUploadResponse"
 
   /knowledge/upload-url:
     post:
@@ -454,6 +454,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IntegrationSettingsResponse"
+
+  /settings/active-provider:
+    get:
+      operationId: getActiveProvider
+      tags: [settings]
+      summary: Get the tenant-scoped active LLM provider
+      responses:
+        "200":
+          description: Active provider preference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveProviderResponse"
+    put:
+      operationId: setActiveProvider
+      tags: [settings]
+      summary: Set the tenant-scoped active LLM provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetActiveProviderRequest"
+      responses:
+        "200":
+          description: Active provider saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveProviderSaveResponse"
+
+  /settings/active-provider/test:
+    post:
+      operationId: testActiveProvider
+      tags: [settings]
+      summary: Test an LLM provider without changing the saved preference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestActiveProviderRequest"
+      responses:
+        "200":
+          description: Provider test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestActiveProviderResponse"
 
   /settings/keys:
     get:
@@ -732,13 +781,29 @@ components:
           type: string
         status:
           type: string
-          enum: [pending, processed, error]
+          enum: [pending, processing, processed, error]
         hasContent:
           type: boolean
+        processed:
+          type: boolean
+        jobId:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
       required: [id, agentId, filename, fileType, fileSize, storageKey, status, createdAt]
+
+    KnowledgeUploadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        document:
+          $ref: "#/components/schemas/KnowledgeDocument"
+      required: [success, message, document]
 
     UploadUrlRequest:
       type: object
@@ -895,7 +960,77 @@ components:
           type: string
         openrouterModel:
           type: string
+        activeProvider:
+          type: string
+        activeModel:
+          type: string
+          nullable: true
       required: [integrations, ollamaModel, openrouterModel]
+
+    ActiveProviderResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+        customUrl:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        source:
+          type: string
+          enum: [tenant, legacy, default]
+      required: [provider, customUrl, model, source]
+
+    SetActiveProviderRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+        customUrl:
+          type: string
+        model:
+          type: string
+      required: [provider]
+
+    ActiveProviderSaveResponse:
+      allOf:
+        - $ref: "#/components/schemas/ActiveProviderResponse"
+        - type: object
+          properties:
+            success:
+              type: boolean
+          required: [success]
+
+    TestActiveProviderRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+        customUrl:
+          type: string
+        model:
+          type: string
+
+    TestActiveProviderResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        response:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+        tokensUsed:
+          type: integer
+        executionTimeMs:
+          type: integer
+        error:
+          type: string
+      required: [success]
 
     ModelOption:
       type: object
@@ -930,6 +1065,12 @@ components:
         createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        keyLast4:
+          type: string
+          nullable: true
       required: [provider, createdAt]
 
     SetCustomKeyRequest:
