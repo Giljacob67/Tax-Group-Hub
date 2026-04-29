@@ -9,6 +9,29 @@ import { eq, and, desc, asc, ilike, or, gte, lte, inArray, sql } from "drizzle-o
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
 import { callLLM } from "../lib/llm-client.js";
 import { getAgentById } from "../lib/agents-data.js";
+import logger from "../lib/logger.js";
+
+function getCrmUserId(req: Request): string {
+  return typeof req.userId === "string" && req.userId.trim() !== "" ? req.userId : "demo-user";
+}
+
+async function ensureContactBelongsToUser(contactId: number, userId: string): Promise<boolean> {
+  const [contact] = await db
+    .select({ id: crmContactsTable.id })
+    .from(crmContactsTable)
+    .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)))
+    .limit(1);
+  return !!contact;
+}
+
+async function ensureDealBelongsToUser(dealId: number, userId: string): Promise<boolean> {
+  const [deal] = await db
+    .select({ id: crmDealsTable.id })
+    .from(crmDealsTable)
+    .where(and(eq(crmDealsTable.id, dealId), eq(crmDealsTable.userId, userId)))
+    .limit(1);
+  return !!deal;
+}
 
 const router = Router();
 
@@ -65,7 +88,7 @@ async function evaluateAutomations(userId: string, contactId: number, triggerTyp
       }
     }
   } catch (error) {
-    console.error("Error evaluating automations:", error);
+    logger.error({ err: error, userId, contactId, triggerType }, "crm_automation_evaluation_failed");
   }
 }
 
@@ -73,7 +96,7 @@ async function evaluateAutomations(userId: string, contactId: number, triggerTyp
 // GET /api/crm/contacts?search=&status=&regime=&porte=&uf=&scoreMin=&scoreMax=&sort=&sortDir=&tag=
 router.get("/contacts", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const { search, status, regime, porte, uf, scoreMin, scoreMax, sort, sortDir, tag } =
       req.query as Record<string, string>;
 
@@ -123,7 +146,7 @@ router.get("/contacts", async (req: Request, res: Response) => {
 // ─── Contacts: Get by ID ──────────────────────────────────────────────────────
 router.get("/contacts/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const [contact] = await db
       .select()
       .from(crmContactsTable)
@@ -138,7 +161,7 @@ router.get("/contacts/:id", async (req: Request, res: Response) => {
 // ─── Contacts: Create ─────────────────────────────────────────────────────────
 router.post("/contacts", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const data = req.body;
     const cleanCnpj = (data.cnpj || "").replace(/\D/g, "");
     if (!cleanCnpj || cleanCnpj.length !== 14) {
@@ -164,7 +187,7 @@ router.post("/contacts", async (req: Request, res: Response) => {
         enrichedFields = mapEmpresAquiToContact(empresaData);
         enrichSource = "empresaqui";
       } catch (enrichErr: any) {
-        console.warn("[crm] EmpresAqui enrich failed:", enrichErr.message);
+        logger.warn({ err: enrichErr, userId, cnpj: cleanCnpj }, "crm_empresaqui_enrich_failed");
       }
     }
 
@@ -188,7 +211,7 @@ router.post("/contacts", async (req: Request, res: Response) => {
 // ─── Contacts: Update ─────────────────────────────────────────────────────────
 router.put("/contacts/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     
     // Check if status changed for automation
     const [oldContact] = await db.select({ status: crmContactsTable.status }).from(crmContactsTable)
@@ -216,7 +239,7 @@ router.put("/contacts/:id", async (req: Request, res: Response) => {
 // ─── Contacts: Delete ─────────────────────────────────────────────────────────
 router.delete("/contacts/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     await db.delete(crmContactsTable).where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
     res.json({ success: true });
   } catch (err: any) {
@@ -228,7 +251,7 @@ router.delete("/contacts/:id", async (req: Request, res: Response) => {
 // POST /api/crm/contacts/bulk-delete  body: { ids: number[] }
 router.post("/contacts/bulk-delete", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const { ids } = req.body as { ids: number[] };
     if (!Array.isArray(ids) || ids.length === 0) {
       res.status(400).json({ error: "ids deve ser um array não vazio." });
@@ -246,7 +269,7 @@ router.post("/contacts/bulk-delete", async (req: Request, res: Response) => {
 // POST /api/crm/contacts/bulk-update-status  body: { ids: number[], status: string }
 router.post("/contacts/bulk-update-status", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const { ids, status } = req.body as { ids: number[]; status: string };
     if (!Array.isArray(ids) || ids.length === 0 || !status) {
       res.status(400).json({ error: "ids e status são obrigatórios." });
@@ -271,7 +294,7 @@ router.post("/contacts/bulk-update-status", async (req: Request, res: Response) 
 // POST /api/crm/contacts/bulk-tags  body: { ids: number[], tag: string, action: "add" | "remove" }
 router.post("/contacts/bulk-tags", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const { ids, tag, action } = req.body as { ids: number[]; tag: string; action: "add" | "remove" };
     if (!Array.isArray(ids) || ids.length === 0 || !tag) {
       res.status(400).json({ error: "ids e tag são obrigatórios." }); return;
@@ -288,7 +311,9 @@ router.post("/contacts/bulk-tags", async (req: Request, res: Response) => {
       } else if (action === "remove") {
         currentTags = currentTags.filter(t => t !== tag);
       }
-      await db.update(crmContactsTable).set({ tags: currentTags }).where(eq(crmContactsTable.id, c.id));
+      await db.update(crmContactsTable)
+        .set({ tags: currentTags, updatedAt: new Date() })
+        .where(and(eq(crmContactsTable.id, c.id), eq(crmContactsTable.userId, userId)));
     }
 
     res.json({ success: true });
@@ -300,7 +325,7 @@ router.post("/contacts/bulk-tags", async (req: Request, res: Response) => {
 // ─── Contacts: Get Tags (Lists) ───────────────────────────────────────────────
 router.get("/tags", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const result = await db.execute(sql`
       SELECT DISTINCT unnest(tags) as tag 
       FROM ${crmContactsTable} 
@@ -316,7 +341,7 @@ router.get("/tags", async (req: Request, res: Response) => {
 // ─── Contacts: Enrich via EmpresAqui ─────────────────────────────────────────
 router.post("/contacts/:id/enrich", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const [contact] = await db.select().from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
     if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
@@ -330,7 +355,7 @@ router.post("/contacts/:id/enrich", async (req: Request, res: Response) => {
 
     const [updated] = await db.update(crmContactsTable)
       .set({ ...mapped, source: "empresaqui", lastEnrichedAt: new Date(), updatedAt: new Date() })
-      .where(eq(crmContactsTable.id, contact.id))
+      .where(and(eq(crmContactsTable.id, contact.id), eq(crmContactsTable.userId, userId)))
       .returning();
 
     await db.insert(crmEnrichmentLogTable).values({
@@ -346,7 +371,7 @@ router.post("/contacts/:id/enrich", async (req: Request, res: Response) => {
 // ─── Contacts: Import batch de CNPJs ─────────────────────────────────────────
 router.post("/contacts/import", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const { cnpjs } = req.body as { cnpjs: string[] };
     if (!Array.isArray(cnpjs) || cnpjs.length === 0) {
       res.status(400).json({ error: "Informe um array de CNPJs em 'cnpjs'." });
@@ -395,7 +420,7 @@ router.post("/contacts/import", async (req: Request, res: Response) => {
 // ─── Contacts: Qualify via IA ────────────────────────────────────────────────
 router.post("/contacts/:id/qualify", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const [contact] = await db.select().from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
     if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
@@ -430,7 +455,7 @@ Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","RE
         status: scoreData.tier === "A" || scoreData.tier === "B" ? "qualified" : contact.status,
         updatedAt: new Date(),
       })
-      .where(eq(crmContactsTable.id, contact.id))
+      .where(and(eq(crmContactsTable.id, contact.id), eq(crmContactsTable.userId, userId)))
       .returning();
 
     // Trigger score automations
@@ -478,7 +503,7 @@ Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","RE
 // GET /api/crm/deals/pipeline — inclui razaoSocial e cnpj do contato via LEFT JOIN
 router.get("/deals/pipeline", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const pipelineIdParam = (req.query.pipelineId as string) || "default";
 
     let [pipelineMeta] = await db
@@ -542,7 +567,7 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
 // ─── Deals: CRUD ─────────────────────────────────────────────────────────────
 router.get("/deals", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const { stage, contactId } = req.query as Record<string, string>;
     const conditions: any[] = [eq(crmDealsTable.userId, userId)];
     if (stage) conditions.push(eq(crmDealsTable.stage, stage));
@@ -556,7 +581,14 @@ router.get("/deals", async (req: Request, res: Response) => {
 
 router.post("/deals", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
+    if (req.body?.contactId) {
+      const ownsContact = await ensureContactBelongsToUser(Number(req.body.contactId), userId);
+      if (!ownsContact) {
+        res.status(404).json({ error: "Contact not found" });
+        return;
+      }
+    }
     const [deal] = await db.insert(crmDealsTable).values({ ...req.body, userId }).returning();
     res.status(201).json({ success: true, deal });
   } catch (err: any) {
@@ -566,12 +598,19 @@ router.post("/deals", async (req: Request, res: Response) => {
 
 router.put("/deals/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const [oldDeal] = await db.select().from(crmDealsTable)
       .where(and(eq(crmDealsTable.id, Number(req.params.id)), eq(crmDealsTable.userId, userId)));
     if (!oldDeal) { res.status(404).json({ error: "Deal not found" }); return; }
 
     const body = req.body;
+    if (body.contactId) {
+      const ownsContact = await ensureContactBelongsToUser(Number(body.contactId), userId);
+      if (!ownsContact) {
+        res.status(404).json({ error: "Contact not found" });
+        return;
+      }
+    }
     if (body.stage && body.stage !== oldDeal.stage) {
       if (body.stage === "won" && !body.wonAt) body.wonAt = new Date();
       if (body.stage === "lost" && !body.lostAt) body.lostAt = new Date();
@@ -579,7 +618,7 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
 
     const [deal] = await db.update(crmDealsTable)
       .set({ ...body, updatedAt: new Date() })
-      .where(eq(crmDealsTable.id, oldDeal.id))
+      .where(and(eq(crmDealsTable.id, oldDeal.id), eq(crmDealsTable.userId, userId)))
       .returning();
 
     if (body.stage && body.stage !== oldDeal.stage) {
@@ -608,7 +647,7 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
 
 router.delete("/deals/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     await db.delete(crmDealsTable).where(and(eq(crmDealsTable.id, Number(req.params.id)), eq(crmDealsTable.userId, userId)));
     res.json({ success: true });
   } catch (err: any) {
@@ -619,7 +658,7 @@ router.delete("/deals/:id", async (req: Request, res: Response) => {
 // ─── Activities ───────────────────────────────────────────────────────────────
 router.get("/contacts/:id/activities", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const activities = await db.select().from(crmActivitiesTable)
       .where(and(eq(crmActivitiesTable.contactId, Number(req.params.id)), eq(crmActivitiesTable.userId, userId)))
       .orderBy(desc(crmActivitiesTable.createdAt));
@@ -631,9 +670,15 @@ router.get("/contacts/:id/activities", async (req: Request, res: Response) => {
 
 router.post("/contacts/:id/activities", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
+    const contactId = Number(req.params.id);
+    const ownsContact = await ensureContactBelongsToUser(contactId, userId);
+    if (!ownsContact) {
+      res.status(404).json({ error: "Contact not found" });
+      return;
+    }
     const [activity] = await db.insert(crmActivitiesTable)
-      .values({ ...req.body, contactId: Number(req.params.id), userId })
+      .values({ ...req.body, contactId, userId })
       .returning();
     res.status(201).json({ success: true, activity });
   } catch (err: any) {
@@ -644,7 +689,7 @@ router.post("/contacts/:id/activities", async (req: Request, res: Response) => {
 // ─── Attachments ──────────────────────────────────────────────────────────────
 router.get("/contacts/:id/attachments", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const attachments = await db.select().from(crmAttachmentsTable)
       .where(and(eq(crmAttachmentsTable.contactId, Number(req.params.id)), eq(crmAttachmentsTable.userId, userId)))
       .orderBy(desc(crmAttachmentsTable.createdAt));
@@ -656,7 +701,7 @@ router.get("/contacts/:id/attachments", async (req: Request, res: Response) => {
 
 router.post("/contacts/:id/attachments", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const contactId = Number(req.params.id);
     const [contact] = await db.select({ id: crmContactsTable.id }).from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)));
@@ -666,6 +711,13 @@ router.post("/contacts/:id/attachments", async (req: Request, res: Response) => 
     if (!fileName || !mimeType || !url) {
       res.status(400).json({ error: "fileName, mimeType e url são obrigatórios." });
       return;
+    }
+    if (dealId) {
+      const ownsDeal = await ensureDealBelongsToUser(Number(dealId), userId);
+      if (!ownsDeal) {
+        res.status(404).json({ error: "Deal not found" });
+        return;
+      }
     }
 
     const [attachment] = await db.insert(crmAttachmentsTable)
@@ -687,7 +739,7 @@ router.post("/contacts/:id/attachments", async (req: Request, res: Response) => 
 
 router.delete("/contacts/:contactId/attachments/:attachmentId", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     await db.delete(crmAttachmentsTable).where(and(
       eq(crmAttachmentsTable.id, Number(req.params.attachmentId)),
       eq(crmAttachmentsTable.contactId, Number(req.params.contactId)),
@@ -703,7 +755,7 @@ router.delete("/contacts/:contactId/attachments/:attachmentId", async (req: Requ
 // GET  /api/crm/tasks?contactId=&status=&priority=&dueToday=
 router.get("/tasks", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const { contactId, status, priority, dueToday } = req.query as Record<string, string>;
     const conditions: any[] = [eq(crmTasksTable.userId, userId)];
     if (contactId) conditions.push(eq(crmTasksTable.contactId, Number(contactId)));
@@ -726,7 +778,14 @@ router.get("/tasks", async (req: Request, res: Response) => {
 
 router.post("/tasks", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
+    if (req.body?.contactId) {
+      const ownsContact = await ensureContactBelongsToUser(Number(req.body.contactId), userId);
+      if (!ownsContact) {
+        res.status(404).json({ error: "Contact not found" });
+        return;
+      }
+    }
     const [task] = await db.insert(crmTasksTable)
       .values({ ...req.body, userId })
       .returning();
@@ -738,7 +797,7 @@ router.post("/tasks", async (req: Request, res: Response) => {
 
 router.put("/tasks/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const body = req.body;
     if (body.status === "done" && !body.completedAt) body.completedAt = new Date();
     const [task] = await db.update(crmTasksTable)
@@ -754,7 +813,7 @@ router.put("/tasks/:id", async (req: Request, res: Response) => {
 
 router.delete("/tasks/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     await db.delete(crmTasksTable)
       .where(and(eq(crmTasksTable.id, Number(req.params.id)), eq(crmTasksTable.userId, userId)));
     res.json({ success: true });
@@ -766,7 +825,7 @@ router.delete("/tasks/:id", async (req: Request, res: Response) => {
 // ─── Activities: Global (Timeline Global) ───────────────────────────────────────
 router.get("/activities", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     
     // Join with contacts to get company name
     const activities = await db.select({
@@ -798,7 +857,7 @@ router.get("/activities", async (req: Request, res: Response) => {
 // ─── Saved Views: CRUD ────────────────────────────────────────────────────────
 router.get("/views", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const views = await db.select().from(crmSavedViewsTable)
       .where(eq(crmSavedViewsTable.userId, userId))
       .orderBy(asc(crmSavedViewsTable.createdAt));
@@ -810,7 +869,7 @@ router.get("/views", async (req: Request, res: Response) => {
 
 router.post("/views", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const [view] = await db.insert(crmSavedViewsTable)
       .values({ ...req.body, userId })
       .returning();
@@ -822,7 +881,7 @@ router.post("/views", async (req: Request, res: Response) => {
 
 router.delete("/views/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     await db.delete(crmSavedViewsTable)
       .where(and(eq(crmSavedViewsTable.id, Number(req.params.id)), eq(crmSavedViewsTable.userId, userId)));
     res.json({ success: true });
@@ -835,7 +894,7 @@ router.delete("/views/:id", async (req: Request, res: Response) => {
 // GET /api/crm/analytics/overview?period=
 router.get("/analytics/overview", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const period = (req.query.period as string) || "this_month";
 
     const [contacts, deals, activities] = await Promise.all([
@@ -965,7 +1024,7 @@ router.get("/analytics/overview", async (req: Request, res: Response) => {
 // GET /api/crm/analytics/funnel?period=
 router.get("/analytics/funnel", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const period = (req.query.period as string) || "all";
 
     let deals = await db.select().from(crmDealsTable).where(eq(crmDealsTable.userId, userId));
@@ -1018,7 +1077,7 @@ router.get("/analytics/funnel", async (req: Request, res: Response) => {
 // ─── Automations: CRUD ────────────────────────────────────────────────────────
 router.get("/automations", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const automations = await db.select().from(crmAutomationsTable)
       .where(eq(crmAutomationsTable.userId, userId))
       .orderBy(desc(crmAutomationsTable.createdAt));
@@ -1030,7 +1089,7 @@ router.get("/automations", async (req: Request, res: Response) => {
 
 router.post("/automations", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const [auto] = await db.insert(crmAutomationsTable)
       .values({ ...req.body, userId })
       .returning();
@@ -1042,7 +1101,7 @@ router.post("/automations", async (req: Request, res: Response) => {
 
 router.put("/automations/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const [auto] = await db.update(crmAutomationsTable)
       .set({ ...req.body, updatedAt: new Date() })
       .where(and(eq(crmAutomationsTable.id, Number(req.params.id)), eq(crmAutomationsTable.userId, userId)))
@@ -1056,7 +1115,7 @@ router.put("/automations/:id", async (req: Request, res: Response) => {
 
 router.delete("/automations/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     await db.delete(crmAutomationsTable)
       .where(and(eq(crmAutomationsTable.id, Number(req.params.id)), eq(crmAutomationsTable.userId, userId)));
     res.json({ success: true });
@@ -1069,7 +1128,7 @@ router.delete("/automations/:id", async (req: Request, res: Response) => {
 // GET /api/crm/pipelines — list all pipelines for user
 router.get("/pipelines", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const pipelines = await db.select().from(crmPipelinesTable)
       .where(eq(crmPipelinesTable.userId, userId))
       .orderBy(asc(crmPipelinesTable.createdAt));
@@ -1082,7 +1141,7 @@ router.get("/pipelines", async (req: Request, res: Response) => {
 // POST /api/crm/pipelines — create a new pipeline
 router.post("/pipelines", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const { name, stages, isDefault } = req.body as { name: string; stages: string[]; isDefault?: boolean };
     if (!name || !Array.isArray(stages) || stages.length === 0) {
       res.status(400).json({ error: "name e stages são obrigatórios." }); return;
@@ -1105,7 +1164,7 @@ router.post("/pipelines", async (req: Request, res: Response) => {
 // PUT /api/crm/pipelines/:id — update pipeline name, stages, or isDefault
 router.put("/pipelines/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const { name, stages, isDefault } = req.body as { name?: string; stages?: string[]; isDefault?: boolean };
     if (isDefault) {
       await db.update(crmPipelinesTable)
@@ -1126,7 +1185,7 @@ router.put("/pipelines/:id", async (req: Request, res: Response) => {
 // DELETE /api/crm/pipelines/:id — delete pipeline (not default)
 router.delete("/pipelines/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = getCrmUserId(req);
     const [pipeline] = await db.select().from(crmPipelinesTable)
       .where(and(eq(crmPipelinesTable.id, Number(req.params.id)), eq(crmPipelinesTable.userId, userId)));
     if (!pipeline) { res.status(404).json({ error: "Pipeline not found" }); return; }

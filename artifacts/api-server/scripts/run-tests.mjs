@@ -96,6 +96,26 @@ async function testOutboundUrl() {
   }
 }
 
+async function testCrmTenantGuards() {
+  const crmSource = await readFile(path.resolve(rootDir, "src/routes/crm.ts"), "utf8");
+
+  assert.ok(
+    !crmSource.includes('req.userId || "system"'),
+    'CRM routes must not fall back to the global "system" tenant',
+  );
+  assert.ok(
+    crmSource.includes("ensureContactBelongsToUser(Number(req.body.contactId), userId)"),
+    "CRM deal creation must verify contact ownership",
+  );
+  assert.ok(
+    crmSource.includes("ensureDealBelongsToUser(Number(dealId), userId)"),
+    "CRM attachment creation must verify deal ownership",
+  );
+
+  console.log("crm-tenant-guards: ok");
+}
+
 await testCrypto();
 await testOutboundUrl();
+await testCrmTenantGuards();
 console.log("api-server tests passed");
