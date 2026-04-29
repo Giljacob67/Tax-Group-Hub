@@ -1,8 +1,8 @@
 {
   "version": 2,
   "framework": null,
-  "buildCommand": "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/tax-group-hub run build",
-  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "corepack pnpm --filter @workspace/api-server run build && corepack pnpm --filter @workspace/tax-group-hub run build",
+  "installCommand": "corepack pnpm install --frozen-lockfile",
   "outputDirectory": "artifacts/tax-group-hub/dist",
   "functions": {
     "api/index.js": {
