@@ -70,10 +70,11 @@ async function sendTelegramMessage(chatId: string, text: string, botToken: strin
  */
 router.post("/webhooks/telegram/:webhookId", async (req, res) => {
   const { webhookId } = req.params;
+  const reqId = req.id;
 
   const parsed = TelegramUpdate.safeParse(req.body);
   if (!parsed.success) {
-    console.warn("[Webhook Telegram] invalid payload:", parsed.error.flatten());
+    console.warn("[Webhook Telegram] invalid payload", { reqId, errors: parsed.error.flatten() });
     res.sendStatus(200);
     return;
   }
@@ -233,7 +234,7 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
     }).catch((e: Error) => console.error("[Analytics] Telegram log error:", e));
 
   } catch (err: any) {
-    console.error("[Webhook Telegram Error]:", err);
+    console.error("[Webhook Telegram Error]", { reqId, err });
   } finally {
     // Always ACK to prevent Telegram from retrying
     if (!res.headersSent) res.sendStatus(200);
@@ -255,10 +256,11 @@ router.post("/webhooks/whatsapp/:channelId", (_req, res) => {
  */
 router.post("/webhooks/crm/inbound/:tenantId", async (req, res) => {
   const { tenantId } = req.params;
+  const reqId = req.id;
 
   const parsed = CrmInboundPayload.safeParse(req.body);
   if (!parsed.success) {
-    console.warn("[Webhook CRM] invalid payload — expected an object");
+    console.warn("[Webhook CRM] invalid payload — expected an object", { reqId });
     res.sendStatus(200);
     return;
   }
@@ -324,7 +326,7 @@ router.post("/webhooks/crm/inbound/:tenantId", async (req, res) => {
     }
 
   } catch (err: any) {
-    console.error(`[Webhook CRM Inbound Error Payload]:`, payload, err);
+    console.error("[Webhook CRM Inbound Error]", { reqId, tenantId, err });
   } finally {
     if (!res.headersSent) res.sendStatus(200);
   }

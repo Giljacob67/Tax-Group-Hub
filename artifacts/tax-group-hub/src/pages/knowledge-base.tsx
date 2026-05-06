@@ -67,7 +67,8 @@ export default function KnowledgeBase() {
         });
       }
       queryClient.invalidateQueries({ queryKey: getListKnowledgeDocumentsQueryKey() });
-    } catch {
+    } catch (err) {
+      console.error("[Knowledge] upload failed:", err);
       toast({ title: "Erro no upload", description: "Falha ao enviar documento. Tente novamente.", variant: "destructive" });
     } finally {
       setIsUploading(false);
@@ -82,7 +83,8 @@ export default function KnowledgeBase() {
       await deleteMutation.mutateAsync({ documentId: deleteTarget });
       queryClient.invalidateQueries({ queryKey: getListKnowledgeDocumentsQueryKey() });
       toast({ title: "Documento excluído" });
-    } catch {
+    } catch (err) {
+      console.error("[Knowledge] delete failed:", err);
       toast({ title: "Erro ao excluir documento", variant: "destructive" });
     }
     setDeleteTarget(null);
@@ -94,7 +96,8 @@ export default function KnowledgeBase() {
     try {
       const res = await searchMutation.mutateAsync({ data: { query: searchQuery, limit: 5 } });
       toast({ title: `${res.results.length} resultado(s) para "${searchQuery}"` });
-    } catch {
+    } catch (err) {
+      console.error("[Knowledge] search failed:", err);
       toast({ title: "Erro na busca", variant: "destructive" });
     }
   };

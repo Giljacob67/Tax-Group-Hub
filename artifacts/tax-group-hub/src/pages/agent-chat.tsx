@@ -173,7 +173,7 @@ export default function AgentChat() {
                    fullText += data.text;
                    setStreamingContent(fullText);
                 }
-              } catch (e) {}
+              } catch (e) { console.warn("[Chat] malformed SSE chunk:", e); }
             }
           }
         }
@@ -181,7 +181,8 @@ export default function AgentChat() {
 
       queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(convId) });
       queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
-    } catch {
+    } catch (err) {
+      console.error("[Chat] send failed:", err);
       toast({ title: "Erro ao enviar mensagem", description: "Tente novamente.", variant: "destructive" });
       setInput(text);
     } finally {
@@ -198,7 +199,8 @@ export default function AgentChat() {
       queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
       if (activeConvId === deleteTarget) setActiveConvId(null);
       toast({ title: "Conversa excluída" });
-    } catch {
+    } catch (err) {
+      console.error("[Chat] delete failed:", err);
       toast({ title: "Erro ao excluir", variant: "destructive" });
     }
     setDeleteTarget(null);
@@ -218,7 +220,8 @@ export default function AgentChat() {
       if (activeConvId === convId) {
         queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(convId) });
       }
-    } catch {
+    } catch (err) {
+      console.error("[Chat] rename failed:", err);
       toast({ title: "Erro ao renomear", variant: "destructive" });
     }
     setRenamingId(null);
@@ -238,7 +241,8 @@ export default function AgentChat() {
       a.click();
       URL.revokeObjectURL(url);
       toast({ title: "Conversa exportada!" });
-    } catch {
+    } catch (err) {
+      console.error("[Chat] export failed:", err);
       toast({ title: "Erro ao exportar", variant: "destructive" });
     }
   };
@@ -263,7 +267,8 @@ export default function AgentChat() {
       if (lastUserMsg) {
         handleCreateAndSend(lastUserMsg.content);
       }
-    } catch {
+    } catch (err) {
+      console.error("[Chat] regenerate failed:", err);
       toast({ title: "Erro ao regenerar", variant: "destructive" });
     }
   };

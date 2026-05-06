@@ -29,7 +29,7 @@ export interface LLMResult {
   executionTimeMs: number;
   model: string;
   provider: string;
-  toolCalls?: any[];
+  toolCalls?: unknown[];
 }
 
 /**
@@ -84,19 +84,7 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
     if (activeLlmModel && !requestedModel) requestedModel = activeLlmModel;
   }
 
-  // 1. OLLAMA CLOUD (custom URL Ollama-compatible endpoint)
-  if (provider === "ollama_cloud") {
-    let cloudUrl = (requestedCustomUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\\/+$/, "");
-    const cloudKey = await getApiKey("ollama_cloud", userId);
-    const customOpenAI = createOpenAI({
-      baseURL: cloudUrl.endsWith("/v1") ? cloudUrl : `${cloudUrl.replace(/\/+$/, "")}/v1`,
-      apiKey: cloudKey || "ollama",
-    });
-    const modelId = requestedModel || activeLlmModel || "llama3.2";
-    return { model: customOpenAI(modelId), providerName: "Ollama Cloud", modelId };
-  }
-
-  // 2. OPENROUTER (OpenAI-compatible API with many models)
+  // OPENROUTER (OpenAI-compatible API with many models)
   if (provider === "openrouter") {
     const openrouterKey = await getApiKey("openrouter", userId);
     if (!openrouterKey) throw new Error("OpenRouter API Key não configurada.");
@@ -170,28 +158,28 @@ export async function callLLM(
 ): Promise<LLMResult> {
   const startTime = Date.now();
 
-  // â”€â”€ Special handling for Ollama Cloud (native Ollama API, not OpenAI-compatible)
-  const provider = (options?.provider || "auto").toLowerCase();
-  if (provider === "ollama_cloud") {
-    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
-    let cloudUrl = (options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\\/+$/, "");
-    const modelId = options?.model || "llama3.2";
-    console.log(`[Ollama Cloud Debug] URL: ${cloudUrl}, Model: ${modelId}, Provider: ${provider}`);
-    if (!cloudUrl) throw new Error("Ollama Cloud URL nÃ£o configurada.");
+  // Ollama Cloud uses the native /api/chat endpoint (not OpenAI-compatible).
+  // callLLM handles it here before delegating to getLanguageModel for all other providers.
+  const provider = (options?.provider || “auto”).toLowerCase();
+  if (provider === “ollama_cloud”) {
+    const activeLlmUrl = await getConfigValue(“ACTIVE_LLM_URL”);
+    const cloudUrl = (options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || “”).replace(/\/+$/, “”);
+    if (!cloudUrl) throw new Error(“Ollama Cloud URL não configurada.”);
 
-    // Normalize: avoid /api duplication if user already entered /api
-    const chatEndpoint = cloudUrl.endsWith("/api") ? `${cloudUrl}/chat` : `${cloudUrl}/api/chat`;
+    const modelId = options?.model || “llama3.2”;
+    // Normalize: avoid /api duplication if caller already included it
+    const chatEndpoint = cloudUrl.endsWith(“/api”) ? `${cloudUrl}/chat` : `${cloudUrl}/api/chat`;
 
     const messages: Array<{ role: string; content: string }> = Array.isArray(userMessage)
-      ? [{ role: "system", content: systemPrompt }, ...userMessage]
-      : [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }];
+      ? [{ role: “system”, content: systemPrompt }, ...userMessage]
+      : [{ role: “system”, content: systemPrompt }, { role: “user”, content: userMessage }];
 
-    const ollamaKey = await getApiKey("ollama_cloud", options?.userId);
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (ollamaKey) headers["Authorization"] = `Bearer ${ollamaKey}`;
+    const ollamaKey = await getApiKey(“ollama_cloud”, options?.userId);
+    const headers: Record<string, string> = { “Content-Type”: “application/json” };
+    if (ollamaKey) headers[“Authorization”] = `Bearer ${ollamaKey}`;
 
     const response = await fetch(chatEndpoint, {
-      method: "POST",
+      method: “POST”,
       headers,
       body: JSON.stringify({ model: modelId, messages, stream: false }),
     });
@@ -202,24 +190,15 @@ export async function callLLM(
     }
 
     const data = await response.json() as { message?: { content?: string }; response?: string };
-    console.log(`[Ollama Cloud Debug] Response:`, JSON.stringify(data).substring(0, 200));
-    const output = data.message?.content || data.response || "";
-    const executionTimeMs = Date.now() - startTime;
+    const output = data.message?.content || data.response || “”;
 
-    return {
-      output,
-      tokensUsed: 0,
-      executionTimeMs,
-      model: modelId,
-      provider: "Ollama Cloud",
-      toolCalls: undefined,
-    };
+    return { output, tokensUsed: 0, executionTimeMs: Date.now() - startTime, model: modelId, provider: “Ollama Cloud” };
   }
 
   const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model, options?.userId, options?.customUrl);
 
   // Prepare tools if requested
-  const tools: Record<string, any> = {};
+  const tools: Record<string, unknown> = {};
   if (options?.toolIds) {
     for (const id of options.toolIds) {
       if (availableTools[id as keyof typeof availableTools]) {
@@ -229,28 +208,23 @@ export async function callLLM(
   }
 
   const isArrayPayload = Array.isArray(userMessage);
+  const hasTools = Object.keys(tools).length > 0;
 
-  const payload: any = {
+  const result = await generateText({
     model,
     system: systemPrompt,
     maxTokens: 4096,
-    tools: Object.keys(tools).length > 0 ? tools : undefined,
-    maxSteps: Object.keys(tools).length > 0 ? 5 : 1, // Enable multi-step tools
-  };
-
-  if (isArrayPayload) {
-    payload.messages = userMessage;
-  } else {
-    payload.prompt = userMessage;
-  }
-
-  const result = await generateText(payload);
+    tools: hasTools ? (tools as Parameters<typeof generateText>[0]["tools"]) : undefined,
+    maxSteps: hasTools ? 5 : 1,
+    ...(isArrayPayload
+      ? { messages: userMessage as Parameters<typeof generateText>[0]["messages"] }
+      : { prompt: userMessage as string }),
+  });
 
   const executionTimeMs = Date.now() - startTime;
-  const rawUsage = result.usage as any;
-  const tokensUsed = (rawUsage?.promptTokens || 0) + (rawUsage?.completionTokens || 0);
+  const tokensUsed = (result.usage?.promptTokens ?? 0) + (result.usage?.completionTokens ?? 0);
 
-  console.log(`[LLM] ${providerName} (${modelId}) | Tokens: ${tokensUsed} | Steps: ${result.steps?.length || 1} | Duration: ${executionTimeMs}ms`);
+  console.info(`[LLM] ${providerName} (${modelId}) | tokens=${tokensUsed} steps=${result.steps?.length ?? 1} ms=${executionTimeMs}`);
 
   return {
     output: result.text,
@@ -273,7 +247,7 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
   const googleKey = await getApiKey("google", userId);
   const ollamaUrl = (await getEffectiveOllamaUrl()).url;
 
-  let embeddingModel: any;
+  let embeddingModel: EmbeddingModel<string>;
 
   if (googleKey) {
     const googleProvider = createGoogleGenerativeAI({ apiKey: googleKey });
@@ -372,7 +346,7 @@ export async function transcribeAudio(audioBuffer: Buffer, fileName: string): Pr
   // I'll use fetch to be safe and avoid adding new dependencies if possible.
   
   const formData = new FormData();
-  const blob = new Blob([audioBuffer as any], { type: "audio/mpeg" });
+  const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
   formData.append("file", blob, fileName);
   formData.append("model", "whisper-1");
 
@@ -385,10 +359,10 @@ export async function transcribeAudio(audioBuffer: Buffer, fileName: string): Pr
   });
 
   if (!response.ok) {
-    const error = (await response.json()) as any;
+    const error = await response.json() as { error?: { message?: string } };
     throw new Error(`Erro na transcrição: ${error.error?.message || response.statusText}`);
   }
 
-  const result = (await response.json()) as any;
+  const result = await response.json() as { text: string };
   return result.text;
 }

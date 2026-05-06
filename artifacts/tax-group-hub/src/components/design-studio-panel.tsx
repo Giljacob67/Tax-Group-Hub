@@ -49,7 +49,8 @@ export function DesignStudioPanel({
       });
       if (res.gallery) setGallery(res.gallery);
       toast({ title: "Imagem gerada com sucesso!" });
-    } catch {
+    } catch (err) {
+      console.error("[DesignStudio] generate failed:", err);
       toast({ title: "Erro ao gerar imagem", variant: "destructive" });
     }
   };
@@ -60,7 +61,8 @@ export function DesignStudioPanel({
         data: { contentType, title: `Tax Group - ${agentName} - ${label}` }
       });
       if (res.url) window.open(res.url, "_blank");
-    } catch {
+    } catch (err) {
+      console.error("[DesignStudio] Canva link failed:", err);
       toast({ title: "Erro ao gerar link do Canva", variant: "destructive" });
     }
   };

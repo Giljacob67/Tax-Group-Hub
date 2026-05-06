@@ -198,6 +198,7 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
 }
 
 router.post("/orchestrate", async (req, res) => {
+  const reqId = req.id;
   try {
     const { tasks, context } = req.body as { tasks?: OrchestrationTask[]; context?: string };
 
@@ -221,7 +222,7 @@ router.post("/orchestrate", async (req, res) => {
 
     res.json({ results, coordinatorReview });
   } catch (err) {
-    console.error("Orchestration error:", err);
+    console.error("[Orchestrate] error", { reqId, err });
     res.status(500).json({ error: "Internal server error" });
   }
 });
