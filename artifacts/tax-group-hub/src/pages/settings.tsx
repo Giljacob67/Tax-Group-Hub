@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings, CheckCircle2, XCircle, Server,
   Cloud, Loader2, ExternalLink, RefreshCw, Cpu, Zap,
-  Eye, EyeOff, Save, Wifi, WifiOff, AlertCircle, Crown, Brain, 
+  Eye, EyeOff, Save, Wifi, WifiOff, AlertCircle, Crown, Brain,
+  MessageSquare, Trash2, Copy, Plus, ChevronDown, ChevronUp,
 } from "lucide-react";
 
 interface IntegrationStatus {
@@ -652,6 +653,324 @@ function LLMProviderCard({
   );
 }
 
+interface AgentOption { id: string; name: string; icon: string; block: string; }
+interface ChannelConfig {
+  id: number;
+  platform: string;
+  externalId: string;
+  agentId: string;
+  config: Record<string, unknown>;
+  createdAt: string;
+}
+
+function ChannelsSection() {
+  const { toast } = useToast();
+  const [channels, setChannels] = useState<ChannelConfig[]>([]);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [newChannel, setNewChannel] = useState({
+    phoneNumberId: "",
+    accessToken: "",
+    verifyToken: "",
+    agentId: "",
+  });
+  const [createdWebhookUrl, setCreatedWebhookUrl] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      const [chRes, agRes] = await Promise.all([
+        fetch("/api/settings/channels"),
+        fetch("/api/agents"),
+      ]);
+      if (chRes.ok) {
+        const d = await chRes.json();
+        setChannels((d.channels || []).filter((c: ChannelConfig) => c.platform === "whatsapp"));
+      }
+      if (agRes.ok) {
+        const d = await agRes.json();
+        setAgents(d.agents || []);
+      }
+    } catch {
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleSave = async () => {
+    const { phoneNumberId, accessToken, verifyToken, agentId } = newChannel;
+    if (!phoneNumberId.trim() || !accessToken.trim() || !verifyToken.trim() || !agentId) {
+      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    setCreatedWebhookUrl(null);
+    try {
+      const res = await fetch("/api/settings/channels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: "whatsapp",
+          externalId: phoneNumberId.trim(),
+          agentId,
+          config: {
+            accessToken: accessToken.trim(),
+            verifyToken: verifyToken.trim(),
+            phoneNumberId: phoneNumberId.trim(),
+          },
+        }),
+      });
+      if (!res.ok) throw new Error("Erro ao salvar canal");
+      const data = await res.json();
+      const channelId = data.channel?.id;
+      const webhookUrl = `${window.location.origin}/api/webhooks/whatsapp/${channelId}`;
+      setCreatedWebhookUrl(webhookUrl);
+      toast({ title: "Canal WhatsApp configurado!" });
+      setNewChannel({ phoneNumberId: "", accessToken: "", verifyToken: "", agentId: "" });
+      fetchData();
+    } catch (err) {
+      console.error("[Channels] save failed:", err);
+      toast({ title: "Erro ao salvar canal", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/settings/channels/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Erro ao excluir");
+      toast({ title: "Canal removido" });
+      setChannels(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      console.error("[Channels] delete failed:", err);
+      toast({ title: "Erro ao remover canal", variant: "destructive" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copiado para a área de transferência" });
+  };
+
+  const webhookUrlFor = (channelId: number) =>
+    `${window.location.origin}/api/webhooks/whatsapp/${channelId}`;
+
+  if (loading) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.12 }}
+      className="bg-card border border-border/50 rounded-2xl p-6 space-y-5"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <MessageSquare className="w-5 h-5 text-emerald-400" />
+          <h2 className="text-lg font-semibold text-foreground">Canais WhatsApp</h2>
+          {channels.length > 0 && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">
+              {channels.length} ativo{channels.length > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => { setShowForm(f => !f); setCreatedWebhookUrl(null); }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-xs font-medium transition-all"
+        >
+          {showForm ? <ChevronUp className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+          {showForm ? "Fechar" : "Adicionar Canal"}
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-background/60 border border-border/40 rounded-xl p-5 space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Configure um número WhatsApp Business via{" "}
+                <span className="text-foreground font-medium">Meta for Developers → WhatsApp → API Setup</span>.
+                Após salvar, você receberá a URL de webhook para registrar no painel Meta.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase">
+                    ID do Número de Telefone <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newChannel.phoneNumberId}
+                    onChange={e => setNewChannel(p => ({ ...p, phoneNumberId: e.target.value }))}
+                    placeholder="123456789012345"
+                    className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs font-mono focus:ring-1 focus:ring-primary/50 focus:outline-none"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Phone Number ID (não o número +55...)</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase">
+                    Agente Responsável <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={newChannel.agentId}
+                    onChange={e => setNewChannel(p => ({ ...p, agentId: e.target.value }))}
+                    className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-primary/50 focus:outline-none"
+                  >
+                    <option value="">— Selecionar agente —</option>
+                    {agents.map(a => (
+                      <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase">
+                    Access Token (Meta Graph API) <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={newChannel.accessToken}
+                    onChange={e => setNewChannel(p => ({ ...p, accessToken: e.target.value }))}
+                    placeholder="EAAxxxxxxxxxxxxxxx..."
+                    className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs font-mono focus:ring-1 focus:ring-primary/50 focus:outline-none"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Token permanente do System User, não o temporário</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase">
+                    Verify Token <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newChannel.verifyToken}
+                    onChange={e => setNewChannel(p => ({ ...p, verifyToken: e.target.value }))}
+                    placeholder="meu-token-secreto-123"
+                    className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs font-mono focus:ring-1 focus:ring-primary/50 focus:outline-none"
+                  />
+                  <p className="text-[10px] text-muted-foreground">String segura de sua escolha — registre no Meta também</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-all disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Salvar Canal
+                </button>
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Access Token armazenado criptografado
+                </p>
+              </div>
+
+              <AnimatePresence>
+                {createdWebhookUrl && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 space-y-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span className="text-sm font-semibold text-emerald-400">Canal criado! Configure o webhook no Meta:</span>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">URL do Webhook (cole no Meta for Developers)</p>
+                      <div className="flex items-center gap-2 bg-background rounded-lg px-3 py-2 border border-border/40">
+                        <code className="text-xs font-mono text-primary flex-1 break-all">{createdWebhookUrl}</code>
+                        <button
+                          onClick={() => copyToClipboard(createdWebhookUrl)}
+                          className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        No painel Meta: <strong>WhatsApp → Configuração → Webhooks → Editar</strong>.
+                        Insira esta URL e o Verify Token que você cadastrou.
+                        Subscreva ao campo <code className="text-primary">messages</code>.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {channels.length === 0 && !showForm && (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          Nenhum canal WhatsApp configurado. Clique em "Adicionar Canal" para começar.
+        </p>
+      )}
+
+      {channels.length > 0 && (
+        <div className="space-y-3">
+          {channels.map(ch => {
+            const agent = agents.find(a => a.id === ch.agentId);
+            const url = webhookUrlFor(ch.id);
+            return (
+              <div
+                key={ch.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-background/50 border border-border/40 rounded-xl px-4 py-3"
+              >
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-foreground">
+                      {agent ? `${agent.icon} ${agent.name}` : ch.agentId}
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">WhatsApp</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground font-mono truncate">
+                    Phone ID: {ch.externalId}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <code className="text-[10px] text-primary font-mono truncate max-w-xs">{url}</code>
+                    <button
+                      onClick={() => copyToClipboard(url)}
+                      className="p-0.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                      title="Copiar URL do webhook"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDelete(ch.id)}
+                  disabled={deletingId === ch.id}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all disabled:opacity-50"
+                >
+                  {deletingId === ch.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  Remover
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 function BrandingSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -976,6 +1295,9 @@ export default function SettingsPage() {
 
         {/* Phase 10 Branding */}
         <BrandingSection />
+
+        {/* WhatsApp Channels */}
+        <ChannelsSection />
 
         <motion.div
           initial={{ opacity: 0, y: 10 }}

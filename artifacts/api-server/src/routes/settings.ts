@@ -418,6 +418,34 @@ router.post("/settings/channels", async (req, res) => {
   }
 });
 
+// DELETE /settings/channels/:id — Remove a channel config
+router.delete("/settings/channels/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const userId = req.userId;
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid channel id" });
+      return;
+    }
+    const [deleted] = await db
+      .delete(channelConfigsTable)
+      .where(
+        isRealUser(userId)
+          ? and(eq(channelConfigsTable.id, id), eq(channelConfigsTable.userId, userId))
+          : eq(channelConfigsTable.id, id)
+      )
+      .returning();
+    if (!deleted) {
+      res.status(404).json({ error: "Channel not found" });
+      return;
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error deleting channel:", err);
+    res.status(500).json({ error: "Failed to delete channel" });
+  }
+});
+
 interface ModelOption {
   id: string;
   name: string;
