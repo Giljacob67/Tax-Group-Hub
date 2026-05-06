@@ -241,13 +241,238 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
   }
 });
 
+// ── WhatsApp (Meta Cloud API) schemas ─────────────────────────────────────────
+
+const WhatsAppMessage = z.object({
+  type: z.string(),
+  from: z.string(),
+  id: z.string(),
+  timestamp: z.string(),
+  text: z.object({ body: z.string() }).optional(),
+  audio: z.object({ id: z.string(), mime_type: z.string().optional() }).optional(),
+  image: z.object({ id: z.string(), mime_type: z.string().optional(), caption: z.string().optional() }).optional(),
+  document: z.object({ id: z.string(), filename: z.string().optional(), mime_type: z.string().optional() }).optional(),
+}).passthrough();
+
+type WhatsAppMsg = z.infer<typeof WhatsAppMessage>;
+
+const WhatsAppWebhookPayload = z.object({
+  object: z.string(),
+  entry: z.array(z.object({
+    id: z.string(),
+    changes: z.array(z.object({
+      value: z.object({
+        messaging_product: z.string(),
+        metadata: z.object({ phone_number_id: z.string() }).passthrough(),
+        messages: z.array(WhatsAppMessage).optional(),
+        statuses: z.array(z.unknown()).optional(),
+      }).passthrough(),
+      field: z.string(),
+    })),
+  })),
+});
+
+/**
+ * Helper to download a media file from Meta Graph API.
+ */
+async function resolveWhatsAppMediaUrl(mediaId: string, accessToken: string): Promise<string | null> {
+  const metaRes = await fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!metaRes.ok) return null;
+  const data = await metaRes.json() as { url?: string };
+  return data.url ?? null;
+}
+
+/**
+ * Helper to send a text reply via WhatsApp Cloud API.
+ */
+async function sendWhatsAppMessage(to: string, text: string, phoneNumberId: string, accessToken: string) {
+  await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { body: text },
+    }),
+  });
+}
+
+/**
+ * GET /api/webhooks/whatsapp/:channelId
+ * Meta webhook verification handshake.
+ */
+router.get("/webhooks/whatsapp/:channelId", async (req, res) => {
+  const { channelId } = req.params;
+  const mode = req.query["hub.mode"];
+  const challenge = req.query["hub.challenge"];
+  const token = req.query["hub.verify_token"];
+
+  const [config] = await db
+    .select()
+    .from(channelConfigsTable)
+    .where(and(eq(channelConfigsTable.platform, "whatsapp"), eq(channelConfigsTable.id, Number(channelId))))
+    .limit(1);
+
+  const expectedToken = (config?.config as Record<string, unknown> | null)?.verifyToken;
+  if (mode === "subscribe" && token === expectedToken) {
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
+  }
+});
+
 /**
  * POST /api/webhooks/whatsapp/:channelId
- * Placeholder for WhatsApp (Meta/Twilio)
+ * Meta Cloud API webhook — mirrors the Telegram handler.
  */
-// TODO: implement WhatsApp (Meta Cloud API) — mirror the Telegram handler above
-router.post("/webhooks/whatsapp/:channelId", (_req, res) => {
-  res.sendStatus(200);
+router.post("/webhooks/whatsapp/:channelId", async (req, res) => {
+  const { channelId } = req.params;
+  const reqId = req.id;
+
+  const parsed = WhatsAppWebhookPayload.safeParse(req.body);
+  if (!parsed.success) {
+    console.warn("[Webhook WhatsApp] invalid payload", { reqId, errors: parsed.error.flatten() });
+    res.sendStatus(200);
+    return;
+  }
+  const payload = parsed.data;
+
+  try {
+    // Extract the first inbound message from the nested Meta envelope
+    const entry = payload.entry[0];
+    const change = entry?.changes.find(c => c.field === "messages");
+    const message = change?.value.messages?.[0];
+    const phoneNumberId = change?.value.metadata.phone_number_id;
+
+    // Ignore status updates (delivered, read, etc.) silently
+    if (!message || !phoneNumberId) {
+      res.sendStatus(200);
+      return;
+    }
+
+    const [config] = await db
+      .select()
+      .from(channelConfigsTable)
+      .where(and(eq(channelConfigsTable.platform, "whatsapp"), eq(channelConfigsTable.id, Number(channelId))))
+      .limit(1);
+
+    if (!config) {
+      console.warn(`[Webhook WhatsApp] No config for channelId: ${channelId}`);
+      return;
+    }
+
+    const configData = config.config as Record<string, unknown> | null;
+    const accessToken = String(configData?.accessToken ?? "");
+    if (!accessToken) {
+      console.warn(`[Webhook WhatsApp] No accessToken in config for channel ${channelId}`);
+      return;
+    }
+
+    const agent = AGENTS.find(a => a.id === config.agentId);
+    if (!agent) return;
+
+    const fromNumber = message.from;
+
+    // Find or create conversation keyed by WhatsApp sender number
+    let [conv] = await db
+      .select()
+      .from(conversationsTable)
+      .where(and(eq(conversationsTable.platform, "whatsapp"), eq(conversationsTable.externalId, fromNumber)))
+      .limit(1);
+
+    if (!conv) {
+      [conv] = await db
+        .insert(conversationsTable)
+        .values({
+          agentId: agent.id,
+          userId: config.userId,
+          platform: "whatsapp",
+          externalId: fromNumber,
+          title: `WhatsApp (${fromNumber})`,
+        })
+        .returning();
+    }
+
+    // Process input by message type
+    let userContent = "";
+    const msg = message as WhatsAppMsg;
+
+    if (msg.type === "text" && msg.text) {
+      userContent = msg.text.body;
+    } else if (msg.type === "audio" && msg.audio) {
+      const mediaUrl = await resolveWhatsAppMediaUrl(msg.audio.id, accessToken);
+      if (mediaUrl) {
+        const fetched = await fetch(mediaUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+        if (fetched.ok) {
+          const buf = Buffer.from(await fetched.arrayBuffer());
+          const processed = await processExternalMedia(buf, msg.audio.mime_type || "audio/ogg", "voice_note.ogg");
+          userContent = processed.content;
+        }
+      }
+    } else if (msg.type === "image" && msg.image) {
+      const mediaUrl = await resolveWhatsAppMediaUrl(msg.image.id, accessToken);
+      if (mediaUrl) {
+        const processed = await processExternalMedia(mediaUrl, msg.image.mime_type || "image/jpeg", "photo.jpg");
+        userContent = msg.image.caption
+          ? `[Imagem — legenda: ${msg.image.caption}]\n${processed.content}`
+          : `[Imagem]: ${processed.content}`;
+      }
+    } else if (msg.type === "document" && msg.document) {
+      const mediaUrl = await resolveWhatsAppMediaUrl(msg.document.id, accessToken);
+      if (mediaUrl) {
+        const processed = await processExternalMedia(
+          mediaUrl,
+          msg.document.mime_type || "application/pdf",
+          msg.document.filename ?? "file",
+        );
+        userContent = `[Arquivo: ${msg.document.filename}]\nContent: ${processed.content}`;
+      }
+    }
+
+    if (!userContent) return;
+
+    await db.insert(messagesTable).values({ conversationId: conv.id, role: "user", content: userContent });
+
+    const history = await db
+      .select()
+      .from(messagesTable)
+      .where(eq(messagesTable.conversationId, conv.id))
+      .orderBy(messagesTable.createdAt);
+
+    const recentHistory = history.slice(-14);
+    const context = recentHistory
+      .map(m => `${m.role === "user" ? "Usuário" : "Assistente"}: ${m.content}`)
+      .join("\n");
+
+    const llmResponse = await callLLM(
+      agent.systemPrompt,
+      `Histórico da conversa:\n${context}\n\nNova mensagem: ${userContent}`,
+      { toolIds: ["webSearch", "emailSender"] },
+    );
+
+    await db.insert(messagesTable).values({ conversationId: conv.id, role: "assistant", content: llmResponse.output });
+
+    await sendWhatsAppMessage(fromNumber, llmResponse.output, phoneNumberId, accessToken);
+
+    await db.insert(usageLogsTable).values({
+      userId: config.userId,
+      conversationId: conv.id,
+      agentId: agent.id,
+      model: llmResponse.model,
+      provider: llmResponse.provider,
+      totalTokens: llmResponse.tokensUsed,
+      latencyMs: llmResponse.executionTimeMs,
+      platform: "whatsapp",
+    }).catch((e: Error) => console.error("[Analytics] WhatsApp log error:", e));
+
+  } catch (err: unknown) {
+    console.error("[Webhook WhatsApp] error", { reqId, err });
+  } finally {
+    if (!res.headersSent) res.sendStatus(200);
+  }
 });
 
 /**
