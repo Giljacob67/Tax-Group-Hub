@@ -86,8 +86,7 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
 
   // 1. OLLAMA CLOUD (custom URL Ollama-compatible endpoint)
   if (provider === "ollama_cloud") {
-    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
-    let cloudUrl = (options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\\/+$/, "");
+    let cloudUrl = (requestedCustomUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\\/+$/, "");
     const cloudKey = await getApiKey("ollama_cloud", userId);
     const customOpenAI = createOpenAI({
       baseURL: cloudUrl.endsWith("/v1") ? cloudUrl : `${cloudUrl.replace(/\/+$/, "")}/v1`,

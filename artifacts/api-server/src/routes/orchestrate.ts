@@ -65,8 +65,13 @@ async function executeAgentTask(task: OrchestrationTask, context?: string): Prom
     try {
       const result = await callLLM(systemPrompt, task.task);
       assistantContent = result.output || "Sem resposta do agente.";
-    } catch {
-      assistantContent = `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para executar este agente.\n\n**Tarefa recebida:** ${task.task}`;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isUnconfigured = /não configurada|not configured|API Key/i.test(errMsg);
+      if (!isUnconfigured) console.error(`[Orchestrate] callLLM failed for agent ${task.agentId}:`, err);
+      assistantContent = isUnconfigured
+        ? `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para executar este agente.\n\n**Tarefa recebida:** ${task.task}`
+        : `**Erro ao processar agente** — ${errMsg}\n\n**Tarefa recebida:** ${task.task}`;
     }
 
     // Save assistant response
@@ -168,8 +173,13 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
       const result = await callLLM(supervisorSystemPrompt, reviewPrompt);
       console.log(`[Coordinator review] tokens=${result.tokensUsed} duration=${result.executionTimeMs}ms`);
       reviewContent = result.output || "Sem parecer disponível.";
-    } catch {
-      reviewContent = `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para ativar a supervisão do Coordenador.`;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isUnconfigured = /não configurada|not configured|API Key/i.test(errMsg);
+      if (!isUnconfigured) console.error("[Orchestrate] Coordinator callLLM failed:", err);
+      reviewContent = isUnconfigured
+        ? `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para ativar a supervisão do Coordenador.`
+        : `**Erro na supervisão** — ${errMsg}`;
     }
 
     await db.insert(messagesTable).values({

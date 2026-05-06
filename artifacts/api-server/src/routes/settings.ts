@@ -68,7 +68,7 @@ router.get("/settings/integrations", async (req, res) => {
       .where(isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined);
     
     // Convert to easy lookup set
-    const hasDbKey = new Set(userKeys.map((k: any) => k.provider));
+    const hasDbKey = new Set(userKeys.map(k => k.provider));
 
     const checkStatus = (providerId: string, envKey?: string) => {
       if (hasDbKey.has(providerId)) return "connected";
@@ -354,7 +354,8 @@ router.post("/settings/active-provider/test", async (req, res) => {
       executionTimeMs: result.executionTimeMs,
     });
   } catch (err: any) {
-    res.json({ success: false, error: err.message || "Erro desconhecido" });
+    console.error("[Settings] active-provider/test failed:", err);
+    res.status(502).json({ success: false, error: "Provider connection failed" });
   }
 });
 // GET /settings/channels — List omnichannel channel configurations

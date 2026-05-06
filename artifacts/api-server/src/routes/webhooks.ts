@@ -44,11 +44,11 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
   const { webhookId } = req.params;
   const update = req.body;
 
-  // Telegram expects 200 OK fast
-  res.sendStatus(200);
-
   try {
-    if (!update.message) return;
+    if (!update.message) {
+      res.sendStatus(200);
+      return;
+    }
 
     // Resolve channel config — support both new (by ID) and legacy (by token) lookups
     let config;
@@ -160,7 +160,7 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
       .orderBy(messagesTable.createdAt);
 
     const recentHistory = history.slice(-14);
-    const context = recentHistory.map((m: any) => `${m.role === "user" ? "Usuário" : "Assistente"}: ${m.content}`).join("\n");
+    const context = recentHistory.map(m => `${m.role === "user" ? "Usuário" : "Assistente"}: ${m.content}`).join("\n");
 
     const llmResponse = await callLLM(
        agent.systemPrompt, 
@@ -192,6 +192,9 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
 
   } catch (err: any) {
     console.error("[Webhook Telegram Error]:", err);
+  } finally {
+    // Always ACK to prevent Telegram from retrying
+    if (!res.headersSent) res.sendStatus(200);
   }
 });
 
@@ -199,10 +202,9 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
  * POST /api/webhooks/whatsapp/:channelId
  * Placeholder for WhatsApp (Meta/Twilio)
  */
-router.post("/webhooks/whatsapp/:channelId", async (req, res) => {
-  // Logic similar to Telegram but with Meta Cloud API payloads
+// TODO: implement WhatsApp (Meta Cloud API) — mirror the Telegram handler above
+router.post("/webhooks/whatsapp/:channelId", (_req, res) => {
   res.sendStatus(200);
-  console.log("[Webhook WhatsApp] received payload but not fully implemented yet.");
 });
 
 /**
@@ -212,9 +214,6 @@ router.post("/webhooks/whatsapp/:channelId", async (req, res) => {
 router.post("/webhooks/crm/inbound/:tenantId", async (req, res) => {
   const { tenantId } = req.params;
   const payload = req.body || {};
-
-  // Reply fast for webhook senders
-  res.sendStatus(200);
 
   try {
     const rawCnpj = payload.cnpj || payload.company_cnpj || payload.document || payload.documento || payload.cpf_cnpj;
@@ -277,6 +276,8 @@ router.post("/webhooks/crm/inbound/:tenantId", async (req, res) => {
 
   } catch (err: any) {
     console.error(`[Webhook CRM Inbound Error Payload]:`, payload, err);
+  } finally {
+    if (!res.headersSent) res.sendStatus(200);
   }
 });
 

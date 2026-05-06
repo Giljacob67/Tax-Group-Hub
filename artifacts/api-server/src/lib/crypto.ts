@@ -69,7 +69,7 @@ export function decrypt(encryptedValue: string): string {
   } catch {
     // If decryption fails (wrong key, corrupted data), return raw value
     // so the app doesn't crash — the key simply won't work at the provider.
-    console.warn("[Crypto] Decryption failed — returning raw value. Key may be corrupted or ENCRYPTION_KEY changed.");
+    console.error("[Crypto] Decryption failed — returning raw value. Key may be corrupted or ENCRYPTION_KEY changed.");
     return encryptedValue;
   }
 }

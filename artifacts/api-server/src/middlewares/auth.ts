@@ -40,17 +40,23 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     "/agents",
     "/agents/search",
   ];
+  // Read-only settings endpoints: public GET only — writes require auth
+  const publicGetPaths = [
+    "/settings/integrations",
+    "/settings/models",
+    "/settings/ollama",
+    "/settings/active-provider",
+  ];
   // Also allow GET /agents/:id (already redacts systemPrompt without API key)
   if (req.path.startsWith("/agents/") && req.method === "GET") {
     next();
     return;
   }
-  // CRM & Settings routes: allow through — tenant isolation is enforced via req.userId fallback to "system"
-  if (req.path.startsWith("/crm") || req.path.startsWith("/settings")) {
+  if (publicPaths.includes(req.path)) {
     next();
     return;
   }
-  if (publicPaths.includes(req.path)) {
+  if (req.method === "GET" && publicGetPaths.includes(req.path)) {
     next();
     return;
   }

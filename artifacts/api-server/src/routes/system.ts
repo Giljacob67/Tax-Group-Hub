@@ -48,7 +48,9 @@ router.post("/system/jobs/retry", async (req, res) => {
         
         // Fire and forget
         setImmediate(() => {
-          processDocumentAsync(doc.id, fileBuffer, doc.fileType, doc.filename).catch(() => {});
+          processDocumentAsync(doc.id, fileBuffer, doc.fileType, doc.filename).catch((err: Error) => {
+            console.error("[Knowledge] processDocumentAsync failed for doc", doc.id, err);
+          });
         });
 
         retriedCount++;
