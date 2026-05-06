@@ -3,6 +3,7 @@ import { db, conversationsTable, messagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
 import { callLLM } from "../lib/llm-client.js";
+import { apiError } from "../lib/api-response.js";
 
 const router: IRouter = Router();
 
@@ -203,12 +204,12 @@ router.post("/orchestrate", async (req, res) => {
     const { tasks, context } = req.body as { tasks?: OrchestrationTask[]; context?: string };
 
     if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
-      res.status(400).json({ error: "tasks array is required" });
+      apiError(res, 400, "tasks array is required");
       return;
     }
 
     if (tasks.length > 8) {
-      res.status(400).json({ error: "Maximum 8 tasks per orchestration" });
+      apiError(res, 400, "Maximum 8 tasks per orchestration");
       return;
     }
 
@@ -223,7 +224,7 @@ router.post("/orchestrate", async (req, res) => {
     res.json({ results, coordinatorReview });
   } catch (err) {
     console.error("[Orchestrate] error", { reqId, err });
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 

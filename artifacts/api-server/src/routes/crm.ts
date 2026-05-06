@@ -9,6 +9,7 @@ import { eq, and, desc, asc, ilike, or, gte, lte, inArray, sql } from "drizzle-o
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
 import { callLLM } from "../lib/llm-client.js";
 import { getAgentById } from "../lib/agents-data.js";
+import { apiError } from "../lib/api-response.js";
 
 const router = Router();
 
@@ -116,7 +117,7 @@ router.get("/contacts", async (req: Request, res: Response) => {
 
     res.json({ success: true, contacts, total: contacts.length });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to list contacts", message: err.message });
+    apiError(res, 500, "Failed to list contacts");
   }
 });
 
@@ -128,10 +129,10 @@ router.get("/contacts/:id", async (req: Request, res: Response) => {
       .select()
       .from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
-    if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
+    if (!contact) { apiError(res, 404, "Contact not found"); return; }
     res.json({ success: true, contact });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to get contact", message: err.message });
+    apiError(res, 500, "Failed to get contact");
   }
 });
 
@@ -142,7 +143,7 @@ router.post("/contacts", async (req: Request, res: Response) => {
     const data = req.body;
     const cleanCnpj = (data.cnpj || "").replace(/\D/g, "");
     if (!cleanCnpj || cleanCnpj.length !== 14) {
-      res.status(400).json({ error: "CNPJ inválido. Informe 14 dígitos." });
+      apiError(res, 400, "CNPJ inválido. Informe 14 dígitos.");
       return;
     }
     const [existing] = await db
@@ -181,7 +182,7 @@ router.post("/contacts", async (req: Request, res: Response) => {
 
     res.status(201).json({ success: true, contact: newContact, enriched: enrichSource === "empresaqui" });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to create contact", message: err.message });
+    apiError(res, 400, "Failed to create contact");
   }
 });
 
@@ -200,7 +201,7 @@ router.put("/contacts/:id", async (req: Request, res: Response) => {
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)))
       .returning();
     
-    if (!updated) { res.status(404).json({ error: "Contact not found" }); return; }
+    if (!updated) { apiError(res, 404, "Contact not found"); return; }
 
     // Trigger automations if status changed
     if (oldContact && req.body.status && oldContact.status !== req.body.status) {
@@ -209,7 +210,7 @@ router.put("/contacts/:id", async (req: Request, res: Response) => {
 
     res.json({ success: true, contact: updated });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to update contact", message: err.message });
+    apiError(res, 400, "Failed to update contact");
   }
 });
 
@@ -220,7 +221,7 @@ router.delete("/contacts/:id", async (req: Request, res: Response) => {
     await db.delete(crmContactsTable).where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to delete contact", message: err.message });
+    apiError(res, 500, "Failed to delete contact");
   }
 });
 
@@ -231,14 +232,14 @@ router.post("/contacts/bulk-delete", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const { ids } = req.body as { ids: number[] };
     if (!Array.isArray(ids) || ids.length === 0) {
-      res.status(400).json({ error: "ids deve ser um array não vazio." });
+      apiError(res, 400, "ids deve ser um array não vazio.");
       return;
     }
     await db.delete(crmContactsTable)
       .where(and(inArray(crmContactsTable.id, ids), eq(crmContactsTable.userId, userId)));
     res.json({ success: true, deleted: ids.length });
   } catch (err: any) {
-    res.status(500).json({ error: "Bulk delete failed", message: err.message });
+    apiError(res, 500, "Bulk delete failed");
   }
 });
 
@@ -249,7 +250,7 @@ router.post("/contacts/bulk-update-status", async (req: Request, res: Response) 
     const userId = req.userId || "system";
     const { ids, status } = req.body as { ids: number[]; status: string };
     if (!Array.isArray(ids) || ids.length === 0 || !status) {
-      res.status(400).json({ error: "ids e status são obrigatórios." });
+      apiError(res, 400, "ids e status são obrigatórios.");
       return;
     }
     await db.update(crmContactsTable)
@@ -263,7 +264,7 @@ router.post("/contacts/bulk-update-status", async (req: Request, res: Response) 
 
     res.json({ success: true, updated: ids.length });
   } catch (err: any) {
-    res.status(500).json({ error: "Bulk update failed", message: err.message });
+    apiError(res, 500, "Bulk update failed");
   }
 });
 
@@ -274,7 +275,7 @@ router.post("/contacts/bulk-tags", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const { ids, tag, action } = req.body as { ids: number[]; tag: string; action: "add" | "remove" };
     if (!Array.isArray(ids) || ids.length === 0 || !tag) {
-      res.status(400).json({ error: "ids e tag são obrigatórios." }); return;
+      apiError(res, 400, "ids e tag são obrigatórios."); return;
     }
 
     const contactsToUpdate = await db.select({ id: crmContactsTable.id, tags: crmContactsTable.tags })
@@ -293,7 +294,7 @@ router.post("/contacts/bulk-tags", async (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: "Bulk tags update failed", message: err.message });
+    apiError(res, 500, "Bulk tags update failed");
   }
 });
 
@@ -309,7 +310,7 @@ router.get("/tags", async (req: Request, res: Response) => {
     const tags = result.rows.map((r: any) => r.tag).sort();
     res.json({ success: true, tags });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch tags", message: err.message });
+    apiError(res, 500, "Failed to fetch tags");
   }
 });
 
@@ -319,10 +320,10 @@ router.post("/contacts/:id/enrich", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const [contact] = await db.select().from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
-    if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
+    if (!contact) { apiError(res, 404, "Contact not found"); return; }
 
     const token = await getEmpresAquiToken();
-    if (!token) { res.status(503).json({ error: "EmpresAqui token not configured." }); return; }
+    if (!token) { apiError(res, 503, "EmpresAqui token not configured."); return; }
 
     const client = new EmpresAquiClient(token);
     const empresaData = await client.getCompanyByCNPJ(contact.cnpj);
@@ -339,7 +340,7 @@ router.post("/contacts/:id/enrich", async (req: Request, res: Response) => {
 
     res.json({ success: true, contact: updated, fieldsUpdated: Object.keys(mapped) });
   } catch (err: any) {
-    res.status(500).json({ error: "Enrichment failed", message: err.message });
+    apiError(res, 500, "Enrichment failed");
   }
 });
 
@@ -349,10 +350,10 @@ router.post("/contacts/import", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const { cnpjs } = req.body as { cnpjs: string[] };
     if (!Array.isArray(cnpjs) || cnpjs.length === 0) {
-      res.status(400).json({ error: "Informe um array de CNPJs em 'cnpjs'." });
+      apiError(res, 400, "Informe um array de CNPJs em 'cnpjs'.");
       return;
     }
-    if (cnpjs.length > 50) { res.status(400).json({ error: "Máximo de 50 CNPJs por lote." }); return; }
+    if (cnpjs.length > 50) { apiError(res, 400, "Máximo de 50 CNPJs por lote."); return; }
 
     const token = await getEmpresAquiToken();
     const results: { cnpj: string; status: string; contactId?: number }[] = [];
@@ -388,7 +389,7 @@ router.post("/contacts/import", async (req: Request, res: Response) => {
       errors: results.filter(r => r.status === "error").length,
     }});
   } catch (err: any) {
-    res.status(500).json({ error: "Import failed", message: err.message });
+    apiError(res, 500, "Import failed");
   }
 });
 
@@ -398,10 +399,10 @@ router.post("/contacts/:id/qualify", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const [contact] = await db.select().from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
-    if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
+    if (!contact) { apiError(res, 404, "Contact not found"); return; }
 
     const agent = getAgentById("qualificacao-leads-tax-group") || getAgentById("coordenador-geral-tax-group");
-    if (!agent) { res.status(500).json({ error: "Qualification agent not found" }); return; }
+    if (!agent) { apiError(res, 500, "Qualification agent not found"); return; }
 
     const input = `
 Qualifique este lead da Tax Group com base nas informações:
@@ -470,7 +471,7 @@ Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","RE
 
     res.json({ success: true, contact: updated, qualification: scoreData, dealCreated });
   } catch (err: any) {
-    res.status(500).json({ error: "Qualification failed", message: err.message });
+    apiError(res, 500, "Qualification failed");
   }
 });
 
@@ -535,7 +536,7 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
 
     res.json({ success: true, pipeline, stages, meta: pipelineMeta, stats: { total: deals.length, totalValue } });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch pipeline", message: err.message });
+    apiError(res, 500, "Failed to fetch pipeline");
   }
 });
 
@@ -550,7 +551,7 @@ router.get("/deals", async (req: Request, res: Response) => {
     const deals = await db.select().from(crmDealsTable).where(and(...conditions)).orderBy(desc(crmDealsTable.updatedAt));
     res.json({ success: true, deals });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to list deals", message: err.message });
+    apiError(res, 500, "Failed to list deals");
   }
 });
 
@@ -560,7 +561,7 @@ router.post("/deals", async (req: Request, res: Response) => {
     const [deal] = await db.insert(crmDealsTable).values({ ...req.body, userId }).returning();
     res.status(201).json({ success: true, deal });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to create deal", message: err.message });
+    apiError(res, 400, "Failed to create deal");
   }
 });
 
@@ -569,7 +570,7 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const [oldDeal] = await db.select().from(crmDealsTable)
       .where(and(eq(crmDealsTable.id, Number(req.params.id)), eq(crmDealsTable.userId, userId)));
-    if (!oldDeal) { res.status(404).json({ error: "Deal not found" }); return; }
+    if (!oldDeal) { apiError(res, 404, "Deal not found"); return; }
 
     const body = req.body;
     if (body.stage && body.stage !== oldDeal.stage) {
@@ -602,7 +603,7 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
 
     res.json({ success: true, deal });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to update deal", message: err.message });
+    apiError(res, 400, "Failed to update deal");
   }
 });
 
@@ -612,7 +613,7 @@ router.delete("/deals/:id", async (req: Request, res: Response) => {
     await db.delete(crmDealsTable).where(and(eq(crmDealsTable.id, Number(req.params.id)), eq(crmDealsTable.userId, userId)));
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to delete deal", message: err.message });
+    apiError(res, 500, "Failed to delete deal");
   }
 });
 
@@ -625,7 +626,7 @@ router.get("/contacts/:id/activities", async (req: Request, res: Response) => {
       .orderBy(desc(crmActivitiesTable.createdAt));
     res.json({ success: true, activities });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to list activities", message: err.message });
+    apiError(res, 500, "Failed to list activities");
   }
 });
 
@@ -637,7 +638,7 @@ router.post("/contacts/:id/activities", async (req: Request, res: Response) => {
       .returning();
     res.status(201).json({ success: true, activity });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to create activity", message: err.message });
+    apiError(res, 400, "Failed to create activity");
   }
 });
 
@@ -650,7 +651,7 @@ router.get("/contacts/:id/attachments", async (req: Request, res: Response) => {
       .orderBy(desc(crmAttachmentsTable.createdAt));
     res.json({ success: true, attachments });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to list attachments", message: err.message });
+    apiError(res, 500, "Failed to list attachments");
   }
 });
 
@@ -660,11 +661,11 @@ router.post("/contacts/:id/attachments", async (req: Request, res: Response) => 
     const contactId = Number(req.params.id);
     const [contact] = await db.select({ id: crmContactsTable.id }).from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)));
-    if (!contact) { res.status(404).json({ error: "Contact not found" }); return; }
+    if (!contact) { apiError(res, 404, "Contact not found"); return; }
 
     const { fileName, fileSize, mimeType, url, dealId } = req.body;
     if (!fileName || !mimeType || !url) {
-      res.status(400).json({ error: "fileName, mimeType e url são obrigatórios." });
+      apiError(res, 400, "fileName, mimeType e url são obrigatórios.");
       return;
     }
 
@@ -681,7 +682,7 @@ router.post("/contacts/:id/attachments", async (req: Request, res: Response) => 
 
     res.status(201).json({ success: true, attachment });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to create attachment", message: err.message });
+    apiError(res, 400, "Failed to create attachment");
   }
 });
 
@@ -695,7 +696,7 @@ router.delete("/contacts/:contactId/attachments/:attachmentId", async (req: Requ
     ));
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to delete attachment", message: err.message });
+    apiError(res, 500, "Failed to delete attachment");
   }
 });
 
@@ -720,7 +721,7 @@ router.get("/tasks", async (req: Request, res: Response) => {
       .orderBy(asc(crmTasksTable.dueDate));
     res.json({ success: true, tasks });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to list tasks", message: err.message });
+    apiError(res, 500, "Failed to list tasks");
   }
 });
 
@@ -732,7 +733,7 @@ router.post("/tasks", async (req: Request, res: Response) => {
       .returning();
     res.status(201).json({ success: true, task });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to create task", message: err.message });
+    apiError(res, 400, "Failed to create task");
   }
 });
 
@@ -745,10 +746,10 @@ router.put("/tasks/:id", async (req: Request, res: Response) => {
       .set({ ...body, updatedAt: new Date() })
       .where(and(eq(crmTasksTable.id, Number(req.params.id)), eq(crmTasksTable.userId, userId)))
       .returning();
-    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
+    if (!task) { apiError(res, 404, "Task not found"); return; }
     res.json({ success: true, task });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to update task", message: err.message });
+    apiError(res, 400, "Failed to update task");
   }
 });
 
@@ -759,7 +760,7 @@ router.delete("/tasks/:id", async (req: Request, res: Response) => {
       .where(and(eq(crmTasksTable.id, Number(req.params.id)), eq(crmTasksTable.userId, userId)));
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to delete task", message: err.message });
+    apiError(res, 500, "Failed to delete task");
   }
 });
 
@@ -791,7 +792,7 @@ router.get("/activities", async (req: Request, res: Response) => {
 
     res.json({ success: true, activities: formatted });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch global activities", message: err.message });
+    apiError(res, 500, "Failed to fetch global activities");
   }
 });
 
@@ -804,7 +805,7 @@ router.get("/views", async (req: Request, res: Response) => {
       .orderBy(asc(crmSavedViewsTable.createdAt));
     res.json({ success: true, views });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to list views", message: err.message });
+    apiError(res, 500, "Failed to list views");
   }
 });
 
@@ -816,7 +817,7 @@ router.post("/views", async (req: Request, res: Response) => {
       .returning();
     res.status(201).json({ success: true, view });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to create view", message: err.message });
+    apiError(res, 400, "Failed to create view");
   }
 });
 
@@ -827,7 +828,7 @@ router.delete("/views/:id", async (req: Request, res: Response) => {
       .where(and(eq(crmSavedViewsTable.id, Number(req.params.id)), eq(crmSavedViewsTable.userId, userId)));
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to delete view", message: err.message });
+    apiError(res, 500, "Failed to delete view");
   }
 });
 
@@ -956,7 +957,7 @@ router.get("/analytics/overview", async (req: Request, res: Response) => {
       weeklyLeads,
     });
   } catch (err: any) {
-    res.status(500).json({ error: "Analytics overview failed", message: err.message });
+    apiError(res, 500, "Analytics overview failed");
   }
 });
 
@@ -1011,7 +1012,7 @@ router.get("/analytics/funnel", async (req: Request, res: Response) => {
 
     res.json({ success: true, funnel, avgDaysPerStage });
   } catch (err: any) {
-    res.status(500).json({ error: "Funnel analytics failed", message: err.message });
+    apiError(res, 500, "Funnel analytics failed");
   }
 });
 
@@ -1024,7 +1025,7 @@ router.get("/automations", async (req: Request, res: Response) => {
       .orderBy(desc(crmAutomationsTable.createdAt));
     res.json({ success: true, automations });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to list automations", message: err.message });
+    apiError(res, 500, "Failed to list automations");
   }
 });
 
@@ -1036,7 +1037,7 @@ router.post("/automations", async (req: Request, res: Response) => {
       .returning();
     res.status(201).json({ success: true, automation: auto });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to create automation", message: err.message });
+    apiError(res, 400, "Failed to create automation");
   }
 });
 
@@ -1047,10 +1048,10 @@ router.put("/automations/:id", async (req: Request, res: Response) => {
       .set({ ...req.body, updatedAt: new Date() })
       .where(and(eq(crmAutomationsTable.id, Number(req.params.id)), eq(crmAutomationsTable.userId, userId)))
       .returning();
-    if (!auto) { res.status(404).json({ error: "Automation not found" }); return; }
+    if (!auto) { apiError(res, 404, "Automation not found"); return; }
     res.json({ success: true, automation: auto });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to update automation", message: err.message });
+    apiError(res, 400, "Failed to update automation");
   }
 });
 
@@ -1061,7 +1062,7 @@ router.delete("/automations/:id", async (req: Request, res: Response) => {
       .where(and(eq(crmAutomationsTable.id, Number(req.params.id)), eq(crmAutomationsTable.userId, userId)));
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to delete automation", message: err.message });
+    apiError(res, 500, "Failed to delete automation");
   }
 });
 
@@ -1075,7 +1076,7 @@ router.get("/pipelines", async (req: Request, res: Response) => {
       .orderBy(asc(crmPipelinesTable.createdAt));
     res.json({ success: true, pipelines });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to list pipelines", message: err.message });
+    apiError(res, 500, "Failed to list pipelines");
   }
 });
 
@@ -1085,7 +1086,7 @@ router.post("/pipelines", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const { name, stages, isDefault } = req.body as { name: string; stages: string[]; isDefault?: boolean };
     if (!name || !Array.isArray(stages) || stages.length === 0) {
-      res.status(400).json({ error: "name e stages são obrigatórios." }); return;
+      apiError(res, 400, "name e stages são obrigatórios."); return;
     }
     // If new pipeline is set as default, unset others
     if (isDefault) {
@@ -1098,7 +1099,7 @@ router.post("/pipelines", async (req: Request, res: Response) => {
       .returning();
     res.status(201).json({ success: true, pipeline });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to create pipeline", message: err.message });
+    apiError(res, 400, "Failed to create pipeline");
   }
 });
 
@@ -1116,10 +1117,10 @@ router.put("/pipelines/:id", async (req: Request, res: Response) => {
       .set({ ...(name && { name }), ...(stages && { stages }), ...(isDefault !== undefined && { isDefault }), updatedAt: new Date() })
       .where(and(eq(crmPipelinesTable.id, Number(req.params.id)), eq(crmPipelinesTable.userId, userId)))
       .returning();
-    if (!pipeline) { res.status(404).json({ error: "Pipeline not found" }); return; }
+    if (!pipeline) { apiError(res, 404, "Pipeline not found"); return; }
     res.json({ success: true, pipeline });
   } catch (err: any) {
-    res.status(400).json({ error: "Failed to update pipeline", message: err.message });
+    apiError(res, 400, "Failed to update pipeline");
   }
 });
 
@@ -1129,13 +1130,13 @@ router.delete("/pipelines/:id", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const [pipeline] = await db.select().from(crmPipelinesTable)
       .where(and(eq(crmPipelinesTable.id, Number(req.params.id)), eq(crmPipelinesTable.userId, userId)));
-    if (!pipeline) { res.status(404).json({ error: "Pipeline not found" }); return; }
-    if (pipeline.isDefault) { res.status(400).json({ error: "Não é possível excluir o funil padrão." }); return; }
+    if (!pipeline) { apiError(res, 404, "Pipeline not found"); return; }
+    if (pipeline.isDefault) { apiError(res, 400, "Não é possível excluir o funil padrão."); return; }
     await db.delete(crmPipelinesTable)
       .where(and(eq(crmPipelinesTable.id, Number(req.params.id)), eq(crmPipelinesTable.userId, userId)));
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to delete pipeline", message: err.message });
+    apiError(res, 500, "Failed to delete pipeline");
   }
 });
 

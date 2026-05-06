@@ -38,6 +38,7 @@ function fileFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterC
 
 import path from "node:path";
 import fs from "node:fs";
+import { apiError } from "../lib/api-response.js";
 
 const UPLOADS_DIR = process.env.VERCEL
   ? path.resolve("/tmp", "uploads")
@@ -192,7 +193,7 @@ router.get("/knowledge", async (req, res) => {
     });
   } catch (err) {
     console.error("Knowledge list error:", err);
-    res.status(500).json({ error: "Failed to list documents" });
+    apiError(res, 500, "Failed to list documents");
   }
 });
 
@@ -200,7 +201,7 @@ router.get("/knowledge", async (req, res) => {
 router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
-      res.status(400).json({ error: "No file provided" });
+      apiError(res, 400, "No file provided");
       return;
     }
 
@@ -252,7 +253,7 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
     });
   } catch (err) {
     console.error("Knowledge upload error:", err);
-    res.status(500).json({ error: "Failed to upload document", message: (err as Error).message });
+    apiError(res, 500, "Failed to upload document");
   }
 });
 
@@ -269,7 +270,7 @@ router.delete("/knowledge/:id", async (req, res) => {
         .from(knowledgeDocumentsTable)
         .where(and(eq(knowledgeDocumentsTable.id, Number(id)), eq(knowledgeDocumentsTable.userId, userId)));
       if (!doc) {
-        res.status(404).json({ error: "Document not found or access denied" });
+        apiError(res, 404, "Document not found or access denied");
         return;
       }
     }
@@ -278,7 +279,7 @@ router.delete("/knowledge/:id", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error("Knowledge delete error:", err);
-    res.status(500).json({ error: "Failed to delete document" });
+    apiError(res, 500, "Failed to delete document");
   }
 });
 

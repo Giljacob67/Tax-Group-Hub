@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { AGENTS, getAgentById } from "../lib/agents-data.js";
+import { apiError } from "../lib/api-response.js";
 
 const router: IRouter = Router();
 
@@ -15,7 +16,7 @@ router.get("/agents/search", (req, res) => {
   const block = (req.query.block as string || "").trim();
 
   if (!q && !block) {
-    res.status(400).json({ error: "Provide 'q' (search query) or 'block' (block filter) parameter" });
+    apiError(res, 400, "Provide 'q' (search query) or 'block' (block filter) parameter");
     return;
   }
 
@@ -50,7 +51,7 @@ router.get("/agents/:agentId", (req, res) => {
       // Return agent without systemPrompt if not authenticated
       const agent = getAgentById(req.params.agentId);
       if (!agent) {
-        res.status(404).json({ error: "Agent not found" });
+        apiError(res, 404, "Agent not found");
         return;
       }
       const { systemPrompt: _, ...safe } = agent;
@@ -61,7 +62,7 @@ router.get("/agents/:agentId", (req, res) => {
 
   const agent = getAgentById(req.params.agentId);
   if (!agent) {
-    res.status(404).json({ error: "Agent not found" });
+    apiError(res, 404, "Agent not found");
     return;
   }
   res.json(agent);

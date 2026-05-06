@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, designGalleryTable, knowledgeChunksTable, knowledgeDocumentsTable } from "@workspace/db";
 import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
+import { apiError } from "../lib/api-response.js";
 
 const router: IRouter = Router();
 
@@ -21,7 +22,7 @@ router.post("/integrations/generate-image", async (req, res) => {
   try {
     const { prompt, style, agentId } = req.body as { prompt?: string; style?: string; agentId?: string };
     if (!prompt?.trim()) {
-      res.status(400).json({ error: "prompt is required" });
+      apiError(res, 400, "prompt is required");
       return;
     }
 
@@ -108,7 +109,7 @@ router.post("/integrations/generate-image", async (req, res) => {
     });
   } catch (err) {
     console.error("Error generating image:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -133,7 +134,7 @@ router.get("/integrations/image-gallery/:agentId", async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching image gallery:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -141,7 +142,7 @@ router.post("/integrations/canva-link", async (req, res) => {
   try {
     const { contentType, title, description } = req.body as { contentType?: string; title?: string; description?: string };
     if (!contentType) {
-      res.status(400).json({ error: "contentType is required" });
+      apiError(res, 400, "contentType is required");
       return;
     }
 
@@ -164,7 +165,7 @@ router.post("/integrations/canva-link", async (req, res) => {
     res.json({ url, contentType, label: design.label });
   } catch (err) {
     console.error("Error generating Canva link:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -172,7 +173,7 @@ router.post("/integrations/search-knowledge", async (req, res) => {
   try {
     const { query, agentId, limit } = req.body as { query?: string; agentId?: string; limit?: number };
     if (!query?.trim()) {
-      res.status(400).json({ error: "query is required" });
+      apiError(res, 400, "query is required");
       return;
     }
 
@@ -206,11 +207,11 @@ router.post("/integrations/search-knowledge", async (req, res) => {
       });
     } catch (embErr) {
       console.error("Vector search error:", embErr);
-      res.status(500).json({ error: "Failed to perform vector search" });
+      apiError(res, 500, "Failed to perform vector search");
     }
   } catch (err) {
     console.error("Error searching knowledge:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 

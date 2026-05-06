@@ -52,6 +52,7 @@ interface IntegrationStatus {
 }
 
 import { isRealUser } from "../middlewares/auth.js";
+import { apiError } from "../lib/api-response.js";
 
 router.get("/settings/integrations", async (req, res) => {
   try {
@@ -201,7 +202,7 @@ router.get("/settings/integrations", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Error fetching integrations:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -216,7 +217,7 @@ router.get("/settings/keys", async (req, res) => {
     
     res.json({ keys: userKeys });
   } catch (err) {
-    res.status(500).json({ error: "Failed to list API keys" });
+    apiError(res, 500, "Failed to list API keys");
   }
 });
 
@@ -227,7 +228,7 @@ router.post("/settings/keys", async (req, res) => {
     const { provider, key } = req.body;
     
     if (!provider || !key) {
-      res.status(400).json({ error: "Provider and key are required" });
+      apiError(res, 400, "Provider and key are required");
       return;
     }
 
@@ -260,7 +261,7 @@ router.post("/settings/keys", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error("Failed to set API key:", err);
-    res.status(500).json({ error: "Failed to set API key" });
+    apiError(res, 500, "Failed to set API key");
   }
 });
 
@@ -280,7 +281,7 @@ router.delete("/settings/keys/:provider", async (req, res) => {
     
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: "Failed to delete API key" });
+    apiError(res, 500, "Failed to delete API key");
   }
 });
 
@@ -293,7 +294,7 @@ router.get("/settings/active-provider", async (_req, res) => {
     const model = await getConfigValue("ACTIVE_LLM_MODEL");
     res.json({ provider: provider || "auto", customUrl: customUrl || null, model: model || null });
   } catch (err) {
-    res.status(500).json({ error: "Failed to get active provider" });
+    apiError(res, 500, "Failed to get active provider");
   }
 });
 
@@ -304,7 +305,7 @@ router.put("/settings/active-provider", async (req, res) => {
     const { provider, customUrl, model } = req.body as { provider: string; customUrl?: string; model?: string };
 
     if (!provider) {
-      res.status(400).json({ error: "provider é obrigatório." }); return;
+      apiError(res, 400, "provider é obrigatório."); return;
     }
 
     await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_PROVIDER", value: provider, updatedAt: new Date() })
@@ -330,7 +331,7 @@ router.put("/settings/active-provider", async (req, res) => {
 
     res.json({ success: true, provider, customUrl: customUrl || null, model: model || null });
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to set active provider", message: err.message });
+    apiError(res, 500, "Failed to set active provider");
   }
 });
 
@@ -355,7 +356,7 @@ router.post("/settings/active-provider/test", async (req, res) => {
     });
   } catch (err: any) {
     console.error("[Settings] active-provider/test failed:", err);
-    res.status(502).json({ success: false, error: "Provider connection failed" });
+    apiError(res, 502, "Provider connection failed");
   }
 });
 // GET /settings/channels — List omnichannel channel configurations
@@ -370,7 +371,7 @@ router.get("/settings/channels", async (req, res) => {
     res.json({ channels });
   } catch (err) {
     console.error("Error listing channels:", err);
-    res.status(500).json({ error: "Failed to list channels" });
+    apiError(res, 500, "Failed to list channels");
   }
 });
 
@@ -381,7 +382,7 @@ router.post("/settings/channels", async (req, res) => {
     const userId = req.userId;
 
     if (!platform || !externalId || !agentId) {
-      res.status(400).json({ error: "platform, externalId and agentId are required" });
+      apiError(res, 400, "platform, externalId and agentId are required");
       return;
     }
 
@@ -414,7 +415,7 @@ router.post("/settings/channels", async (req, res) => {
     }
   } catch (err) {
     console.error("Error saving channel config:", err);
-    res.status(500).json({ error: "Failed to save channel config" });
+    apiError(res, 500, "Failed to save channel config");
   }
 });
 
@@ -424,7 +425,7 @@ router.delete("/settings/channels/:id", async (req, res) => {
     const id = Number(req.params.id);
     const userId = req.userId;
     if (isNaN(id)) {
-      res.status(400).json({ error: "Invalid channel id" });
+      apiError(res, 400, "Invalid channel id");
       return;
     }
     const [deleted] = await db
@@ -436,13 +437,13 @@ router.delete("/settings/channels/:id", async (req, res) => {
       )
       .returning();
     if (!deleted) {
-      res.status(404).json({ error: "Channel not found" });
+      apiError(res, 404, "Channel not found");
       return;
     }
     res.json({ success: true });
   } catch (err) {
     console.error("Error deleting channel:", err);
-    res.status(500).json({ error: "Failed to delete channel" });
+    apiError(res, 500, "Failed to delete channel");
   }
 });
 
@@ -476,7 +477,7 @@ router.get("/settings/models", async (_req, res) => {
     });
   } catch (err) {
     console.error("Error fetching models:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -487,7 +488,7 @@ router.get("/settings/ollama", async (_req, res) => {
     res.json({ url, source, model });
   } catch (err) {
     console.error("Error fetching ollama settings:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -526,11 +527,11 @@ router.put("/settings/ollama", async (req, res) => {
           host.startsWith("172.31.");
 
         if (isPrivate && process.env.ALLOW_PRIVATE_OLLAMA !== "true") {
-          res.status(400).json({ error: "Seguranca: URLs de rede privada/local nao sao permitidas por padrao." });
+          apiError(res, 400, "Seguranca: URLs de rede privada/local nao sao permitidas por padrao.");
           return;
         }
       } catch {
-        res.status(400).json({ error: "URL invalida. Use o formato: http://host:porta" });
+        apiError(res, 400, "URL invalida. Use o formato: http://host:porta");
         return;
       }
       const cleanUrl = url.replace(/\/+$/, "");
@@ -557,7 +558,7 @@ router.put("/settings/ollama", async (req, res) => {
     res.json({ url: newUrl, source, model: newModel, saved: true });
   } catch (err) {
     console.error("Error saving ollama settings:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -570,14 +571,14 @@ router.post("/settings/ollama/test", async (req, res) => {
       try {
         new URL(url);
       } catch {
-        res.json({ success: false, error: "URL invalida. Use o formato: http://host:porta" });
+        apiError(res, 500, "URL invalida. Use o formato: http://host:porta");
         return;
       }
       testUrl = url.replace(/\/+$/, "");
     } else {
       const { url: effectiveUrl } = await getEffectiveOllamaUrl();
       if (!effectiveUrl) {
-        res.json({ success: false, error: "Nenhuma URL do Ollama configurada." });
+        apiError(res, 500, "Nenhuma URL do Ollama configurada.");
         return;
       }
       testUrl = effectiveUrl;
@@ -607,14 +608,14 @@ router.post("/settings/ollama/test", async (req, res) => {
       clearTimeout(timeout);
       const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
       if (errMsg.includes("abort")) {
-        res.json({ success: false, error: "Timeout: Ollama nao respondeu em 8 segundos. Verifique se o servico esta rodando e acessivel." });
+        apiError(res, 500, "Timeout: Ollama nao respondeu em 8 segundos. Verifique se o servico esta rodando e acessivel.");
       } else {
         res.json({ success: false, error: `Erro ao conectar: ${errMsg}` });
       }
     }
   } catch (err) {
     console.error("Error testing ollama connection:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 

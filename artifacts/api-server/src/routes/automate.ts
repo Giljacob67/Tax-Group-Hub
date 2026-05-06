@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { getAgentById } from "../lib/agents-data.js";
 import { callLLM } from "../lib/llm-client.js";
 import { db, pipelineExecutionsTable } from "@workspace/db";
+import { apiError } from "../lib/api-response.js";
 
 const router: IRouter = Router();
 
@@ -20,17 +21,17 @@ router.post("/automate/execute", async (req, res) => {
     };
 
     if (!agentId?.trim()) {
-      res.status(400).json({ error: "agentId is required" });
+      apiError(res, 400, "agentId is required");
       return;
     }
     if (!input?.trim()) {
-      res.status(400).json({ error: "input is required" });
+      apiError(res, 400, "input is required");
       return;
     }
 
     const agent = getAgentById(agentId);
     if (!agent) {
-      res.status(404).json({ error: `Agent '${agentId}' not found` });
+      apiError(res, 404, `Agent '${agentId}' not found`);
       return;
     }
 
@@ -59,7 +60,7 @@ router.post("/automate/execute", async (req, res) => {
     });
   } catch (err) {
     console.error("Execute error:", err);
-    res.status(500).json({ error: "Execution failed", message: (err as Error).message });
+    apiError(res, 500, "Execution failed");
   }
 });
 
@@ -72,7 +73,7 @@ router.post("/automate/trigger/reforma-tributaria", async (_req, res) => {
   try {
     const agent = getAgentById("reformatributaria-insight");
     if (!agent) {
-      res.status(500).json({ error: "Reforma Tributária agent not found" });
+      apiError(res, 500, "Reforma Tributária agent not found");
       return;
     }
 
@@ -89,7 +90,7 @@ router.post("/automate/trigger/reforma-tributaria", async (_req, res) => {
     });
   } catch (err) {
     console.error("Reforma Tributária trigger error:", err);
-    res.status(500).json({ error: "Trigger failed", message: (err as Error).message });
+    apiError(res, 500, "Trigger failed");
   }
 });
 
@@ -105,12 +106,12 @@ router.post("/automate/pipeline", async (req, res) => {
     };
 
     if (!steps?.length) {
-      res.status(400).json({ error: "steps array is required with at least 1 step" });
+      apiError(res, 400, "steps array is required with at least 1 step");
       return;
     }
 
     if (steps.length > 10) {
-      res.status(400).json({ error: "Maximum 10 steps per pipeline" });
+      apiError(res, 400, "Maximum 10 steps per pipeline");
       return;
     }
 
@@ -129,7 +130,7 @@ router.post("/automate/pipeline", async (req, res) => {
       const step = steps[i];
       const agent = getAgentById(step.agentId);
       if (!agent) {
-        res.status(404).json({ error: `Agent '${step.agentId}' not found at step ${i + 1}` });
+        apiError(res, 404, `Agent '${step.agentId}' not found at step ${i + 1}`);
         return;
       }
 
@@ -187,7 +188,7 @@ router.post("/automate/pipeline", async (req, res) => {
     });
   } catch (err) {
     console.error("Pipeline error:", err);
-    res.status(500).json({ error: "Pipeline failed", message: (err as Error).message });
+    apiError(res, 500, "Pipeline failed");
   }
 });
 
@@ -203,7 +204,7 @@ router.post("/automate/trigger/new-lead", async (req, res) => {
     };
 
     if (!name?.trim() && !email?.trim()) {
-      res.status(400).json({ error: "At least name or email is required" });
+      apiError(res, 400, "At least name or email is required");
       return;
     }
 
@@ -267,7 +268,7 @@ NOVO LEAD RECEBIDO:
     });
   } catch (err) {
     console.error("New lead trigger error:", err);
-    res.status(500).json({ error: "Trigger failed", message: (err as Error).message });
+    apiError(res, 500, "Trigger failed");
   }
 });
 
@@ -285,7 +286,7 @@ router.post("/automate/trigger/editorial-calendar", async (req, res) => {
 
     const agent = getAgentById("calendario-editorial-tax-group");
     if (!agent) {
-      res.status(500).json({ error: "Calendário Editorial agent not found" });
+      apiError(res, 500, "Calendário Editorial agent not found");
       return;
     }
 
@@ -302,7 +303,7 @@ router.post("/automate/trigger/editorial-calendar", async (req, res) => {
     });
   } catch (err) {
     console.error("Editorial calendar trigger error:", err);
-    res.status(500).json({ error: "Trigger failed", message: (err as Error).message });
+    apiError(res, 500, "Trigger failed");
   }
 });
 
@@ -313,7 +314,7 @@ router.post("/automate/trigger/reforma-tributaria", async (_req, res) => {
   try {
     const agent = getAgentById("reformatributaria-insight");
     if (!agent) {
-      res.status(500).json({ error: "Reforma Tributária agent not found" });
+      apiError(res, 500, "Reforma Tributária agent not found");
       return;
     }
 
@@ -329,7 +330,7 @@ router.post("/automate/trigger/reforma-tributaria", async (_req, res) => {
     });
   } catch (err) {
     console.error("Reforma Tributária trigger error:", err);
-    res.status(500).json({ error: "Trigger failed", message: (err as Error).message });
+    apiError(res, 500, "Trigger failed");
   }
 });
 
@@ -344,13 +345,13 @@ router.post("/automate/trigger/follow-up-check", async (req, res) => {
     };
 
     if (!leads?.length) {
-      res.status(400).json({ error: "leads array is required" });
+      apiError(res, 400, "leads array is required");
       return;
     }
 
     const agent = getAgentById("followup-tax-group");
     if (!agent) {
-      res.status(500).json({ error: "Follow-Up agent not found" });
+      apiError(res, 500, "Follow-Up agent not found");
       return;
     }
 
@@ -388,7 +389,7 @@ Gere uma sequência de follow-up personalizada para este lead.
     });
   } catch (err) {
     console.error("Follow-up check trigger error:", err);
-    res.status(500).json({ error: "Trigger failed", message: (err as Error).message });
+    apiError(res, 500, "Trigger failed");
   }
 });
 
@@ -403,7 +404,7 @@ router.post("/automate/trigger/content-request", async (req, res) => {
     };
 
     if (!topic?.trim()) {
-      res.status(400).json({ error: "topic is required" });
+      apiError(res, 400, "topic is required");
       return;
     }
 
@@ -414,7 +415,7 @@ router.post("/automate/trigger/content-request", async (req, res) => {
 
     const agent = getAgentById(agentId);
     if (!agent) {
-      res.status(500).json({ error: `Content agent '${agentId}' not found` });
+      apiError(res, 500, `Content agent '${agentId}' not found`);
       return;
     }
 
@@ -441,7 +442,7 @@ Gere o conteúdo completo pronto para publicação.
     });
   } catch (err) {
     console.error("Content request trigger error:", err);
-    res.status(500).json({ error: "Trigger failed", message: (err as Error).message });
+    apiError(res, 500, "Trigger failed");
   }
 });
 

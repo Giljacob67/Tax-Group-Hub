@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, usageLogsTable, conversationsTable, messagesTable } from "@workspace/db";
 import { eq, sql, gte, and, desc } from "drizzle-orm";
+import { apiError } from "../lib/api-response.js";
 
 const router: IRouter = Router();
 
@@ -44,7 +45,7 @@ router.get("/analytics/overview", async (req, res) => {
     });
   } catch (err) {
     console.error("[Analytics] Error:", err);
-    res.status(500).json({ error: "Failed to fetch analytics" });
+    apiError(res, 500, "Failed to fetch analytics");
   }
 });
 
@@ -75,7 +76,7 @@ router.get("/analytics/daily-usage", async (req, res) => {
 
     res.json({ usageByDay });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch daily usage" });
+    apiError(res, 500, "Failed to fetch daily usage");
   }
 });
 
@@ -104,7 +105,7 @@ router.get("/analytics/agents", async (req, res) => {
 
     res.json({ agentStats });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch agent stats" });
+    apiError(res, 500, "Failed to fetch agent stats");
   }
 });
 

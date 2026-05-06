@@ -14,6 +14,7 @@ import { getConfigValue } from "./settings.js";
 import { streamText } from "ai";
 import { SendMessageBody } from "@workspace/api-zod";
 import { isRealUser } from "../middlewares/auth.js";
+import { apiError } from "../lib/api-response.js";
 
 const router: IRouter = Router();
 
@@ -64,7 +65,7 @@ router.get("/conversations", async (req, res) => {
     });
   } catch (err) {
     console.error("Error listing conversations:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -72,7 +73,7 @@ router.post("/conversations", async (req, res) => {
   try {
     const { agentId, title, model } = req.body as { agentId?: string; title?: string; model?: string };
     if (!agentId) {
-      res.status(400).json({ error: "agentId is required" });
+      apiError(res, 400, "agentId is required");
       return;
     }
     const conversationTitle = title || `Nova conversa`;
@@ -93,7 +94,7 @@ router.post("/conversations", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Error creating conversation:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -102,17 +103,17 @@ router.get("/conversations/:conversationId", async (req, res) => {
     const conversationId = Number(req.params.conversationId);
     const userId = req.userId;
     if (isNaN(conversationId)) {
-      res.status(404).json({ error: "Conversation not found" });
+      apiError(res, 404, "Conversation not found");
       return;
     }
     const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
     if (!conv) {
-      res.status(404).json({ error: "Conversation not found" });
+      apiError(res, 404, "Conversation not found");
       return;
     }
     // Tenancy check: if real user, verify ownership
     if (isRealUser(userId) && conv.userId && conv.userId !== userId) {
-      res.status(403).json({ error: "Access denied" });
+      apiError(res, 403, "Access denied");
       return;
     }
     const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
@@ -145,7 +146,7 @@ router.get("/conversations/:conversationId", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Error getting conversation:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -155,21 +156,21 @@ router.patch("/conversations/:conversationId", async (req, res) => {
     const userId = req.userId;
     const { title } = req.body as { title?: string };
     if (isNaN(conversationId)) {
-      res.status(404).json({ error: "Conversation not found" });
+      apiError(res, 404, "Conversation not found");
       return;
     }
     if (!title?.trim()) {
-      res.status(400).json({ error: "title is required" });
+      apiError(res, 400, "title is required");
       return;
     }
     // Tenancy check: verify ownership before mutation
     const [existing] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
     if (!existing) {
-      res.status(404).json({ error: "Conversation not found" });
+      apiError(res, 404, "Conversation not found");
       return;
     }
     if (isRealUser(userId) && existing.userId && existing.userId !== userId) {
-      res.status(403).json({ error: "Access denied" });
+      apiError(res, 403, "Access denied");
       return;
     }
     const [conv] = await db
@@ -185,7 +186,7 @@ router.patch("/conversations/:conversationId", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Error renaming conversation:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -193,12 +194,12 @@ router.get("/conversations/:conversationId/export", async (req, res) => {
   try {
     const conversationId = Number(req.params.conversationId);
     if (isNaN(conversationId)) {
-      res.status(404).json({ error: "Conversation not found" });
+      apiError(res, 404, "Conversation not found");
       return;
     }
     const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
     if (!conv) {
-      res.status(404).json({ error: "Conversation not found" });
+      apiError(res, 404, "Conversation not found");
       return;
     }
     const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
@@ -226,7 +227,7 @@ router.get("/conversations/:conversationId/export", async (req, res) => {
     res.send(md);
   } catch (err: any) {
     console.error("Error exporting conversation:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -235,19 +236,19 @@ router.delete("/messages/:messageId", async (req, res) => {
     const messageId = Number(req.params.messageId);
     const userId = req.userId;
     if (isNaN(messageId)) {
-      res.status(400).json({ error: "Invalid messageId" });
+      apiError(res, 400, "Invalid messageId");
       return;
     }
     // Tenancy check: verify the message belongs to a conversation owned by the user
     const [msg] = await db.select().from(messagesTable).where(eq(messagesTable.id, messageId));
     if (!msg) {
-      res.status(404).json({ error: "Message not found" });
+      apiError(res, 404, "Message not found");
       return;
     }
     if (isRealUser(userId)) {
       const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, msg.conversationId));
       if (conv?.userId && conv.userId !== userId) {
-        res.status(403).json({ error: "Access denied" });
+        apiError(res, 403, "Access denied");
         return;
       }
     }
@@ -255,7 +256,7 @@ router.delete("/messages/:messageId", async (req, res) => {
     res.json({ success: true });
   } catch (err: any) {
     console.error("Error deleting message:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -264,24 +265,24 @@ router.delete("/conversations/:conversationId", async (req, res) => {
     const conversationId = Number(req.params.conversationId);
     const userId = req.userId;
     if (isNaN(conversationId)) {
-      res.status(404).json({ error: "Conversation not found" });
+      apiError(res, 404, "Conversation not found");
       return;
     }
     // Tenancy check: verify ownership before deletion
     const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
     if (!conv) {
-      res.status(404).json({ error: "Conversation not found" });
+      apiError(res, 404, "Conversation not found");
       return;
     }
     if (isRealUser(userId) && conv.userId && conv.userId !== userId) {
-      res.status(403).json({ error: "Access denied" });
+      apiError(res, 403, "Access denied");
       return;
     }
     await db.delete(conversationsTable).where(eq(conversationsTable.id, conversationId));
     res.json({ success: true, message: "Conversation deleted" });
   } catch (err: any) {
     console.error("Error deleting conversation:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 
@@ -298,19 +299,19 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     const isStream = streamOverride === true || req.query.stream === "true";
 
     if (!content.trim()) {
-      res.status(400).json({ error: "content is required" });
+      apiError(res, 400, "content is required");
       return;
     }
 
     const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
     if (!conv) {
-      res.status(404).json({ error: "Conversation not found" });
+      apiError(res, 404, "Conversation not found");
       return;
     }
 
     const agent = getAgentById(conv.agentId);
     if (!agent) {
-      res.status(404).json({ error: "Agent not found" });
+      apiError(res, 404, "Agent not found");
       return;
     }
 
@@ -530,7 +531,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Error sending message:", err);
-    res.status(500).json({ error: "Internal server error" });
+    apiError(res, 500, "Internal server error");
   }
 });
 

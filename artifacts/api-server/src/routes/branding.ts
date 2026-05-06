@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
+import { apiError } from "../lib/api-response.js";
 
 const router: IRouter = Router();
 
@@ -73,7 +74,7 @@ router.get("/branding/resolve", async (req, res) => {
     });
   } catch (err) {
     console.error("[Branding] Resolve error:", err);
-    res.status(500).json({ error: "Failed to resolve branding" });
+    apiError(res, 500, "Failed to resolve branding");
   }
 });
 
@@ -92,7 +93,7 @@ router.get("/branding/config", async (req, res) => {
 
     res.json(branding || { message: "Nenhuma configuração encontrada" });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch branding config" });
+    apiError(res, 500, "Failed to fetch branding config");
   }
 });
 
@@ -126,7 +127,7 @@ router.post("/branding/update", async (req, res) => {
       res.json(inserted);
     }
   } catch (err) {
-    res.status(500).json({ error: "Failed to update branding" });
+    apiError(res, 500, "Failed to update branding");
   }
 });
 
@@ -138,7 +139,7 @@ router.post("/branding/logo", upload.single("logo"), async (req, res) => {
   try {
     const userId = req.userId;
     if (!req.file) {
-      res.status(400).json({ error: "No file uploaded" });
+      apiError(res, 400, "No file uploaded");
       return;
     }
 
@@ -163,7 +164,7 @@ router.post("/branding/logo", upload.single("logo"), async (req, res) => {
 
     res.json({ success: true, logoUrl: `/uploads/${filename}` });
   } catch (err) {
-    res.status(500).json({ error: "Failed to upload logo" });
+    apiError(res, 500, "Failed to upload logo");
   }
 });
 
