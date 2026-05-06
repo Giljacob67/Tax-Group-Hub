@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
-import { 
-  db, 
-  conversationsTable, 
-  messagesTable, 
-  channelConfigsTable, 
+import { z } from "zod";
+import {
+  db,
+  conversationsTable,
+  messagesTable,
+  channelConfigsTable,
   usageLogsTable,
   crmContactsTable,
   crmDealsTable
@@ -15,8 +16,35 @@ import { processExternalMedia } from "../lib/media-processor.js";
 
 const router: IRouter = Router();
 
-// ... existing helper and telegram webhook code ...
-// Will inject the actual code efficiently using a simpler replacement to preserve all original telegram lines.
+// ── Zod schemas ────────────────────────────────────────────────────────────────
+
+const TelegramPhotoSize = z.object({ file_id: z.string() });
+
+const TelegramMessage = z.object({
+  message_id: z.number(),
+  chat: z.object({ id: z.union([z.number(), z.string()]) }),
+  text: z.string().optional(),
+  voice: z.object({ file_id: z.string() }).optional(),
+  document: z.object({
+    file_id: z.string(),
+    file_name: z.string().optional(),
+    mime_type: z.string().optional(),
+  }).optional(),
+  photo: z.array(TelegramPhotoSize).optional(),
+});
+
+// passthrough() allows unknown update types (callback_query, etc.) without failing
+const TelegramUpdate = z.object({
+  update_id: z.number(),
+  message: TelegramMessage.optional(),
+}).passthrough();
+
+const TelegramFileResponse = z.object({
+  result: z.object({ file_path: z.string() }),
+});
+
+// CRM inbound accepts arbitrary vendor payloads — validate it's an object, not a primitive/array
+const CrmInboundPayload = z.record(z.unknown());
 
 /**
  * Helper to send a message back to Telegram
@@ -42,7 +70,14 @@ async function sendTelegramMessage(chatId: string, text: string, botToken: strin
  */
 router.post("/webhooks/telegram/:webhookId", async (req, res) => {
   const { webhookId } = req.params;
-  const update = req.body;
+
+  const parsed = TelegramUpdate.safeParse(req.body);
+  if (!parsed.success) {
+    console.warn("[Webhook Telegram] invalid payload:", parsed.error.flatten());
+    res.sendStatus(200);
+    return;
+  }
+  const update = parsed.data;
 
   try {
     if (!update.message) {
@@ -122,25 +157,32 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
     // 3. Process Input (Text or Media)
     let userContent = text || "";
     
+    const resolveFileUrl = async (fileId: string): Promise<string | null> => {
+      const res = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`);
+      const fileResponse = TelegramFileResponse.safeParse(await res.json());
+      if (!fileResponse.success) return null;
+      return `https://api.telegram.org/file/bot${botToken}/${fileResponse.data.result.file_path}`;
+    };
+
     if (voice) {
-       const fileInfoRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${voice.file_id}`);
-       const fileData = await fileInfoRes.json();
-       const fileUrl = `https://api.telegram.org/file/bot${botToken}/${(fileData as any).result.file_path}`;
-       const processed = await processExternalMedia(fileUrl, "audio/ogg", "voice_note.ogg");
-       userContent = processed.content;
+       const fileUrl = await resolveFileUrl(voice.file_id);
+       if (fileUrl) {
+         const processed = await processExternalMedia(fileUrl, "audio/ogg", "voice_note.ogg");
+         userContent = processed.content;
+       }
     } else if (document) {
-       const fileInfoRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${document.file_id}`);
-       const fileData = await fileInfoRes.json();
-       const fileUrl = `https://api.telegram.org/file/bot${botToken}/${(fileData as any).result.file_path}`;
-       const processed = await processExternalMedia(fileUrl, document.mime_type || "application/pdf", document.file_name);
-       userContent = `[Arquivo: ${document.file_name}]\nContent: ${processed.content}`;
+       const fileUrl = await resolveFileUrl(document.file_id);
+       if (fileUrl) {
+         const processed = await processExternalMedia(fileUrl, document.mime_type || "application/pdf", document.file_name ?? "file");
+         userContent = `[Arquivo: ${document.file_name}]\nContent: ${processed.content}`;
+       }
     } else if (photo) {
        const p = photo[photo.length - 1];
-       const fileInfoRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${p.file_id}`);
-       const fileData = await fileInfoRes.json();
-       const fileUrl = `https://api.telegram.org/file/bot${botToken}/${(fileData as any).result.file_path}`;
-       const processed = await processExternalMedia(fileUrl, "image/jpeg", "photo.jpg");
-       userContent = `[Imagem]: ${processed.content}`;
+       const fileUrl = await resolveFileUrl(p.file_id);
+       if (fileUrl) {
+         const processed = await processExternalMedia(fileUrl, "image/jpeg", "photo.jpg");
+         userContent = `[Imagem]: ${processed.content}`;
+       }
     }
 
     if (!userContent) return;
@@ -213,10 +255,17 @@ router.post("/webhooks/whatsapp/:channelId", (_req, res) => {
  */
 router.post("/webhooks/crm/inbound/:tenantId", async (req, res) => {
   const { tenantId } = req.params;
-  const payload = req.body || {};
+
+  const parsed = CrmInboundPayload.safeParse(req.body);
+  if (!parsed.success) {
+    console.warn("[Webhook CRM] invalid payload — expected an object");
+    res.sendStatus(200);
+    return;
+  }
+  const payload = parsed.data;
 
   try {
-    const rawCnpj = payload.cnpj || payload.company_cnpj || payload.document || payload.documento || payload.cpf_cnpj;
+    const rawCnpj = payload.cnpj ?? payload.company_cnpj ?? payload.document ?? payload.documento ?? payload.cpf_cnpj;
     if (!rawCnpj) return;
 
     const cnpjValid = String(rawCnpj).replace(/\D/g, "");

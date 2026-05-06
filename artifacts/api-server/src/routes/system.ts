@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
-import { db, knowledgeDocumentsTable } from "@workspace/db";
-import { eq, inArray, and } from "drizzle-orm";
+import { db, knowledgeDocumentsTable, embeddingCacheTable } from "@workspace/db";
+import { eq, inArray, lt } from "drizzle-orm";
 import fs from "node:fs";
 import { processDocumentAsync } from "./knowledge.js";
+import { apiError } from "../lib/api-response.js";
 
 const router: IRouter = Router();
 
@@ -35,7 +36,7 @@ router.post("/system/jobs/retry", async (req, res) => {
     }
 
     let retriedCount = 0;
-    const errors: any[] = [];
+    const errors: Array<{ id: number; error: string; path?: string | null }> = [];
 
     for (const doc of stuckDocs) {
       try {
@@ -68,7 +69,29 @@ router.post("/system/jobs/retry", async (req, res) => {
 
   } catch (err) {
     console.error("Jobs retry error:", err);
-    res.status(500).json({ error: "Failed to trigger job retries", message: (err as Error).message });
+    apiError(res, 500, "Failed to trigger job retries");
+  }
+});
+
+/**
+ * DELETE /system/cache/embeddings
+ * Prune embedding cache entries older than `days` (default 90).
+ * Prevents unbounded table growth — safe to run anytime, embeddings are regenerated on demand.
+ */
+router.delete("/system/cache/embeddings", async (req, res) => {
+  try {
+    const days = Math.max(1, Number(req.query.days) || 90);
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const deleted = await db
+      .delete(embeddingCacheTable)
+      .where(lt(embeddingCacheTable.createdAt, cutoff))
+      .returning({ id: embeddingCacheTable.id });
+
+    res.json({ success: true, deleted: deleted.length, cutoffDate: cutoff.toISOString() });
+  } catch (err) {
+    console.error("Embedding cache purge error:", err);
+    apiError(res, 500, "Failed to purge embedding cache");
   }
 });
 
