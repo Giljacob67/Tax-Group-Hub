@@ -4,6 +4,7 @@ import {
   crmContactsTable, crmDealsTable, crmActivitiesTable,
   crmEnrichmentLogTable, crmPipelinesTable, crmAttachmentsTable,
   crmTasksTable, crmSavedViewsTable, crmAutomationsTable,
+  automationSequencesTable, sequenceEnrollmentsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, ilike, or, gte, lte, inArray, sql } from "drizzle-orm";
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
@@ -20,54 +21,123 @@ async function getEmpresAquiToken(): Promise<string | null> {
 }
 
 // ─── Automation Engine ────────────────────────────────────────────────────────
-async function evaluateAutomations(userId: string, contactId: number, triggerType: string, currentValue: any) {
+async function evaluateAutomations(
+  userId: string,
+  contactId: number,
+  triggerType: string,
+  currentValue: any,
+  dealId?: number,
+) {
   try {
-    // Busca automações ativas do usuário para este gatilho
     const automations = await db.select().from(crmAutomationsTable)
       .where(and(
         eq(crmAutomationsTable.userId, userId),
         eq(crmAutomationsTable.isActive, true),
-        eq(crmAutomationsTable.triggerType, triggerType)
+        eq(crmAutomationsTable.triggerType, triggerType),
       ));
 
     for (const auto of automations) {
       let shouldTrigger = false;
 
-      // Avalia a condição
       if (triggerType === "status_changed" && auto.triggerValue === currentValue) {
         shouldTrigger = true;
       } else if (triggerType === "score_above" && typeof currentValue === "number" && currentValue >= Number(auto.triggerValue)) {
         shouldTrigger = true;
       } else if (triggerType === "score_below" && typeof currentValue === "number" && currentValue <= Number(auto.triggerValue)) {
         shouldTrigger = true;
+      } else if (triggerType === "deal_stage_changed" && auto.triggerValue === currentValue) {
+        shouldTrigger = true;
       }
 
-      if (shouldTrigger) {
-        // Executa a ação
-        if (auto.actionType === "create_task" && auto.actionPayload) {
-          const payload = auto.actionPayload as any;
-          await db.insert(crmTasksTable).values({
-            userId,
-            contactId,
-            title: payload.title || `Tarefa Automática: ${auto.name}`,
-            type: payload.type || "call",
-            priority: payload.priority || "high",
-            status: "pending",
-            dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // +1 dia
-          });
-        } else if (auto.actionType === "log_activity") {
-          await db.insert(crmActivitiesTable).values({
-            userId,
-            contactId,
-            type: "ai_generated",
-            subject: "Ação Automática Executada",
-            content: `A automação '${auto.name}' foi disparada (Gatilho: ${triggerType} = ${currentValue}).`,
-          });
-        }
+      if (!shouldTrigger) continue;
+
+      if (auto.actionType === "create_task" && auto.actionPayload) {
+        const payload = auto.actionPayload as any;
+        await db.insert(crmTasksTable).values({
+          userId,
+          contactId,
+          dealId: dealId ?? null,
+          title: payload.title || `Tarefa Automática: ${auto.name}`,
+          type: payload.type || "call",
+          priority: payload.priority || "high",
+          status: "pending",
+          dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        });
+
+      } else if (auto.actionType === "log_activity") {
+        await db.insert(crmActivitiesTable).values({
+          userId,
+          contactId,
+          dealId: dealId ?? null,
+          type: "ai_generated",
+          subject: "Ação Automática Executada",
+          content: `Automação '${auto.name}' disparada (${triggerType} = ${currentValue}).`,
+        });
+
+      } else if (auto.actionType === "enroll_sequence" && auto.actionPayload) {
+        const payload = auto.actionPayload as { sequenceId?: number };
+        const seqId = Number(payload.sequenceId);
+        if (!seqId || isNaN(seqId)) continue;
+
+        // Verifica se já há enrollment ativo para evitar duplicatas
+        const [existing] = await db
+          .select({ id: sequenceEnrollmentsTable.id })
+          .from(sequenceEnrollmentsTable)
+          .where(and(
+            eq(sequenceEnrollmentsTable.contactId, contactId),
+            eq(sequenceEnrollmentsTable.sequenceId, seqId),
+            eq(sequenceEnrollmentsTable.status, "active"),
+          ))
+          .limit(1);
+
+        if (existing) continue; // já está ativo, não duplica
+
+        const [seq] = await db
+          .select()
+          .from(automationSequencesTable)
+          .where(and(eq(automationSequencesTable.id, seqId), eq(automationSequencesTable.isActive, true)))
+          .limit(1);
+
+        if (!seq?.steps?.length) continue;
+
+        const firstStep = (seq.steps as Array<{ day: number }>)[0];
+        const nextSendAt = new Date(Date.now() + firstStep.day * 24 * 60 * 60 * 1000);
+
+        await db.insert(sequenceEnrollmentsTable).values({
+          sequenceId: seqId,
+          contactId,
+          userId,
+          currentStep: 0,
+          nextSendAt,
+          status: "active",
+        });
+
+        await db.insert(crmActivitiesTable).values({
+          userId,
+          contactId,
+          dealId: dealId ?? null,
+          type: "ai_generated",
+          subject: `Enrolado em sequência: ${seq.name}`,
+          content: `Automação '${auto.name}' enrolou este contato na sequência "${seq.name}" (${seq.steps.length} etapas).`,
+        });
+
+        console.log(`[Automations] Contact ${contactId} enrolled in sequence ${seqId} by automation ${auto.id}`);
+
+      } else if (auto.actionType === "send_whatsapp" && auto.actionPayload) {
+        // Registra intent — o envio real requer canal configurado, loga atividade para sinalizar
+        const payload = auto.actionPayload as { messageTemplate?: string };
+        await db.insert(crmActivitiesTable).values({
+          userId,
+          contactId,
+          dealId: dealId ?? null,
+          type: "whatsapp",
+          subject: "WhatsApp automático pendente",
+          content: payload.messageTemplate || `Automação '${auto.name}': enviar mensagem WhatsApp.`,
+        });
       }
     }
   } catch (error) {
-    console.error("Error evaluating automations:", error);
+    console.error("[Automations] evaluateAutomations error:", error);
   }
 }
 
@@ -606,6 +676,12 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
           agentId: agnt ? agnt.id : null,
           completedAt: new Date(),
         }).catch(() => {});
+
+        // Dispara automações de deal_stage_changed em background
+        setImmediate(() => {
+          evaluateAutomations(userId, deal.contactId, "deal_stage_changed", body.stage, deal.id)
+            .catch(err => console.error("[Automations] deal_stage_changed error:", err));
+        });
       } catch { /* non-fatal */ }
     }
 
