@@ -310,16 +310,27 @@ router.get("/webhooks/whatsapp/:channelId", async (req, res) => {
   const challenge = req.query["hub.challenge"];
   const token = req.query["hub.verify_token"];
 
-  const [config] = await db
-    .select()
-    .from(channelConfigsTable)
-    .where(and(eq(channelConfigsTable.platform, "whatsapp"), eq(channelConfigsTable.id, Number(channelId))))
-    .limit(1);
+  const numericId = Number(channelId);
+  if (isNaN(numericId)) {
+    res.sendStatus(403);
+    return;
+  }
 
-  const expectedToken = (config?.config as Record<string, unknown> | null)?.verifyToken;
-  if (mode === "subscribe" && token === expectedToken) {
-    res.status(200).send(challenge);
-  } else {
+  try {
+    const [config] = await db
+      .select()
+      .from(channelConfigsTable)
+      .where(and(eq(channelConfigsTable.platform, "whatsapp"), eq(channelConfigsTable.id, numericId)))
+      .limit(1);
+
+    const expectedToken = (config?.config as Record<string, unknown> | null)?.verifyToken;
+    if (mode === "subscribe" && token === expectedToken) {
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  } catch (err) {
+    console.error("[Webhook WhatsApp] GET verification error:", err);
     res.sendStatus(403);
   }
 });
@@ -331,6 +342,12 @@ router.get("/webhooks/whatsapp/:channelId", async (req, res) => {
 router.post("/webhooks/whatsapp/:channelId", async (req, res) => {
   const { channelId } = req.params;
   const reqId = req.id;
+
+  const numericId = Number(channelId);
+  if (isNaN(numericId)) {
+    res.sendStatus(200); // Always ACK to Meta — never let it retry an invalid URL
+    return;
+  }
 
   const parsed = WhatsAppWebhookPayload.safeParse(req.body);
   if (!parsed.success) {
@@ -356,7 +373,7 @@ router.post("/webhooks/whatsapp/:channelId", async (req, res) => {
     const [config] = await db
       .select()
       .from(channelConfigsTable)
-      .where(and(eq(channelConfigsTable.platform, "whatsapp"), eq(channelConfigsTable.id, Number(channelId))))
+      .where(and(eq(channelConfigsTable.platform, "whatsapp"), eq(channelConfigsTable.id, numericId)))
       .limit(1);
 
     if (!config) {
