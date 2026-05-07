@@ -1,13 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Settings, CheckCircle2, XCircle, Server,
-  Cloud, Loader2, ExternalLink, RefreshCw, Cpu, Zap,
-  Eye, EyeOff, Save, Wifi, WifiOff, AlertCircle, Crown, Brain,
-  MessageSquare, Trash2, Copy, Plus, ChevronDown, ChevronUp,
+  Settings, CheckCircle2, XCircle, Server, Cloud, Loader2,
+  ExternalLink, Cpu, Zap, Eye, EyeOff, Save, Wifi, WifiOff,
+  AlertCircle, Crown, Brain, MessageSquare, Trash2, Copy,
+  Plus, ChevronDown, ChevronRight, RefreshCw, Radio, UploadCloud,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
+// ─── Types ───────────────────────────────────────────────────────────────────
 interface IntegrationStatus {
   id: string;
   name: string;
@@ -26,889 +31,597 @@ interface SettingsData {
   geminiModel?: string;
 }
 
-interface OllamaSettings {
-  url: string | null;
-  source: "db" | "env" | null;
-  model: string;
-}
-
-interface OllamaTestResult {
-  success: boolean;
-  error?: string;
-  models?: Array<{ name: string; size: number; modifiedAt: string }>;
-  url?: string;
-}
-
-const CATEGORY_META: Record<string, { label: string; icon: typeof Cloud }> = {
-  llm: { label: "Modelos de Linguagem (LLM)", icon: Cpu },
-  google: { label: "Google AI (Imagens + Embeddings)", icon: Zap },
-};
-
-const INTEGRATION_ICONS: Record<string, typeof Cloud> = {
-  ollama: Server,
-  ollama_cloud: Cloud,
-  openrouter: Cloud,
-  gemini: Zap,
-  google: Zap,
-  anthropic: Cpu,
-  openai: Brain,
-};
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-}
-
-function OllamaCard({ integration, onSettingsChange, activeProvider, onActivate }: {
-  integration: IntegrationStatus;
-  onSettingsChange: () => void;
-  activeProvider: string;
-  onActivate: (provider: string, url: string, model: string) => Promise<void>;
-}) {
-  const IntIcon = INTEGRATION_ICONS[integration.id] || Cloud;
-  const [ollamaSettings, setOllamaSettings] = useState<OllamaSettings | null>(null);
-  const [showUrl, setShowUrl] = useState(false);
-  const [editUrl, setEditUrl] = useState("");
-  const [editModel, setEditModel] = useState("");
-  const [testing, setTesting] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [activating, setActivating] = useState(false);
-  const [testResult, setTestResult] = useState<OllamaTestResult | null>(null);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const isThisActive = activeProvider === "ollama";
-
-  useEffect(() => {
-    fetchOllamaSettings();
-  }, []);
-
-  const fetchOllamaSettings = async () => {
-    try {
-      const res = await fetch("/api/settings/ollama");
-      if (res.ok) {
-        const data = await res.json();
-        setOllamaSettings(data);
-        setEditUrl(data.url || "");
-        setEditModel(data.model || "");
-      }
-    } catch {}
-  };
-
-  const handleTest = async () => {
-    setTesting(true);
-    setTestResult(null);
-    try {
-      const res = await fetch("/api/settings/ollama/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: editUrl || undefined }),
-      });
-      const data = await res.json();
-      setTestResult(data);
-    } catch {
-      setTestResult({ success: false, error: "Erro de rede ao testar conexao." });
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    setSaveMessage(null);
-    try {
-      const res = await fetch("/api/settings/ollama", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: editUrl || "", model: editModel || "" }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setOllamaSettings(prev => prev ? { ...prev, url: data.url, source: data.source, model: data.model } : prev);
-        setEditUrl(data.url || "");
-        setEditModel(data.model || "");
-        setSaveMessage("Configurações salvas com sucesso!");
-        onSettingsChange();
-        setTimeout(() => setSaveMessage(null), 3000);
-      } else {
-        const err = await res.json();
-        setSaveMessage(err.error || "Erro ao salvar.");
-      }
-    } catch {
-      setSaveMessage("Erro de rede ao salvar.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const maskedUrl = (url: string) => {
-    try {
-      const parsed = new URL(url);
-      return `${parsed.protocol}//****${parsed.port ? ":" + parsed.port : ""}`;
-    } catch {
-      return "****";
-    }
-  };
-
-  const hasUnsavedChanges = editUrl !== (ollamaSettings?.url || "") || editModel !== (ollamaSettings?.model || "");
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: 0.25 }}
-      className={`bg-card border rounded-2xl p-5 transition-all md:col-span-2 ${
-        integration.configured
-          ? 'border-emerald-500/20 hover:border-emerald-500/40'
-          : 'border-border/50 hover:border-yellow-500/30'
-      }`}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-            integration.configured ? 'bg-emerald-500/10' : 'bg-muted/50'
-          }`}>
-            <IntIcon className={`w-5 h-5 ${integration.configured ? 'text-emerald-400' : 'text-muted-foreground'}`} />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">{integration.name}</h3>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              {integration.configured ? (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-xs text-emerald-400 font-medium">Configurado</span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="w-3.5 h-3.5 text-yellow-500" />
-                  <span className="text-xs text-yellow-500 font-medium">Nao configurado</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-        {integration.description}
-      </p>
-
-      {ollamaSettings && (
-        <div className="space-y-4">
-          <div className="bg-background/50 rounded-lg p-3 border border-border/30">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">URL Atual</p>
-              {ollamaSettings.source && (
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                  ollamaSettings.source === 'db'
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-muted text-muted-foreground'
-                }`}>
-                  Fonte: {ollamaSettings.source === 'db' ? 'Banco de Dados' : 'Variavel de Ambiente'}
-                </span>
-              )}
-            </div>
-            {ollamaSettings.url ? (
-              <div className="flex items-center gap-2">
-                <code className="text-xs font-mono text-primary flex-1 break-all">
-                  {showUrl ? ollamaSettings.url : maskedUrl(ollamaSettings.url)}
-                </code>
-                <button
-                  onClick={() => setShowUrl(!showUrl)}
-                  className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-                  title={showUrl ? "Ocultar URL" : "Mostrar URL"}
-                >
-                  {showUrl ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground italic">Nenhuma URL configurada</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground">URL do Ollama</label>
-              <input
-                type="text"
-                value={editUrl}
-                onChange={(e) => {
-                  setEditUrl(e.target.value);
-                  setTestResult(null);
-                  setSaveMessage(null);
-                }}
-                placeholder="http://seu-host:11434"
-                className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-border/50 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 font-mono placeholder:text-muted-foreground/50"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-foreground">Modelo</label>
-              <input
-                type="text"
-                value={editModel}
-                onChange={(e) => {
-                  setEditModel(e.target.value);
-                  setSaveMessage(null);
-                }}
-                placeholder="qwen3.5"
-                className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-border/50 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 font-mono placeholder:text-muted-foreground/50"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              onClick={handleTest}
-              disabled={testing || !editUrl.trim()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {testing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Wifi className="w-4 h-4" />
-              )}
-              Testar Conexao
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving || !hasUnsavedChanges}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              Salvar
-            </button>
-            {(editUrl.trim() || editModel.trim()) && (
-              <button
-                onClick={() => {
-                  setEditUrl("");
-                  setEditModel("");
-                  setTestResult(null);
-                  setSaveMessage(null);
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 text-sm font-medium transition-all"
-              >
-                Limpar
-              </button>
-            )}
-          </div>
-
-          {testResult && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`rounded-lg p-3 border ${
-                testResult.success
-                  ? 'bg-emerald-500/5 border-emerald-500/20'
-                  : 'bg-red-500/5 border-red-500/20'
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                {testResult.success ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span className="text-sm font-medium text-emerald-400">Conexao bem-sucedida!</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-4 h-4 text-red-400" />
-                    <span className="text-sm font-medium text-red-400">Falha na conexao</span>
-                  </>
-                )}
-              </div>
-              {testResult.success && testResult.models && testResult.models.length > 0 ? (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    {testResult.models.length} modelo(s) disponivel(is):
-                  </p>
-                  <div className="space-y-1">
-                    {testResult.models.map((m) => (
-                      <div key={m.name} className="flex items-center justify-between text-xs bg-background/50 rounded px-2 py-1.5">
-                        <span className="font-mono text-foreground">{m.name}</span>
-                        <span className="text-muted-foreground">{formatBytes(m.size)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : testResult.success && testResult.models && testResult.models.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nenhum modelo encontrado. Execute <code className="text-primary">ollama pull llama3.2</code> para baixar um modelo.</p>
-              ) : testResult.error ? (
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
-                  <p className="text-xs text-red-300">{testResult.error}</p>
-                </div>
-              ) : null}
-            </motion.div>
-          )}
-
-          {saveMessage && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className={`text-xs font-medium px-3 py-2 rounded-lg ${
-                saveMessage.includes("sucesso")
-                  ? 'bg-emerald-500/10 text-emerald-400'
-                  : 'bg-red-500/10 text-red-400'
-              }`}
-            >
-              {saveMessage}
-            </motion.div>
-          )}
-        </div>
-      )}
-
-      {!ollamaSettings && (
-        <div className="bg-background/50 rounded-lg p-3 border border-border/30">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Variavel de Ambiente</p>
-          <code className="text-xs font-mono text-primary">{integration.envVar}</code>
-          {!integration.configured && (
-            <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
-              <ExternalLink className="w-3 h-3" />
-              Configure no painel Secrets do Replit (icone de cadeado na barra lateral)
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Activate button */}
-      <div className="pt-2 border-t border-border/30">
-        {isThisActive ? (
-          <div className="flex items-center gap-2 py-2 text-xs text-primary font-medium">
-            <CheckCircle2 className="w-4 h-4" />
-            {editModel ? `Ativo: ${editModel}` : 'Provedor Ollama ativo'} — todos os agentes usam este.
-          </div>
-        ) : (
-          <button
-            disabled={activating || !editUrl.trim()}
-            onClick={async () => {
-              setActivating(true);
-              await onActivate("ollama", "", editModel);
-              setActivating(false);
-            }}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-xs font-semibold transition-all disabled:opacity-50"
-          >
-            {activating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-            Usar este provedor
-          </button>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Model lists per provider ────────────────────────────────────────────────
-const PROVIDER_MODELS: Record<string, { id: string; label: string }[]> = {
-  google: [
-    { id: "gemini-1.5-flash",              label: "Gemini 1.5 Flash (rápido)" },
-    { id: "gemini-1.5-pro",                label: "Gemini 1.5 Pro (avançado)" },
-    { id: "gemini-2.0-flash-lite",         label: "Gemini 2.0 Flash Lite" },
-    { id: "gemini-2.5-pro-preview-05-06",  label: "Gemini 2.5 Pro Preview" },
-  ],
-  anthropic: [
-    { id: "claude-3-5-sonnet-20241022",  label: "Claude 3.5 Sonnet (recomendado)" },
-    { id: "claude-3-5-haiku-20241022",   label: "Claude 3.5 Haiku (rápido)" },
-    { id: "claude-3-opus-20240229",      label: "Claude 3 Opus (poderoso)" },
-  ],
-  openai: [
-    { id: "gpt-4o",      label: "GPT-4o (recomendado)" },
-    { id: "gpt-4o-mini", label: "GPT-4o Mini (rápido)" },
-    { id: "gpt-4-turbo", label: "GPT-4 Turbo" },
-    { id: "o3-mini",     label: "o3-mini (raciocínio)" },
-  ],
-  openrouter: [
-    { id: "meta-llama/llama-3.1-70b-instruct",  label: "LLaMA 3.1 70B" },
-    { id: "meta-llama/llama-3.1-8b-instruct",   label: "LLaMA 3.1 8B (rápido)" },
-    { id: "mistralai/mistral-7b-instruct",       label: "Mistral 7B" },
-    { id: "qwen/qwen-2.5-72b-instruct",          label: "Qwen 2.5 72B" },
-    { id: "google/gemini-flash-1.5",             label: "Gemini 1.5 Flash (via OR)" },
-  ],
-  ollama_cloud: [],  // free-text
-};
-
-function LLMProviderCard({
-  integration,
-  activeProvider,
-  activeModel,
-  onActivate,
-}: {
-  integration: IntegrationStatus;
-  activeProvider: string;
-  activeModel: string | null;
-  onActivate: (provider: string, url: string, model: string) => Promise<void>;
-}) {
-  const IntIcon = INTEGRATION_ICONS[integration.id] || Cloud;
-  const isThisActive = activeProvider === integration.id;
-  const models = PROVIDER_MODELS[integration.id] ?? [];
-  const needsUrl = integration.id === "ollama_cloud";
-  const hasFreeTextModel = integration.id === "ollama_cloud";
-
-  const [customUrl, setCustomUrl] = useState("");
-  const [selectedModel, setSelectedModel] = useState("");
-  const [activating, setActivating] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; provider?: string; model?: string; response?: string; error?: string } | null>(null);
-
-  // Pre-fill model with active model when this card is the active one
-  useEffect(() => {
-    if (isThisActive && activeModel && !selectedModel) {
-      setSelectedModel(activeModel);
-    }
-  }, [isThisActive, activeModel]);
-
-  const handleActivate = async () => {
-    setActivating(true);
-    setTestResult(null);
-    await onActivate(integration.id, customUrl, selectedModel);
-    setActivating(false);
-  };
-
-  const handleTest = async () => {
-    setTesting(true);
-    setTestResult(null);
-    try {
-      const res = await fetch("/api/settings/active-provider/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: integration.id,
-          customUrl: needsUrl ? customUrl : undefined,
-          model: selectedModel || undefined,
-        }),
-      });
-      const data = await res.json();
-      setTestResult(data);
-    } catch {
-      setTestResult({ success: false, error: "Erro de rede ao testar." });
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className={`bg-card border rounded-2xl p-5 transition-all ${
-        isThisActive
-          ? 'border-primary/50 ring-1 ring-primary/20'
-          : integration.configured
-            ? 'border-emerald-500/20 hover:border-emerald-500/40'
-            : 'border-border/50 hover:border-border'
-      }`}
-    >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-            isThisActive ? 'bg-primary/10' : integration.configured ? 'bg-emerald-500/10' : 'bg-muted/50'
-          }`}>
-            <IntIcon className={`w-5 h-5 ${
-              isThisActive ? 'text-primary' : integration.configured ? 'text-emerald-400' : 'text-muted-foreground'
-            }`} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-foreground">{integration.name}</h3>
-              {isThisActive && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold border border-primary/30">
-                  ✓ ATIVO
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              {integration.configured ? (
-                <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs text-emerald-400 font-medium">Configurado</span></>
-              ) : (
-                <><XCircle className="w-3.5 h-3.5 text-yellow-500" /><span className="text-xs text-yellow-500 font-medium">Chave pendente</span></>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <p className="text-xs text-muted-foreground leading-relaxed mb-4">{integration.description}</p>
-
-      {/* API Key input */}
-      <div className="bg-background/50 rounded-lg p-3 border border-border/30 mb-3">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Chave de API</p>
-          <span className={`text-[10px] px-2 py-0 rounded-full font-medium ${
-            integration.configured ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-          }`}>
-            {integration.configured ? 'Salva' : 'Pendente'}
-          </span>
-        </div>
-        <div className="flex gap-2 items-center">
-          <input
-            type="password"
-            placeholder="Cole sua chave de API aqui..."
-            className="flex-1 bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
-            id={`key-${integration.id}`}
-          />
-          <button
-            onClick={async () => {
-              const input = document.getElementById(`key-${integration.id}`) as HTMLInputElement;
-              if (!input?.value) return;
-              await fetch("/api/settings/keys", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ provider: integration.id, key: input.value }),
-              });
-              input.value = '';
-            }}
-            className="bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-primary/90"
-          >Salvar</button>
-        </div>
-        <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
-          <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Armazenamento criptografado (AES-256)
-        </p>
-      </div>
-
-      {/* URL for Ollama Cloud */}
-      {needsUrl && (
-        <div className="bg-background/50 rounded-lg p-3 border border-border/30 mb-3 space-y-1.5">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">URL do Endpoint (obrigatório)</p>
-          <input
-            type="text"
-            placeholder="https://meuollama.com"
-            value={customUrl}
-            onChange={e => setCustomUrl(e.target.value)}
-            className="w-full bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
-          />
-          <p className="text-[10px] text-muted-foreground">Endpoint compatível com API OpenAI (Ollama serve)</p>
-        </div>
-      )}
-
-      {/* Model selector */}
-      {(models.length > 0 || hasFreeTextModel) && (
-        <div className="bg-background/50 rounded-lg p-3 border border-border/30 mb-3 space-y-1.5">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Modelo</p>
-          {hasFreeTextModel ? (
-            <input
-              type="text"
-              placeholder="llama3.2, qwen2.5, etc."
-              value={selectedModel}
-              onChange={e => setSelectedModel(e.target.value)}
-              className="w-full bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary/50"
-            />
-          ) : (
-            <select
-              value={selectedModel}
-              onChange={e => setSelectedModel(e.target.value)}
-              className="w-full bg-background border border-border/50 rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-primary/50"
-            >
-              <option value="">— Selecionar modelo —</option>
-              {models.map(m => (
-                <option key={m.id} value={m.id}>{m.label}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      )}
-
-      {/* Activate + Test buttons */}
-      <div className="space-y-2 pt-1 border-t border-border/30">
-        {isThisActive ? (
-          <>
-            <div className="flex items-center gap-2 py-2 text-xs text-primary font-medium">
-              <CheckCircle2 className="w-4 h-4" />
-              {activeModel ? `Ativo: ${activeModel}` : 'Provedor LLM ativo'} — todos os agentes usam este.
-            </div>
-            <button
-              disabled={testing}
-              onClick={handleTest}
-              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-background hover:bg-muted/50 border border-border/50 text-xs font-medium transition-all disabled:opacity-50"
-            >
-              {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5" />}
-              Testar conexão
-            </button>
-            {testResult && (
-              <div className={`text-xs rounded-lg px-3 py-2 border ${
-                testResult.success
-                  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400'
-                  : 'bg-red-500/5 border-red-500/20 text-red-400'
-              }`}>
-                {testResult.success
-                  ? `✓ ${testResult.provider} · ${testResult.model} — ${testResult.response}`
-                  : `✗ ${testResult.error}`}
-              </div>
-            )}
-          </>
-        ) : (
-          <button
-            disabled={activating}
-            onClick={handleActivate}
-            className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-xs font-semibold transition-all disabled:opacity-50"
-          >
-            {activating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-            Usar este provedor
-          </button>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-interface AgentOption { id: string; name: string; icon: string; block: string; }
 interface ChannelConfig {
   id: number;
   platform: string;
   externalId: string;
   agentId: string;
   config: Record<string, unknown>;
-  createdAt: string;
 }
 
-function ChannelsSection() {
+interface AgentOption { id: string; name: string; icon: string; }
+
+// ─── Provider config ──────────────────────────────────────────────────────────
+const PROVIDERS = [
+  {
+    id: "google",
+    name: "Google Gemini",
+    icon: "✦",
+    color: "text-blue-400",
+    bg: "bg-blue-500/10",
+    border: "border-blue-500/20",
+    models: [
+      { id: "gemini-2.0-flash-lite",        label: "Gemini 2.0 Flash Lite  · rápido" },
+      { id: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro Preview · mais capaz" },
+      { id: "gemini-1.5-flash",             label: "Gemini 1.5 Flash" },
+      { id: "gemini-1.5-pro",               label: "Gemini 1.5 Pro" },
+    ],
+    keyPlaceholder: "AIzaSy...",
+    needsUrl: false,
+  },
+  {
+    id: "anthropic",
+    name: "Anthropic Claude",
+    icon: "◈",
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    border: "border-amber-500/20",
+    models: [
+      { id: "claude-sonnet-4-6",            label: "Claude Sonnet 4.6 · recomendado" },
+      { id: "claude-3-5-sonnet-20241022",   label: "Claude 3.5 Sonnet" },
+      { id: "claude-3-5-haiku-20241022",    label: "Claude 3.5 Haiku · rápido" },
+      { id: "claude-opus-4-7",             label: "Claude Opus 4.7 · máximo" },
+    ],
+    keyPlaceholder: "sk-ant-...",
+    needsUrl: false,
+  },
+  {
+    id: "openai",
+    name: "OpenAI GPT",
+    icon: "⬡",
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/10",
+    border: "border-emerald-500/20",
+    models: [
+      { id: "gpt-4o",      label: "GPT-4o · recomendado" },
+      { id: "gpt-4o-mini", label: "GPT-4o Mini · rápido" },
+      { id: "o3-mini",     label: "o3-mini · raciocínio" },
+      { id: "gpt-4-turbo", label: "GPT-4 Turbo" },
+    ],
+    keyPlaceholder: "sk-...",
+    needsUrl: false,
+  },
+  {
+    id: "openrouter",
+    name: "OpenRouter",
+    icon: "⇌",
+    color: "text-purple-400",
+    bg: "bg-purple-500/10",
+    border: "border-purple-500/20",
+    models: [
+      { id: "meta-llama/llama-3.1-70b-instruct", label: "LLaMA 3.1 70B" },
+      { id: "qwen/qwen-2.5-72b-instruct",         label: "Qwen 2.5 72B" },
+      { id: "mistralai/mistral-7b-instruct",       label: "Mistral 7B · econômico" },
+      { id: "google/gemini-flash-1.5",             label: "Gemini 1.5 Flash via OR" },
+    ],
+    keyPlaceholder: "sk-or-...",
+    needsUrl: false,
+  },
+  {
+    id: "ollama_cloud",
+    name: "Ollama Cloud",
+    icon: "☁",
+    color: "text-sky-400",
+    bg: "bg-sky-500/10",
+    border: "border-sky-500/20",
+    models: [],
+    keyPlaceholder: "Bearer token (opcional)",
+    needsUrl: true,
+  },
+];
+
+// ─── Section nav ──────────────────────────────────────────────────────────────
+const NAV = [
+  { id: "llm",       label: "IA & LLM",   icon: Cpu          },
+  { id: "whatsapp",  label: "WhatsApp",    icon: MessageSquare },
+  { id: "branding",  label: "Identidade", icon: Crown        },
+];
+
+// ─── LLM Section ─────────────────────────────────────────────────────────────
+function LLMSection({
+  integrations,
+  activeProvider,
+  activeModel,
+  onActivate,
+}: {
+  integrations: IntegrationStatus[];
+  activeProvider: string;
+  activeModel: string;
+  onActivate: (provider: string, model: string, customUrl?: string) => Promise<void>;
+}) {
   const { toast } = useToast();
-  const [channels, setChannels] = useState<ChannelConfig[]>([]);
-  const [agents, setAgents] = useState<AgentOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [newChannel, setNewChannel] = useState({
-    phoneNumberId: "",
-    accessToken: "",
-    verifyToken: "",
-    agentId: "",
-  });
-  const [createdWebhookUrl, setCreatedWebhookUrl] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const activeInfo = PROVIDERS.find(p => p.id === activeProvider);
+  const activeInt  = integrations.find(i => i.id === activeProvider);
+
+  return (
+    <div className="space-y-6">
+      {/* Active provider banner */}
+      <div className={`rounded-xl border p-4 flex items-center gap-4 ${
+        activeInfo
+          ? `${activeInfo.bg} ${activeInfo.border}`
+          : "bg-muted/20 border-border/40"
+      }`}>
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl font-bold ${activeInfo?.bg ?? "bg-muted/40"}`}>
+          {activeInfo?.icon ?? "?"}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold">
+              {activeInfo?.name ?? (activeProvider === "auto" ? "Automático" : activeProvider)}
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-bold">
+              ATIVO
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {activeModel
+              ? <span>Modelo: <code className="text-foreground/80">{activeModel}</code></span>
+              : <span>Nenhum modelo selecionado</span>
+            }
+          </div>
+        </div>
+        <div className={`w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse`} />
+      </div>
+
+      {/* Provider list */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
+          Provedores disponíveis
+        </p>
+        {PROVIDERS.map(prov => {
+          const integration = integrations.find(i => i.id === prov.id);
+          const isActive   = activeProvider === prov.id;
+          const isOpen     = expanded === prov.id;
+          const configured = integration?.configured ?? false;
+
+          return (
+            <div
+              key={prov.id}
+              className={`rounded-xl border transition-all overflow-hidden ${
+                isActive
+                  ? `${prov.border} ring-1 ring-offset-0 ${prov.bg}`
+                  : "border-border/40 bg-card/50 hover:border-border/70"
+              }`}
+            >
+              {/* Row */}
+              <button
+                onClick={() => setExpanded(isOpen ? null : prov.id)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left"
+              >
+                <span className={`text-lg w-7 text-center font-bold ${prov.color}`}>{prov.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{prov.name}</span>
+                    {isActive && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${prov.bg} ${prov.color} border ${prov.border}`}>
+                        ativo
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {configured
+                    ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    : <XCircle className="w-4 h-4 text-muted-foreground/40" />
+                  }
+                  <span className={`text-xs ${configured ? "text-emerald-400" : "text-muted-foreground/50"}`}>
+                    {configured ? "Chave salva" : "Sem chave"}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                </div>
+              </button>
+
+              {/* Expanded config */}
+              <AnimatePresence>
+                {isOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <ProviderConfig
+                      prov={prov}
+                      integration={integration}
+                      activeProvider={activeProvider}
+                      activeModel={activeModel}
+                      onActivate={onActivate}
+                      onClose={() => setExpanded(null)}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* BYOK note */}
+      <div className="rounded-xl border border-border/30 bg-muted/10 px-4 py-3 text-xs text-muted-foreground flex items-start gap-2">
+        <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-primary/60" />
+        <span>
+          Chaves armazenadas com criptografia AES-256. Nenhuma variável de ambiente necessária — configure aqui e use instantaneamente.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Provider Config (inline expanded) ───────────────────────────────────────
+function ProviderConfig({
+  prov, integration, activeProvider, activeModel, onActivate, onClose,
+}: {
+  prov: typeof PROVIDERS[0];
+  integration: IntegrationStatus | undefined;
+  activeProvider: string;
+  activeModel: string;
+  onActivate: (provider: string, model: string, customUrl?: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const keyRef    = useRef<HTMLInputElement>(null);
+  const isActive  = activeProvider === prov.id;
+
+  const [showKey, setShowKey]       = useState(false);
+  const [savingKey, setSavingKey]   = useState(false);
+  const [model, setModel]           = useState(isActive ? activeModel : prov.models[0]?.id ?? "");
+  const [customModel, setCustomModel] = useState(isActive ? activeModel : "");
+  const [customUrl, setCustomUrl]   = useState("");
+  const [activating, setActivating] = useState(false);
+  const [testing, setTesting]       = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; error?: string; response?: string } | null>(null);
+
+  async function saveKey() {
+    const key = keyRef.current?.value?.trim();
+    if (!key) return;
+    setSavingKey(true);
     try {
-      const [chRes, agRes] = await Promise.all([
-        fetch("/api/settings/channels"),
-        fetch("/api/agents"),
-      ]);
-      if (chRes.ok) {
-        const d = await chRes.json();
-        setChannels((d.channels || []).filter((c: ChannelConfig) => c.platform === "whatsapp"));
-      }
-      if (agRes.ok) {
-        const d = await agRes.json();
-        setAgents(d.agents || []);
-      }
+      const r = await fetch("/api/settings/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: prov.id, key }),
+      });
+      if (!r.ok) throw new Error("Falha");
+      if (keyRef.current) keyRef.current.value = "";
+      toast({ title: "✅ Chave salva com sucesso" });
     } catch {
+      toast({ title: "Erro ao salvar chave", variant: "destructive" });
     } finally {
-      setLoading(false);
+      setSavingKey(false);
     }
-  };
+  }
 
-  useEffect(() => { fetchData(); }, []);
-
-  const handleSave = async () => {
-    const { phoneNumberId, accessToken, verifyToken, agentId } = newChannel;
-    if (!phoneNumberId.trim() || !accessToken.trim() || !verifyToken.trim() || !agentId) {
-      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
-      return;
-    }
-    setSaving(true);
-    setCreatedWebhookUrl(null);
+  async function handleTest() {
+    setTesting(true);
+    setTestResult(null);
     try {
-      const res = await fetch("/api/settings/channels", {
+      const r = await fetch("/api/settings/active-provider/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          platform: "whatsapp",
-          externalId: phoneNumberId.trim(),
-          agentId,
-          config: {
-            accessToken: accessToken.trim(),
-            verifyToken: verifyToken.trim(),
-            phoneNumberId: phoneNumberId.trim(),
-          },
+          provider: prov.id,
+          model: prov.needsUrl ? customModel : model,
+          customUrl: prov.needsUrl ? customUrl : undefined,
         }),
       });
-      if (!res.ok) throw new Error("Erro ao salvar canal");
-      const data = await res.json();
-      const channelId = data.channel?.id;
-      const webhookUrl = `${window.location.origin}/api/webhooks/whatsapp/${channelId}`;
-      setCreatedWebhookUrl(webhookUrl);
-      toast({ title: "Canal WhatsApp configurado!" });
-      setNewChannel({ phoneNumberId: "", accessToken: "", verifyToken: "", agentId: "" });
-      fetchData();
-    } catch (err) {
-      console.error("[Channels] save failed:", err);
-      toast({ title: "Erro ao salvar canal", variant: "destructive" });
+      setTestResult(await r.json());
+    } catch {
+      setTestResult({ success: false, error: "Erro de rede" });
     } finally {
-      setSaving(false);
+      setTesting(false);
     }
-  };
+  }
 
-  const handleDelete = async (id: number) => {
-    setDeletingId(id);
-    try {
-      const res = await fetch(`/api/settings/channels/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Erro ao excluir");
-      toast({ title: "Canal removido" });
-      setChannels(prev => prev.filter(c => c.id !== id));
-    } catch (err) {
-      console.error("[Channels] delete failed:", err);
-      toast({ title: "Erro ao remover canal", variant: "destructive" });
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  async function handleActivate() {
+    setActivating(true);
+    const m = prov.needsUrl ? customModel : model;
+    await onActivate(prov.id, m, prov.needsUrl ? customUrl : undefined);
+    setActivating(false);
+    onClose();
+  }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({ title: "Copiado para a área de transferência" });
-  };
-
-  const webhookUrlFor = (channelId: number) =>
-    `${window.location.origin}/api/webhooks/whatsapp/${channelId}`;
-
-  if (loading) return null;
+  const finalModel = prov.needsUrl ? customModel : model;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.12 }}
-      className="bg-card border border-border/50 rounded-2xl p-6 space-y-5"
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <MessageSquare className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-lg font-semibold text-foreground">Canais WhatsApp</h2>
-          {channels.length > 0 && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20">
-              {channels.length} ativo{channels.length > 1 ? "s" : ""}
-            </span>
+    <div className="px-4 pb-4 pt-1 border-t border-border/30 space-y-4">
+
+      {/* API Key */}
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block">
+          Chave de API
+          {integration?.configured && (
+            <span className="ml-2 text-emerald-400">· chave atual salva</span>
           )}
+        </Label>
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <input
+              ref={keyRef}
+              type={showKey ? "text" : "password"}
+              placeholder={integration?.configured ? "Nova chave para substituir..." : prov.keyPlaceholder}
+              className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs font-mono pr-8 focus:ring-1 focus:ring-primary/50 focus:outline-none"
+            />
+            <button
+              onClick={() => setShowKey(v => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+          <Button size="sm" onClick={saveKey} disabled={savingKey} className="flex-shrink-0 text-xs">
+            {savingKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Salvar"}
+          </Button>
         </div>
-        <button
-          onClick={() => { setShowForm(f => !f); setCreatedWebhookUrl(null); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-xs font-medium transition-all"
-        >
-          {showForm ? <ChevronUp className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-          {showForm ? "Fechar" : "Adicionar Canal"}
-        </button>
       </div>
 
+      {/* URL (Ollama Cloud) */}
+      {prov.needsUrl && (
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 block">URL do Endpoint</Label>
+          <Input
+            type="text"
+            placeholder="https://meu-ollama.com"
+            value={customUrl}
+            onChange={e => setCustomUrl(e.target.value)}
+            className="text-xs font-mono"
+          />
+        </div>
+      )}
+
+      {/* Model */}
+      <div>
+        <Label className="text-xs text-muted-foreground mb-1.5 block">Modelo</Label>
+        {prov.needsUrl ? (
+          <Input
+            type="text"
+            placeholder="llama3.2, qwen2.5..."
+            value={customModel}
+            onChange={e => setCustomModel(e.target.value)}
+            className="text-xs font-mono"
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-1.5">
+            {prov.models.map(m => (
+              <button
+                key={m.id}
+                onClick={() => setModel(m.id)}
+                className={`px-3 py-2 rounded-lg text-left text-xs border transition-all ${
+                  model === m.id
+                    ? `${prov.bg} ${prov.border} ${prov.color} font-semibold`
+                    : "bg-background border-border/40 text-muted-foreground hover:border-border"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Test result */}
+      {testResult && (
+        <div className={`rounded-lg px-3 py-2 text-xs border flex items-center gap-2 ${
+          testResult.success
+            ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400"
+            : "bg-red-500/5 border-red-500/20 text-red-400"
+        }`}>
+          {testResult.success
+            ? <><CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" /> Conexão OK {testResult.response && `· "${testResult.response.slice(0, 60)}"`}</>
+            : <><WifiOff className="w-3.5 h-3.5 flex-shrink-0" /> {testResult.error}</>
+          }
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleTest}
+          disabled={testing}
+          className="flex-1 text-xs"
+        >
+          {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Wifi className="w-3.5 h-3.5 mr-1" />}
+          Testar conexão
+        </Button>
+        {isActive ? (
+          <div className="flex-1 flex items-center justify-center gap-1.5 text-xs text-primary font-semibold px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Provedor ativo
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            onClick={handleActivate}
+            disabled={activating || (!integration?.configured && !prov.needsUrl)}
+            className="flex-1 text-xs bg-primary hover:bg-primary/90"
+          >
+            {activating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Zap className="w-3.5 h-3.5 mr-1" />}
+            Usar este
+          </Button>
+        )}
+      </div>
+
+      {!integration?.configured && !prov.needsUrl && (
+        <p className="text-[11px] text-amber-400/80 flex items-center gap-1">
+          <AlertCircle className="w-3 h-3 flex-shrink-0" />
+          Salve uma chave de API antes de ativar.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── WhatsApp Section ─────────────────────────────────────────────────────────
+function WhatsAppSection() {
+  const { toast } = useToast();
+  const [channels, setChannels]       = useState<ChannelConfig[]>([]);
+  const [agents, setAgents]           = useState<AgentOption[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [showForm, setShowForm]       = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [deletingId, setDeletingId]   = useState<number | null>(null);
+  const [webhookUrl, setWebhookUrl]   = useState<string | null>(null);
+  const [form, setForm] = useState({ phoneNumberId: "", accessToken: "", verifyToken: "", agentId: "" });
+
+  useEffect(() => {
+    Promise.all([fetch("/api/settings/channels"), fetch("/api/agents")]).then(async ([chRes, agRes]) => {
+      if (chRes.ok) { const d = await chRes.json(); setChannels((d.channels || []).filter((c: ChannelConfig) => c.platform === "whatsapp")); }
+      if (agRes.ok) { const d = await agRes.json(); setAgents(d.agents || []); }
+      setLoading(false);
+    });
+  }, []);
+
+  async function handleSave() {
+    if (!form.phoneNumberId || !form.accessToken || !form.verifyToken || !form.agentId) {
+      toast({ title: "Preencha todos os campos", variant: "destructive" }); return;
+    }
+    setSaving(true);
+    try {
+      const r = await fetch("/api/settings/channels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform: "whatsapp", externalId: form.phoneNumberId, agentId: form.agentId,
+          config: { accessToken: form.accessToken, verifyToken: form.verifyToken, phoneNumberId: form.phoneNumberId } }),
+      });
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      setWebhookUrl(`${window.location.origin}/api/webhooks/whatsapp/${d.channel.id}`);
+      toast({ title: "✅ Canal criado!" });
+      setForm({ phoneNumberId: "", accessToken: "", verifyToken: "", agentId: "" });
+      const upd = await fetch("/api/settings/channels");
+      if (upd.ok) { const d2 = await upd.json(); setChannels((d2.channels || []).filter((c: ChannelConfig) => c.platform === "whatsapp")); }
+    } catch { toast({ title: "Erro ao salvar canal", variant: "destructive" }); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: number) {
+    setDeletingId(id);
+    try {
+      await fetch(`/api/settings/channels/${id}`, { method: "DELETE" });
+      toast({ title: "Canal removido" });
+      setChannels(prev => prev.filter(c => c.id !== id));
+    } finally { setDeletingId(null); }
+  }
+
+  const copy = (t: string) => { navigator.clipboard.writeText(t); toast({ title: "Copiado!" }); };
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold">Canais WhatsApp</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Conecte números do WhatsApp Business API à agentes de IA.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => { setShowForm(v => !v); setWebhookUrl(null); }}>
+          {showForm ? "Cancelar" : <><Plus className="w-3.5 h-3.5 mr-1" /> Adicionar</>}
+        </Button>
+      </div>
+
+      {/* Existing channels */}
+      {channels.length > 0 && (
+        <div className="space-y-2">
+          {channels.map(ch => {
+            const agent = agents.find(a => a.id === ch.agentId);
+            const url   = `${window.location.origin}/api/webhooks/whatsapp/${ch.id}`;
+            return (
+              <div key={ch.id} className="flex items-center gap-3 bg-card/50 border border-border/40 rounded-xl px-4 py-3">
+                <MessageSquare className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{agent ? `${agent.icon} ${agent.name}` : ch.agentId}</div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <code className="text-[10px] text-muted-foreground font-mono truncate max-w-xs">{url}</code>
+                    <button onClick={() => copy(url)} className="text-muted-foreground hover:text-foreground flex-shrink-0">
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-red-400 h-8 w-8 p-0 flex-shrink-0"
+                  onClick={() => handleDelete(ch.id)} disabled={deletingId === ch.id}>
+                  {deletingId === ch.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {channels.length === 0 && !showForm && (
+        <div className="text-center py-10 text-sm text-muted-foreground border border-dashed border-border/40 rounded-xl">
+          Nenhum canal configurado. Clique em "Adicionar" para começar.
+        </div>
+      )}
+
+      {/* Add form */}
       <AnimatePresence>
         {showForm && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="bg-background/60 border border-border/40 rounded-xl p-5 space-y-4">
               <p className="text-xs text-muted-foreground">
-                Configure um número WhatsApp Business via{" "}
-                <span className="text-foreground font-medium">Meta for Developers → WhatsApp → API Setup</span>.
-                Após salvar, você receberá a URL de webhook para registrar no painel Meta.
+                Obtenha o <strong>Phone Number ID</strong> e <strong>Access Token</strong> em{" "}
+                <span className="text-foreground">Meta for Developers → WhatsApp → API Setup</span>.
               </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground uppercase">
-                    ID do Número de Telefone <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newChannel.phoneNumberId}
-                    onChange={e => setNewChannel(p => ({ ...p, phoneNumberId: e.target.value }))}
-                    placeholder="123456789012345"
-                    className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs font-mono focus:ring-1 focus:ring-primary/50 focus:outline-none"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Phone Number ID (não o número +55...)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1 block">Phone Number ID <span className="text-red-400">*</span></Label>
+                  <Input placeholder="123456789..." value={form.phoneNumberId}
+                    onChange={e => setForm(p => ({ ...p, phoneNumberId: e.target.value }))} className="text-xs font-mono" />
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground uppercase">
-                    Agente Responsável <span className="text-red-400">*</span>
-                  </label>
-                  <select
-                    value={newChannel.agentId}
-                    onChange={e => setNewChannel(p => ({ ...p, agentId: e.target.value }))}
-                    className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-primary/50 focus:outline-none"
-                  >
-                    <option value="">— Selecionar agente —</option>
-                    {agents.map(a => (
-                      <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
-                    ))}
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1 block">Agente Responsável <span className="text-red-400">*</span></Label>
+                  <select value={form.agentId} onChange={e => setForm(p => ({ ...p, agentId: e.target.value }))}
+                    className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-primary/50 focus:outline-none">
+                    <option value="">— Selecionar —</option>
+                    {agents.map(a => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
                   </select>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground uppercase">
-                    Access Token (Meta Graph API) <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={newChannel.accessToken}
-                    onChange={e => setNewChannel(p => ({ ...p, accessToken: e.target.value }))}
-                    placeholder="EAAxxxxxxxxxxxxxxx..."
-                    className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs font-mono focus:ring-1 focus:ring-primary/50 focus:outline-none"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Token permanente do System User, não o temporário</p>
+                <div className="col-span-2">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Access Token <span className="text-red-400">*</span></Label>
+                  <Input type="password" placeholder="EAAxxxxxxxx..." value={form.accessToken}
+                    onChange={e => setForm(p => ({ ...p, accessToken: e.target.value }))} className="text-xs font-mono" />
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground uppercase">
-                    Verify Token <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newChannel.verifyToken}
-                    onChange={e => setNewChannel(p => ({ ...p, verifyToken: e.target.value }))}
-                    placeholder="meu-token-secreto-123"
-                    className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs font-mono focus:ring-1 focus:ring-primary/50 focus:outline-none"
-                  />
-                  <p className="text-[10px] text-muted-foreground">String segura de sua escolha — registre no Meta também</p>
+                <div className="col-span-2">
+                  <Label className="text-xs text-muted-foreground mb-1 block">Verify Token <span className="text-red-400">*</span></Label>
+                  <Input placeholder="seu-token-secreto" value={form.verifyToken}
+                    onChange={e => setForm(p => ({ ...p, verifyToken: e.target.value }))} className="text-xs font-mono" />
+                  <p className="text-[10px] text-muted-foreground mt-1">String de sua escolha — cadastre o mesmo no painel Meta.</p>
                 </div>
               </div>
+              <Button onClick={handleSave} disabled={saving} size="sm">
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+                Salvar Canal
+              </Button>
 
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold transition-all disabled:opacity-50"
-                >
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  Salvar Canal
-                </button>
-                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Access Token armazenado criptografado
-                </p>
-              </div>
-
+              {/* Webhook URL after creation */}
               <AnimatePresence>
-                {createdWebhookUrl && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 space-y-3"
-                  >
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span className="text-sm font-semibold text-emerald-400">Canal criado! Configure o webhook no Meta:</span>
+                {webhookUrl && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
+                      <CheckCircle2 className="w-4 h-4" /> Canal criado! Registre o webhook no Meta:
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">URL do Webhook (cole no Meta for Developers)</p>
-                      <div className="flex items-center gap-2 bg-background rounded-lg px-3 py-2 border border-border/40">
-                        <code className="text-xs font-mono text-primary flex-1 break-all">{createdWebhookUrl}</code>
-                        <button
-                          onClick={() => copyToClipboard(createdWebhookUrl)}
-                          className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        No painel Meta: <strong>WhatsApp → Configuração → Webhooks → Editar</strong>.
-                        Insira esta URL e o Verify Token que você cadastrou.
-                        Subscreva ao campo <code className="text-primary">messages</code>.
-                      </p>
+                    <div className="flex items-center gap-2 bg-background rounded-lg px-3 py-2 border border-border/40">
+                      <code className="text-xs font-mono text-primary flex-1 break-all">{webhookUrl}</code>
+                      <button onClick={() => copy(webhookUrl)} className="text-muted-foreground hover:text-foreground flex-shrink-0">
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
                     </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Meta → WhatsApp → Configuração → Webhooks → Editar. Cole esta URL e o Verify Token. Subscreva ao campo <code className="text-primary">messages</code>.
+                    </p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -916,546 +629,201 @@ function ChannelsSection() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {channels.length === 0 && !showForm && (
-        <p className="text-sm text-muted-foreground text-center py-4">
-          Nenhum canal WhatsApp configurado. Clique em "Adicionar Canal" para começar.
-        </p>
-      )}
-
-      {channels.length > 0 && (
-        <div className="space-y-3">
-          {channels.map(ch => {
-            const agent = agents.find(a => a.id === ch.agentId);
-            const url = webhookUrlFor(ch.id);
-            return (
-              <div
-                key={ch.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-background/50 border border-border/40 rounded-xl px-4 py-3"
-              >
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">
-                      {agent ? `${agent.icon} ${agent.name}` : ch.agentId}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">WhatsApp</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground font-mono truncate">
-                    Phone ID: {ch.externalId}
-                  </p>
-                  <div className="flex items-center gap-1.5">
-                    <code className="text-[10px] text-primary font-mono truncate max-w-xs">{url}</code>
-                    <button
-                      onClick={() => copyToClipboard(url)}
-                      className="p-0.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                      title="Copiar URL do webhook"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleDelete(ch.id)}
-                  disabled={deletingId === ch.id}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all disabled:opacity-50"
-                >
-                  {deletingId === ch.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  Remover
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </motion.div>
+    </div>
   );
 }
 
+// ─── Branding Section ─────────────────────────────────────────────────────────
 function BrandingSection() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [branding, setBranding] = useState({
-    companyName: "",
-    primaryColor: "#3b82f6",
-    customDomain: "",
-    logoUrl: ""
-  });
-  const [msg, setMsg] = useState("");
-
-  useEffect(() => {
-    fetch("/api/branding/config")
-      .then(r => r.json())
-      .then(data => {
-        if (data.id) {
-          setBranding({
-            companyName: data.companyName,
-            primaryColor: data.primaryColor,
-            customDomain: data.customDomain || "",
-            logoUrl: data.logoStorageKey ? `/uploads/${data.logoStorageKey}` : ""
-          });
-        }
-        setLoading(false);
-      });
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/branding/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(branding)
-      });
-      if (res.ok) {
-        setMsg("Branding atualizado! Recarregue a página para aplicar.");
-        setTimeout(() => window.location.reload(), 1500);
-      }
-    } catch {
-      setMsg("Erro ao salvar.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.[0]) return;
-    const formData = new FormData();
-    formData.append("logo", e.target.files[0]);
-    
-    setSaving(true);
-    try {
-      const res = await fetch("/api/branding/logo", {
-        method: "POST",
-        body: formData
-      });
-      const data = await res.json();
-      if (data.success) {
-        setBranding(prev => ({ ...prev, logoUrl: data.logoUrl }));
-        setMsg("Logo atualizada!");
-      }
-    } catch {
-      setMsg("Erro no upload.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-card border border-border/50 rounded-2xl p-6 space-y-6"
-    >
-      <div className="flex items-center gap-3">
-        <Crown className="w-5 h-5 text-amber-400" />
-        <h2 className="text-lg font-semibold text-foreground">Identidade Visual & Branding</h2>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase">Nome da Empresa</label>
-            <input
-              type="text"
-              value={branding.companyName}
-              onChange={e => setBranding({...branding, companyName: e.target.value})}
-              className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary/50"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase">Cor Primária (Hex)</label>
-            <div className="flex gap-3">
-              <input
-                type="color"
-                value={branding.primaryColor}
-                onChange={e => setBranding({...branding, primaryColor: e.target.value})}
-                className="w-10 h-10 rounded cursor-pointer bg-transparent"
-              />
-              <input
-                type="text"
-                value={branding.primaryColor}
-                onChange={e => setBranding({...branding, primaryColor: e.target.value})}
-                className="flex-1 bg-background border border-border/50 rounded-lg px-3 py-2 text-sm font-mono"
-              />
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-             <label className="text-xs font-medium text-muted-foreground uppercase">Domínio Customizado</label>
-             <input
-               type="text"
-               value={branding.customDomain}
-               placeholder="hub.suaempresa.com"
-               onChange={e => setBranding({...branding, customDomain: e.target.value})}
-               className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-sm"
-             />
-          </div>
-        </div>
-
-        <div className="space-y-4 flex flex-col items-center justify-center p-6 border-2 border-dashed border-border/30 rounded-2xl bg-muted/20">
-           <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Logotipo</p>
-           {branding.logoUrl ? (
-             <img src={branding.logoUrl} className="h-16 object-contain mb-4" alt="Preview" />
-           ) : (
-             <Crown className="w-12 h-12 text-muted-foreground/30 mb-4" />
-           )}
-           <label className="cursor-pointer bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
-             Alterar Logo
-             <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
-           </label>
-        </div>
-      </div>
-
-      <div className="pt-4 border-t border-border/30 flex items-center justify-between">
-         <p className="text-xs text-muted-foreground">{msg || "Altere a cor e o nome para personalizar seu portal."}</p>
-         <button
-           onClick={handleSave}
-           disabled={saving}
-           className="flex items-center gap-2 bg-emerald-500 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all disabled:opacity-50"
-         >
-           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-           Salvar Identidade
-         </button>
-      </div>
-    </motion.div>
-  );
-}
-
-function ModelSelector({ activeProvider, activeModel, onModelChange }: {
-  activeProvider: string;
-  activeModel: string | null;
-  onModelChange: () => void;
-}) {
-  const [data, setData] = useState<{ models: any[], defaultModel: string, provider: string | null } | null>(null);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [branding, setBranding] = useState({ companyName: "", primaryColor: "#107ec2", customDomain: "", logoUrl: "" });
 
   useEffect(() => {
-    fetch("/api/settings/models")
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+    fetch("/api/branding/config").then(r => r.json()).then(d => {
+      if (d.id) setBranding({ companyName: d.companyName, primaryColor: d.primaryColor,
+        customDomain: d.customDomain || "", logoUrl: d.logoStorageKey ? `/uploads/${d.logoStorageKey}` : "" });
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
-  // Only show if provider is not ollama (Ollama has its own card)
-  if (loading || !data?.provider || activeProvider === "ollama" || activeProvider === "ollama_cloud") return null;
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const r = await fetch("/api/branding/update", { method: "POST",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(branding) });
+      if (r.ok) { toast({ title: "✅ Identidade salva! Recarregando..." }); setTimeout(() => window.location.reload(), 1200); }
+      else throw new Error();
+    } catch { toast({ title: "Erro ao salvar", variant: "destructive" }); }
+    finally { setSaving(false); }
+  }
+
+  async function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    const fd = new FormData(); fd.append("logo", file);
+    setSaving(true);
+    try {
+      const r = await fetch("/api/branding/logo", { method: "POST", body: fd });
+      const d = await r.json();
+      if (d.success) { setBranding(p => ({ ...p, logoUrl: d.logoUrl })); toast({ title: "Logo atualizada!" }); }
+    } catch { toast({ title: "Erro no upload", variant: "destructive" }); }
+    finally { setSaving(false); }
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.16 }}
-      className="bg-card border border-border/50 rounded-2xl p-6"
-    >
-      <div className="flex items-center gap-3 mb-4">
-        <Cpu className="w-5 h-5 text-primary" />
-        <h2 className="text-sm font-semibold text-foreground">Seleção de Modelo (Cloud)</h2>
+    <div className="space-y-6">
+      <div>
+        <p className="text-sm font-semibold">Identidade Visual</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Personalize o nome, cores e logo do portal.</p>
       </div>
-      <p className="text-xs text-muted-foreground mb-4">
-        Escolha o modelo para as operações do sistema. O modelo atual afeta a velocidade e qualidade das análises.
-      </p>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {data.models.map((model: any) => {
-          const isActive = activeModel === model.id;
-          return (
-            <div
-              key={model.id}
-              className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-primary/10 border-primary shadow-[0_0_15px_rgba(59,130,246,0.15)] ring-1 ring-primary/30'
-                  : 'bg-background hover:bg-muted/50 border-border/50 hover:border-primary/30'
-              }`}
-              onClick={async () => {
-                try {
-                  await fetch("/api/settings/active-provider", {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ provider: activeProvider, model: model.id }),
-                  });
-                  toast({ title: `Modelo "${model.name}" selecionado.` });
-                  onModelChange();
-                } catch {
-                  toast({ title: "Erro ao salvar modelo", variant: "destructive" });
-                }
-              }}
-            >
-              <div className="flex justify-between items-start mb-1">
-                <span className={`text-xs font-bold ${isActive ? 'text-primary' : 'text-foreground'}`}>{model.name}</span>
-                {isActive && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">{model.description}</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5 block">Nome da Empresa</Label>
+            <Input value={branding.companyName} onChange={e => setBranding(p => ({ ...p, companyName: e.target.value }))} />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5 block">Cor Primária</Label>
+            <div className="flex gap-2 items-center">
+              <input type="color" value={branding.primaryColor}
+                onChange={e => setBranding(p => ({ ...p, primaryColor: e.target.value }))}
+                className="w-10 h-10 rounded-lg cursor-pointer border border-border/50 bg-transparent" />
+              <Input value={branding.primaryColor} onChange={e => setBranding(p => ({ ...p, primaryColor: e.target.value }))}
+                className="font-mono text-sm flex-1" />
             </div>
-          );
-        })}
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5 block">Domínio Customizado</Label>
+            <Input placeholder="hub.suaempresa.com" value={branding.customDomain}
+              onChange={e => setBranding(p => ({ ...p, customDomain: e.target.value }))} />
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center justify-center gap-4 border-2 border-dashed border-border/30 rounded-2xl p-6 bg-muted/10">
+          {branding.logoUrl
+            ? <img src={branding.logoUrl} className="h-16 object-contain" alt="Logo" />
+            : <Crown className="w-12 h-12 text-muted-foreground/30" />
+          }
+          <label className="cursor-pointer bg-card border border-border/50 hover:border-primary/40 text-sm px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2">
+            <UploadCloud className="w-4 h-4" /> Alterar Logo
+            <input type="file" className="hidden" accept="image/*" onChange={handleLogo} />
+          </label>
+          <p className="text-[11px] text-muted-foreground">PNG, SVG ou JPG — recomendado fundo transparente</p>
+        </div>
       </div>
-    </motion.div>
+
+      <div className="pt-4 border-t border-border/30 flex justify-end">
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+          Salvar Identidade
+        </Button>
+      </div>
+    </div>
   );
 }
 
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { toast } = useToast();
-  const [data, setData] = useState<SettingsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeProvider, setActiveProvider] = useState<string>("auto");
-  const [activeLlmUrl, setActiveLlmUrl] = useState<string>("");
-  const [activeLlmModel, setActiveLlmModel] = useState<string>("");
-  const [activating, setActivating] = useState<string | null>(null);
+  const [section, setSection]         = useState("llm");
+  const [data, setData]               = useState<SettingsData | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [activeProvider, setActiveProvider] = useState("auto");
+  const [activeModel, setActiveModel] = useState("");
 
-  const fetchSettings = async () => {
+  async function fetchSettings() {
     try {
       const [intRes, provRes] = await Promise.all([
         fetch("/api/settings/integrations"),
         fetch("/api/settings/active-provider"),
       ]);
-      if (intRes.ok) setData(await intRes.json());
+      if (intRes.ok)  setData(await intRes.json());
       if (provRes.ok) {
         const p = await provRes.json();
         setActiveProvider(p.provider || "auto");
-        setActiveLlmUrl(p.customUrl || "");
-        setActiveLlmModel(p.model || "");
+        setActiveModel(p.model || "");
       }
-    } catch {
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const activateProvider = async (provider: string, customUrl?: string, model?: string) => {
-    setActivating(provider);
-    try {
-      const res = await fetch("/api/settings/active-provider", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, customUrl: customUrl || "", model: model || "" }),
-      });
-      if (!res.ok) throw new Error("Falha ao salvar");
-      setActiveProvider(provider);
-      if (customUrl !== undefined) setActiveLlmUrl(customUrl);
-      if (model !== undefined) setActiveLlmModel(model);
-      toast({ title: `Provedor "${provider}" ativado com sucesso!` });
-      fetchSettings();
-    } catch (e: any) {
-      toast({ title: "Erro ao ativar provedor", description: e.message, variant: "destructive" });
-    } finally {
-      setActivating(null);
-    }
-  };
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchSettings();
-  };
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    } finally { setLoading(false); }
   }
 
-  const integrations = data?.integrations || [];
-  const configuredCount = integrations.filter(i => i.configured).length;
-  const categories = [...new Set(integrations.map(i => i.category))];
+  useEffect(() => { fetchSettings(); }, []);
+
+  async function handleActivate(provider: string, model: string, customUrl?: string) {
+    try {
+      const r = await fetch("/api/settings/active-provider", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, model, customUrl: customUrl ?? "" }),
+      });
+      if (!r.ok) throw new Error();
+      setActiveProvider(provider);
+      setActiveModel(model);
+      toast({ title: `✅ ${PROVIDERS.find(p => p.id === provider)?.name ?? provider} ativado!` });
+      fetchSettings();
+    } catch {
+      toast({ title: "Erro ao ativar provedor", variant: "destructive" });
+    }
+  }
+
+  if (loading) return (
+    <div className="flex-1 flex items-center justify-center">
+      <Loader2 className="w-7 h-7 animate-spin text-primary" />
+    </div>
+  );
+
+  const integrations = data?.integrations ?? [];
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <Settings className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
-                <p className="text-sm text-muted-foreground">Status das integracoes e provedores de IA</p>
-              </div>
-            </div>
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border/50 hover:border-primary/30 text-sm font-medium transition-all disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Atualizar
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Phase 10 Branding */}
-        <BrandingSection />
-
-        {/* WhatsApp Channels */}
-        <ChannelsSection />
-
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4"
-        >
-          <div className="bg-card border border-border/50 rounded-2xl p-5">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Total de Integracoes</p>
-            <p className="text-3xl font-bold text-foreground">{integrations.length}</p>
-          </div>
-          <div className="bg-card border border-border/50 rounded-2xl p-5">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Configuradas</p>
-            <p className="text-3xl font-bold text-emerald-400">{configuredCount}</p>
-          </div>
-          <div className="bg-card border border-border/50 rounded-2xl p-5">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Provedor LLM Ativo</p>
-            <p className="text-lg font-bold text-primary truncate">{data?.activeLLM || "Nenhum"}</p>
-          </div>
-        </motion.div>
-
-        {data?.activeLLM && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-5"
+    <div className="h-full flex overflow-hidden">
+      {/* ── Left nav ── */}
+      <div className="w-52 flex-shrink-0 border-r border-border/30 bg-background/50 flex flex-col py-6 px-3 gap-1">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">
+          Configurações
+        </p>
+        {NAV.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setSection(item.id)}
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${
+              section === item.id
+                ? "bg-primary/10 text-primary border border-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+            }`}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-              <div>
-                <p className="text-sm font-medium text-emerald-400">IA Ativa: {data.activeLLM}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {data.activeLLM?.startsWith("Ollama")
-                    ? `Modelo local: ${data.ollamaModel}`
-                    : `Modelo cloud detectado. (Atualmente ${data.activeLLM.includes('Gemini') ? (data as any).geminiModel : 'Padrão'})`
-                  }
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
+            <item.icon className="w-4 h-4 flex-shrink-0" />
+            {item.label}
+          </button>
+        ))}
+      </div>
 
-        <ModelSelector
-          activeProvider={activeProvider}
-          activeModel={activeLlmModel || null}
-          onModelChange={fetchSettings}
-        />
-
-        {categories.map((category, catIdx) => {
-          const catMeta = CATEGORY_META[category] || { label: category, icon: Settings };
-          const catIntegrations = integrations.filter(i => i.category === category);
-          const CatIcon = catMeta.icon;
-
-          return (
+      {/* ── Content ── */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-8 py-8">
+          <AnimatePresence mode="wait">
             <motion.div
-              key={category}
-              initial={{ opacity: 0, y: 10 }}
+              key={section}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + catIdx * 0.1 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
             >
-              <div className="flex items-center gap-2 mb-4">
-                <CatIcon className="w-4 h-4 text-muted-foreground" />
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{catMeta.label}</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {catIntegrations.map((integration, i) => {
-                  // Ollama local has its own dedicated card
-                  if (integration.id === "ollama") {
-                    return (
-                      <OllamaCard
-                        key={integration.id}
-                        integration={integration}
-                        onSettingsChange={fetchSettings}
-                          activeProvider={activeProvider}
-                          onActivate={async (provider, url, model) => {
-                            await activateProvider(provider, url, model);
-                          }}
-                      />
-                    );
-                  }
-
-                  // All other LLM providers use LLMProviderCard
-                  if (category === "llm") {
-                    return (
-                      <LLMProviderCard
-                        key={integration.id}
-                        integration={integration}
-                        activeProvider={activeProvider}
-                        activeModel={activeLlmModel || null}
-                        onActivate={async (provider, url, model) => {
-                          await activateProvider(provider, url, model);
-                        }}
-                      />
-                    );
-                  }
-
-                  // Non-LLM integrations (google, tool, etc.) — simple card
-                  const IntIcon = INTEGRATION_ICONS[integration.id] || Cloud;
-                  return (
-                    <motion.div
-                      key={integration.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.25 + i * 0.05 }}
-                      className={`bg-card border rounded-2xl p-5 transition-all ${
-                        integration.configured
-                          ? 'border-emerald-500/20 hover:border-emerald-500/40'
-                          : 'border-border/50 hover:border-yellow-500/30'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                          integration.configured ? 'bg-emerald-500/10' : 'bg-muted/50'
-                        }`}>
-                          <IntIcon className={`w-5 h-5 ${integration.configured ? 'text-emerald-400' : 'text-muted-foreground'}`} />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{integration.name}</h3>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            {integration.configured ? (
-                              <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs text-emerald-400 font-medium">Configurado</span></>
-                            ) : (
-                              <><XCircle className="w-3.5 h-3.5 text-yellow-500" /><span className="text-xs text-yellow-500 font-medium">Nao configurado</span></>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed mb-3">{integration.description}</p>
-                      <div className="bg-background/50 rounded-lg p-3 border border-border/30">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Variavel de Ambiente</p>
-                        <code className="text-xs font-mono text-primary">{integration.envVar}</code>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
+              {section === "llm" && (
+                <LLMSection
+                  integrations={integrations.filter(i => i.category === "llm")}
+                  activeProvider={activeProvider}
+                  activeModel={activeModel}
+                  onActivate={handleActivate}
+                />
+              )}
+              {section === "whatsapp" && <WhatsAppSection />}
+              {section === "branding"  && <BrandingSection />}
             </motion.div>
-          );
-        })}
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="bg-card/30 border border-border/30 rounded-2xl p-5 space-y-3"
-        >
-          <h3 className="text-sm font-semibold text-foreground">BYOK (Bring Your Own Keys)</h3>
-          <p className="text-xs text-muted-foreground">
-            Suas chaves são salvas de forma segura no banco de dados com criptografia AES-256 (GCM). Você não precisa definir variáveis de ambiente externamente. Basta salvar as chaves através deste painel e utilizá-las instantaneamente.
-          </p>
-          <div className="pt-2 border-t border-border/30">
-            <p className="text-xs text-muted-foreground">
-              <strong>Ollama:</strong> Para usar LLM local, rode <code className="text-primary">ollama serve</code> na sua maquina
-              e exponha o acesso. Depois configure a URL usando o painel superior.
-            </p>
-          </div>
-        </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );
