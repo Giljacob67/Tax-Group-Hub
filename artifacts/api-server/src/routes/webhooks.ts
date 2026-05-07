@@ -13,6 +13,8 @@ import { eq, and } from "drizzle-orm";
 import { callLLM } from "../lib/llm-client.js";
 import { AGENTS } from "../lib/agents-data.js";
 import { processExternalMedia } from "../lib/media-processor.js";
+import { enrichContact } from "../lib/cnpj-enrichment.js";
+import { sendWhatsAppMessage, resolveWhatsAppMediaUrl } from "../lib/whatsapp.js";
 
 const router: IRouter = Router();
 
@@ -273,34 +275,6 @@ const WhatsAppWebhookPayload = z.object({
 });
 
 /**
- * Helper to download a media file from Meta Graph API.
- */
-async function resolveWhatsAppMediaUrl(mediaId: string, accessToken: string): Promise<string | null> {
-  const metaRes = await fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!metaRes.ok) return null;
-  const data = await metaRes.json() as { url?: string };
-  return data.url ?? null;
-}
-
-/**
- * Helper to send a text reply via WhatsApp Cloud API.
- */
-async function sendWhatsAppMessage(to: string, text: string, phoneNumberId: string, accessToken: string) {
-  await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "text",
-      text: { body: text },
-    }),
-  });
-}
-
-/**
  * GET /api/webhooks/whatsapp/:channelId
  * Meta webhook verification handshake.
  */
@@ -536,6 +510,12 @@ router.post("/webhooks/crm/inbound/:tenantId", async (req, res) => {
         source: source,
       }).returning();
       contact = newContact;
+      // AI scoring in background — also auto-creates deal if score >= 60
+      setImmediate(() => {
+        enrichContact(newContact.id, tenantId).catch((err: Error) =>
+          console.error("[Enrichment] Webhook enrich failed for contact", newContact.id, err)
+        );
+      });
     } else {
       const [updated] = await db.update(crmContactsTable).set({
         email: contact.email || (email ? String(email) : null),

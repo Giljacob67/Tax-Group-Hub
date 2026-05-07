@@ -1,8 +1,19 @@
 import { Router, type IRouter } from "express";
 import { getAgentById } from "../lib/agents-data.js";
 import { callLLM } from "../lib/llm-client.js";
-import { db, pipelineExecutionsTable } from "@workspace/db";
+import {
+  db,
+  pipelineExecutionsTable,
+  crmContactsTable,
+  crmActivitiesTable,
+  channelConfigsTable,
+  automationSequencesTable,
+  sequenceEnrollmentsTable,
+} from "@workspace/db";
+import { eq, and, gte, lte, inArray } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
+import { enrichContact } from "../lib/cnpj-enrichment.js";
+import { sendWhatsAppMessage } from "../lib/whatsapp.js";
 
 const router: IRouter = Router();
 
@@ -528,6 +539,449 @@ router.get("/automate/triggers", (_req, res) => {
   });
 });
 
-// callLLM is now imported from ../lib/llm-client.js
+// ─── Broadcast: WhatsApp personalizado para lista segmentada do CRM ───
+// POST /api/automate/broadcast-whatsapp
+// Body: {
+//   channelId: number,                         — ID do canal WhatsApp (channelConfigsTable)
+//   filters: { minScore?, maxScore?, status?, tags? },
+//   agentId: string,                            — agente que gera o conteúdo (ex: whatsapp-broadcast-tax-group)
+//   inputTemplate: string,                      — template com {{contact_name}}, {{razao_social}}, {{product}}
+// }
+// IMPORTANTE: Só envia para contatos que tenham telefone cadastrado.
+// Cada mensagem é gerada individualmente pelo agente para ser personalizada.
+router.post("/automate/broadcast-whatsapp", async (req, res) => {
+  try {
+    const {
+      channelId,
+      filters = {},
+      agentId,
+      inputTemplate,
+    } = req.body as {
+      channelId?: number;
+      filters?: { minScore?: number; maxScore?: number; status?: string[]; tags?: string[] };
+      agentId?: string;
+      inputTemplate?: string;
+    };
+
+    const userId = req.userId ?? "system";
+
+    if (!channelId || isNaN(Number(channelId))) {
+      apiError(res, 400, "channelId (number) is required");
+      return;
+    }
+    if (!agentId?.trim()) {
+      apiError(res, 400, "agentId is required");
+      return;
+    }
+    if (!inputTemplate?.trim()) {
+      apiError(res, 400, "inputTemplate is required");
+      return;
+    }
+
+    const agent = getAgentById(agentId);
+    if (!agent) {
+      apiError(res, 404, `Agent '${agentId}' not found`);
+      return;
+    }
+
+    // Load WhatsApp channel config
+    const [channel] = await db
+      .select()
+      .from(channelConfigsTable)
+      .where(and(eq(channelConfigsTable.id, Number(channelId)), eq(channelConfigsTable.platform, "whatsapp")))
+      .limit(1);
+
+    if (!channel) {
+      apiError(res, 404, "WhatsApp channel not found");
+      return;
+    }
+
+    const configData = channel.config as Record<string, unknown> | null;
+    const accessToken = String(configData?.accessToken ?? "");
+    const phoneNumberId = String(configData?.phoneNumberId ?? "");
+
+    if (!accessToken || !phoneNumberId) {
+      apiError(res, 422, "WhatsApp channel missing accessToken or phoneNumberId");
+      return;
+    }
+
+    // Build contact query with filters
+    let query = db.select().from(crmContactsTable).where(eq(crmContactsTable.userId, userId)) as any;
+
+    if (filters.minScore !== undefined) {
+      query = db.select().from(crmContactsTable).where(
+        and(eq(crmContactsTable.userId, userId), gte(crmContactsTable.aiScore, filters.minScore))
+      );
+    }
+    if (filters.maxScore !== undefined) {
+      query = db.select().from(crmContactsTable).where(
+        and(eq(crmContactsTable.userId, userId), lte(crmContactsTable.aiScore, filters.maxScore))
+      );
+    }
+    if (filters.status?.length) {
+      query = db.select().from(crmContactsTable).where(
+        and(eq(crmContactsTable.userId, userId), inArray(crmContactsTable.status, filters.status))
+      );
+    }
+
+    const contacts = await query;
+
+    // Only send to contacts with a phone number
+    const eligible = contacts.filter((c: typeof contacts[number]) => c.telefone?.trim());
+
+    if (eligible.length === 0) {
+      res.json({ success: true, sent: 0, skipped: 0, failed: 0, message: "No eligible contacts with phone numbers" });
+      return;
+    }
+
+    // Respond immediately — processing continues in background
+    res.json({
+      success: true,
+      queued: eligible.length,
+      message: `Processing broadcast for ${eligible.length} contacts`,
+    });
+
+    // Process each contact asynchronously
+    setImmediate(async () => {
+      let sent = 0;
+      let failed = 0;
+
+      for (const contact of eligible) {
+        try {
+          // Build personalized input
+          const personalizedInput = inputTemplate
+            .replace(/\{\{contact_name\}\}/g, contact.razaoSocial || contact.cnpj)
+            .replace(/\{\{razao_social\}\}/g, contact.razaoSocial || "")
+            .replace(/\{\{cnpj\}\}/g, contact.cnpj)
+            .replace(/\{\{product\}\}/g, contact.aiRecommendedProduct || "")
+            .replace(/\{\{uf\}\}/g, contact.uf || "")
+            .replace(/\{\{regime\}\}/g, contact.regimeTributario || "");
+
+          // Generate personalized message with agent
+          const llmResult = await callLLM(agent.systemPrompt, personalizedInput);
+
+          // Send via WhatsApp
+          const phone = contact.telefone!.replace(/\D/g, "");
+          await sendWhatsAppMessage(phone, llmResult.output, phoneNumberId, accessToken);
+
+          // Log activity
+          await db.insert(crmActivitiesTable).values({
+            userId,
+            contactId: contact.id,
+            type: "whatsapp",
+            direction: "outbound",
+            subject: "Broadcast WhatsApp",
+            content: llmResult.output,
+            completedAt: new Date(),
+            agentId,
+          }).catch(() => {});
+
+          sent++;
+          console.log(`[Broadcast] Sent to contact ${contact.id} (${phone})`);
+        } catch (err) {
+          failed++;
+          console.error(`[Broadcast] Failed for contact ${contact.id}:`, err);
+        }
+      }
+
+      console.log(`[Broadcast] Done — sent: ${sent}, failed: ${failed}`);
+    });
+  } catch (err) {
+    console.error("[Broadcast WhatsApp] error:", err);
+    apiError(res, 500, "Broadcast failed");
+  }
+});
+
+// ─── Sequences: CRUD ──────────────────────────────────────────────────
+// GET  /api/automate/sequences
+// POST /api/automate/sequences       body: { name, trigger, triggerValue?, steps[] }
+// PUT  /api/automate/sequences/:id
+// DELETE /api/automate/sequences/:id
+
+router.get("/automate/sequences", async (req, res) => {
+  try {
+    const userId = req.userId ?? "system";
+    const sequences = await db
+      .select()
+      .from(automationSequencesTable)
+      .where(eq(automationSequencesTable.userId, userId))
+      .orderBy(automationSequencesTable.createdAt);
+    res.json({ success: true, sequences });
+  } catch (err) {
+    console.error("[Sequences] list error:", err);
+    apiError(res, 500, "Failed to list sequences");
+  }
+});
+
+router.post("/automate/sequences", async (req, res) => {
+  try {
+    const userId = req.userId ?? "system";
+    const { name, trigger, triggerValue, steps, isActive } = req.body as {
+      name?: string;
+      trigger?: string;
+      triggerValue?: string;
+      steps?: unknown[];
+      isActive?: boolean;
+    };
+
+    if (!name?.trim()) { apiError(res, 400, "name is required"); return; }
+    if (!trigger?.trim()) { apiError(res, 400, "trigger is required"); return; }
+    if (!Array.isArray(steps) || steps.length === 0) { apiError(res, 400, "steps[] is required"); return; }
+
+    const [seq] = await db
+      .insert(automationSequencesTable)
+      .values({ userId, name, trigger, triggerValue: triggerValue ?? null, steps: steps as any, isActive: isActive ?? true })
+      .returning();
+
+    res.status(201).json({ success: true, sequence: seq });
+  } catch (err) {
+    console.error("[Sequences] create error:", err);
+    apiError(res, 500, "Failed to create sequence");
+  }
+});
+
+router.put("/automate/sequences/:id", async (req, res) => {
+  try {
+    const userId = req.userId ?? "system";
+    const id = Number(req.params.id);
+    if (isNaN(id)) { apiError(res, 400, "Invalid sequence id"); return; }
+
+    const { name, trigger, triggerValue, steps, isActive } = req.body as {
+      name?: string; trigger?: string; triggerValue?: string; steps?: unknown[]; isActive?: boolean;
+    };
+
+    const [updated] = await db
+      .update(automationSequencesTable)
+      .set({ name, trigger, triggerValue, steps: steps as any, isActive, updatedAt: new Date() })
+      .where(and(eq(automationSequencesTable.id, id), eq(automationSequencesTable.userId, userId)))
+      .returning();
+
+    if (!updated) { apiError(res, 404, "Sequence not found"); return; }
+    res.json({ success: true, sequence: updated });
+  } catch (err) {
+    console.error("[Sequences] update error:", err);
+    apiError(res, 500, "Failed to update sequence");
+  }
+});
+
+router.delete("/automate/sequences/:id", async (req, res) => {
+  try {
+    const userId = req.userId ?? "system";
+    const id = Number(req.params.id);
+    if (isNaN(id)) { apiError(res, 400, "Invalid sequence id"); return; }
+
+    await db
+      .delete(automationSequencesTable)
+      .where(and(eq(automationSequencesTable.id, id), eq(automationSequencesTable.userId, userId)));
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[Sequences] delete error:", err);
+    apiError(res, 500, "Failed to delete sequence");
+  }
+});
+
+// ─── Sequences: Enroll a contact ─────────────────────────────────────
+// POST /api/automate/sequences/:id/enroll
+// Body: { contactId: number }
+router.post("/automate/sequences/:id/enroll", async (req, res) => {
+  try {
+    const userId = req.userId ?? "system";
+    const seqId = Number(req.params.id);
+    const { contactId } = req.body as { contactId?: number };
+
+    if (isNaN(seqId)) { apiError(res, 400, "Invalid sequence id"); return; }
+    if (!contactId || isNaN(Number(contactId))) { apiError(res, 400, "contactId is required"); return; }
+
+    const [seq] = await db
+      .select()
+      .from(automationSequencesTable)
+      .where(and(eq(automationSequencesTable.id, seqId), eq(automationSequencesTable.userId, userId)))
+      .limit(1);
+
+    if (!seq) { apiError(res, 404, "Sequence not found"); return; }
+    if (!seq.steps?.length) { apiError(res, 422, "Sequence has no steps"); return; }
+
+    // nextSendAt = now + first step's delay in days
+    const firstStep = seq.steps[0];
+    const nextSendAt = new Date(Date.now() + (firstStep.day ?? 0) * 24 * 60 * 60 * 1000);
+
+    const [enrollment] = await db
+      .insert(sequenceEnrollmentsTable)
+      .values({ sequenceId: seqId, contactId: Number(contactId), userId, currentStep: 0, nextSendAt, status: "active" })
+      .returning();
+
+    res.status(201).json({ success: true, enrollment });
+  } catch (err) {
+    console.error("[Sequences] enroll error:", err);
+    apiError(res, 500, "Failed to enroll contact");
+  }
+});
+
+// ─── Sequences: Process due steps (called by Vercel Cron or Make) ────
+// POST /api/automate/process-sequences
+// Auth: CRON_SECRET header (internal) or regular userId auth
+router.post("/automate/process-sequences", async (req, res) => {
+  const cronSecret = req.headers["x-cron-secret"];
+  if (cronSecret && cronSecret !== process.env.CRON_SECRET) {
+    apiError(res, 403, "Invalid cron secret");
+    return;
+  }
+
+  let processed = 0;
+  let sent = 0;
+  let failed = 0;
+
+  try {
+    // Find all active enrollments with nextSendAt <= now
+    const due = await db
+      .select()
+      .from(sequenceEnrollmentsTable)
+      .where(and(eq(sequenceEnrollmentsTable.status, "active"), lte(sequenceEnrollmentsTable.nextSendAt, new Date())));
+
+    for (const enrollment of due) {
+      try {
+        const [seq] = await db
+          .select()
+          .from(automationSequencesTable)
+          .where(eq(automationSequencesTable.id, enrollment.sequenceId))
+          .limit(1);
+
+        if (!seq?.steps?.length) continue;
+
+        const step = seq.steps[enrollment.currentStep];
+        if (!step) {
+          // All steps done — mark completed
+          await db.update(sequenceEnrollmentsTable)
+            .set({ status: "completed", completedAt: new Date() })
+            .where(eq(sequenceEnrollmentsTable.id, enrollment.id));
+          continue;
+        }
+
+        const [contact] = await db
+          .select()
+          .from(crmContactsTable)
+          .where(eq(crmContactsTable.id, enrollment.contactId))
+          .limit(1);
+
+        if (!contact) {
+          await db.update(sequenceEnrollmentsTable)
+            .set({ status: "cancelled" })
+            .where(eq(sequenceEnrollmentsTable.id, enrollment.id));
+          continue;
+        }
+
+        // Build personalized input
+        const personalizedInput = step.inputTemplate
+          .replace(/\{\{contact_name\}\}/g, contact.razaoSocial || contact.cnpj)
+          .replace(/\{\{razao_social\}\}/g, contact.razaoSocial || "")
+          .replace(/\{\{cnpj\}\}/g, contact.cnpj)
+          .replace(/\{\{product\}\}/g, contact.aiRecommendedProduct || "")
+          .replace(/\{\{uf\}\}/g, contact.uf || "");
+
+        // Generate content with agent
+        const agent = getAgentById(step.agentId);
+        if (!agent) throw new Error(`Agent ${step.agentId} not found`);
+
+        const llmResult = await callLLM(agent.systemPrompt, personalizedInput);
+
+        // Send via appropriate channel
+        if (step.channel === "whatsapp" && contact.telefone) {
+          // Find any WhatsApp channel for this user
+          const [waChannel] = await db
+            .select()
+            .from(channelConfigsTable)
+            .where(and(eq(channelConfigsTable.userId, enrollment.userId), eq(channelConfigsTable.platform, "whatsapp")))
+            .limit(1);
+
+          if (waChannel) {
+            const cfg = waChannel.config as Record<string, unknown> | null;
+            const accessToken = String(cfg?.accessToken ?? "");
+            const phoneNumberId = String(cfg?.phoneNumberId ?? "");
+            if (accessToken && phoneNumberId) {
+              const phone = contact.telefone.replace(/\D/g, "");
+              await sendWhatsAppMessage(phone, llmResult.output, phoneNumberId, accessToken);
+            }
+          }
+        }
+
+        // Log activity regardless of channel
+        await db.insert(crmActivitiesTable).values({
+          userId: enrollment.userId,
+          contactId: contact.id,
+          type: step.channel === "whatsapp" ? "whatsapp" : "note",
+          direction: "outbound",
+          subject: `Sequência: ${seq.name} — Passo ${enrollment.currentStep + 1}`,
+          content: llmResult.output,
+          completedAt: new Date(),
+          agentId: step.agentId,
+        }).catch(() => {});
+
+        // Advance to next step
+        const nextStepIndex = enrollment.currentStep + 1;
+        const nextStep = seq.steps[nextStepIndex];
+
+        if (nextStep) {
+          const nextSendAt = new Date(Date.now() + nextStep.day * 24 * 60 * 60 * 1000);
+          await db.update(sequenceEnrollmentsTable)
+            .set({ currentStep: nextStepIndex, nextSendAt })
+            .where(eq(sequenceEnrollmentsTable.id, enrollment.id));
+        } else {
+          await db.update(sequenceEnrollmentsTable)
+            .set({ status: "completed", completedAt: new Date() })
+            .where(eq(sequenceEnrollmentsTable.id, enrollment.id));
+        }
+
+        sent++;
+      } catch (stepErr) {
+        failed++;
+        console.error("[Sequences] step failed for enrollment", enrollment.id, stepErr);
+      }
+
+      processed++;
+    }
+
+    res.json({ success: true, processed, sent, failed, timestamp: new Date().toISOString() });
+  } catch (err) {
+    console.error("[Sequences] process-sequences error:", err);
+    apiError(res, 500, "Failed to process sequences");
+  }
+});
+
+// ─── Trigger: CNPJ enrichment for a CRM contact ───────────────────────
+// POST /api/automate/trigger/enrich-cnpj
+// Body: { contactId: number }
+// Runs diagnostico-cnpj-tax-group, updates aiScore/aiRecommendedProduct,
+// and auto-creates a deal if score >= 60.
+router.post("/automate/trigger/enrich-cnpj", async (req, res) => {
+  try {
+    const { contactId } = req.body as { contactId?: number };
+    const userId = req.userId ?? "system";
+
+    const numericId = Number(contactId);
+    if (!contactId || isNaN(numericId)) {
+      apiError(res, 400, "contactId (number) is required");
+      return;
+    }
+
+    const result = await enrichContact(numericId, userId);
+    if (!result) {
+      apiError(res, 404, "Contact not found or enrichment agent unavailable");
+      return;
+    }
+
+    res.json({
+      success: true,
+      contactId: numericId,
+      aiScore: result.score,
+      classificacao: result.classificacao,
+      aiRecommendedProduct: result.produtoRecomendado,
+      creditoEstimado: result.creditoEstimado,
+      dealCreated: result.dealCreated,
+    });
+  } catch (err) {
+    console.error("[Enrich CNPJ] error:", err);
+    apiError(res, 500, "Enrichment failed");
+  }
+});
 
 export default router;

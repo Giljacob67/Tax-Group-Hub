@@ -9,6 +9,16 @@
       "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/automate/process-sequences",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/automate/trigger/reforma-tributaria",
+      "schedule": "0 8 * * 1-5"
+    }
+  ],
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index.js" },
     { "source": "/(.*)", "destination": "/index.html" }

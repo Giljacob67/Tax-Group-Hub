@@ -10,6 +10,7 @@ import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui"
 import { callLLM } from "../lib/llm-client.js";
 import { getAgentById } from "../lib/agents-data.js";
 import { apiError } from "../lib/api-response.js";
+import { enrichContact } from "../lib/cnpj-enrichment.js";
 
 const router = Router();
 
@@ -181,6 +182,13 @@ router.post("/contacts", async (req: Request, res: Response) => {
     }
 
     res.status(201).json({ success: true, contact: newContact, enriched: enrichSource === "empresaqui" });
+
+    // AI scoring in background — fire-and-forget
+    setImmediate(() => {
+      enrichContact(newContact.id, userId).catch((err: Error) =>
+        console.error("[Enrichment] Background enrich failed for contact", newContact.id, err)
+      );
+    });
   } catch (err: any) {
     apiError(res, 400, "Failed to create contact");
   }

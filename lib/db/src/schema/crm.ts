@@ -182,3 +182,44 @@ export const crmAutomationsTable = pgTable("crm_automations", {
 export const insertCrmSavedViewSchema = createInsertSchema(crmSavedViewsTable).omit({ id: true, createdAt: true });
 export type CrmSavedView = typeof crmSavedViewsTable.$inferSelect;
 export type InsertCrmSavedView = z.infer<typeof insertCrmSavedViewSchema>;
+
+// ─── Automation Sequences ─────────────────────────────────────────────────────
+
+export type SequenceStep = {
+  day: number;                                          // delay em dias a partir do enrollment (0 = imediato)
+  channel: "whatsapp" | "email" | "internal_note";
+  agentId: string;                                      // agente que gera o conteúdo
+  inputTemplate: string;                                // suporta {{contact_name}}, {{razao_social}}, {{product}}, {{cnpj}}
+};
+
+export const automationSequencesTable = pgTable("automation_sequences", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  trigger: text("trigger").notNull(),        // 'contact_created' | 'deal_stage_changed' | 'score_above' | 'manual'
+  triggerValue: text("trigger_value"),        // ex: 'prospecting' | '60'
+  isActive: boolean("is_active").default(true),
+  steps: jsonb("steps").$type<SequenceStep[]>().notNull().default([]),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAutomationSequenceSchema = createInsertSchema(automationSequencesTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type AutomationSequence = typeof automationSequencesTable.$inferSelect;
+export type InsertAutomationSequence = z.infer<typeof insertAutomationSequenceSchema>;
+
+export const sequenceEnrollmentsTable = pgTable("sequence_enrollments", {
+  id: serial("id").primaryKey(),
+  sequenceId: integer("sequence_id").notNull().references(() => automationSequencesTable.id, { onDelete: "cascade" }),
+  contactId: integer("contact_id").notNull().references(() => crmContactsTable.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull(),
+  currentStep: integer("current_step").notNull().default(0),
+  nextSendAt: timestamp("next_send_at").notNull(),
+  status: text("status").notNull().default("active"), // 'active' | 'paused' | 'completed' | 'cancelled'
+  enrolledAt: timestamp("enrolled_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertSequenceEnrollmentSchema = createInsertSchema(sequenceEnrollmentsTable).omit({ id: true, enrolledAt: true });
+export type SequenceEnrollment = typeof sequenceEnrollmentsTable.$inferSelect;
+export type InsertSequenceEnrollment = z.infer<typeof insertSequenceEnrollmentSchema>;
