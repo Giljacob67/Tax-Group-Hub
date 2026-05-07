@@ -139,7 +139,7 @@ const PROVIDERS = [
   {
     id: "ollama_cloud",
     name: "Ollama",
-    label: "Ollama / Custom",
+    label: "Ollama Cloud",
     icon: "☁",
     color: "text-sky-400",
     ring: "ring-sky-500/40",
@@ -148,6 +148,7 @@ const PROVIDERS = [
     keyLabel: "Bearer Token (opcional)",
     keyPlaceholder: "Deixe em branco se não houver auth",
     needsUrl: true,
+    fixedUrl: "https://ollama.com/api",
   },
 ] as const;
 
@@ -197,10 +198,11 @@ function LLMSection({
     } else {
       setModel(prov.models[0]?.id || "");
     }
-    setCustomUrl("");
+    setCustomUrl((prov as any).fixedUrl ?? "");
   }, [tab]);
 
   const effectiveModel = prov.needsUrl ? model : (model || prov.models[0]?.id || "");
+  const effectiveUrl   = (prov as any).fixedUrl ?? customUrl;
 
   async function handleSaveKey() {
     const key = apiKey.trim();
@@ -232,7 +234,7 @@ function LLMSection({
         body: JSON.stringify({
           provider: prov.id,
           model: effectiveModel,
-          customUrl: prov.needsUrl ? customUrl : undefined,
+          customUrl: prov.needsUrl ? effectiveUrl : undefined,
         }),
       });
       setTestResult(await r.json());
@@ -245,7 +247,7 @@ function LLMSection({
 
   async function handleActivate() {
     setActivating(true);
-    await onActivate(prov.id, effectiveModel, prov.needsUrl ? customUrl : undefined);
+    await onActivate(prov.id, effectiveModel, prov.needsUrl ? effectiveUrl : undefined);
     setActivating(false);
   }
 
@@ -372,13 +374,21 @@ function LLMSection({
           {/* URL field (Ollama) */}
           {prov.needsUrl && (
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">URL do endpoint</Label>
-              <Input
-                value={customUrl}
-                onChange={e => setCustomUrl(e.target.value)}
-                placeholder="https://meu-ollama.com"
-                className="text-xs font-mono"
-              />
+              <Label className="text-xs text-muted-foreground">Endpoint</Label>
+              {(prov as any).fixedUrl ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border/40">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0" />
+                  <code className="text-xs font-mono text-muted-foreground flex-1">{(prov as any).fixedUrl}</code>
+                  <span className="text-[10px] text-muted-foreground/50 flex-shrink-0">fixo</span>
+                </div>
+              ) : (
+                <Input
+                  value={customUrl}
+                  onChange={e => setCustomUrl(e.target.value)}
+                  placeholder="https://meu-ollama.com"
+                  className="text-xs font-mono"
+                />
+              )}
             </div>
           )}
 
