@@ -12,7 +12,7 @@
   "crons": [
     {
       "path": "/api/automate/process-sequences",
-      "schedule": "0 * * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/automate/trigger/reforma-tributaria",
