@@ -160,26 +160,26 @@ export async function callLLM(
 
   // Ollama Cloud uses the native /api/chat endpoint (not OpenAI-compatible).
   // callLLM handles it here before delegating to getLanguageModel for all other providers.
-  const provider = (options?.provider || “auto”).toLowerCase();
-  if (provider === “ollama_cloud”) {
-    const activeLlmUrl = await getConfigValue(“ACTIVE_LLM_URL”);
-    const cloudUrl = (options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || “”).replace(/\/+$/, “”);
-    if (!cloudUrl) throw new Error(“Ollama Cloud URL não configurada.”);
+  const provider = (options?.provider || "auto").toLowerCase();
+  if (provider === "ollama_cloud") {
+    const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
+    const cloudUrl = (options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\/+$/, "");
+    if (!cloudUrl) throw new Error("Ollama Cloud URL não configurada.");
 
-    const modelId = options?.model || “llama3.2”;
+    const modelId = options?.model || "llama3.2";
     // Normalize: avoid /api duplication if caller already included it
-    const chatEndpoint = cloudUrl.endsWith(“/api”) ? `${cloudUrl}/chat` : `${cloudUrl}/api/chat`;
+    const chatEndpoint = cloudUrl.endsWith("/api") ? `${cloudUrl}/chat` : `${cloudUrl}/api/chat`;
 
     const messages: Array<{ role: string; content: string }> = Array.isArray(userMessage)
-      ? [{ role: “system”, content: systemPrompt }, ...userMessage]
-      : [{ role: “system”, content: systemPrompt }, { role: “user”, content: userMessage }];
+      ? [{ role: "system", content: systemPrompt }, ...userMessage]
+      : [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }];
 
-    const ollamaKey = await getApiKey(“ollama_cloud”, options?.userId);
-    const headers: Record<string, string> = { “Content-Type”: “application/json” };
-    if (ollamaKey) headers[“Authorization”] = `Bearer ${ollamaKey}`;
+    const ollamaKey = await getApiKey("ollama_cloud", options?.userId);
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (ollamaKey) headers["Authorization"] = `Bearer ${ollamaKey}`;
 
     const response = await fetch(chatEndpoint, {
-      method: “POST”,
+      method: "POST",
       headers,
       body: JSON.stringify({ model: modelId, messages, stream: false }),
     });
@@ -190,9 +190,9 @@ export async function callLLM(
     }
 
     const data = await response.json() as { message?: { content?: string }; response?: string };
-    const output = data.message?.content || data.response || “”;
+    const output = data.message?.content || data.response || "";
 
-    return { output, tokensUsed: 0, executionTimeMs: Date.now() - startTime, model: modelId, provider: “Ollama Cloud” };
+    return { output, tokensUsed: 0, executionTimeMs: Date.now() - startTime, model: modelId, provider: "Ollama Cloud" };
   }
 
   const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model, options?.userId, options?.customUrl);
