@@ -12,7 +12,7 @@ import {
   PhoneCall, AtSign, Users, StickyNote, Layers,
   SlidersHorizontal, CheckSquare, Square,
   LayoutGrid, List, AlertCircle, Link2, ExternalLink,
-  Flame
+  Flame, Zap
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1118,6 +1118,11 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
     queryFn: async () => { const r = await fetch(`/api/crm/deals?contactId=${contact.id}`); return r.json(); },
   });
 
+  const { data: enrollmentsData } = useQuery<{ enrollments: Array<{ id: number; sequenceName: string | null; currentStep: number; totalSteps: Array<any> | null; nextSendAt: string; status: string }> }>({
+    queryKey: [`/api/automate/enrollments`, { contactId: contact.id }],
+    queryFn: async () => { const r = await fetch(`/api/automate/enrollments?contactId=${contact.id}&status=active`); return r.json(); },
+  });
+
   const deleteAttachmentMutation = useMutation({
     mutationFn: async (id: number) => {
       const res = await fetch(`/api/crm/contacts/${contact.id}/attachments/${id}`, { method: "DELETE" });
@@ -1338,6 +1343,27 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
             </div>
           )}
         </div>
+        {/* Active sequence enrollment indicator */}
+        {(enrollmentsData?.enrollments?.length ?? 0) > 0 && (
+          <div className="space-y-1">
+            {enrollmentsData!.enrollments.map(en => {
+              const total = en.totalSteps?.length ?? 0;
+              const pct   = total > 0 ? Math.round((en.currentStep / total) * 100) : 0;
+              return (
+                <div key={en.id} className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
+                  <Zap className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium text-primary truncate">{en.sequenceName ?? "Sequência"}</div>
+                    <div className="text-[10px] text-muted-foreground">Step {en.currentStep + 1}/{total} · {pct}% concluído</div>
+                  </div>
+                  <div className="w-12 h-1.5 bg-primary/20 rounded-full overflow-hidden flex-shrink-0">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="flex-1 text-xs"
             disabled={enrichMutation.isPending} onClick={() => enrichMutation.mutate()}>

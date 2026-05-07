@@ -7,7 +7,7 @@ import {
   Send, Bot, User, Plus, MessageSquare, Loader2,
   Copy, CheckCheck, Trash2, Search, Download,
   Settings, Sparkles, Pencil, Check, X, Cpu,
-  ChevronDown, RotateCw
+  ChevronDown, RotateCw, History
 } from "lucide-react";
 import {
   useGetAgent,
@@ -72,6 +72,7 @@ export default function AgentChat() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [optimisticUserMsg, setOptimisticUserMsg] = useState<string | null>(null);
+  const [showMobileHistory, setShowMobileHistory] = useState(false);
 
   const { data: agent, isLoading: isLoadingAgent } = useGetAgent(agentId!);
   const { data: conversations, isLoading: isLoadingConvs } = useListConversations({ agentId });
@@ -452,6 +453,14 @@ export default function AgentChat() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Mobile history button — only visible on small screens */}
+            <button
+              onClick={() => setShowMobileHistory(true)}
+              className="md:hidden p-2 rounded-lg hover:bg-white/5 text-muted-foreground transition-colors"
+              title="Histórico de conversas"
+            >
+              <History className="w-4 h-4" />
+            </button>
             {isDesignStudioAgent && (
               <button
                 onClick={() => setShowDesignStudio(!showDesignStudio)}
@@ -743,6 +752,74 @@ export default function AgentChat() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Mobile conversation history drawer ── */}
+      <AnimatePresence>
+        {showMobileHistory && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMobileHistory(false)}
+              className="md:hidden fixed inset-0 bg-black/60 z-40"
+            />
+            {/* Bottom sheet */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border/50 rounded-t-2xl"
+              style={{ maxHeight: "75vh" }}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
+                <h3 className="font-semibold text-sm">Histórico de Conversas</h3>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleNewChat} className="p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setShowMobileHistory(false)} className="p-2 rounded-lg text-muted-foreground hover:text-foreground">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="px-3 pt-2 pb-1">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Buscar conversas..."
+                    value={searchFilter}
+                    onChange={e => setSearchFilter(e.target.value)}
+                    className="w-full bg-background border border-border/50 rounded-lg pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+              </div>
+              <div className="overflow-y-auto px-3 pb-6 space-y-1.5" style={{ maxHeight: "calc(75vh - 8rem)" }}>
+                {filteredConversations?.map((conv) => (
+                  <div
+                    key={conv.id}
+                    onClick={() => { setActiveConvId(conv.id); setShowMobileHistory(false); }}
+                    className={`w-full text-left p-3 rounded-xl transition-all cursor-pointer flex items-center gap-3 ${
+                      activeConvId === conv.id
+                        ? "bg-primary/10 border-l-2 border-primary rounded-l-none"
+                        : "hover:bg-muted/30"
+                    }`}
+                  >
+                    <MessageSquare className={`w-4 h-4 flex-shrink-0 ${activeConvId === conv.id ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className="text-sm truncate">{conv.title || "Nova Conversa"}</span>
+                  </div>
+                ))}
+                {!filteredConversations?.length && (
+                  <div className="text-center py-8 text-sm text-muted-foreground">Nenhuma conversa ainda</div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

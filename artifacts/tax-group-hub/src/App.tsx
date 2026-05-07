@@ -44,6 +44,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 }
 
 import CRMPage from "./pages/crm";
+import AutomationsPage from "./pages/automations";
 
 function Router() {
   return (
@@ -59,6 +60,9 @@ function Router() {
       </Route>
       <Route path="/knowledge">
         <Layout><KnowledgeBase /></Layout>
+      </Route>
+      <Route path="/automations">
+        <Layout><AutomationsPage /></Layout>
       </Route>
       <Route path="/integrations">
         <Layout><Integrations /></Layout>

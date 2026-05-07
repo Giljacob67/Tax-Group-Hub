@@ -692,6 +692,44 @@ router.post("/automate/broadcast-whatsapp", async (req, res) => {
   }
 });
 
+// ─── Sequences: list enrollments (optionally filtered by contactId) ─────
+// GET /api/automate/enrollments?contactId=X&status=active
+router.get("/automate/enrollments", async (req, res) => {
+  try {
+    const userId = req.userId ?? "system";
+    const contactId = req.query.contactId ? Number(req.query.contactId) : null;
+    const status = req.query.status as string | undefined;
+
+    const conditions = [eq(sequenceEnrollmentsTable.userId, userId)];
+    if (contactId && !isNaN(contactId)) conditions.push(eq(sequenceEnrollmentsTable.contactId, contactId));
+    if (status) conditions.push(eq(sequenceEnrollmentsTable.status, status));
+
+    const enrollments = await db
+      .select({
+        id: sequenceEnrollmentsTable.id,
+        sequenceId: sequenceEnrollmentsTable.sequenceId,
+        contactId: sequenceEnrollmentsTable.contactId,
+        currentStep: sequenceEnrollmentsTable.currentStep,
+        nextSendAt: sequenceEnrollmentsTable.nextSendAt,
+        status: sequenceEnrollmentsTable.status,
+        enrolledAt: sequenceEnrollmentsTable.enrolledAt,
+        completedAt: sequenceEnrollmentsTable.completedAt,
+        sequenceName: automationSequencesTable.name,
+        sequenceTrigger: automationSequencesTable.trigger,
+        totalSteps: automationSequencesTable.steps,
+      })
+      .from(sequenceEnrollmentsTable)
+      .leftJoin(automationSequencesTable, eq(sequenceEnrollmentsTable.sequenceId, automationSequencesTable.id))
+      .where(and(...conditions))
+      .orderBy(sequenceEnrollmentsTable.enrolledAt);
+
+    res.json({ success: true, enrollments });
+  } catch (err) {
+    console.error("[Enrollments] list error:", err);
+    apiError(res, 500, "Failed to list enrollments");
+  }
+});
+
 // ─── Sequences: CRUD ──────────────────────────────────────────────────
 // GET  /api/automate/sequences
 // POST /api/automate/sequences       body: { name, trigger, triggerValue?, steps[] }

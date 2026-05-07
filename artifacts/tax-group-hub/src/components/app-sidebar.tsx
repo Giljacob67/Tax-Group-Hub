@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import {
   LayoutDashboard, Users, Zap, BookOpen, Settings,
   MessageCircle, Crown, Briefcase, Megaphone, Settings2,
-  ChevronRight, Loader2, Search, X,
+  ChevronRight, Loader2, Search, X, Bot,
 } from "lucide-react";
 import { useListAgents } from "@workspace/api-client-react";
 import { useState } from "react";
@@ -31,9 +31,10 @@ const BLOCKS = [
 ];
 
 const NAV_ITEMS = [
-  { path: "/",             label: "Dashboard",       icon: LayoutDashboard, color: "text-sky-400"     },
-  { path: "/crm",          label: "CRM e Pipeline",  icon: Users,           color: "text-blue-400"    },
-  { path: "/integrations", label: "AI Integrations", icon: Zap,             color: "text-amber-400"   },
+  { path: "/",             label: "Dashboard",       icon: LayoutDashboard, color: "text-sky-400"      },
+  { path: "/crm",          label: "CRM e Pipeline",  icon: Users,           color: "text-blue-400"     },
+  { path: "/automations",  label: "Automações",      icon: Zap,             color: "text-emerald-400"  },
+  { path: "/integrations", label: "AI Integrations", icon: Bot,             color: "text-amber-400"    },
 ];
 
 const FOOTER_ITEMS = [
