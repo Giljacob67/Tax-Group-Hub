@@ -10,6 +10,7 @@ import {
 import { eq, desc, count, and, sql } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
 import { generateEmbeddings, callLLM, getLanguageModel } from "../lib/llm-client.js";
+import { callLLMViaConnection } from "../lib/llm-router.js";
 import { getConfigValue } from "./settings.js";
 import { streamText } from "ai";
 import { SendMessageBody } from "@workspace/api-zod";
@@ -71,7 +72,7 @@ router.get("/conversations", async (req, res) => {
 
 router.post("/conversations", async (req, res) => {
   try {
-    const { agentId, title, model } = req.body as { agentId?: string; title?: string; model?: string };
+    const { agentId, title, model, provider, connectionId } = req.body as { agentId?: string; title?: string; model?: string; provider?: string; connectionId?: number };
     if (!agentId) {
       apiError(res, 400, "agentId is required");
       return;
@@ -80,7 +81,7 @@ router.post("/conversations", async (req, res) => {
     const userId = req.userId;
     const [conv] = await db
       .insert(conversationsTable)
-      .values({ agentId, title: conversationTitle, model, userId: userId || null })
+      .values({ agentId, title: conversationTitle, model, provider, connectionId: connectionId || null, userId: userId || null })
       .returning();
 
     res.status(201).json({
@@ -118,22 +119,15 @@ router.get("/conversations/:conversationId", async (req, res) => {
     }
     const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
     const agent = getAgentById(conv.agentId);
-    let modelName = conv.model || "nenhum";
-    let providerName = "Nenhum";
-    try {
-      const { providerName: pn, modelId } = await getLanguageModel();
-      modelName = modelId;
-      providerName = pn;
-    } catch {}
-
     res.json({
       id: String(conv.id),
       agentId: conv.agentId,
       title: conv.title,
       createdAt: conv.createdAt.toISOString(),
       updatedAt: conv.updatedAt.toISOString(),
-      model: modelName,
-      provider: providerName,
+      model: conv.model || "nenhum",
+      provider: conv.provider || "Nenhum",
+      connectionId: conv.connectionId,
       agentName: agent?.name || conv.agentId,
       messages: messages.map((m: any) => ({
         id: String(m.id),
@@ -295,7 +289,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       res.status(400).json({ error: "Formato de requisicao invalido", details: parsedBody.error.format() });
       return;
     }
-    const { content, useKnowledgeBase, customSystemPrompt, model: modelOverride, stream: streamOverride } = parsedBody.data;
+    const { content, useKnowledgeBase, customSystemPrompt, model: modelOverride, connectionId, stream: streamOverride } = parsedBody.data;
     const isStream = streamOverride === true || req.query.stream === "true";
 
     if (!content.trim()) {
@@ -410,23 +404,23 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         
         res.write(`data: ${JSON.stringify({ type: "start", userMessage: { id: String(userMsg.id), conversationId: String(userMsg.conversationId), role: userMsg.role, content: userMsg.content, createdAt: userMsg.createdAt.toISOString() }, autoTitle })}\n\n`);
 
-        // Special handling for Ollama Cloud (native API, not OpenAI-compatible)
-        // For streaming mode, we simulate streaming by splitting the response into words
-        if (activeProviderDb === "ollama_cloud") {
-          const result = await callLLM(systemPrompt, content.trim(), { 
-            provider: "ollama_cloud",
-            model: modelOverride || activeLlmModel || undefined,
-            customUrl: activeLlmUrl || undefined,
+        // Use new LLM router when connectionId is provided (Model Hub)
+        // Otherwise fall back to legacy getLanguageModel path
+        if (connectionId || conv.connectionId) {
+          const result = await callLLMViaConnection(systemPrompt, content.trim(), {
+            connectionId: connectionId || conv.connectionId || undefined,
+            usageType: "chat",
             toolIds: ["webSearch", "emailSender"],
-            userId: userId || undefined
+            userId: userId || undefined,
           });
           assistantContent = result.output;
-          
+
           // Simulate streaming by sending word by word
           const words = assistantContent.split(/(\s+)/);
           for (const word of words) {
             res.write(`data: ${JSON.stringify({ type: "token", text: word })}\n\n`);
           }
+
           // Log usage
           await db.insert(usageLogsTable).values({
             userId: userId || null,
@@ -440,58 +434,114 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
             platform: "web"
           }).catch(() => {});
         } else {
-          const { model: aiModel } = await getLanguageModel(undefined, modelOverride);
-          const streamResult = await streamText({
-            model: aiModel,
-            system: systemPrompt,
-            messages: llmMessages,
-            onFinish: async (finish: any) => {
-             // Log usage
-             await db.insert(usageLogsTable).values({
-               userId: userId || null,
-               conversationId,
-               agentId: conv.agentId,
-               model: finish.model || finish.response?.modelId || modelOverride || "unknown",
-               provider: finish.provider || finish.response?.provider || "unknown",
-               promptTokens: finish.usage?.promptTokens || 0,
-               completionTokens: finish.usage?.completionTokens || 0,
-               totalTokens: finish.usage?.totalTokens || 0,
-               platform: "web"
-             }).catch(e => console.error("Usage log error:", e));
-          }
-        });
+          // Special handling for Ollama Cloud (native API, not OpenAI-compatible)
+          // For streaming mode, we simulate streaming by splitting the response into words
+          if (activeProviderDb === "ollama_cloud") {
+            const result = await callLLM(systemPrompt, content.trim(), { 
+              provider: "ollama_cloud",
+              model: modelOverride || activeLlmModel || undefined,
+              customUrl: activeLlmUrl || undefined,
+              toolIds: ["webSearch", "emailSender"],
+              userId: userId || undefined
+            });
+            assistantContent = result.output;
+            
+            // Simulate streaming by sending word by word
+            const words = assistantContent.split(/(\s+)/);
+            for (const word of words) {
+              res.write(`data: ${JSON.stringify({ type: "token", text: word })}\n\n`);
+            }
+            // Log usage
+            await db.insert(usageLogsTable).values({
+              userId: userId || null,
+              conversationId,
+              agentId: conv.agentId,
+              model: result.model,
+              provider: result.provider,
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: result.tokensUsed,
+              platform: "web"
+            }).catch(() => {});
+          } else {
+            const { model: aiModel } = await getLanguageModel(undefined, modelOverride);
+            const streamResult = await streamText({
+              model: aiModel,
+              system: systemPrompt,
+              messages: llmMessages,
+              onFinish: async (finish: any) => {
+               // Log usage
+               await db.insert(usageLogsTable).values({
+                 userId: userId || null,
+                 conversationId,
+                 agentId: conv.agentId,
+                 model: finish.model || finish.response?.modelId || modelOverride || "unknown",
+                 provider: finish.provider || finish.response?.provider || "unknown",
+                 promptTokens: finish.usage?.promptTokens || 0,
+                 completionTokens: finish.usage?.completionTokens || 0,
+                 totalTokens: finish.usage?.totalTokens || 0,
+                 platform: "web"
+               }).catch(e => console.error("Usage log error:", e));
+            }
+          });
 
-        for await (const part of streamResult.fullStream) {
-          if (part.type === 'text-delta') {
-            const textChunk = (part as any).textDelta || (part as any).text || "";
-            assistantContent += textChunk;
-            res.write(`data: ${JSON.stringify({ type: "token", text: textChunk })}\n\n`);
+          for await (const part of streamResult.fullStream) {
+            if (part.type === 'text-delta') {
+              const textChunk = (part as any).textDelta || (part as any).text || "";
+              assistantContent += textChunk;
+              res.write(`data: ${JSON.stringify({ type: "token", text: textChunk })}\n\n`);
+            }
           }
-        }
+          }
         }
       } else {
-        const result = await callLLM(systemPrompt, content.trim(), { 
-          provider: activeProviderDb || undefined,
-          model: modelOverride || activeLlmModel || undefined,
-          customUrl: activeLlmUrl || undefined,
-          toolIds: ["webSearch", "emailSender"], // Enabled tools in chat
-          userId: userId || undefined
-        });
-        assistantContent = result.output;
+        // Use new LLM router when connectionId is provided (Model Hub)
+        if (connectionId || conv.connectionId) {
+          const result = await callLLMViaConnection(systemPrompt, content.trim(), {
+            connectionId: connectionId || conv.connectionId || undefined,
+            usageType: "chat",
+            toolIds: ["webSearch", "emailSender"],
+            userId: userId || undefined,
+          });
+          assistantContent = result.output;
 
-        // Log usage (standard call)
-        await db.insert(usageLogsTable).values({
-          userId: userId || null,
-          conversationId,
-          agentId: conv.agentId,
-          model: result.model,
-          provider: result.provider,
-          promptTokens: 0, // callLLM only returns totalTokens currently
-          completionTokens: 0,
-          totalTokens: result.tokensUsed,
-          latencyMs: result.executionTimeMs,
-          platform: "web"
-        }).catch(() => {});
+          // Log usage
+          await db.insert(usageLogsTable).values({
+            userId: userId || null,
+            conversationId,
+            agentId: conv.agentId,
+            model: result.model,
+            provider: result.provider,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: result.tokensUsed,
+            latencyMs: result.executionTimeMs,
+            platform: "web"
+          }).catch(() => {});
+        } else {
+          const result = await callLLM(systemPrompt, content.trim(), { 
+            provider: activeProviderDb || undefined,
+            model: modelOverride || activeLlmModel || undefined,
+            customUrl: activeLlmUrl || undefined,
+            toolIds: ["webSearch", "emailSender"], // Enabled tools in chat
+            userId: userId || undefined
+          });
+          assistantContent = result.output;
+
+          // Log usage (standard call)
+          await db.insert(usageLogsTable).values({
+            userId: userId || null,
+            conversationId,
+            agentId: conv.agentId,
+            model: result.model,
+            provider: result.provider,
+            promptTokens: 0, // callLLM only returns totalTokens currently
+            completionTokens: 0,
+            totalTokens: result.tokensUsed,
+            latencyMs: result.executionTimeMs,
+            platform: "web"
+          }).catch(() => {});
+        }
       }
     } catch (llmErr) {
       console.error("LLM error:", llmErr);

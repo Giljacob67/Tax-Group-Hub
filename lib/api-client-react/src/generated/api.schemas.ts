@@ -78,6 +78,7 @@ export interface ConversationWithMessages {
   updatedAt: string;
   model: string;
   provider: string;
+  connectionId?: number;
   agentName: string;
   messages: Message[];
 }
@@ -86,6 +87,8 @@ export interface CreateConversationRequest {
   agentId: string;
   title?: string;
   model?: string;
+  provider?: string;
+  connectionId?: number;
 }
 
 export interface RenameConversationRequest {

@@ -129,7 +129,7 @@ export default function AgentChat() {
       let convId = activeConvId;
       if (!convId) {
         const newConv = await createMutation.mutateAsync({ 
-          data: { agentId, model: effectiveModel } 
+          data: { agentId, model: effectiveModel, provider: selectedConnection?.provider, connectionId: selectedConnection?.id || undefined } 
         });
         convId = newConv.id;
         setActiveConvId(convId);
@@ -143,7 +143,7 @@ export default function AgentChat() {
           content: text.trim(),
           useKnowledgeBase: true,
           customSystemPrompt: customSystemPrompt || undefined,
-          model: selectedConnection?.modelId || undefined,
+          connectionId: selectedConnection?.id || activeConv?.connectionId || undefined,
           stream: true,
         }),
       });

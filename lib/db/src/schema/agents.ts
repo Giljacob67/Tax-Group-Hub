@@ -8,6 +8,8 @@ export const conversationsTable = pgTable("conversations", {
   userId: text("user_id"), 
   title: text("title").notNull().default("Nova Conversa"),
   model: text("model"),
+  provider: text("provider"),
+  connectionId: integer("connection_id"),
   platform: text("platform").default("web"), // 'web' | 'whatsapp' | 'telegram'
   externalId: text("external_id"), // phone number or chat_id
   createdAt: timestamp("created_at").notNull().defaultNow(),
