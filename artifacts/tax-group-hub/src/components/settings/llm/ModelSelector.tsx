@@ -46,6 +46,7 @@ export default function ModelSelector({ value, onChange, placeholder = "Selecion
       google: "text-blue-400",
       openrouter: "text-purple-400",
       ollama: "text-sky-400",
+      ollama_cloud: "text-sky-300",
       custom_openai: "text-gray-400",
     };
     return map[provider] || "text-muted-foreground";
@@ -58,6 +59,7 @@ export default function ModelSelector({ value, onChange, placeholder = "Selecion
       google: "✦",
       openrouter: "⇌",
       ollama: "🦙",
+      ollama_cloud: "☁",
       custom_openai: "⚙",
     };
     return map[provider] || "◈";

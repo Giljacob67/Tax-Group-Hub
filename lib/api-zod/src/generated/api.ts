@@ -71,6 +71,9 @@ export const ListConversationsResponse = zod.object({
       id: zod.string(),
       agentId: zod.string(),
       title: zod.string(),
+      model: zod.string().nullish(),
+      provider: zod.string().nullish(),
+      connectionId: zod.number().nullish(),
       createdAt: zod.date(),
       updatedAt: zod.date(),
       messageCount: zod.number(),
@@ -169,7 +172,6 @@ export const SendMessageBody = zod.object({
   useKnowledgeBase: zod.boolean().optional(),
   customSystemPrompt: zod.string().optional(),
   model: zod.string().optional(),
-  connectionId: zod.number().optional(),
   stream: zod.boolean().optional(),
 });
 

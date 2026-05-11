@@ -232,6 +232,8 @@ export async function discoverModels(
       return discoverGoogle(apiKey);
     case "ollama":
       return discoverOllama(baseUrl || "http://localhost:11434");
+    case "ollama_cloud":
+      return discoverOllama(baseUrl || "https://ollama.com/api");
     case "custom_openai":
       return discoverCustomOpenAI(baseUrl || "", apiKey);
     default:

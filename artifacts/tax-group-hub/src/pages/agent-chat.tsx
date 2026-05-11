@@ -106,19 +106,40 @@ export default function AgentChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeConv?.messages, sendMutation.isPending]);
 
+  const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
+  const [availableConnections, setAvailableConnections] = useState<LlmConnection[]>([]);
+
   useEffect(() => {
-    if (!activeConvId && conversations?.conversations?.length) {
+    if (!activeConvId && conversations?.conversations?.length && !isCreatingNewChat) {
       setActiveConvId(conversations.conversations[0].id);
     }
-  }, [conversations, activeConvId]);
+  }, [conversations, activeConvId, isCreatingNewChat]);
+
+  useEffect(() => {
+    fetch("/api/llm/connections")
+      .then(r => r.json())
+      .then(d => setAvailableConnections(d.connections || []))
+      .catch(() => setAvailableConnections([]));
+  }, []);
+
+  useEffect(() => {
+    if (activeConv?.connectionId && availableConnections.length) {
+      const match = availableConnections.find(c => c.id === activeConv.connectionId);
+      if (match) setSelectedConnection(match);
+    }
+  }, [activeConv?.connectionId, availableConnections]);
 
   useEffect(() => {
     setActiveConvId(null);
+    setIsCreatingNewChat(false);
     setCustomSystemPrompt(null);
     setShowDesignStudio(false);
   }, [agentId]);
 
-  const handleNewChat = () => setActiveConvId(null);
+  const handleNewChat = () => {
+    setIsCreatingNewChat(true);
+    setActiveConvId(null);
+  };
 
   const handleCreateAndSend = async (text: string) => {
     if (!text.trim() || !agentId || isStreaming) return;
@@ -134,7 +155,9 @@ export default function AgentChat() {
           data: { agentId, model: effectiveModel, provider: selectedConnection?.provider, connectionId: selectedConnection?.id || undefined } 
         });
         convId = newConv.id;
+        setIsCreatingNewChat(false);
         setActiveConvId(convId);
+        queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
         queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
       }
 

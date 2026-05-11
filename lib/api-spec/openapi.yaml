@@ -595,6 +595,15 @@ components:
           type: string
         title:
           type: string
+        model:
+          type: string
+          nullable: true
+        provider:
+          type: string
+          nullable: true
+        connectionId:
+          type: integer
+          nullable: true
         createdAt:
           type: string
           format: date-time

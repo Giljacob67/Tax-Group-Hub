@@ -10,6 +10,9 @@ export interface Conversation {
   id: string;
   agentId: string;
   title: string;
+  model?: string | null;
+  provider?: string | null;
+  connectionId?: number | null;
   createdAt: Date;
   updatedAt: Date;
   messageCount: number;
