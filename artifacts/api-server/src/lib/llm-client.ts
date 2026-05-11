@@ -137,6 +137,17 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
     return { model: customGoogle(modelId), providerName: "Google", modelId };
   }
 
+  // 5. CUSTOM OPENAI-COMPATIBLE (e.g. self-hosted, third-party APIs)
+  if (provider === "custom_openai" && requestedCustomUrl) {
+    const cleanUrl = requestedCustomUrl.replace(/\/+$/, "");
+    const customOpenAI = createOpenAI({
+      baseURL: cleanUrl.endsWith("/v1") ? cleanUrl : `${cleanUrl}/v1`,
+      apiKey: (await getApiKey("custom_openai", userId)) || "custom",
+    });
+    const modelId = requestedModel || "custom-model";
+    return { model: customOpenAI(modelId), providerName: "Custom", modelId };
+  }
+
   throw new Error(`Nenhum provedor de IA disponível para: "${provider}". Verifique se a chave de API está configurada em Configurações.`);
 }
 

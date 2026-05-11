@@ -1,31 +1,18 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  CheckCircle2, XCircle, Loader2,
-  Eye, EyeOff, Save, Wifi, WifiOff,
-  AlertCircle, Crown, MessageSquare,
-  Trash2, Copy, Plus, RefreshCw, UploadCloud, Cpu,
+  CheckCircle2, Loader2,
+  AlertCircle, Crown, MessageSquare, Cpu,
+  Trash2, Copy, Plus, Save, UploadCloud,
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import ModelHub from "@/components/settings/llm/ModelHub";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface IntegrationStatus {
-  id: string;
-  name: string;
-  configured: boolean;
-  active: boolean;
-  category: string;
-}
-
-interface SettingsData {
-  integrations: IntegrationStatus[];
-  activeLLM: string | null;
-}
-
 interface ChannelConfig {
   id: number;
   platform: string;
@@ -36,471 +23,12 @@ interface ChannelConfig {
 
 interface AgentOption { id: string; name: string; icon: string; }
 
-// ─── Provider definitions ─────────────────────────────────────────────────────
-const PROVIDERS = [
-  {
-    id: "google",
-    name: "Google",
-    label: "Google Gemini",
-    icon: "✦",
-    color: "text-blue-400",
-    ring: "ring-blue-500/40",
-    dot: "bg-blue-400",
-    models: [
-      { id: "gemini-3.1-pro-preview",    label: "Gemini 3.1 Pro Preview" },
-      { id: "gemini-3-flash-preview",    label: "Gemini 3 Flash Preview" },
-      { id: "gemini-3.1-flash-lite",     label: "Gemini 3.1 Flash-Lite" },
-      { id: "gemini-2.5-pro",            label: "Gemini 2.5 Pro" },
-      { id: "gemini-2.5-flash",          label: "Gemini 2.5 Flash" },
-      { id: "gemini-2.5-flash-lite",     label: "Gemini 2.5 Flash-Lite" },
-      { id: "gemini-2.0-flash",          label: "Gemini 2.0 Flash" },
-      { id: "gemini-2.0-flash-lite",     label: "Gemini 2.0 Flash-Lite" },
-    ],
-    keyLabel: "Gemini API Key",
-    keyPlaceholder: "AIzaSy...",
-    needsUrl: false,
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic",
-    label: "Anthropic Claude",
-    icon: "◈",
-    color: "text-amber-400",
-    ring: "ring-amber-500/40",
-    dot: "bg-amber-400",
-    models: [
-      { id: "claude-opus-4-7",              label: "Claude Opus 4.7" },
-      { id: "claude-sonnet-4-6",            label: "Claude Sonnet 4.6" },
-      { id: "claude-haiku-4-5-20251001",    label: "Claude Haiku 4.5" },
-      { id: "claude-3-7-sonnet-20250219",   label: "Claude 3.7 Sonnet" },
-      { id: "claude-3-5-sonnet-20241022",   label: "Claude 3.5 Sonnet" },
-      { id: "claude-3-5-haiku-20241022",    label: "Claude 3.5 Haiku" },
-    ],
-    keyLabel: "Anthropic API Key",
-    keyPlaceholder: "sk-ant-...",
-    needsUrl: false,
-  },
-  {
-    id: "openai",
-    name: "OpenAI",
-    label: "OpenAI",
-    icon: "⬡",
-    color: "text-emerald-400",
-    ring: "ring-emerald-500/40",
-    dot: "bg-emerald-400",
-    models: [
-      { id: "gpt-5.4",               label: "GPT-5.4" },
-      { id: "gpt-5.4-mini",          label: "GPT-5.4 Mini" },
-      { id: "gpt-5.4-nano",          label: "GPT-5.4 Nano" },
-      { id: "gpt-5.2-pro",           label: "GPT-5.2 Pro" },
-      { id: "gpt-5.2",               label: "GPT-5.2" },
-      { id: "gpt-5.1",               label: "GPT-5.1" },
-      { id: "gpt-5",                 label: "GPT-5" },
-      { id: "gpt-5-mini",            label: "GPT-5 Mini" },
-      { id: "gpt-4.1",               label: "GPT-4.1" },
-      { id: "gpt-4.1-mini",          label: "GPT-4.1 Mini" },
-      { id: "gpt-4.1-nano",          label: "GPT-4.1 Nano" },
-      { id: "gpt-4o",                label: "GPT-4o" },
-      { id: "gpt-4o-mini",           label: "GPT-4o Mini" },
-      { id: "gpt-4o-search-preview", label: "GPT-4o Search Preview" },
-      { id: "o4-mini",               label: "o4-mini · raciocínio" },
-      { id: "o3",                    label: "o3 · raciocínio" },
-      { id: "o3-mini",               label: "o3-mini · raciocínio" },
-      { id: "o1",                    label: "o1 · raciocínio" },
-      { id: "codex-mini-latest",     label: "Codex Mini" },
-    ],
-    keyLabel: "OpenAI API Key",
-    keyPlaceholder: "sk-...",
-    needsUrl: false,
-  },
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    label: "OpenRouter",
-    icon: "⇌",
-    color: "text-purple-400",
-    ring: "ring-purple-500/40",
-    dot: "bg-purple-400",
-    models: [
-      { id: "google/gemini-2.5-pro-preview",           label: "Gemini 2.5 Pro (Google)" },
-      { id: "anthropic/claude-sonnet-4-6",             label: "Claude Sonnet 4.6 (Anthropic)" },
-      { id: "deepseek/deepseek-r1",                    label: "DeepSeek R1" },
-      { id: "deepseek/deepseek-chat",                  label: "DeepSeek V3" },
-      { id: "meta-llama/llama-3.3-70b-instruct",      label: "LLaMA 3.3 70B (Meta)" },
-      { id: "meta-llama/llama-3.1-405b-instruct",     label: "LLaMA 3.1 405B (Meta)" },
-      { id: "qwen/qwen-2.5-72b-instruct",              label: "Qwen 2.5 72B (Alibaba)" },
-      { id: "mistralai/mistral-large-2411",            label: "Mistral Large (Mistral)" },
-      { id: "x-ai/grok-3-beta",                        label: "Grok 3 Beta (xAI)" },
-    ],
-    keyLabel: "OpenRouter API Key",
-    keyPlaceholder: "sk-or-...",
-    needsUrl: false,
-  },
-  {
-    id: "ollama_cloud",
-    name: "Ollama",
-    label: "Ollama Cloud",
-    icon: "☁",
-    color: "text-sky-400",
-    ring: "ring-sky-500/40",
-    dot: "bg-sky-400",
-    models: [],
-    keyLabel: "Bearer Token (opcional)",
-    keyPlaceholder: "Deixe em branco se não houver auth",
-    needsUrl: true,
-    fixedUrl: "https://ollama.com/api",
-  },
-] as const;
-
-type ProviderId = typeof PROVIDERS[number]["id"];
-
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 const NAV = [
   { id: "llm",      label: "IA & LLM",   icon: Cpu           },
   { id: "whatsapp", label: "WhatsApp",   icon: MessageSquare  },
   { id: "branding", label: "Identidade", icon: Crown          },
 ];
-
-// ─── LLM Section ──────────────────────────────────────────────────────────────
-function LLMSection({
-  integrations,
-  activeProvider,
-  activeModel,
-  onActivate,
-}: {
-  integrations: IntegrationStatus[];
-  activeProvider: string;
-  activeModel: string;
-  onActivate: (provider: string, model: string, customUrl?: string) => Promise<void>;
-}) {
-  const { toast } = useToast();
-  const [tab, setTab]           = useState<ProviderId>((activeProvider as ProviderId) || "google");
-  const [apiKey, setApiKey]     = useState("");
-  const [showKey, setShowKey]   = useState(false);
-  const [model, setModel]       = useState("");
-  const [customUrl, setCustomUrl] = useState("");
-  const [savingKey, setSavingKey] = useState(false);
-  const [activating, setActivating] = useState(false);
-  const [testing, setTesting]   = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; error?: string; response?: string } | null>(null);
-
-  const prov = PROVIDERS.find(p => p.id === tab)!;
-  const integration = integrations.find(i => i.id === tab);
-  const isCurrentlyActive = activeProvider === tab;
-
-  // Reset fields when switching tabs
-  useEffect(() => {
-    setApiKey("");
-    setShowKey(false);
-    setTestResult(null);
-    if (tab === activeProvider) {
-      setModel(activeModel || prov.models[0]?.id || "");
-    } else {
-      setModel(prov.models[0]?.id || "");
-    }
-    setCustomUrl((prov as any).fixedUrl ?? "");
-  }, [tab]);
-
-  const effectiveModel = prov.needsUrl ? model : (model || prov.models[0]?.id || "");
-  const effectiveUrl   = (prov as any).fixedUrl ?? customUrl;
-
-  async function handleSaveKey() {
-    const key = apiKey.trim();
-    if (!key) return;
-    setSavingKey(true);
-    try {
-      const r = await fetch("/api/settings/keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: prov.id, key }),
-      });
-      if (!r.ok) throw new Error();
-      setApiKey("");
-      toast({ title: "Chave salva!" });
-    } catch {
-      toast({ title: "Erro ao salvar chave", variant: "destructive" });
-    } finally {
-      setSavingKey(false);
-    }
-  }
-
-  async function handleTest() {
-    setTesting(true);
-    setTestResult(null);
-    try {
-      const r = await fetch("/api/settings/active-provider/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: prov.id,
-          model: effectiveModel,
-          customUrl: prov.needsUrl ? effectiveUrl : undefined,
-        }),
-      });
-      setTestResult(await r.json());
-    } catch {
-      setTestResult({ success: false, error: "Erro de rede" });
-    } finally {
-      setTesting(false);
-    }
-  }
-
-  async function handleActivate() {
-    setActivating(true);
-    await onActivate(prov.id, effectiveModel, prov.needsUrl ? effectiveUrl : undefined);
-    setActivating(false);
-  }
-
-  return (
-    <div className="space-y-6">
-
-      {/* Active provider status */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-muted/20 border border-border/40">
-        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          {activeProvider && activeProvider !== "auto" ? (
-            <>
-              <span className="text-xs text-muted-foreground">Provedor ativo: </span>
-              <span className="text-xs font-semibold text-foreground">
-                {PROVIDERS.find(p => p.id === activeProvider)?.label ?? activeProvider}
-              </span>
-              {activeModel && (
-                <>
-                  <span className="text-xs text-muted-foreground"> · modelo: </span>
-                  <code className="text-xs text-primary/80">{activeModel}</code>
-                </>
-              )}
-            </>
-          ) : (
-            <span className="text-xs text-muted-foreground">Nenhum provedor ativo. Configure um abaixo.</span>
-          )}
-        </div>
-      </div>
-
-      {/* Provider tabs */}
-      <div className="flex gap-1.5 flex-wrap">
-        {PROVIDERS.map(p => {
-          const configured = integrations.find(i => i.id === p.id)?.configured ?? false;
-          const isActive   = activeProvider === p.id;
-          const isSelected = tab === p.id;
-          return (
-            <button
-              key={p.id}
-              onClick={() => setTab(p.id)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all border ${
-                isSelected
-                  ? `bg-card border-border ring-1 ${p.ring} text-foreground shadow-sm`
-                  : "bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30"
-              }`}
-            >
-              <span className={`text-base leading-none ${p.color}`}>{p.icon}</span>
-              <span>{p.name}</span>
-              {configured && (
-                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? "bg-emerald-400" : "bg-border"}`} />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Config panel */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.15 }}
-          className="bg-card/50 border border-border/50 rounded-2xl p-5 space-y-5"
-        >
-          {/* Panel header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className={`text-lg font-bold ${prov.color}`}>{prov.icon}</span>
-              <span className="font-semibold text-sm">{prov.label}</span>
-            </div>
-            {isCurrentlyActive && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-bold">
-                ATIVO
-              </span>
-            )}
-            {integration?.configured && !isCurrentlyActive && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/40 font-medium">
-                Configurado
-              </span>
-            )}
-          </div>
-
-          {/* API Key row */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">{prov.keyLabel}</Label>
-              {integration?.configured && (
-                <span className="text-[11px] text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Chave salva
-                </span>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <input
-                  type={showKey ? "text" : "password"}
-                  value={apiKey}
-                  onChange={e => setApiKey(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleSaveKey()}
-                  placeholder={integration?.configured ? "Nova chave para substituir..." : prov.keyPlaceholder}
-                  className="w-full bg-background border border-border/50 rounded-lg px-3 py-2 text-xs font-mono pr-8 focus:ring-1 focus:ring-primary/40 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowKey(v => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSaveKey}
-                disabled={savingKey || !apiKey.trim()}
-                className="flex-shrink-0 text-xs px-3"
-              >
-                {savingKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Salvar chave"}
-              </Button>
-            </div>
-          </div>
-
-          {/* URL field (Ollama) */}
-          {prov.needsUrl && (
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Endpoint</Label>
-              {(prov as any).fixedUrl ? (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border/40">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0" />
-                  <code className="text-xs font-mono text-muted-foreground flex-1">{(prov as any).fixedUrl}</code>
-                  <span className="text-[10px] text-muted-foreground/50 flex-shrink-0">fixo</span>
-                </div>
-              ) : (
-                <Input
-                  value={customUrl}
-                  onChange={e => setCustomUrl(e.target.value)}
-                  placeholder="https://meu-ollama.com"
-                  className="text-xs font-mono"
-                />
-              )}
-            </div>
-          )}
-
-          {/* Model selector */}
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Modelo</Label>
-            {prov.needsUrl ? (
-              <Input
-                value={model}
-                onChange={e => setModel(e.target.value)}
-                placeholder="llama3.2, qwen2.5, mistral..."
-                className="text-xs font-mono"
-              />
-            ) : (
-              <div className="relative">
-                <select
-                  value={effectiveModel}
-                  onChange={e => setModel(e.target.value)}
-                  className="w-full appearance-none bg-background border border-border/50 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary/40 focus:outline-none pr-8"
-                >
-                  {prov.models.map(m => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              </div>
-            )}
-          </div>
-
-          {/* Test result */}
-          <AnimatePresence>
-            {testResult && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className={`rounded-lg px-3 py-2.5 text-xs border flex items-start gap-2 ${
-                  testResult.success
-                    ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400"
-                    : "bg-red-500/5 border-red-500/20 text-red-400"
-                }`}
-              >
-                {testResult.success ? (
-                  <><CheckCircle2 className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                  <span>Conexão OK{testResult.response ? ` · "${testResult.response.slice(0, 80)}"` : ""}</span></>
-                ) : (
-                  <><WifiOff className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                  <span>{testResult.error}</span></>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* CTA row */}
-          <div className="flex gap-2 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTest}
-              disabled={testing || (!integration?.configured && !prov.needsUrl)}
-              className="text-xs"
-            >
-              {testing
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                : <Wifi className="w-3.5 h-3.5 mr-1.5" />}
-              Testar
-            </Button>
-
-            {isCurrentlyActive ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleActivate}
-                disabled={activating}
-                className="flex-1 text-xs border-primary/30 text-primary hover:bg-primary/10"
-              >
-                {activating
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                  : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
-                Atualizar modelo
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                onClick={handleActivate}
-                disabled={activating || (!integration?.configured && !prov.needsUrl)}
-                className="flex-1 text-xs"
-              >
-                {activating
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                  : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
-                Usar este provedor
-              </Button>
-            )}
-          </div>
-
-          {!integration?.configured && !prov.needsUrl && (
-            <p className="text-[11px] text-amber-400/80 flex items-center gap-1.5">
-              <AlertCircle className="w-3 h-3 flex-shrink-0" />
-              Salve uma chave de API para testar e ativar.
-            </p>
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      <p className="text-[11px] text-muted-foreground/60 flex items-center gap-1.5 px-1">
-        <AlertCircle className="w-3 h-3 flex-shrink-0" />
-        Chaves armazenadas com criptografia AES-256. Nenhuma variável de ambiente necessária.
-      </p>
-    </div>
-  );
-}
 
 // ─── WhatsApp Section ──────────────────────────────────────────────────────────
 function WhatsAppSection() {
@@ -824,56 +352,7 @@ function BrandingSection() {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const { toast } = useToast();
-  const [section, setSection]               = useState("llm");
-  const [data, setData]                     = useState<SettingsData | null>(null);
-  const [loading, setLoading]               = useState(true);
-  const [activeProvider, setActiveProvider] = useState("auto");
-  const [activeModel, setActiveModel]       = useState("");
-
-  async function fetchSettings() {
-    try {
-      const [intRes, provRes] = await Promise.all([
-        fetch("/api/settings/integrations"),
-        fetch("/api/settings/active-provider"),
-      ]);
-      if (intRes.ok)  setData(await intRes.json());
-      if (provRes.ok) {
-        const p = await provRes.json();
-        setActiveProvider(p.provider || "auto");
-        setActiveModel(p.model || "");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { fetchSettings(); }, []);
-
-  async function handleActivate(provider: string, model: string, customUrl?: string) {
-    try {
-      const r = await fetch("/api/settings/active-provider", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, model, customUrl: customUrl ?? "" }),
-      });
-      if (!r.ok) throw new Error();
-      setActiveProvider(provider);
-      setActiveModel(model);
-      toast({ title: `${PROVIDERS.find(p => p.id === provider)?.label ?? provider} ativado!` });
-      fetchSettings();
-    } catch {
-      toast({ title: "Erro ao ativar provedor", variant: "destructive" });
-    }
-  }
-
-  if (loading) return (
-    <div className="flex-1 flex items-center justify-center">
-      <Loader2 className="w-7 h-7 animate-spin text-primary" />
-    </div>
-  );
-
-  const integrations = data?.integrations ?? [];
+  const [section, setSection] = useState("llm");
 
   return (
     <div className="h-full flex overflow-hidden">
@@ -899,29 +378,29 @@ export default function SettingsPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-8 py-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={section}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15 }}
-            >
-              {section === "llm" && (
-                <LLMSection
-                  integrations={integrations.filter(i => i.category === "llm")}
-                  activeProvider={activeProvider}
-                  activeModel={activeModel}
-                  onActivate={handleActivate}
-                />
-              )}
-              {section === "whatsapp" && <WhatsAppSection />}
-              {section === "branding"  && <BrandingSection />}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+      <div className="flex-1 overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={section}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="h-full"
+          >
+            {section === "llm" && <ModelHub />}
+            {section === "whatsapp" && (
+              <div className="max-w-2xl mx-auto px-8 py-8">
+                <WhatsAppSection />
+              </div>
+            )}
+            {section === "branding" && (
+              <div className="max-w-2xl mx-auto px-8 py-8">
+                <BrandingSection />
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
