@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Wifi, WifiOff, Loader2, Trash2, Star, CheckCircle2, AlertCircle, Search, Cpu, Zap, Brain, Eye, Paperclip, Palette, Mic } from "lucide-react";
+import { Wifi, WifiOff, Loader2, Trash2, Star, CheckCircle2, AlertCircle, Search, Cpu, Zap, Brain, Eye, Paperclip, Palette, Mic, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { LlmConnection, ProviderMeta } from "./types";
@@ -13,6 +13,7 @@ interface Props {
   onTest: (id: number) => void;
   onActivate: (id: number) => void;
   onDelete: (id: number) => void;
+  onEdit?: (conn: LlmConnection) => void;
   testingId: number | null;
 }
 
@@ -33,6 +34,7 @@ export default function ModelCatalog({
   onTest,
   onActivate,
   onDelete,
+  onEdit,
   testingId,
 }: Props) {
   const [search, setSearch] = useState("");
@@ -112,6 +114,12 @@ export default function ModelCatalog({
                           PADRÃO
                         </span>
                       )}
+                      <button
+                        onClick={() => onEdit?.(conn)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-muted-foreground hover:text-primary"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
                       <button
                         onClick={() => onDelete(conn.id)}
                         className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-muted-foreground hover:text-red-400"

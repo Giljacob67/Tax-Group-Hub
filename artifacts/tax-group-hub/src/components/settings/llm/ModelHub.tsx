@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import ProviderSidebar from "./ProviderSidebar";
 import ModelCatalog from "./ModelCatalog";
 import ConnectionWizard from "./ConnectionWizard";
+import EditConnectionModal from "./EditConnectionModal";
 import ProfileManager from "./ProfileManager";
 import type { ProviderMeta, LlmConnection, LlmProfile } from "./types";
 
@@ -18,6 +19,7 @@ export default function ModelHub() {
   const [selectedProvider, setSelectedProvider] = useState<ProviderMeta | null>(null);
   const [activeTab, setActiveTab] = useState<"connections" | "profiles">("connections");
   const [showWizard, setShowWizard] = useState(false);
+  const [editingConnection, setEditingConnection] = useState<LlmConnection | null>(null);
   const [testingId, setTestingId] = useState<number | null>(null);
   const [healthRunning, setHealthRunning] = useState(false);
 
@@ -178,6 +180,7 @@ export default function ModelHub() {
                   onTest={handleTest}
                   onActivate={handleActivate}
                   onDelete={handleDelete}
+                  onEdit={(conn) => setEditingConnection(conn)}
                   testingId={testingId}
                 />
               ) : (
@@ -209,6 +212,20 @@ export default function ModelHub() {
           onCreated={() => {
             setShowWizard(false);
             fetchAll();
+          }}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {editingConnection && (
+        <EditConnectionModal
+          connection={editingConnection}
+          providers={providers}
+          onClose={() => setEditingConnection(null)}
+          onSaved={() => {
+            setEditingConnection(null);
+            fetchAll();
+            toast({ title: "Conexão atualizada" });
           }}
         />
       )}
