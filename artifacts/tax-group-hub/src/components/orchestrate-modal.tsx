@@ -132,9 +132,9 @@ export function OrchestrateModal({
         className="bg-card border border-border/50 rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="p-6 border-b border-border/50 bg-gradient-to-r from-[#107ec2]/10 to-blue-500/10 flex items-center justify-between">
+        <div className="p-6 border-b border-border/50 bg-gradient-to-r from-primary/10 to-blue-500/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#107ec2]/20 flex items-center justify-center text-xl">🚀</div>
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-xl">🚀</div>
             <div>
               <h2 className="font-bold text-lg text-white">
                 {status === "preview" ? "Executar Plano com Agentes"
@@ -199,7 +199,7 @@ export function OrchestrateModal({
                 </div>
                 <div className="flex items-center gap-2">
                   {status === "running" && !result.success && result.response === "" && (
-                    <Loader2 className="w-4 h-4 animate-spin text-[#107ec2]" />
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
                   )}
                   {result.success && (
                     <>
@@ -225,7 +225,7 @@ export function OrchestrateModal({
                       </div>
                       <button
                         onClick={() => { onNavigate(result.agentId); onClose(); }}
-                        className="mt-3 flex items-center gap-1.5 text-xs text-[#107ec2] hover:text-[#107ec2]/80 transition-colors font-medium"
+                        className="mt-3 flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors font-medium"
                       >
                         <ExternalLink className="w-3 h-3" />
                         Ver conversa completa
@@ -322,7 +322,7 @@ export function OrchestrateModal({
             <button
               onClick={handleExecute}
               disabled={status === "running" || status === "reviewing"}
-              className="flex-[2] flex-grow-[2] py-3 rounded-xl bg-gradient-to-r from-[#107ec2] to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-[2] flex-grow-[2] py-3 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {status === "running" ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Executando agentes...</>
@@ -338,7 +338,7 @@ export function OrchestrateModal({
           <div className="p-6 border-t border-border/50">
             <button
               onClick={onClose}
-              className="w-full py-3 rounded-xl bg-[#107ec2]/20 text-[#107ec2] border border-[#107ec2]/30 text-sm font-semibold hover:bg-[#107ec2]/30 transition-colors"
+              className="w-full py-3 rounded-xl bg-primary/20 text-primary border border-primary/30 text-sm font-semibold hover:bg-primary/30 transition-colors"
             >
               Fechar
             </button>

@@ -1594,7 +1594,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                     return (
                       <div key={att.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group">
                         {isImage
-                          ? <img src={att.url} alt={att.fileName} className="w-8 h-8 rounded object-cover flex-shrink-0 border border-border/50" />
+                          ? <img src={att.url} loading="lazy" alt={att.fileName} className="w-8 h-8 rounded object-cover flex-shrink-0 border border-border/50" />
                           : <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
                               <Icon className="w-4 h-4 text-muted-foreground" />
                             </div>}

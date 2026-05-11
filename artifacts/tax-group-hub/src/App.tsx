@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 
 import { AppSidebar } from "./components/app-sidebar";
 import { ErrorBoundary } from "./components/error-boundary";
+import { PageTransition } from "./components/page-transition";
 import Dashboard from "./pages/dashboard";
 import AgentChat from "./pages/agent-chat";
 import KnowledgeBase from "./pages/knowledge-base";
@@ -46,29 +47,37 @@ function Layout({ children }: { children: React.ReactNode }) {
 import CRMPage from "./pages/crm";
 import AutomationsPage from "./pages/automations";
 
+function AnimatedRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <Layout>
+      <PageTransition>{children}</PageTransition>
+    </Layout>
+  );
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/">
-        <Layout><Dashboard /></Layout>
+        <AnimatedRoute><Dashboard /></AnimatedRoute>
       </Route>
       <Route path="/crm">
-        <Layout><CRMPage /></Layout>
+        <AnimatedRoute><CRMPage /></AnimatedRoute>
       </Route>
       <Route path="/agent/:id">
-        <Layout><AgentChat /></Layout>
+        <AnimatedRoute><AgentChat /></AnimatedRoute>
       </Route>
       <Route path="/knowledge">
-        <Layout><KnowledgeBase /></Layout>
+        <AnimatedRoute><KnowledgeBase /></AnimatedRoute>
       </Route>
       <Route path="/automations">
-        <Layout><AutomationsPage /></Layout>
+        <AnimatedRoute><AutomationsPage /></AnimatedRoute>
       </Route>
       <Route path="/integrations">
-        <Layout><Integrations /></Layout>
+        <AnimatedRoute><Integrations /></AnimatedRoute>
       </Route>
       <Route path="/settings">
-        <Layout><SettingsPage /></Layout>
+        <AnimatedRoute><SettingsPage /></AnimatedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>

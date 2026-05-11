@@ -195,7 +195,7 @@ export function DesignStudioPanel({
                   className="relative rounded-xl overflow-hidden border border-border/50 group cursor-pointer"
                   onClick={() => setSelectedImage(img.url)}
                 >
-                  <img src={img.url} alt={img.prompt} className="w-full aspect-square object-cover" />
+                  <img src={img.url} loading="lazy" alt={img.prompt} className="w-full aspect-square object-cover" />
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
                     <p className="text-xs text-white line-clamp-2">{img.prompt}</p>
                   </div>
@@ -215,7 +215,7 @@ export function DesignStudioPanel({
             className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-8"
             onClick={() => setSelectedImage(null)}
           >
-            <img src={selectedImage} alt="Preview" className="max-w-full max-h-full rounded-xl" />
+            <img src={selectedImage} loading="lazy" alt="Preview" className="max-w-full max-h-full rounded-xl" />
           </motion.div>
         )}
       </AnimatePresence>

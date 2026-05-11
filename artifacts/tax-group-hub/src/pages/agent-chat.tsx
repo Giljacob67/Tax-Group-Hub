@@ -358,8 +358,8 @@ export default function AgentChat() {
                 onClick={() => { if (renamingId !== conv.id) setActiveConvId(conv.id); }}
                 className={`w-full text-left p-3 rounded-xl transition-all duration-200 group flex items-start justify-between cursor-pointer ${
                   activeConvId === conv.id
-                    ? 'bg-[#107ec2]/10 border-l-2 border-[#107ec2] border-y-0 border-r-0 rounded-l-none shadow-[0_0_10px_rgba(16,126,194,0.08)]'
-                    : 'hover:bg-[#107ec2]/5 border border-transparent'
+                    ? 'bg-primary/10 border-l-2 border-primary border-y-0 border-r-0 rounded-l-none shadow-[0_0_10px_hsl(var(--primary)/0.08)]'
+                    : 'hover:bg-primary/5 border border-transparent'
                 }`}
               >
                 <div className="flex items-start space-x-3 overflow-hidden flex-1 min-w-0">
@@ -429,7 +429,7 @@ export default function AgentChat() {
       <div className="flex-1 flex flex-col relative bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
         <header className="h-16 border-b border-border/50 bg-background/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-10">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-[#107ec2]/15 flex items-center justify-center border border-[#107ec2]/25 shadow-glow text-xl select-none">
+            <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center border border-primary/25 shadow-glow text-xl select-none">
               {agent.icon || <Bot className="w-5 h-5 text-primary" />}
             </div>
             <div>
@@ -519,7 +519,7 @@ export default function AgentChat() {
                         <button
                           key={i}
                           onClick={() => handleCreateAndSend(prompt)}
-                          className="p-4 rounded-2xl border border-border/50 bg-card/40 hover:bg-[#107ec2]/8 hover:border-[#107ec2]/40 text-left text-sm text-foreground/80 hover:text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(16,126,194,0.1)]"
+                          className="p-4 rounded-2xl border border-border/50 bg-card/40 hover:bg-primary/8 hover:border-primary/40 text-left text-sm text-foreground/80 hover:text-foreground transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_hsl(var(--primary)/0.1)]"
                         >
                           {prompt}
                         </button>
@@ -534,10 +534,10 @@ export default function AgentChat() {
               {activeConv?.messages?.map((msg) => (
                 <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] flex ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end gap-3`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 text-base select-none ${msg.role === 'user' ? 'bg-secondary' : 'bg-[#107ec2]/15 border border-[#107ec2]/20'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 text-base select-none ${msg.role === 'user' ? 'bg-secondary' : 'bg-primary/15 border border-primary/20'}`}>
                       {msg.role === 'user' ? <User className="w-4 h-4 text-foreground/70" /> : <span>{agent.icon || "🤖"}</span>}
                     </div>
-                    <div className={`relative group p-4 rounded-2xl ${msg.role === 'user' ? 'bg-[#107ec2] text-white rounded-br-sm shadow-md' : 'bg-card/30 text-foreground rounded-bl-sm shadow-sm'}`}>
+                    <div className={`relative group p-4 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-white rounded-br-sm shadow-md' : 'bg-card/30 text-foreground rounded-bl-sm shadow-sm'}`}>
                       {msg.role === 'assistant' && (
                         <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute -right-10 top-2 p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" title="Copiar" aria-label="Copiar mensagem">
                           {copiedId === msg.id ? <CheckCheck className="w-4 h-4 text-emerald-500" aria-hidden="true" /> : <Copy className="w-4 h-4" aria-hidden="true" />}
@@ -565,7 +565,7 @@ export default function AgentChat() {
                         return (
                           <button
                             onClick={() => { setOrchestrationPlan(plan); setShowOrchestrateModal(true); }}
-                            className="mt-3 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-gradient-to-r from-[#107ec2] to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg"
+                            className="mt-3 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg"
                           >
                             🚀 Executar Plano com Agentes ({plan.length} agente{plan.length !== 1 ? 's' : ''})
                           </button>
@@ -582,7 +582,7 @@ export default function AgentChat() {
                     <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 text-base select-none bg-secondary">
                       <User className="w-4 h-4 text-foreground/70" />
                     </div>
-                    <div className="relative p-4 rounded-2xl bg-[#107ec2] text-white rounded-br-sm shadow-md opacity-80">
+                    <div className="relative p-4 rounded-2xl bg-primary text-white rounded-br-sm shadow-md opacity-80">
                       <div className="text-sm leading-relaxed prose prose-sm max-w-none prose-p:text-white prose-strong:text-white">
                         <ReactMarkdown>{optimisticUserMsg}</ReactMarkdown>
                       </div>
@@ -594,7 +594,7 @@ export default function AgentChat() {
               {isStreaming && (
                 <motion.div key="optimistic-bot" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
                   <div className="max-w-[85%] flex flex-row items-end gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 text-base select-none bg-[#107ec2]/15 border border-[#107ec2]/20">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 text-base select-none bg-primary/15 border border-primary/20">
                       <span>{agent.icon || "🤖"}</span>
                     </div>
                     <div className="relative p-4 rounded-2xl bg-card/30 text-foreground rounded-bl-sm shadow-sm">
@@ -631,13 +631,13 @@ export default function AgentChat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCreateAndSend(input); } }}
               placeholder={`Mensagem para ${agent.name}...`}
-              className="w-full bg-card border border-[#107ec2]/30 focus:border-[#107ec2] focus:shadow-[0_0_0_2px_rgba(16,126,194,0.20)] rounded-xl pl-5 pr-14 py-4 text-sm shadow-sm transition-all outline-none"
+              className="w-full bg-card border border-primary/30 focus:border-primary focus:shadow-[0_0_0_2px_hsl(var(--primary)/0.2)] rounded-xl pl-5 pr-14 py-4 text-sm shadow-sm transition-all outline-none"
               disabled={isStreaming}
             />
             <button
               onClick={() => handleCreateAndSend(input)}
               disabled={!input.trim() || isStreaming}
-              className="absolute right-2 p-2.5 rounded-lg bg-[#107ec2] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#107ec2]/90 transition-colors shadow-md"
+              className="absolute right-2 p-2.5 rounded-lg bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors shadow-md"
             >
               <Send className="w-4 h-4" />
             </button>
