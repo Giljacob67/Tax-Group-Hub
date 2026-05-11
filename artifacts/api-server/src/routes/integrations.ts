@@ -36,13 +36,19 @@ router.post("/integrations/generate-image", async (req, res) => {
     if (geminiKey) {
       try {
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${geminiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               contents: [{ parts: [{ text: fullPrompt }] }],
-              generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+              generationConfig: {
+                responseModalities: ["IMAGE", "TEXT"],
+                imageConfig: {
+                  aspectRatio: "1:1",
+                  imageSize: "1024x1024"
+                }
+              },
             }),
           }
         );
