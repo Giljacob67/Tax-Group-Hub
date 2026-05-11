@@ -7,7 +7,7 @@ import {
   Send, Bot, User, Plus, MessageSquare, Loader2,
   Copy, CheckCheck, Trash2, Search, Download,
   Settings, Sparkles, Pencil, Check, X, Cpu,
-  ChevronDown, RotateCw, History
+  RotateCw, History
 } from "lucide-react";
 import {
   useGetAgent,
@@ -19,7 +19,7 @@ import {
   useRenameConversation,
   useDeleteMessage,
   useHealthCheck,
-  useGetAvailableModels,
+  // useGetAvailableModels, // replaced by ModelSelector from Model Hub
   getListConversationsQueryKey,
   getGetConversationQueryKey,
 } from "@workspace/api-client-react";
@@ -44,6 +44,8 @@ import {
 } from "@/components/ui/dialog";
 import { DesignStudioPanel } from "@/components/design-studio-panel";
 import { OrchestrateModal } from "@/components/orchestrate-modal";
+import ModelSelector from "@/components/settings/llm/ModelSelector";
+import type { LlmConnection } from "@/components/settings/llm/types";
 
 export default function AgentChat() {
   const { id: agentId } = useParams();
@@ -63,10 +65,12 @@ export default function AgentChat() {
   const [customSystemPrompt, setCustomSystemPrompt] = useState<string | null>(null);
   const [editingPrompt, setEditingPrompt] = useState("");
   const [showDesignStudio, setShowDesignStudio] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string | null>(() => {
-    try { return localStorage.getItem("taxgroup_selected_model"); } catch { return null; }
+  const [selectedConnection, setSelectedConnection] = useState<LlmConnection | null>(() => {
+    try {
+      const raw = localStorage.getItem("taxgroup_selected_connection");
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
   });
-  const [showModelSelector, setShowModelSelector] = useState(false);
   const [orchestrationPlan, setOrchestrationPlan] = useState<Array<{agentId: string; task: string}> | null>(null);
   const [showOrchestrateModal, setShowOrchestrateModal] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -90,18 +94,10 @@ export default function AgentChat() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { refetchInterval: 30000 } as any
   });
-  const { data: modelsData } = useGetAvailableModels({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    query: { staleTime: 300000 } as any
-  });
-
   const isDesignStudioAgent = !!agent?.designStudio;
-  const isOpenRouter = modelsData?.provider === "openrouter";
-  const effectiveModel = isOpenRouter
-    ? (selectedModel || activeConv?.model || modelsData?.defaultModel || "google/gemini-flash-1.5")
-    : (activeConv?.model || modelsData?.defaultModel || "llama3.2");
-  const displayModel = modelsData?.models?.find(m => m.id === effectiveModel)?.name || effectiveModel;
-  const provider = activeConv?.provider || "OpenRouter";
+  const effectiveModel = selectedConnection?.modelId || activeConv?.model || "google/gemini-flash-1.5";
+  const displayModel = selectedConnection?.name || activeConv?.model || "Padrão";
+  const provider = selectedConnection?.provider || activeConv?.provider || "auto";
   const isApiOnline = !!healthData?.status && !healthError;
 
   useEffect(() => {
@@ -147,7 +143,7 @@ export default function AgentChat() {
           content: text.trim(),
           useKnowledgeBase: true,
           customSystemPrompt: customSystemPrompt || undefined,
-          model: (isOpenRouter && selectedModel) ? selectedModel : undefined,
+          model: selectedConnection?.modelId || undefined,
           stream: true,
         }),
       });
@@ -281,12 +277,12 @@ export default function AgentChat() {
     toast({ title: newPrompt ? "System prompt atualizado" : "System prompt restaurado" });
   };
 
-  const handleSelectModel = (modelId: string) => {
-    setSelectedModel(modelId);
-    try { localStorage.setItem("taxgroup_selected_model", modelId); } catch {}
-    setShowModelSelector(false);
-    const modelName = modelsData?.models?.find(m => m.id === modelId)?.name || modelId;
-    toast({ title: `Modelo alterado: ${modelName}` });
+  const handleSelectConnection = (conn: LlmConnection | null) => {
+    setSelectedConnection(conn);
+    try { localStorage.setItem("taxgroup_selected_connection", conn ? JSON.stringify(conn) : ""); } catch {}
+    if (conn) {
+      toast({ title: `Modelo: ${conn.name}` });
+    }
   };
 
   const filteredConversations = conversations?.conversations?.filter(
@@ -434,21 +430,13 @@ export default function AgentChat() {
                   <span className={`w-1.5 h-1.5 rounded-full ${isApiOnline ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
                   {isApiOnline ? 'Online' : 'Offline'}
                 </span>
-                {isOpenRouter ? (
-                  <button
-                    onClick={() => setShowModelSelector(!showModelSelector)}
-                    className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1 hover:bg-emerald-500/20 transition-colors cursor-pointer"
-                    title="Clique para trocar o modelo"
-                  >
-                    <Cpu className="w-2.5 h-2.5" /> {displayModel}
-                    <ChevronDown className="w-2.5 h-2.5" />
-                  </button>
-                ) : (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-                    <Cpu className="w-2.5 h-2.5" /> {displayModel}
-                  </span>
-                )}
-                <span className="text-[10px] text-muted-foreground">via {provider}</span>
+                <div className="w-40">
+                  <ModelSelector
+                    value={selectedConnection?.id || null}
+                    onChange={handleSelectConnection}
+                    placeholder="Modelo padrão"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -491,48 +479,6 @@ export default function AgentChat() {
             </button>
           </div>
         </header>
-
-        <AnimatePresence>
-          {showModelSelector && isOpenRouter && modelsData?.models && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              className="absolute top-16 left-0 right-0 z-20 bg-card/95 backdrop-blur-lg border-b border-border/50 shadow-xl"
-            >
-              <div className="max-w-3xl mx-auto p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-foreground">Escolha o modelo</h3>
-                  <button onClick={() => setShowModelSelector(false)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
-                    <X className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[50vh] overflow-y-auto">
-                  {modelsData.models.map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => handleSelectModel(m.id)}
-                      className={`text-left p-3 rounded-xl border transition-all hover:-translate-y-0.5 ${
-                        effectiveModel === m.id
-                          ? 'bg-primary/10 border-primary/30 shadow-[0_0_10px_rgba(30,64,175,0.15)]'
-                          : 'bg-background/50 border-border/30 hover:border-primary/20'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm font-medium ${effectiveModel === m.id ? 'text-primary' : 'text-foreground'}`}>
-                          {m.name}
-                        </span>
-                        {effectiveModel === m.id && <Check className="w-3.5 h-3.5 text-primary" />}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{m.description}</p>
-                      <p className="text-[10px] text-muted-foreground/60 mt-1 font-mono">{m.id}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
           <div className="max-w-3xl mx-auto space-y-6 pb-4">
