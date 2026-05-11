@@ -88,15 +88,15 @@ router.get("/llm/providers", (_req, res) => {
       },
       {
         id: "ollama_cloud",
-        name: "Ollama Cloud",
-        label: "Ollama Cloud",
+        name: "Ollama Remoto",
+        label: "Ollama Remoto",
         icon: "☁",
         color: "text-sky-300",
         ring: "ring-sky-400/40",
         dot: "bg-sky-300",
-        supportsDiscovery: false,
+        supportsDiscovery: true,
         needsBaseUrl: true,
-        baseUrlPlaceholder: "https://ollama.com/api",
+        baseUrlPlaceholder: "https://seu-servidor.com:11434",
         keyLabel: "Bearer Token (opcional)",
         keyPlaceholder: "Deixe em branco se não houver auth",
       },
@@ -344,6 +344,11 @@ router.post("/llm/connections/:id/test", async (req, res) => {
       let provider = conn.provider;
       let customUrl = conn.baseUrl || undefined;
       if (provider === "custom_openai") provider = "openrouter"; // hack: custom_openai uses openai-sdk with custom baseURL
+
+      // Warn about localhost URLs when backend is in the cloud
+      if (customUrl && /^(http:\/\/localhost|http:\/\/127\.)/i.test(customUrl) && process.env.VERCEL) {
+        throw new Error("URLs localhost (http://localhost:11434) não são acessíveis quando o backend roda na nuvem. Use um Ollama remoto com HTTPS ou rode o backend localmente.");
+      }
 
       const result = await callLLM(
         "You are a connectivity test assistant. Reply with exactly: 'OK · <model-name>'",

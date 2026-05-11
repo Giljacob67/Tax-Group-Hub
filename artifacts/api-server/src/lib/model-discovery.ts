@@ -60,7 +60,10 @@ export async function discoverOllama(baseUrl: string): Promise<DiscoveryResult> 
     const url = baseUrl.replace(/\/+$/, "");
     const res = await fetch(`${url}/api/tags`, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) {
-      return { success: false, models: [], error: `Ollama ${res.status}` };
+      const hint = res.status === 404
+        ? ` — Verifique se o Ollama está rodando em ${url} e se a URL está correta (ex: http://localhost:11434).`
+        : "";
+      return { success: false, models: [], error: `Ollama ${res.status}${hint}` };
     }
     const data = (await res.json()) as { models?: Array<{ name: string; size?: number; modified_at?: string; details?: Record<string, unknown> }> };
     const models = (data.models || []).map((m): DiscoveredModel => ({
@@ -233,7 +236,8 @@ export async function discoverModels(
     case "ollama":
       return discoverOllama(baseUrl || "http://localhost:11434");
     case "ollama_cloud":
-      return discoverOllama(baseUrl || "https://ollama.com/api");
+      if (!baseUrl) return { success: false, models: [], error: "URL do servidor Ollama é obrigatória (ex: https://seu-servidor.com:11434)" };
+      return discoverOllama(baseUrl);
     case "custom_openai":
       return discoverCustomOpenAI(baseUrl || "", apiKey);
     default:
