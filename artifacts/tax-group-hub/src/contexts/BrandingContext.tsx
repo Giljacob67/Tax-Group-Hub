@@ -17,7 +17,7 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [branding, setBranding] = useState<BrandingData>({
     companyName: "Tax Group Hub",
     logoStorageKey: null,
-    primaryColor: "#3b82f6",
+    primaryColor: "#107ec2",
   });
   const [isLoading, setIsLoading] = useState(true);
 
