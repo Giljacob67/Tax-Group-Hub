@@ -58,10 +58,12 @@ export async function discoverOpenRouter(apiKey: string): Promise<DiscoveryResul
 export async function discoverOllama(baseUrl: string): Promise<DiscoveryResult> {
   try {
     const url = baseUrl.replace(/\/+$/, "");
-    const res = await fetch(`${url}/api/tags`, { signal: AbortSignal.timeout(8000) });
+    // Handle URLs that already include /api (e.g. https://ollama.com/api)
+    const tagsEndpoint = url.endsWith("/api") ? `${url}/tags` : `${url}/api/tags`;
+    const res = await fetch(tagsEndpoint, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) {
       const hint = res.status === 404
-        ? ` — Verifique se o Ollama está rodando em ${url} e se a URL está correta (ex: http://localhost:11434).`
+        ? ` — Endpoint não encontrado: ${tagsEndpoint}`
         : "";
       return { success: false, models: [], error: `Ollama ${res.status}${hint}` };
     }
@@ -236,8 +238,7 @@ export async function discoverModels(
     case "ollama":
       return discoverOllama(baseUrl || "http://localhost:11434");
     case "ollama_cloud":
-      if (!baseUrl) return { success: false, models: [], error: "URL do servidor Ollama é obrigatória (ex: https://seu-servidor.com:11434)" };
-      return discoverOllama(baseUrl);
+      return discoverOllama(baseUrl || "https://ollama.com/api");
     case "custom_openai":
       return discoverCustomOpenAI(baseUrl || "", apiKey);
     default:
