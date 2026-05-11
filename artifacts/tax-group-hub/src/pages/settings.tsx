@@ -119,7 +119,7 @@ function WhatsAppSection() {
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium">{agent ? `${agent.icon} ${agent.name}` : ch.agentId}</div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <code className="text-[10px] text-muted-foreground font-mono truncate max-w-xs">{url}</code>
+                    <code className="text-xs text-muted-foreground font-mono truncate max-w-xs">{url}</code>
                     <button onClick={() => copy(url)} className="text-muted-foreground hover:text-foreground flex-shrink-0">
                       <Copy className="w-3 h-3" />
                     </button>
@@ -200,7 +200,7 @@ function WhatsAppSection() {
                     onChange={e => setForm(p => ({ ...p, verifyToken: e.target.value }))}
                     className="text-xs font-mono"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">String de sua escolha — cadastre o mesmo no painel Meta.</p>
+                  <p className="text-xs text-muted-foreground mt-1">String de sua escolha — cadastre o mesmo no painel Meta.</p>
                 </div>
               </div>
               <Button onClick={handleSave} disabled={saving} size="sm">
@@ -358,7 +358,7 @@ export default function SettingsPage() {
     <div className="h-full flex overflow-hidden">
       {/* Left nav */}
       <div className="w-52 flex-shrink-0 border-r border-border/30 bg-background/50 flex flex-col py-6 px-3 gap-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">
           Configurações
         </p>
         {NAV.map(item => (

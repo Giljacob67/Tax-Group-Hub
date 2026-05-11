@@ -119,7 +119,7 @@ export default function ConnectionWizard({ providers, onClose, onCreated }: Prop
           {steps.map((s, i) => (
             <div key={s.num} className="flex items-center gap-2 shrink-0">
               <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                   step >= s.num ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 }`}
               >
@@ -221,11 +221,11 @@ export default function ConnectionWizard({ providers, onClose, onCreated }: Prop
                           }`}
                         >
                           <div className="font-medium truncate">{m.name}</div>
-                          {m.contextWindow && <div className="text-[10px] text-muted-foreground mt-0.5">{m.contextWindow.toLocaleString()} tokens</div>}
+                          {m.contextWindow && <div className="text-xs text-muted-foreground mt-0.5">{m.contextWindow.toLocaleString()} tokens</div>}
                           <div className="flex gap-1 mt-1.5 flex-wrap">
-                            {m.supportsVision && <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1 rounded">vision</span>}
-                            {m.supportsTools && <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1 rounded">tools</span>}
-                            {m.priceInput && <span className="text-[9px] bg-amber-500/10 text-amber-400 px-1 rounded">{m.priceInput}</span>}
+                            {m.supportsVision && <span className="text-[11px] bg-blue-500/10 text-blue-400 px-1 rounded">vision</span>}
+                            {m.supportsTools && <span className="text-[11px] bg-emerald-500/10 text-emerald-400 px-1 rounded">tools</span>}
+                            {m.priceInput && <span className="text-[11px] bg-amber-500/10 text-amber-400 px-1 rounded">{m.priceInput}</span>}
                           </div>
                         </button>
                       ))}

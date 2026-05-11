@@ -260,7 +260,7 @@ export default function CRMPage() {
                 <TabsTrigger value="today" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative">
                   Hoje
                   {pendingCount > 0 && (
-                    <span className="ml-1.5 text-[9px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                    <span className="ml-1.5 text-[11px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 leading-none">
                       {pendingCount}
                     </span>
                   )}
@@ -655,7 +655,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
             <SlidersHorizontal className="w-3.5 h-3.5" />
             Filtros
             {activeFilterCount > 0 && (
-              <span className="bg-primary-foreground text-primary rounded-full text-[10px] w-4 h-4 flex items-center justify-center font-bold">
+              <span className="bg-primary-foreground text-primary rounded-full text-xs w-4 h-4 flex items-center justify-center font-bold">
                 {activeFilterCount}
               </span>
             )}
@@ -678,7 +678,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
           <div className="border border-border/50 rounded-lg p-3 bg-muted/20 space-y-3">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <div className="space-y-1">
-                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">Regime</Label>
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Regime</Label>
                 <Select value={filters.regime} onValueChange={(v) => setFilters(f => ({ ...f, regime: v === "_all" ? "" : v }))}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Qualquer" />
@@ -691,7 +691,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">Porte</Label>
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Porte</Label>
                 <Select value={filters.porte} onValueChange={(v) => setFilters(f => ({ ...f, porte: v === "_all" ? "" : v }))}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Qualquer" />
@@ -704,7 +704,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">UF</Label>
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">UF</Label>
                 <Input
                   placeholder="Ex: SP"
                   value={filters.uf}
@@ -715,7 +715,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">Score mín.</Label>
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Score mín.</Label>
                 <Input
                   type="number" min={0} max={100} placeholder="0"
                   value={filters.scoreMin}
@@ -725,7 +725,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">Score máx.</Label>
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Score máx.</Label>
                 <Input
                   type="number" min={0} max={100} placeholder="100"
                   value={filters.scoreMax}
@@ -737,10 +737,10 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
 
             {activeFilterCount > 0 && (
               <div className="flex items-center gap-2 pt-1 border-t border-border/40">
-                <span className="text-[10px] text-muted-foreground">{activeFilterCount} filtro(s) ativo(s)</span>
+                <span className="text-xs text-muted-foreground">{activeFilterCount} filtro(s) ativo(s)</span>
                 <button
                   onClick={clearFilters}
-                  className="text-[10px] text-primary hover:underline"
+                  className="text-xs text-primary hover:underline"
                 >
                   Limpar todos
                 </button>
@@ -773,7 +773,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                         disabled={bulkStatusMutation.isPending}
                         className="w-full flex items-center gap-2 p-2.5 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors text-left"
                       >
-                        <Badge variant="outline" className={`text-[10px] border ${v.color}`}>{v.label}</Badge>
+                        <Badge variant="outline" className={`text-xs border ${v.color}`}>{v.label}</Badge>
                       </button>
                     ))}
                   </div>
@@ -971,17 +971,17 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                         <span className="text-xs text-muted-foreground">{contact.regimeTributario?.replace(/_/g, " ") || "—"}</span>
                       </td>
                       <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
-                        <Badge variant="secondary" className="text-[10px]">{contact.porte || "—"}</Badge>
+                        <Badge variant="secondary" className="text-xs">{contact.porte || "—"}</Badge>
                       </td>
                       <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         <ScoreBadge score={contact.aiScore} />
                       </td>
                       <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
-                        <Badge variant="outline" className={`text-[10px] border ${s.color}`}>{s.label}</Badge>
+                        <Badge variant="outline" className={`text-xs border ${s.color}`}>{s.label}</Badge>
                       </td>
                       <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         {contact.aiRecommendedProduct
-                          ? <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">{contact.aiRecommendedProduct}</Badge>
+                          ? <Badge className="bg-primary/20 text-primary border-primary/30 text-xs">{contact.aiRecommendedProduct}</Badge>
                           : <span className="text-muted-foreground text-xs">—</span>}
                       </td>
                       <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
@@ -1193,7 +1193,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           <div className="min-w-0 flex-1">
             <h3 className="font-bold text-sm leading-tight truncate">{contact.razaoSocial || "Empresa"}</h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="flex items-center gap-1.5 text-[10px] font-medium bg-muted px-1.5 py-0.5 rounded-full border border-border/50">
+              <span className="flex items-center gap-1.5 text-xs font-medium bg-muted px-1.5 py-0.5 rounded-full border border-border/50">
                 <span className={`w-2 h-2 rounded-full ${healthColor}`} />
                 {healthLabel}
               </span>
@@ -1323,14 +1323,14 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
             <div className="text-xs text-muted-foreground mb-1">Status</div>
             <Select value={contact.status} onValueChange={(v) => updateStatusMutation.mutate(v)}>
               <SelectTrigger className="h-auto border-0 bg-transparent p-0 text-center focus:ring-0 shadow-none">
-                <Badge variant="outline" className={`text-[10px] border ${status.color} cursor-pointer`}>
+                <Badge variant="outline" className={`text-xs border ${status.color} cursor-pointer`}>
                   {status.label}
                 </Badge>
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(STATUS_CONFIG).map(([k, v]) => (
                   <SelectItem key={k} value={k}>
-                    <Badge variant="outline" className={`text-[10px] border ${v.color}`}>{v.label}</Badge>
+                    <Badge variant="outline" className={`text-xs border ${v.color}`}>{v.label}</Badge>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1354,7 +1354,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   <Zap className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-primary truncate">{en.sequenceName ?? "Sequência"}</div>
-                    <div className="text-[10px] text-muted-foreground">Step {en.currentStep + 1}/{total} · {pct}% concluído</div>
+                    <div className="text-xs text-muted-foreground">Step {en.currentStep + 1}/{total} · {pct}% concluído</div>
                   </div>
                   <div className="w-12 h-1.5 bg-primary/20 rounded-full overflow-hidden flex-shrink-0">
                     <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
@@ -1474,7 +1474,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                     <div key={d.id} className="p-3 rounded-lg border border-border/50 bg-card hover:border-primary/30 transition-colors">
                       <div className="flex justify-between items-start gap-2">
                         <p className="text-xs font-semibold">{d.title}</p>
-                        <Badge variant="outline" className="text-[9px] whitespace-nowrap bg-muted/50">{d.stage}</Badge>
+                        <Badge variant="outline" className="text-[11px] whitespace-nowrap bg-muted/50">{d.stage}</Badge>
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-[11px] text-muted-foreground">
@@ -1510,7 +1510,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   <div className="flex gap-1 flex-wrap">
                     {ACTIVITY_TYPES.map(t => (
                       <button key={t.value} onClick={() => setActivityType(t.value)}
-                        className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border transition-colors ${
+                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-colors ${
                           activityType === t.value
                             ? "bg-primary/20 border-primary/40 text-primary"
                             : "border-border/50 text-muted-foreground hover:border-border"
@@ -1553,7 +1553,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-medium text-foreground truncate">{a.subject || a.type}</div>
                           {a.content && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-3 whitespace-pre-line">{a.content}</p>}
-                          <div className="text-[10px] text-muted-foreground/60 mt-1">
+                          <div className="text-xs text-muted-foreground/60 mt-1">
                             {new Date(a.createdAt).toLocaleString("pt-BR")}
                             {a.agentId && <span className="ml-1 text-primary/70">· {a.agentId}</span>}
                           </div>
@@ -1582,7 +1582,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   ? <Loader2 className="w-7 h-7 animate-spin text-primary mx-auto" />
                   : <Paperclip className="w-7 h-7 text-muted-foreground/40 group-hover:text-primary/50 mx-auto transition-colors" />}
                 <p className="text-xs text-muted-foreground mt-2">{uploading ? "Enviando..." : "Clique ou arraste um arquivo"}</p>
-                <p className="text-[10px] text-muted-foreground/50 mt-1">PDF, Imagens, XLSX, Word, TXT</p>
+                <p className="text-xs text-muted-foreground/50 mt-1">PDF, Imagens, XLSX, Word, TXT</p>
               </div>
               {attachments.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-3">Nenhum arquivo anexado.</p>
@@ -1600,7 +1600,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                             </div>}
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{att.fileName}</p>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             {att.fileSize ? `${Math.round(att.fileSize / 1024)} KB · ` : ""}
                             {new Date(att.createdAt).toLocaleDateString("pt-BR")}
                           </p>
@@ -1769,7 +1769,7 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
           <input type="range" min={0} max={100} step={5} value={probability}
             onChange={(e) => setProbability(Number(e.target.value))}
             className="w-full h-1.5 rounded-full accent-primary cursor-pointer" />
-          <div className="flex justify-between text-[10px] text-muted-foreground/60">
+          <div className="flex justify-between text-xs text-muted-foreground/60">
             <span>0%</span><span>50%</span><span>100%</span>
           </div>
         </div>
@@ -2019,7 +2019,7 @@ function PipelineKanbanView() {
           <div className="flex items-center gap-2">
             <Target className="w-3.5 h-3.5 text-primary" />
             <span className="text-xs font-semibold">Forecast do Mês</span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
             </span>
           </div>
@@ -2051,7 +2051,7 @@ function PipelineKanbanView() {
             </div>
             {editingGoal ? (
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-foreground">Meta R$</span>
+                <span className="text-xs text-muted-foreground">Meta R$</span>
                 <input
                   type="number"
                   value={goalInput}
@@ -2072,11 +2072,11 @@ function PipelineKanbanView() {
                   const v = Number(goalInput);
                   if (v > 0) { setMonthlyGoal(v); localStorage.setItem(MONTHLY_GOAL_KEY, String(v)); }
                   setEditingGoal(false);
-                }} className="text-[10px] text-primary hover:text-primary/80 font-medium">Salvar</button>
+                }} className="text-xs text-primary hover:text-primary/80 font-medium">Salvar</button>
               </div>
             ) : (
               <button onClick={() => { setGoalInput(String(monthlyGoal)); setEditingGoal(true); }}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                 Meta: {formatCurrencyShort(monthlyGoal)} ✏️
               </button>
             )}
@@ -2096,16 +2096,16 @@ function PipelineKanbanView() {
         </div>
         <div className="flex items-center justify-between mt-1.5">
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 text-[10px]">
+            <span className="flex items-center gap-1 text-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
               Ganhos: <strong className="text-emerald-400">{formatCurrencyShort(wonValue)}</strong>
             </span>
-            <span className="flex items-center gap-1 text-[10px]">
+            <span className="flex items-center gap-1 text-xs">
               <span className="w-2 h-2 rounded-full bg-primary/40 inline-block" />
               Pipeline: <strong className="text-primary/80">{formatCurrencyShort(weightedValue)}</strong>
             </span>
           </div>
-          <span className={`text-[10px] font-bold ${progressPct >= 100 ? "text-emerald-400" : progressPct >= 70 ? "text-amber-400" : "text-muted-foreground"}`}>
+          <span className={`text-xs font-bold ${progressPct >= 100 ? "text-emerald-400" : progressPct >= 70 ? "text-amber-400" : "text-muted-foreground"}`}>
             {progressPct}% da meta
           </span>
         </div>
@@ -2125,7 +2125,7 @@ function PipelineKanbanView() {
             </div>
             <div className="min-w-0">
               <div className="text-sm font-semibold text-foreground truncate">{stat.value}</div>
-              <div className="text-[10px] text-muted-foreground truncate">{stat.label}</div>
+              <div className="text-xs text-muted-foreground truncate">{stat.label}</div>
             </div>
           </div>
         ))}
@@ -2161,13 +2161,13 @@ function PipelineKanbanView() {
                 <div className="p-3 border-b border-border/50 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className={`text-xs font-semibold truncate ${dict.header}`}>{dict.label}</span>
-                    <span className="text-[10px] font-mono bg-muted rounded-full px-1.5 py-0.5 text-muted-foreground flex-shrink-0">
+                    <span className="text-xs font-mono bg-muted rounded-full px-1.5 py-0.5 text-muted-foreground flex-shrink-0">
                       {deals.length}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {stageValue > 0 && (
-                      <span className="text-[10px] text-muted-foreground font-mono">{formatCurrencyShort(stageValue)}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{formatCurrencyShort(stageValue)}</span>
                     )}
                     <button
                       onClick={() => setAddingInStage(isAdding ? null : stageId)}
@@ -2198,7 +2198,7 @@ function PipelineKanbanView() {
                     <div className={`h-16 flex items-center justify-center border border-dashed rounded-lg transition-colors ${
                       isDropTarget ? "border-primary/40 text-primary/50" : "border-border/30 text-muted-foreground/40"
                     }`}>
-                      <span className="text-[10px]">{isDropTarget ? "Soltar aqui" : "Vazio"}</span>
+                      <span className="text-xs">{isDropTarget ? "Soltar aqui" : "Vazio"}</span>
                     </div>
                   ) : (
                     deals.map((deal) => (
@@ -2286,14 +2286,14 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
         {deal.razaoSocial && (
           <div className="flex items-center gap-1.5">
             <CompanyAvatar name={deal.razaoSocial} size="sm" />
-            <p className="text-[10px] text-muted-foreground truncate flex-1">{deal.razaoSocial}</p>
+            <p className="text-xs text-muted-foreground truncate flex-1">{deal.razaoSocial}</p>
           </div>
         )}
 
         {/* Product + Value */}
         <div className="flex items-center justify-between gap-2">
           {deal.produto && (
-            <Badge variant="secondary" className="text-[9px] py-0 px-1.5 h-4">{deal.produto}</Badge>
+            <Badge variant="secondary" className="text-[11px] py-0 px-1.5 h-4">{deal.produto}</Badge>
           )}
           {deal.value && (
             <span className="text-xs font-bold text-primary ml-auto">{formatCurrency(deal.value)}</span>
@@ -2305,7 +2305,7 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
           {deal.expectedCloseDate && (
             <div className="flex items-center gap-1">
               <Calendar className="w-2.5 h-2.5 text-muted-foreground/50" />
-              <span className="text-[9px] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground">
                 {new Date(deal.expectedCloseDate).toLocaleDateString("pt-BR")}
               </span>
             </div>
@@ -2319,12 +2319,12 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
               && !['won','lost'].includes(deal.stage);
             if (!isAtRisk) return null;
             return (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full border bg-red-500/10 border-red-500/30 text-red-400 font-semibold flex items-center gap-0.5">
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full border bg-red-500/10 border-red-500/30 text-red-400 font-semibold flex items-center gap-0.5">
                 <AlertCircle className="w-2.5 h-2.5" /> Em Risco
               </span>
             );
           })()}
-          <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium ml-auto ${urgencyColor}`}>
+          <span className={`text-[11px] px-1.5 py-0.5 rounded-full border font-medium ml-auto ${urgencyColor}`}>
             {daysSinceUpdate === 0 ? "Hoje" : `${daysSinceUpdate}d`}
           </span>
         </div>
@@ -2335,7 +2335,7 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
             <div className="h-1 bg-muted rounded-full overflow-hidden">
               <div className={`h-full rounded-full transition-all ${probColor}`} style={{ width: `${prob}%` }} />
             </div>
-            <span className="text-[9px] text-muted-foreground">{prob}% prob.</span>
+            <span className="text-[11px] text-muted-foreground">{prob}% prob.</span>
           </div>
         )}
       </div>

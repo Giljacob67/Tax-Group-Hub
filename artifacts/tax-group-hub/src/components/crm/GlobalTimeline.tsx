@@ -88,7 +88,7 @@ export default function GlobalTimeline() {
                           <CompanyAvatar name={a.contactName} className="w-4 h-4 rounded-full text-[8px]" />
                           <span className="text-xs font-semibold">{a.contactName}</span>
                         </div>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {new Date(a.createdAt).toLocaleString("pt-BR", {
                             day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
                           })}

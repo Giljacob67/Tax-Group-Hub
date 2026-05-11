@@ -75,7 +75,7 @@ export function AppSidebar() {
           {open && (
             <div className="min-w-0 flex-1">
               <div className="text-sm font-bold text-white truncate">{branding.companyName}</div>
-              <div className="text-[9px] text-primary font-bold tracking-widest uppercase opacity-70">AI Hub</div>
+              <div className="text-[11px] text-primary font-bold tracking-widest uppercase opacity-70">AI Hub</div>
             </div>
           )}
 
@@ -147,7 +147,7 @@ export function AppSidebar() {
               </div>
             ) : filteredAgents ? (
               <SidebarGroup className="mt-2">
-                <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
                   Resultados ({filteredAgents.length})
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -160,7 +160,7 @@ export function AppSidebar() {
                           <SidebarMenuButton isActive={isActive} onClick={() => navigate(`/agent/${agent.id}`)} className="cursor-pointer">
                             <MessageCircle className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                             <span className="truncate flex-1 text-xs">{agent.name}</span>
-                            {block && <span className={`text-[9px] flex-shrink-0 ${block.color}`}>{block.label}</span>}
+                            {block && <span className={`text-[11px] flex-shrink-0 ${block.color}`}>{block.label}</span>}
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );
@@ -177,7 +177,7 @@ export function AppSidebar() {
                 if (blockAgents.length === 0) return null;
                 return (
                   <SidebarGroup key={block.id} className="mt-1">
-                    <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                    <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
                       <block.icon className={`w-3 h-3 ${block.color}`} />
                       {block.label}
                     </SidebarGroupLabel>

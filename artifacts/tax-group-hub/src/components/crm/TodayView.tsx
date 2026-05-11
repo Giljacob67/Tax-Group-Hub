@@ -230,25 +230,25 @@ export default function TodayView() {
         {/* Summary pills */}
         <div className="flex gap-2 mt-3 flex-wrap">
           {overdueTasks.length > 0 && (
-            <Badge variant="outline" className="text-[10px] border-red-500/40 text-red-400 bg-red-500/5">
+            <Badge variant="outline" className="text-xs border-red-500/40 text-red-400 bg-red-500/5">
               <AlertCircle className="w-2.5 h-2.5 mr-1" />
               {overdueTasks.length} atrasada{overdueTasks.length !== 1 ? "s" : ""}
             </Badge>
           )}
           {todayTasks.length > 0 && (
-            <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400 bg-amber-500/5">
+            <Badge variant="outline" className="text-xs border-amber-500/40 text-amber-400 bg-amber-500/5">
               <Calendar className="w-2.5 h-2.5 mr-1" />
               {todayTasks.length} para hoje
             </Badge>
           )}
           {tomorrowTasks.length > 0 && (
-            <Badge variant="outline" className="text-[10px] border-blue-500/40 text-blue-400 bg-blue-500/5">
+            <Badge variant="outline" className="text-xs border-blue-500/40 text-blue-400 bg-blue-500/5">
               <Clock className="w-2.5 h-2.5 mr-1" />
               {tomorrowTasks.length} amanhã
             </Badge>
           )}
           {nodateTasks.length > 0 && (
-            <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+            <Badge variant="outline" className="text-xs border-border text-muted-foreground">
               {nodateTasks.length} sem data
             </Badge>
           )}
@@ -346,7 +346,7 @@ export default function TodayView() {
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/60" />
             {showDone ? "Ocultar" : "Ver"} tarefas concluídas hoje
             {doneTodayTasks.length > 0 && (
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 rounded-full px-1.5 py-0.5 font-bold">
+              <span className="text-xs bg-emerald-500/10 text-emerald-400 rounded-full px-1.5 py-0.5 font-bold">
                 {doneTodayTasks.length}
               </span>
             )}

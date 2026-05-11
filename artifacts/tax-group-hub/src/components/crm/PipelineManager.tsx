@@ -82,7 +82,7 @@ function StageEditor({
 
   return (
     <div className="space-y-3">
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+      <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
         Etapas do funil <span className="normal-case">(arraste para reordenar)</span>
       </p>
 
@@ -108,11 +108,11 @@ function StageEditor({
               }`}
             >
               <GripVertical className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getStageColor(stage)}`}>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${getStageColor(stage)}`}>
                 {stage}
               </span>
               <span className="flex-1" />
-              <span className="text-[9px] text-muted-foreground/50 font-mono">{idx + 1}</span>
+              <span className="text-[11px] text-muted-foreground/50 font-mono">{idx + 1}</span>
               <button onClick={() => removeStage(idx)}
                 className="p-0.5 hover:text-destructive text-muted-foreground/40 transition-colors"
               >
@@ -144,13 +144,13 @@ function StageEditor({
 
       {/* Suggested stages */}
       <div>
-        <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider mb-1.5">Sugestões</p>
+        <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-1.5">Sugestões</p>
         <div className="flex gap-1.5 flex-wrap">
           {SUGGESTED_STAGES.filter(s => !stages.includes(s)).map(s => (
             <button
               key={s}
               onClick={() => onChange([...stages, s])}
-              className="text-[10px] px-2 py-0.5 rounded-full border border-border/40 text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+              className="text-xs px-2 py-0.5 rounded-full border border-border/40 text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
             >
               + {s}
             </button>
@@ -200,7 +200,7 @@ function PipelineForm({
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+        <label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
           Nome do funil
         </label>
         <Input
@@ -350,12 +350,12 @@ export default function PipelineManager({
                       <Star className="w-3 h-3 text-amber-400 fill-amber-400 flex-shrink-0" />
                     )}
                     {isActive && (
-                      <Badge variant="outline" className="text-[9px] border-primary/40 text-primary px-1.5 py-0 h-4">
+                      <Badge variant="outline" className="text-[11px] border-primary/40 text-primary px-1.5 py-0 h-4">
                         Ativo
                       </Badge>
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {pl.stages.length} etapa{pl.stages.length !== 1 ? "s" : ""}
                     {" · "}
                     {pl.stages.slice(0, 3).join(" → ")}
@@ -400,7 +400,7 @@ export default function PipelineManager({
       </div>
 
       <div className="px-4 py-2.5 border-t border-border/30 bg-muted/10">
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Clique em um funil para ativá-lo no Kanban. O funil ativo define as colunas exibidas.
         </p>
       </div>

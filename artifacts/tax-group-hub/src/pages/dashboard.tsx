@@ -86,7 +86,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"
+          className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3"
         >
           {metrics.map((m, i) => (
             <motion.div
@@ -126,7 +126,7 @@ export default function Dashboard() {
                       <block.icon className="w-4 h-4 text-white/60" />
                       <h3 className="text-sm font-bold text-white leading-tight">{block.title}</h3>
                     </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/60 border border-white/10">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/60 border border-white/10">
                       {blockAgents.length}
                     </span>
                   </div>

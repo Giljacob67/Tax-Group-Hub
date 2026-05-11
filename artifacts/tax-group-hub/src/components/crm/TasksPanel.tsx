@@ -153,7 +153,7 @@ function TaskForm({
           <button
             key={t.value}
             onClick={() => setType(t.value)}
-            className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border transition-colors ${
+            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-colors ${
               type === t.value
                 ? "bg-primary/20 border-primary/40 text-primary"
                 : "border-border/50 text-muted-foreground hover:border-border"
@@ -167,7 +167,7 @@ function TaskForm({
       <div className="grid grid-cols-2 gap-2">
         {/* Priority */}
         <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Prioridade</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider">Prioridade</Label>
           <Select value={priority} onValueChange={setPriority}>
             <SelectTrigger className="h-7 text-xs">
               <SelectValue />
@@ -187,7 +187,7 @@ function TaskForm({
 
         {/* Due Date */}
         <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Data</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider">Data</Label>
           <Input
             type="date"
             value={dueDate}
@@ -208,7 +208,7 @@ function TaskForm({
           />
           <button
             onClick={() => setReminder(r => !r)}
-            className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border transition-colors ${
+            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-colors ${
               reminder
                 ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
                 : "border-border/50 text-muted-foreground hover:border-border"
@@ -287,12 +287,12 @@ function TaskItem({ task, onUpdate, onDelete }: {
           {task.title}
         </p>
         {task.description && (
-          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>
         )}
         <div className="flex items-center gap-2 mt-1">
-          <span className={`text-[9px] font-semibold ${prio.color}`}>{prio.label}</span>
+          <span className={`text-[11px] font-semibold ${prio.color}`}>{prio.label}</span>
           {task.dueDate && (
-            <span className={`text-[9px] flex items-center gap-0.5 ${
+            <span className={`text-[11px] flex items-center gap-0.5 ${
               isOverdue ? "text-red-400 font-semibold" : "text-muted-foreground"
             }`}>
               {isOverdue && <AlertCircle className="w-2.5 h-2.5" />}
@@ -380,19 +380,19 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-foreground">Tarefas</span>
           {pendingCount > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-bold">
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-bold">
               {pendingCount}
             </span>
           )}
           {overdueCount > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold flex items-center gap-0.5">
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold flex items-center gap-0.5">
               <AlertCircle className="w-2.5 h-2.5" />{overdueCount} atrasada{overdueCount > 1 ? "s" : ""}
             </span>
           )}
         </div>
         <Button
           variant="outline" size="sm"
-          className="h-6 text-[10px] px-2 gap-1"
+          className="h-6 text-xs px-2 gap-1"
           onClick={() => setShowForm(v => !v)}
         >
           <Plus className="w-2.5 h-2.5" /> Nova
@@ -405,7 +405,7 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${
+            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
               filter === f
                 ? "bg-primary/20 border-primary/40 text-primary font-medium"
                 : "border-border/50 text-muted-foreground hover:border-border"

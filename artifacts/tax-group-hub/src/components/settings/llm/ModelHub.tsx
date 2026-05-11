@@ -122,7 +122,7 @@ export default function ModelHub() {
       <div className="h-14 border-b border-border/30 flex items-center justify-between px-4 bg-background/50">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-semibold">Model Hub</h2>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted border border-border/30 text-muted-foreground">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-muted border border-border/30 text-muted-foreground">
             {connections.length} conex{connections.length === 1 ? "ão" : "ões"}
           </span>
         </div>

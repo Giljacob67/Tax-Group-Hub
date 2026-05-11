@@ -108,7 +108,7 @@ export default function ModelCatalog({
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {conn.isDefault && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-bold">
+                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-bold">
                           PADRÃO
                         </span>
                       )}
@@ -124,27 +124,27 @@ export default function ModelCatalog({
                   {/* Badges */}
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {usage && (
-                      <span className="text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted border border-border/30">
+                      <span className="text-xs flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted border border-border/30">
                         {USAGE_ICONS[usage.id]}
                         {usage.label}
                       </span>
                     )}
                     {conn.supportsVision && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">vision</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">vision</span>
                     )}
                     {conn.supportsTools && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">tools</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">tools</span>
                     )}
                     {conn.supportsJson && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">json</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">json</span>
                     )}
                     {conn.contextWindow && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted border border-border/30">
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted border border-border/30">
                         {conn.contextWindow >= 1000 ? `${Math.round(conn.contextWindow / 1000)}k` : conn.contextWindow} ctx
                       </span>
                     )}
                     {conn.priceInput && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                         {conn.priceInput}
                       </span>
                     )}
@@ -193,7 +193,7 @@ export default function ModelCatalog({
                   </div>
 
                   {conn.lastError && conn.lastTestStatus === "error" && (
-                    <div className="mt-2 text-[10px] text-red-400 bg-red-500/5 border border-red-500/10 rounded-lg px-2 py-1 truncate">
+                    <div className="mt-2 text-xs text-red-400 bg-red-500/5 border border-red-500/10 rounded-lg px-2 py-1 truncate">
                       {conn.lastError}
                     </div>
                   )}

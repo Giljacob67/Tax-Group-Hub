@@ -187,15 +187,15 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-muted rounded-lg p-3 text-center border border-border/50">
                   <div className="text-2xl font-semibold text-emerald-500 mb-1">{importResults.created}</div>
-                  <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Criados</div>
+                  <div className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Criados</div>
                 </div>
                 <div className="bg-muted rounded-lg p-3 text-center border border-border/50">
                   <div className="text-2xl font-semibold text-amber-500 mb-1">{importResults.duplicates}</div>
-                  <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Duplicados</div>
+                  <div className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Duplicados</div>
                 </div>
                 <div className="bg-muted rounded-lg p-3 text-center border border-border/50">
                   <div className="text-2xl font-semibold text-rose-500 mb-1">{importResults.errors}</div>
-                  <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Erros</div>
+                  <div className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Erros</div>
                 </div>
               </div>
 

@@ -402,6 +402,7 @@ export default function AgentChat() {
                     onClick={(e) => { e.stopPropagation(); setDeleteTarget(conv.id); }}
                     className="p-1 hover:bg-destructive/20 hover:text-destructive rounded transition-all"
                     title="Excluir"
+                    aria-label="Excluir conversa"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -421,12 +422,16 @@ export default function AgentChat() {
             <div>
               <h2 className="font-bold text-foreground">{agent.name}</h2>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{agent.blockLabel}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1 border ${
-                  isApiOnline
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                    : 'bg-red-500/10 text-red-400 border-red-500/20'
-                }`}>
+                <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{agent.blockLabel}</span>
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 border ${
+                    isApiOnline
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : 'bg-red-500/10 text-red-400 border-red-500/20'
+                  }`}
+                  role="status"
+                  aria-label={isApiOnline ? "API Online" : "API Offline"}
+                >
                   <span className={`w-1.5 h-1.5 rounded-full ${isApiOnline ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
                   {isApiOnline ? 'Online' : 'Offline'}
                 </span>
@@ -446,6 +451,7 @@ export default function AgentChat() {
               onClick={() => setShowMobileHistory(true)}
               className="md:hidden p-2 rounded-lg hover:bg-white/5 text-muted-foreground transition-colors"
               title="Histórico de conversas"
+              aria-label="Abrir histórico de conversas"
             >
               <History className="w-4 h-4" />
             </button>
@@ -456,6 +462,7 @@ export default function AgentChat() {
                   showDesignStudio ? 'bg-purple-500/20 text-purple-400' : 'hover:bg-white/5 text-muted-foreground'
                 }`}
                 title="Design Studio"
+                aria-label="Abrir Design Studio"
               >
                 <Sparkles className="w-4 h-4" />
                 <span className="hidden lg:inline">Design Studio</span>
@@ -466,6 +473,7 @@ export default function AgentChat() {
                 onClick={handleExport}
                 className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground transition-colors"
                 title="Exportar conversa (.md)"
+                aria-label="Exportar conversa"
               >
                 <Download className="w-4 h-4" />
               </button>
@@ -474,6 +482,7 @@ export default function AgentChat() {
               onClick={() => { setEditingPrompt(customSystemPrompt || agent.systemPrompt || ""); setShowSystemPrompt(true); }}
               className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground transition-colors"
               title="Editar System Prompt"
+              aria-label="Editar system prompt"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -517,8 +526,8 @@ export default function AgentChat() {
                     </div>
                     <div className={`relative group p-4 rounded-2xl ${msg.role === 'user' ? 'bg-[#107ec2] text-white rounded-br-sm shadow-md' : 'bg-card/30 text-foreground rounded-bl-sm shadow-sm'}`}>
                       {msg.role === 'assistant' && (
-                        <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute -right-10 top-2 p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" title="Copiar">
-                          {copiedId === msg.id ? <CheckCheck className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                        <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute -right-10 top-2 p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" title="Copiar" aria-label="Copiar mensagem">
+                          {copiedId === msg.id ? <CheckCheck className="w-4 h-4 text-emerald-500" aria-hidden="true" /> : <Copy className="w-4 h-4" aria-hidden="true" />}
                         </button>
                       )}
                       {msg.role === 'assistant' && msg.id === activeConv?.messages?.[activeConv.messages.length - 1]?.id && (
@@ -534,7 +543,7 @@ export default function AgentChat() {
                       <div className={`text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none ${msg.role === 'user' ? 'prose-p:text-white prose-strong:text-white' : ''}`}>
                         <ReactMarkdown>{msg.role === 'assistant' ? stripOrchestrationBlock(msg.content) : msg.content}</ReactMarkdown>
                       </div>
-                      <div className={`text-[10px] mt-2 text-right ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                      <div className={`text-xs mt-2 text-right ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                         {format(new Date(msg.createdAt), "h:mm a")}
                       </div>
                       {msg.role === 'assistant' && agentId === 'coordenador-geral-tax-group' && (() => {
@@ -588,7 +597,7 @@ export default function AgentChat() {
                             <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                             <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                           </div>
-                          <span className="text-[10px] text-muted-foreground animate-pulse font-medium">Pensando...</span>
+                          <span className="text-xs text-muted-foreground animate-pulse font-medium">Pensando...</span>
                         </div>
                       )}
                     </div>

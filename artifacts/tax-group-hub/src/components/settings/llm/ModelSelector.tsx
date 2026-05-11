@@ -114,16 +114,16 @@ export default function ModelSelector({ value, onChange, placeholder = "Selecion
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{conn.name}</div>
-                      <div className="text-[10px] text-muted-foreground font-mono truncate">
+                      <div className="text-xs text-muted-foreground font-mono truncate">
                         {conn.modelId}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {conn.supportsVision && (
-                        <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1 rounded">vision</span>
+                        <span className="text-[11px] bg-blue-500/10 text-blue-400 px-1 rounded">vision</span>
                       )}
                       {conn.supportsTools && (
-                        <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1 rounded">tools</span>
+                        <span className="text-[11px] bg-emerald-500/10 text-emerald-400 px-1 rounded">tools</span>
                       )}
                       {value === conn.id && <Check className="w-3.5 h-3.5 text-primary" />}
                     </div>

@@ -170,7 +170,7 @@ export function DesignStudioPanel({
               >
                 <div className="text-2xl mb-2">{t.icon}</div>
                 <div className="text-sm font-medium">{t.label}</div>
-                <div className="text-[10px] text-muted-foreground mt-1">{t.desc}</div>
+                <div className="text-xs text-muted-foreground mt-1">{t.desc}</div>
                 <ExternalLink className="w-3 h-3 mt-2 text-muted-foreground group-hover:text-primary transition-colors" />
               </button>
             ))}
@@ -197,7 +197,7 @@ export function DesignStudioPanel({
                 >
                   <img src={img.url} alt={img.prompt} className="w-full aspect-square object-cover" />
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-                    <p className="text-[10px] text-white line-clamp-2">{img.prompt}</p>
+                    <p className="text-xs text-white line-clamp-2">{img.prompt}</p>
                   </div>
                 </motion.div>
               ))}

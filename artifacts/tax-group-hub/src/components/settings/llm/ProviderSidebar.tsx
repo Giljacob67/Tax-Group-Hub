@@ -53,7 +53,7 @@ export default function ProviderSidebar({
         >
           <span className="text-base leading-none">⊞</span>
           <span className="flex-1">Todos</span>
-          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">{connections.length}</span>
+          <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">{connections.length}</span>
         </button>
 
         {providers.map((p) => {
@@ -75,7 +75,7 @@ export default function ProviderSidebar({
               {c > 0 && (
                 <span className="flex items-center gap-1">
                   <span className={`w-1.5 h-1.5 rounded-full ${ok > 0 ? "bg-emerald-400" : "bg-amber-400"}`} />
-                  <span className="text-[10px] text-muted-foreground">{c}</span>
+                  <span className="text-xs text-muted-foreground">{c}</span>
                 </span>
               )}
             </button>

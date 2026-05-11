@@ -188,7 +188,7 @@ export default function KnowledgeBase() {
                         <h4 className="font-semibold text-sm truncate text-foreground" title={doc.filename}>{doc.filename}</h4>
                         <div className="flex items-center space-x-2 mt-1">
                           <span className="text-xs text-muted-foreground">{formatBytes(doc.fileSize)}</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
                             doc.hasContent || doc.status === "processed"
                               ? 'bg-emerald-500/10 text-emerald-500'
                               : 'bg-amber-500/10 text-amber-500'

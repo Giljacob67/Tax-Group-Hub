@@ -172,12 +172,12 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">{profile.name}</span>
                 {profile.isActive && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-bold">
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-bold">
                     ATIVO
                   </span>
                 )}
                 {profile.isDefault && !profile.isActive && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted border border-border/30">Padrão</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted border border-border/30">Padrão</span>
                 )}
               </div>
               {profile.description && <p className="text-[11px] text-muted-foreground truncate">{profile.description}</p>}
@@ -187,7 +187,7 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
                   const conn = connections.find((c) => c.id === connId);
                   if (!conn) return null;
                   return (
-                    <div key={key} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <div key={key} className="flex items-center gap-1 text-xs text-muted-foreground">
                       {meta.icon}
                       <span className="truncate max-w-[120px]">{conn.name}</span>
                     </div>

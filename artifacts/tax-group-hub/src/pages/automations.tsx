@@ -270,7 +270,7 @@ export default function AutomationsPage() {
                           <div className="flex items-center gap-1 mt-2 flex-wrap">
                             {seq.steps.map((s, i) => (
                               <div key={i} className="flex items-center gap-0.5">
-                                <span className="px-2 py-0.5 rounded-full text-[10px] bg-primary/10 border border-primary/20 text-primary/80">
+                                <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 border border-primary/20 text-primary/80">
                                   D+{s.day} · {s.channel === "whatsapp" ? "WA" : s.channel === "email" ? "✉" : "📝"}
                                 </span>
                                 {i < seq.steps.length - 1 && <ChevronRight className="w-3 h-3 text-muted-foreground/40" />}
@@ -353,7 +353,7 @@ export default function AutomationsPage() {
                         <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
                           <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
                         </div>
-                        <div className="text-[10px] text-muted-foreground mt-0.5 text-right">{pct}%</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 text-right">{pct}%</div>
                       </div>
                     </div>
                   );

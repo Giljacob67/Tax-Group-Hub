@@ -383,7 +383,7 @@ export default function CRMDashboard() {
                 {funnelBar.filter(f => f.days > 0).map(f => (
                   <span
                     key={f.name}
-                    className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                    className="text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{ background: `${f.color}20`, color: f.color }}
                   >
                     {f.name}: {f.days}d
