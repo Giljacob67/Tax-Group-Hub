@@ -111,7 +111,7 @@ export default function ModelHub() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-7 h-7 animate-spin text-primary" />
+        <Loader2 className="w-7 h-7 animate-spin text-primary" aria-label="Carregando Model Hub" />
       </div>
     );
   }
@@ -145,7 +145,7 @@ export default function ModelHub() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         <ProviderSidebar
           providers={providers}
           connections={connections}
@@ -155,7 +155,7 @@ export default function ModelHub() {
           loading={loading}
         />
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 order-first lg:order-none">
           {/* Tabs */}
           <div className="flex items-center gap-1 px-4 py-2 border-b border-border/30 bg-background/30">
             <ModelHubTab id="connections" label="Conexões" active />
@@ -182,8 +182,8 @@ export default function ModelHub() {
           </div>
         </div>
 
-        {/* Right panel: Profiles quick view */}
-        <div className="w-72 flex-shrink-0 border-l border-border/30 bg-background/30 overflow-y-auto p-4">
+        {/* Right panel: Profiles quick view — hidden on mobile */}
+        <div className="hidden xl:block w-72 flex-shrink-0 border-l border-border/30 bg-background/30 overflow-y-auto p-4">
           <ProfileManager profiles={profiles} connections={connections} onRefresh={fetchAll} />
         </div>
       </div>

@@ -27,7 +27,7 @@ export default function ProviderSidebar({
     connections.filter((c) => c.provider === pid && c.lastTestStatus === "ok").length;
 
   return (
-    <div className="w-60 flex-shrink-0 border-r border-border/30 bg-background/50 flex flex-col h-full">
+    <div className="w-full lg:w-60 flex-shrink-0 border-r border-border/30 bg-background/50 flex flex-col h-full">
       <div className="p-4 border-b border-border/30">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60">

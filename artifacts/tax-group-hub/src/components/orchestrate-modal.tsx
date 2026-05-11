@@ -322,7 +322,7 @@ export function OrchestrateModal({
             <button
               onClick={handleExecute}
               disabled={status === "running" || status === "reviewing"}
-              className="flex-2 flex-grow-[2] py-3 rounded-xl bg-gradient-to-r from-[#107ec2] to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-[2] flex-grow-[2] py-3 rounded-xl bg-gradient-to-r from-[#107ec2] to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {status === "running" ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Executando agentes...</>

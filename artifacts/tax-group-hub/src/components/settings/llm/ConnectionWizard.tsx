@@ -249,7 +249,7 @@ export default function ConnectionWizard({ providers, onClose, onCreated }: Prop
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Tipo de Uso</Label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {USAGE_TYPES.map((u) => (
                       <button
                         key={u.id}

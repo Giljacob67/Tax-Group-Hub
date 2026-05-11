@@ -414,7 +414,7 @@ export default function AutomationsPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 block">ID do Canal WhatsApp</Label>
                 <Input placeholder="ID do canal" value={broadcastForm.channelId} onChange={e => setBroadcastForm(f => ({ ...f, channelId: e.target.value }))} />

@@ -80,7 +80,7 @@ export function DesignStudioPanel({
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="w-96 border-l border-border/50 bg-card/50 backdrop-blur-xl flex flex-col h-full overflow-hidden"
+      className="w-full sm:w-96 border-l border-border/50 bg-card/50 backdrop-blur-xl flex flex-col h-full overflow-hidden"
     >
       <div className="p-4 border-b border-border/50 flex items-center justify-between bg-gradient-to-r from-purple-500/10 to-blue-500/10">
         <div className="flex items-center gap-2">
@@ -160,7 +160,7 @@ export function DesignStudioPanel({
           <p className="text-xs text-muted-foreground mb-4">
             Abra templates do Canva pré-configurados para o seu conteúdo:
           </p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {CANVA_TEMPLATES.map((t) => (
               <button
                 key={t.id}
@@ -185,7 +185,7 @@ export function DesignStudioPanel({
               <p className="text-xs mt-1">Use a aba "Gerar Imagem" para criar.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {gallery.map((img, i) => (
                 <motion.div
                   key={i}

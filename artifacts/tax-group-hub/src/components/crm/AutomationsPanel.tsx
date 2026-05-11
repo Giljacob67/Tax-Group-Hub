@@ -187,7 +187,7 @@ export default function AutomationsPanel() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* SE */}
                   <div className="space-y-3 bg-card p-3 border border-border/50 rounded-lg">
                     <h4 className="text-sm font-semibold flex items-center gap-2">
