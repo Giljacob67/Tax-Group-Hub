@@ -7,8 +7,10 @@ import {
   Send, Bot, User, Plus, MessageSquare, Loader2,
   Copy, CheckCheck, Trash2, Search, Download,
   Settings, Sparkles, Pencil, Check, X, Cpu,
-  RotateCw, History
+  RotateCw, History, MessageCircle
 } from "lucide-react";
+import { SkeletonChat, SkeletonChatSidebar } from "@/components/skeletons";
+import { EmptyState } from "@/components/empty-state";
 import {
   useGetAgent,
   useListConversations,
@@ -307,7 +309,18 @@ export default function AgentChat() {
     return cleaned.trim();
   }
 
-  if (isLoadingAgent) return <div className="flex-1 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  if (isLoadingAgent) return (
+    <div className="flex-1 flex flex-col">
+      <div className="h-16 border-b border-border/50 flex items-center px-6 gap-4">
+        <div className="w-10 h-10 rounded-xl bg-primary/10" />
+        <div className="space-y-2">
+          <div className="w-32 h-4 bg-primary/10 rounded" />
+          <div className="w-20 h-3 bg-primary/10 rounded" />
+        </div>
+      </div>
+      <SkeletonChat />
+    </div>
+  );
   if (!agent) return <div className="flex-1 flex items-center justify-center text-muted-foreground">Agent not found</div>;
 
   return (
@@ -333,7 +346,7 @@ export default function AgentChat() {
         </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
           {isLoadingConvs ? (
-            <div className="flex justify-center p-4"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+            <SkeletonChatSidebar />
           ) : filteredConversations?.length === 0 ? (
             <div className="text-center p-4 text-sm text-muted-foreground">
               {searchFilter ? "Nenhum resultado" : "Nenhuma conversa ainda"}

@@ -3,7 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, Loader2,
-  AlertCircle, Crown, MessageSquare, Cpu,
+  AlertCircle, Crown, MessageSquare, Cpu, Settings as SettingsIcon,
   Trash2, Copy, Plus, Save, UploadCloud,
   ChevronDown,
 } from "lucide-react";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ModelHub from "@/components/settings/llm/ModelHub";
+import { SkeletonSettings } from "@/components/skeletons";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ChannelConfig {
@@ -94,7 +95,7 @@ function WhatsAppSection() {
 
   const copy = (t: string) => { navigator.clipboard.writeText(t); toast({ title: "Copiado!" }); };
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
+  if (loading) return <SkeletonSettings />;
 
   return (
     <div className="space-y-5">
@@ -286,7 +287,7 @@ function BrandingSection() {
     }
   }
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
+  if (loading) return <SkeletonSettings />;
 
   return (
     <div className="space-y-6">

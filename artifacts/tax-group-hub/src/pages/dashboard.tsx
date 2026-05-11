@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useListAgents, useListConversations } from "@workspace/api-client-react";
+import { SkeletonMetricsGrid, SkeletonAgentBlocks } from "@/components/skeletons";
+import { EmptyState } from "@/components/empty-state";
 
 const BLOCKS = [
   { id: "estrategia", title: "Estratégia e Inteligência",    icon: Crown,     gradient: "from-amber-500/20 to-amber-900/20",   border: "border-amber-500/30",  desc: "Centro de comando: orquestra campanhas e distribui tarefas." },
@@ -16,8 +18,8 @@ const BLOCKS = [
 ];
 
 export default function Dashboard() {
-  const { data: agentsData } = useListAgents();
-  const { data: convData }   = useListConversations();
+  const { data: agentsData, isLoading: isLoadingAgents } = useListAgents();
+  const { data: convData, isLoading: isLoadingConvs }   = useListConversations();
 
   const { data: contactsData } = useQuery<{ total: number; enriched: number; qualified: number }>({
     queryKey: ["/api/crm/contacts/summary"],
@@ -82,7 +84,10 @@ export default function Dashboard() {
         </motion.div>
 
         {/* ── Metrics ── */}
-        <motion.div
+        {isLoadingAgents || isLoadingConvs ? (
+          <SkeletonMetricsGrid />
+        ) : (
+          <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
@@ -104,13 +109,23 @@ export default function Dashboard() {
             </motion.div>
           ))}
         </motion.div>
+        )}
 
         {/* ── Agent Blocks ── */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.25 }}>
           <h2 className="text-base font-semibold mb-4 text-muted-foreground uppercase tracking-wider text-xs">
             Blocos de Agentes
           </h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+          {isLoadingAgents ? (
+            <SkeletonAgentBlocks />
+          ) : agentsData?.agents?.length === 0 ? (
+            <EmptyState
+              icon={Bot}
+              title="Nenhum agente encontrado"
+              description="Os agentes de IA ainda não foram configurados. Verifique se o backend está rodando corretamente."
+            />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
             {BLOCKS.map((block, i) => {
               const blockAgents = agentsData?.agents?.filter((a: any) => a.block === block.id) ?? [];
               return (
@@ -152,6 +167,7 @@ export default function Dashboard() {
               );
             })}
           </div>
+          )}
         </motion.div>
 
       </div>
