@@ -64,7 +64,12 @@ export default function AgentChat() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [showSystemPrompt, setShowSystemPrompt] = useState(false);
-  const [customSystemPrompt, setCustomSystemPrompt] = useState<string | null>(null);
+  const [customSystemPrompt, setCustomSystemPrompt] = useState<string | null>(() => {
+    try {
+      const raw = localStorage.getItem(`taxgroup_system_prompt_${agentId}`);
+      return raw || null;
+    } catch { return null; }
+  });
   const [editingPrompt, setEditingPrompt] = useState("");
   const [showDesignStudio, setShowDesignStudio] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState<LlmConnection | null>(() => {
@@ -184,7 +189,7 @@ export default function AgentChat() {
           const { done, value } = await reader.read();
           if (done) break;
           const chunkStr = decoder.decode(value, { stream: true });
-          const lines = chunkStr.split("\\n\\n");
+          const lines = chunkStr.split("\n\n");
           for (const line of lines) {
             if (line.startsWith("data: ")) {
               try {
@@ -298,6 +303,12 @@ export default function AgentChat() {
   const handleSaveSystemPrompt = () => {
     const newPrompt = editingPrompt || null;
     setCustomSystemPrompt(newPrompt);
+    if (agentId) {
+      try {
+        if (newPrompt) localStorage.setItem(`taxgroup_system_prompt_${agentId}`, newPrompt);
+        else localStorage.removeItem(`taxgroup_system_prompt_${agentId}`);
+      } catch {}
+    }
     setShowSystemPrompt(false);
     toast({ title: newPrompt ? "System prompt atualizado" : "System prompt restaurado" });
   };
@@ -378,7 +389,7 @@ export default function AgentChat() {
             filteredConversations?.map((conv) => (
               <div
                 key={conv.id}
-                onClick={() => { if (renamingId !== conv.id) setActiveConvId(conv.id); }}
+                onClick={() => { if (renamingId !== conv.id) { setIsCreatingNewChat(false); setActiveConvId(conv.id); } }}
                 className={`w-full text-left p-3 rounded-xl transition-all duration-200 group flex items-start justify-between cursor-pointer ${
                   activeConvId === conv.id
                     ? 'bg-primary/10 border-l-2 border-primary border-y-0 border-r-0 rounded-l-none shadow-[0_0_10px_hsl(var(--primary)/0.08)]'

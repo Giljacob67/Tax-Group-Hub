@@ -1021,6 +1021,9 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
   const [activityType, setActivityType]           = useState("note");
   const [activitySubject, setActivitySubject]     = useState("");
   const [activityContent, setActivityContent]     = useState("");
+  const [showNewDealForm, setShowNewDealForm]     = useState(false);
+  const [newDealTitle, setNewDealTitle]           = useState("");
+  const [newDealValue, setNewDealValue]           = useState("");
 
   const enrichMutation = useMutation({
     mutationFn: async () => {
@@ -1077,6 +1080,32 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
     },
     onSuccess: () => { toast({ title: "Contato removido." }); onDelete(); },
     onError: () => toast({ title: "Erro ao deletar contato", variant: "destructive" }),
+  });
+
+  const createDealMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/crm/deals", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newDealTitle || "Nova Oportunidade",
+          stage: "prospect",
+          value: newDealValue ? Number(newDealValue) : null,
+          contactId: contact.id,
+          probability: 20,
+          pipelineId: "default",
+        }),
+      });
+      if (!res.ok) throw new Error("Erro ao criar deal");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
+      toast({ title: "Negócio criado!" });
+      setShowNewDealForm(false);
+      setNewDealTitle("");
+      setNewDealValue("");
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
   const logActivityMutation = useMutation({
@@ -1237,11 +1266,10 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
             <button
               onClick={() => {
                 window.open(`tel:${contact.telefone}`, "_self");
-                logActivityMutation.mutate();
                 setActivityType("call");
                 setActivitySubject("Ligação realizada");
                 setActivityContent(`Ligação para ${contact.telefone}`);
-                setTimeout(() => logActivityMutation.mutate(), 100);
+                setTimeout(() => logActivityMutation.mutate(), 0);
               }}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-xs text-emerald-400 hover:text-emerald-300 transition-colors border border-emerald-500/20"
               title={contact.telefone}
@@ -1456,13 +1484,23 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           {/* ── Deals Tab ── */}
           <TabsContent value="deals" className="m-0">
             <div className="p-4 space-y-3">
-              <Button size="sm" variant="outline" className="w-full text-xs gap-1.5"
-                onClick={() => {
-                  toast({ title: "Ir para o pipeline para criar" });
-                  // Poderia abrir o DealModal diretamente se quisermos
-                }}>
-                <Plus className="w-3.5 h-3.5" /> Novo Negócio
-              </Button>
+              {!showNewDealForm ? (
+                <Button size="sm" variant="outline" className="w-full text-xs gap-1.5"
+                  onClick={() => setShowNewDealForm(true)}>
+                  <Plus className="w-3.5 h-3.5" /> Novo Negócio
+                </Button>
+              ) : (
+                <div className="space-y-2 p-3 border border-border/50 rounded-xl bg-background/50">
+                  <Input placeholder="Título da oportunidade" value={newDealTitle} onChange={e => setNewDealTitle(e.target.value)} className="text-xs h-8" />
+                  <Input placeholder="Valor (R$)" type="number" value={newDealValue} onChange={e => setNewDealValue(e.target.value)} className="text-xs h-8" />
+                  <div className="flex gap-2">
+                    <Button size="sm" className="text-xs flex-1" disabled={createDealMutation.isPending} onClick={() => createDealMutation.mutate()}>
+                      {createDealMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Criar"}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-xs" onClick={() => setShowNewDealForm(false)}>Cancelar</Button>
+                  </div>
+                </div>
+              )}
               {deals.length === 0 ? (
                 <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-xl border-border/50">
                   <Briefcase className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />

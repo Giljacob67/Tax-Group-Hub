@@ -31,6 +31,7 @@ export default function KnowledgeBase() {
   const queryClient = useQueryClient();
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{documentId: string; filename: string; score: number; content?: string}>>([]);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const { data: docsData, isLoading: isLoadingDocs } = useListKnowledgeDocuments(undefined, {
@@ -95,10 +96,12 @@ export default function KnowledgeBase() {
     if (!searchQuery.trim()) return;
     try {
       const res = await searchMutation.mutateAsync({ data: { query: searchQuery, limit: 5 } });
-      toast({ title: `${res.results.length} resultado(s) para "${searchQuery}"` });
+      setSearchResults(res.results || []);
+      toast({ title: `${res.results?.length || 0} resultado(s) para "${searchQuery}"` });
     } catch (err) {
       console.error("[Knowledge] search failed:", err);
       toast({ title: "Erro na busca", variant: "destructive" });
+      setSearchResults([]);
     }
   };
 
@@ -128,6 +131,26 @@ export default function KnowledgeBase() {
             />
           </form>
         </div>
+
+        {searchResults.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground">Resultados da busca</h2>
+              <button onClick={() => setSearchResults([])} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Limpar</button>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {searchResults.map((r, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card/50">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{r.filename}</div>
+                    {r.content && <div className="text-xs text-muted-foreground truncate">{r.content}</div>}
+                  </div>
+                  <span className="text-xs font-mono text-primary ml-3 shrink-0">{Math.round((r.score || 0) * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div
           {...getRootProps()}

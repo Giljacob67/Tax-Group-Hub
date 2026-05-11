@@ -16,6 +16,7 @@ export default function ModelHub() {
   const [profiles, setProfiles] = useState<LlmProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<ProviderMeta | null>(null);
+  const [activeTab, setActiveTab] = useState<"connections" | "profiles">("connections");
   const [showWizard, setShowWizard] = useState(false);
   const [testingId, setTestingId] = useState<number | null>(null);
   const [healthRunning, setHealthRunning] = useState(false);
@@ -158,26 +159,32 @@ export default function ModelHub() {
         <div className="flex-1 flex flex-col min-w-0 order-first lg:order-none">
           {/* Tabs */}
           <div className="flex items-center gap-1 px-4 py-2 border-b border-border/30 bg-background/30">
-            <ModelHubTab id="connections" label="Conexões" active />
-            <ModelHubTab id="profiles" label="Perfis" />
+            <ModelHubTab id="connections" label="Conexões" active={activeTab === "connections"} onClick={() => setActiveTab("connections")} />
+            <ModelHubTab id="profiles" label="Perfis" active={activeTab === "profiles"} onClick={() => setActiveTab("profiles")} />
           </div>
 
           <div className="flex-1 overflow-hidden">
             <motion.div
-              key="connections"
+              key={activeTab}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="h-full"
             >
-              <ModelCatalog
-                connections={connections}
-                providers={providers}
-                selectedProvider={selectedProvider}
-                onTest={handleTest}
-                onActivate={handleActivate}
-                onDelete={handleDelete}
-                testingId={testingId}
-              />
+              {activeTab === "connections" ? (
+                <ModelCatalog
+                  connections={connections}
+                  providers={providers}
+                  selectedProvider={selectedProvider}
+                  onTest={handleTest}
+                  onActivate={handleActivate}
+                  onDelete={handleDelete}
+                  testingId={testingId}
+                />
+              ) : (
+                <div className="h-full overflow-y-auto p-4">
+                  <ProfileManager profiles={profiles} connections={connections} onRefresh={fetchAll} />
+                </div>
+              )}
             </motion.div>
           </div>
         </div>
@@ -209,9 +216,10 @@ export default function ModelHub() {
   );
 }
 
-function ModelHubTab({ id, label, active }: { id: string; label: string; active?: boolean }) {
+function ModelHubTab({ id, label, active, onClick }: { id: string; label: string; active?: boolean; onClick?: () => void }) {
   return (
     <button
+      onClick={onClick}
       className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
         active
           ? "bg-primary/10 text-primary"

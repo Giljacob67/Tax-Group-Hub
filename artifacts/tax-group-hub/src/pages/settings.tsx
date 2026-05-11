@@ -44,11 +44,15 @@ function WhatsAppSection() {
   const [form, setForm] = useState({ phoneNumberId: "", accessToken: "", verifyToken: "", agentId: "" });
 
   useEffect(() => {
-    Promise.all([fetch("/api/settings/channels"), fetch("/api/agents")]).then(async ([chRes, agRes]) => {
-      if (chRes.ok) { const d = await chRes.json(); setChannels((d.channels || []).filter((c: ChannelConfig) => c.platform === "whatsapp")); }
-      if (agRes.ok) { const d = await agRes.json(); setAgents(d.agents || []); }
-      setLoading(false);
-    });
+    Promise.all([fetch("/api/settings/channels"), fetch("/api/agents")])
+      .then(async ([chRes, agRes]) => {
+        if (chRes.ok) { const d = await chRes.json(); setChannels((d.channels || []).filter((c: ChannelConfig) => c.platform === "whatsapp")); }
+        if (agRes.ok) { const d = await agRes.json(); setAgents(d.agents || []); }
+      })
+      .catch(() => {
+        toast({ title: "Erro ao carregar configurações", variant: "destructive" });
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   async function handleSave() {
@@ -85,9 +89,12 @@ function WhatsAppSection() {
   async function handleDelete(id: number) {
     setDeletingId(id);
     try {
-      await fetch(`/api/settings/channels/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/settings/channels/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
       toast({ title: "Canal removido" });
       setChannels(prev => prev.filter(c => c.id !== id));
+    } catch {
+      toast({ title: "Erro ao remover canal", variant: "destructive" });
     } finally {
       setDeletingId(null);
     }
