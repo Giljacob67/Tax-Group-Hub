@@ -43,11 +43,7 @@ router.post("/integrations/generate-image", async (req, res) => {
             body: JSON.stringify({
               contents: [{ parts: [{ text: fullPrompt }] }],
               generationConfig: {
-                responseModalities: ["IMAGE", "TEXT"],
-                imageConfig: {
-                  aspectRatio: "1:1",
-                  imageSize: "1024x1024"
-                }
+                responseModalities: ["IMAGE", "TEXT"]
               },
             }),
           }
