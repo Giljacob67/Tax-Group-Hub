@@ -16,6 +16,7 @@ import { streamText } from "ai";
 import { SendMessageBody } from "@workspace/api-zod";
 import { isRealUser } from "../middlewares/auth.js";
 import { apiError } from "../lib/api-response.js";
+import { validateIdParam } from "../lib/validation.js";
 
 const router: IRouter = Router();
 
@@ -189,14 +190,20 @@ router.patch("/conversations/:conversationId", async (req, res) => {
 
 router.get("/conversations/:conversationId/export", async (req, res) => {
   try {
-    const conversationId = Number(req.params.conversationId);
-    if (isNaN(conversationId)) {
+    const conversationId = validateIdParam(req.params.conversationId);
+    const userId = req.userId;
+    if (conversationId === null) {
       apiError(res, 404, "Conversation not found");
       return;
     }
     const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
     if (!conv) {
       apiError(res, 404, "Conversation not found");
+      return;
+    }
+    // Tenancy check: if real user, verify ownership
+    if (isRealUser(userId) && conv.userId && conv.userId !== userId) {
+      apiError(res, 403, "Access denied");
       return;
     }
     const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
@@ -286,7 +293,11 @@ router.delete("/conversations/:conversationId", async (req, res) => {
 router.post("/conversations/:conversationId/messages", async (req, res) => {
   try {
     const userId = req.userId;
-    const conversationId = Number(req.params.conversationId);
+    const conversationId = validateIdParam(req.params.conversationId);
+    if (conversationId === null) {
+      apiError(res, 400, "Invalid conversation id");
+      return;
+    }
     const parsedBody = SendMessageBody.safeParse(req.body);
     if (!parsedBody.success) {
       res.status(400).json({ error: "Formato de requisicao invalido", details: parsedBody.error.format() });

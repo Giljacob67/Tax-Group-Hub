@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
 import mammoth from "mammoth";
+import { validateIdParam } from "../lib/validation.js";
 
 const router: IRouter = Router();
 
@@ -260,22 +261,27 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
 // DELETE /knowledge/:id — Remove a document (scoped by userId if provided)
 router.delete("/knowledge/:id", async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = validateIdParam(req.params.id);
     const userId = req.userId;
+
+    if (id === null) {
+      apiError(res, 400, "Invalid document id");
+      return;
+    }
 
     // If we have a real userId, ensure the user owns this document
     if (userId && userId !== "default" && userId !== "dev-user") {
       const [doc] = await db
         .select()
         .from(knowledgeDocumentsTable)
-        .where(and(eq(knowledgeDocumentsTable.id, Number(id)), eq(knowledgeDocumentsTable.userId, userId)));
+        .where(and(eq(knowledgeDocumentsTable.id, id), eq(knowledgeDocumentsTable.userId, userId)));
       if (!doc) {
         apiError(res, 404, "Document not found or access denied");
         return;
       }
     }
 
-    await db.delete(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.id, Number(id)));
+    await db.delete(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.id, id));
     res.json({ success: true });
   } catch (err) {
     console.error("Knowledge delete error:", err);

@@ -27,7 +27,7 @@ interface CoordinatorReview {
   conversationId: string;
 }
 
-async function executeAgentTask(task: OrchestrationTask, context?: string): Promise<OrchestrationResult> {
+async function executeAgentTask(task: OrchestrationTask, context?: string, userId?: string): Promise<OrchestrationResult> {
   const agent = getAgentById(task.agentId);
   if (!agent) {
     return {
@@ -48,6 +48,7 @@ async function executeAgentTask(task: OrchestrationTask, context?: string): Prom
       .values({
         agentId: task.agentId,
         title: `🤖 Orquestrado: ${task.task.substring(0, 60)}${task.task.length > 60 ? "..." : ""}`,
+        userId: userId || null,
       })
       .returning();
 
@@ -106,7 +107,8 @@ async function executeAgentTask(task: OrchestrationTask, context?: string): Prom
 
 async function runCoordinatorReview(
   tasks: OrchestrationTask[],
-  results: OrchestrationResult[]
+  results: OrchestrationResult[],
+  userId?: string
 ): Promise<CoordinatorReview> {
   const coordinator = getAgentById("coordenador-geral-tax-group");
   if (!coordinator) return { response: "", conversationId: "" };
@@ -155,6 +157,7 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
       .values({
         agentId: "coordenador-geral-tax-group",
         title: `🎖️ Supervisão: análise de ${successfulResults.length} agentes`,
+        userId: userId || null,
       })
       .returning();
 
@@ -215,11 +218,11 @@ router.post("/orchestrate", async (req, res) => {
 
     // Step 1: Execute all agent tasks in parallel
     const results = await Promise.all(
-      tasks.map((task) => executeAgentTask(task, context))
+      tasks.map((task) => executeAgentTask(task, context, req.userId))
     );
 
     // Step 2: Coordinator reviews all outputs and gives final assessment
-    const coordinatorReview = await runCoordinatorReview(tasks, results);
+    const coordinatorReview = await runCoordinatorReview(tasks, results, req.userId);
 
     res.json({ results, coordinatorReview });
   } catch (err) {

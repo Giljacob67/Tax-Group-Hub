@@ -12,6 +12,7 @@ import { callLLM } from "../lib/llm-client.js";
 import { getAgentById } from "../lib/agents-data.js";
 import { apiError } from "../lib/api-response.js";
 import { enrichContact } from "../lib/cnpj-enrichment.js";
+import { pick, safeNumber, validateHttpUrl } from "../lib/validation.js";
 
 const router = Router();
 
@@ -164,8 +165,10 @@ router.get("/contacts", async (req: Request, res: Response) => {
     if (regime)   conditions.push(eq(crmContactsTable.regimeTributario, regime));
     if (porte)    conditions.push(eq(crmContactsTable.porte, porte));
     if (uf)       conditions.push(ilike(crmContactsTable.uf, `%${uf}%`));
-    if (scoreMin) conditions.push(gte(crmContactsTable.aiScore, Number(scoreMin)));
-    if (scoreMax) conditions.push(lte(crmContactsTable.aiScore, Number(scoreMax)));
+    const scoreMinNum = safeNumber(scoreMin, { min: 0, max: 100 });
+    const scoreMaxNum = safeNumber(scoreMax, { min: 0, max: 100 });
+    if (scoreMinNum !== null) conditions.push(gte(crmContactsTable.aiScore, scoreMinNum));
+    if (scoreMaxNum !== null) conditions.push(lte(crmContactsTable.aiScore, scoreMaxNum));
     
     // Filtro por tag (lista)
     if (tag) {
@@ -240,9 +243,11 @@ router.post("/contacts", async (req: Request, res: Response) => {
       }
     }
 
+    const allowedContactFields = ["razaoSocial","nomeFantasia","regimeTributario","cnae","faturamentoEstimado","porte","uf","cidade","endereco","cep","telefone","email","website","nomeDecissor","cargoDecissor","socios","tags","customFields","status","aiScore","aiScoreDetails","aiRecommendedProduct"] as const;
+    const sanitizedData = pick(data, allowedContactFields);
     const [newContact] = await db
       .insert(crmContactsTable)
-      .values({ ...enrichedFields, ...data, cnpj: cleanCnpj, userId, source: enrichSource, lastEnrichedAt: enrichSource === "empresaqui" ? new Date() : null })
+      .values({ ...enrichedFields, ...sanitizedData, cnpj: cleanCnpj, userId, source: enrichSource, lastEnrichedAt: enrichSource === "empresaqui" ? new Date() : null })
       .returning();
 
     if (enrichSource === "empresaqui" && Object.keys(enrichedFields).length > 0) {
@@ -273,9 +278,10 @@ router.put("/contacts/:id", async (req: Request, res: Response) => {
     const [oldContact] = await db.select({ status: crmContactsTable.status }).from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
 
+    const allowedContactFields = ["razaoSocial","nomeFantasia","regimeTributario","cnae","faturamentoEstimado","porte","uf","cidade","endereco","cep","telefone","email","website","nomeDecissor","cargoDecissor","socios","tags","customFields","status","aiScore","aiScoreDetails","aiRecommendedProduct"] as const;
     const [updated] = await db
       .update(crmContactsTable)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set({ ...pick(req.body, allowedContactFields), updatedAt: new Date() })
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)))
       .returning();
     
@@ -296,7 +302,9 @@ router.put("/contacts/:id", async (req: Request, res: Response) => {
 router.delete("/contacts/:id", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    await db.delete(crmContactsTable).where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
+    const [existing] = await db.select({ id: crmContactsTable.id }).from(crmContactsTable).where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
+    if (!existing) { apiError(res, 404, "Contact not found"); return; }
+    await db.delete(crmContactsTable).where(eq(crmContactsTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
     apiError(res, 500, "Failed to delete contact");
@@ -437,6 +445,7 @@ router.post("/contacts/import", async (req: Request, res: Response) => {
     const results: { cnpj: string; status: string; contactId?: number }[] = [];
 
     for (const rawCnpj of cnpjs) {
+      if (typeof rawCnpj !== "string") { results.push({ cnpj: String(rawCnpj), status: "error" }); continue; }
       const cnpj = rawCnpj.replace(/\D/g, "");
       try {
         const [existing] = await db.select({ id: crmContactsTable.id }).from(crmContactsTable)
@@ -636,7 +645,8 @@ router.get("/deals", async (req: Request, res: Response) => {
 router.post("/deals", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    const [deal] = await db.insert(crmDealsTable).values({ ...req.body, userId }).returning();
+    const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes"] as const;
+    const [deal] = await db.insert(crmDealsTable).values({ ...pick(req.body, allowedDealFields), userId }).returning();
     res.status(201).json({ success: true, deal });
   } catch (err: any) {
     apiError(res, 400, "Failed to create deal");
@@ -656,8 +666,9 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
       if (body.stage === "lost" && !body.lostAt) body.lostAt = new Date();
     }
 
+    const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes"] as const;
     const [deal] = await db.update(crmDealsTable)
-      .set({ ...body, updatedAt: new Date() })
+      .set({ ...pick(body, allowedDealFields), updatedAt: new Date() })
       .where(eq(crmDealsTable.id, oldDeal.id))
       .returning();
 
@@ -694,7 +705,9 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
 router.delete("/deals/:id", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    await db.delete(crmDealsTable).where(and(eq(crmDealsTable.id, Number(req.params.id)), eq(crmDealsTable.userId, userId)));
+    const [existing] = await db.select({ id: crmDealsTable.id }).from(crmDealsTable).where(and(eq(crmDealsTable.id, Number(req.params.id)), eq(crmDealsTable.userId, userId)));
+    if (!existing) { apiError(res, 404, "Deal not found"); return; }
+    await db.delete(crmDealsTable).where(eq(crmDealsTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
     apiError(res, 500, "Failed to delete deal");
@@ -717,8 +730,9 @@ router.get("/contacts/:id/activities", async (req: Request, res: Response) => {
 router.post("/contacts/:id/activities", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
+    const allowedActivityFields = ["dealId","type","direction","subject","content","scheduledAt","completedAt","agentId","conversationId"] as const;
     const [activity] = await db.insert(crmActivitiesTable)
-      .values({ ...req.body, contactId: Number(req.params.id), userId })
+      .values({ ...pick(req.body, allowedActivityFields), contactId: Number(req.params.id), userId })
       .returning();
     res.status(201).json({ success: true, activity });
   } catch (err: any) {
@@ -752,9 +766,14 @@ router.post("/contacts/:id/attachments", async (req: Request, res: Response) => 
       apiError(res, 400, "fileName, mimeType e url são obrigatórios.");
       return;
     }
+    const safeUrl = validateHttpUrl(url);
+    if (!safeUrl) {
+      apiError(res, 400, "URL inválida. Apenas http/https são permitidos.");
+      return;
+    }
 
     const [attachment] = await db.insert(crmAttachmentsTable)
-      .values({ userId, contactId, dealId: dealId ? Number(dealId) : null, fileName, fileSize, mimeType, url, uploadedBy: userId })
+      .values({ userId, contactId, dealId: dealId ? Number(dealId) : null, fileName, fileSize, mimeType, url: safeUrl, uploadedBy: userId })
       .returning();
 
     await db.insert(crmActivitiesTable).values({
@@ -773,11 +792,13 @@ router.post("/contacts/:id/attachments", async (req: Request, res: Response) => 
 router.delete("/contacts/:contactId/attachments/:attachmentId", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    await db.delete(crmAttachmentsTable).where(and(
+    const [existing] = await db.select({ id: crmAttachmentsTable.id }).from(crmAttachmentsTable).where(and(
       eq(crmAttachmentsTable.id, Number(req.params.attachmentId)),
       eq(crmAttachmentsTable.contactId, Number(req.params.contactId)),
       eq(crmAttachmentsTable.userId, userId)
     ));
+    if (!existing) { apiError(res, 404, "Attachment not found"); return; }
+    await db.delete(crmAttachmentsTable).where(eq(crmAttachmentsTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
     apiError(res, 500, "Failed to delete attachment");
@@ -812,8 +833,9 @@ router.get("/tasks", async (req: Request, res: Response) => {
 router.post("/tasks", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
+    const allowedTaskFields = ["contactId","dealId","title","description","type","priority","status","dueDate","reminderAt","assignedTo","completedAt"] as const;
     const [task] = await db.insert(crmTasksTable)
-      .values({ ...req.body, userId })
+      .values({ ...pick(req.body, allowedTaskFields), userId })
       .returning();
     res.status(201).json({ success: true, task });
   } catch (err: any) {
@@ -826,8 +848,9 @@ router.put("/tasks/:id", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const body = req.body;
     if (body.status === "done" && !body.completedAt) body.completedAt = new Date();
+    const allowedTaskFields = ["contactId","dealId","title","description","type","priority","status","dueDate","reminderAt","assignedTo","completedAt"] as const;
     const [task] = await db.update(crmTasksTable)
-      .set({ ...body, updatedAt: new Date() })
+      .set({ ...pick(body, allowedTaskFields), updatedAt: new Date() })
       .where(and(eq(crmTasksTable.id, Number(req.params.id)), eq(crmTasksTable.userId, userId)))
       .returning();
     if (!task) { apiError(res, 404, "Task not found"); return; }
@@ -840,8 +863,9 @@ router.put("/tasks/:id", async (req: Request, res: Response) => {
 router.delete("/tasks/:id", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    await db.delete(crmTasksTable)
-      .where(and(eq(crmTasksTable.id, Number(req.params.id)), eq(crmTasksTable.userId, userId)));
+    const [existing] = await db.select({ id: crmTasksTable.id }).from(crmTasksTable).where(and(eq(crmTasksTable.id, Number(req.params.id)), eq(crmTasksTable.userId, userId)));
+    if (!existing) { apiError(res, 404, "Task not found"); return; }
+    await db.delete(crmTasksTable).where(eq(crmTasksTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
     apiError(res, 500, "Failed to delete task");
@@ -896,8 +920,9 @@ router.get("/views", async (req: Request, res: Response) => {
 router.post("/views", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
+    const allowedViewFields = ["name","emoji","filters","isDefault","sortField","sortDir"] as const;
     const [view] = await db.insert(crmSavedViewsTable)
-      .values({ ...req.body, userId })
+      .values({ ...pick(req.body, allowedViewFields), userId })
       .returning();
     res.status(201).json({ success: true, view });
   } catch (err: any) {
@@ -908,8 +933,9 @@ router.post("/views", async (req: Request, res: Response) => {
 router.delete("/views/:id", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    await db.delete(crmSavedViewsTable)
-      .where(and(eq(crmSavedViewsTable.id, Number(req.params.id)), eq(crmSavedViewsTable.userId, userId)));
+    const [existing] = await db.select({ id: crmSavedViewsTable.id }).from(crmSavedViewsTable).where(and(eq(crmSavedViewsTable.id, Number(req.params.id)), eq(crmSavedViewsTable.userId, userId)));
+    if (!existing) { apiError(res, 404, "View not found"); return; }
+    await db.delete(crmSavedViewsTable).where(eq(crmSavedViewsTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
     apiError(res, 500, "Failed to delete view");
@@ -1116,8 +1142,9 @@ router.get("/automations", async (req: Request, res: Response) => {
 router.post("/automations", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
+    const allowedAutoFields = ["name","triggerType","triggerValue","actionType","actionPayload","isActive"] as const;
     const [auto] = await db.insert(crmAutomationsTable)
-      .values({ ...req.body, userId })
+      .values({ ...pick(req.body, allowedAutoFields), userId })
       .returning();
     res.status(201).json({ success: true, automation: auto });
   } catch (err: any) {
@@ -1128,8 +1155,9 @@ router.post("/automations", async (req: Request, res: Response) => {
 router.put("/automations/:id", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
+    const allowedAutoFields = ["name","triggerType","triggerValue","actionType","actionPayload","isActive"] as const;
     const [auto] = await db.update(crmAutomationsTable)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set({ ...pick(req.body, allowedAutoFields), updatedAt: new Date() })
       .where(and(eq(crmAutomationsTable.id, Number(req.params.id)), eq(crmAutomationsTable.userId, userId)))
       .returning();
     if (!auto) { apiError(res, 404, "Automation not found"); return; }
@@ -1142,8 +1170,9 @@ router.put("/automations/:id", async (req: Request, res: Response) => {
 router.delete("/automations/:id", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    await db.delete(crmAutomationsTable)
-      .where(and(eq(crmAutomationsTable.id, Number(req.params.id)), eq(crmAutomationsTable.userId, userId)));
+    const [existing] = await db.select({ id: crmAutomationsTable.id }).from(crmAutomationsTable).where(and(eq(crmAutomationsTable.id, Number(req.params.id)), eq(crmAutomationsTable.userId, userId)));
+    if (!existing) { apiError(res, 404, "Automation not found"); return; }
+    await db.delete(crmAutomationsTable).where(eq(crmAutomationsTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
     apiError(res, 500, "Failed to delete automation");

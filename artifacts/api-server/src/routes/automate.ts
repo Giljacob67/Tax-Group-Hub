@@ -369,8 +369,12 @@ router.post("/automate/trigger/follow-up-check", async (req, res) => {
     const results = [];
 
     for (const lead of leads) {
+      const lastContactDate = lead.lastContact ? new Date(lead.lastContact) : null;
+      if (!lastContactDate || Number.isNaN(lastContactDate.getTime())) {
+        continue;
+      }
       const daysSince = Math.floor(
-        (Date.now() - new Date(lead.lastContact).getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - lastContactDate.getTime()) / (1000 * 60 * 60 * 24)
       );
 
       const input = `
@@ -606,25 +610,18 @@ router.post("/automate/broadcast-whatsapp", async (req, res) => {
     }
 
     // Build contact query with filters
-    let query = db.select().from(crmContactsTable).where(eq(crmContactsTable.userId, userId)) as any;
-
+    const contactConditions = [eq(crmContactsTable.userId, userId)];
     if (filters.minScore !== undefined) {
-      query = db.select().from(crmContactsTable).where(
-        and(eq(crmContactsTable.userId, userId), gte(crmContactsTable.aiScore, filters.minScore))
-      );
+      contactConditions.push(gte(crmContactsTable.aiScore, filters.minScore));
     }
     if (filters.maxScore !== undefined) {
-      query = db.select().from(crmContactsTable).where(
-        and(eq(crmContactsTable.userId, userId), lte(crmContactsTable.aiScore, filters.maxScore))
-      );
+      contactConditions.push(lte(crmContactsTable.aiScore, filters.maxScore));
     }
     if (filters.status?.length) {
-      query = db.select().from(crmContactsTable).where(
-        and(eq(crmContactsTable.userId, userId), inArray(crmContactsTable.status, filters.status))
-      );
+      contactConditions.push(inArray(crmContactsTable.status, filters.status));
     }
 
-    const contacts = await query;
+    const contacts = await db.select().from(crmContactsTable).where(and(...contactConditions));
 
     // Only send to contacts with a phone number
     const eligible = contacts.filter((c: typeof contacts[number]) => c.telefone?.trim());
@@ -768,7 +765,7 @@ router.post("/automate/sequences", async (req, res) => {
 
     const [seq] = await db
       .insert(automationSequencesTable)
-      .values({ userId, name, trigger, triggerValue: triggerValue ?? null, steps: steps as any, isActive: isActive ?? true })
+      .values({ userId, name, trigger, triggerValue: triggerValue ?? null, steps, isActive: isActive ?? true })
       .returning();
 
     res.status(201).json({ success: true, sequence: seq });
@@ -790,7 +787,7 @@ router.put("/automate/sequences/:id", async (req, res) => {
 
     const [updated] = await db
       .update(automationSequencesTable)
-      .set({ name, trigger, triggerValue, steps: steps as any, isActive, updatedAt: new Date() })
+      .set({ name, trigger, triggerValue, steps, isActive, updatedAt: new Date() })
       .where(and(eq(automationSequencesTable.id, id), eq(automationSequencesTable.userId, userId)))
       .returning();
 
@@ -841,7 +838,11 @@ router.post("/automate/sequences/:id/enroll", async (req, res) => {
 
     // nextSendAt = now + first step's delay in days
     const firstStep = seq.steps[0];
-    const nextSendAt = new Date(Date.now() + (firstStep.day ?? 0) * 24 * 60 * 60 * 1000);
+    if (!firstStep || typeof firstStep.day !== "number") {
+      apiError(res, 422, "Sequence first step is invalid");
+      return;
+    }
+    const nextSendAt = new Date(Date.now() + firstStep.day * 24 * 60 * 60 * 1000);
 
     const [enrollment] = await db
       .insert(sequenceEnrollmentsTable)
@@ -860,9 +861,19 @@ router.post("/automate/sequences/:id/enroll", async (req, res) => {
 // Auth: CRON_SECRET header (internal) or regular userId auth
 router.post("/automate/process-sequences", async (req, res) => {
   const cronSecret = req.headers["x-cron-secret"];
-  if (cronSecret && cronSecret !== process.env.CRON_SECRET) {
-    apiError(res, 403, "Invalid cron secret");
-    return;
+  const hasCronSecret = !!process.env.CRON_SECRET;
+  if (hasCronSecret) {
+    if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
+      apiError(res, 403, "Invalid or missing cron secret");
+      return;
+    }
+  } else {
+    // Fallback to regular auth when CRON_SECRET is not configured
+    const userId = req.userId;
+    if (!userId || userId === "system") {
+      apiError(res, 403, "Authentication required");
+      return;
+    }
   }
 
   let processed = 0;
@@ -909,6 +920,11 @@ router.post("/automate/process-sequences", async (req, res) => {
         }
 
         // Build personalized input
+        if (!step.inputTemplate || typeof step.inputTemplate !== "string") {
+          console.error("[Sequences] step missing inputTemplate for enrollment", enrollment.id);
+          failed++;
+          continue;
+        }
         const personalizedInput = step.inputTemplate
           .replace(/\{\{contact_name\}\}/g, contact.razaoSocial || contact.cnpj)
           .replace(/\{\{razao_social\}\}/g, contact.razaoSocial || "")

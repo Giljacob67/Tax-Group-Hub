@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, appConfigTable, channelConfigsTable, apiKeysTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { encrypt, decrypt } from "../lib/crypto.js";
+import { validateWhitelist } from "../lib/validation.js";
 
 const router: IRouter = Router();
 
@@ -221,6 +222,8 @@ router.get("/settings/keys", async (req, res) => {
   }
 });
 
+const ALLOWED_PROVIDERS = ["openai", "anthropic", "google", "openrouter", "ollama", "ollama_cloud", "custom_openai", "auto"] as const;
+
 // POST /settings/keys — Set a custom BYOK key
 router.post("/settings/keys", async (req, res) => {
   try {
@@ -232,6 +235,12 @@ router.post("/settings/keys", async (req, res) => {
       return;
     }
 
+    const validProvider = validateWhitelist(provider, ALLOWED_PROVIDERS);
+    if (!validProvider) {
+      apiError(res, 400, "Invalid provider");
+      return;
+    }
+
     const encryptedKey = encrypt(key.trim());
 
     const [existing] = await db
@@ -239,7 +248,7 @@ router.post("/settings/keys", async (req, res) => {
       .from(apiKeysTable)
       .where(
         and(
-          eq(apiKeysTable.provider, provider),
+          eq(apiKeysTable.provider, validProvider),
           isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined
         )
       )
@@ -252,7 +261,7 @@ router.post("/settings/keys", async (req, res) => {
     } else {
       await db.insert(apiKeysTable).values({
         userId: isRealUser(userId) ? userId : null,
-        provider,
+        provider: validProvider,
         key: encryptedKey,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -308,8 +317,14 @@ router.put("/settings/active-provider", async (req, res) => {
       apiError(res, 400, "provider é obrigatório."); return;
     }
 
-    await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_PROVIDER", value: provider, updatedAt: new Date() })
-      .onConflictDoUpdate({ target: appConfigTable.key, set: { value: provider, updatedAt: new Date() } });
+    const validProvider = validateWhitelist(provider, ALLOWED_PROVIDERS);
+    if (!validProvider) {
+      apiError(res, 400, "Invalid provider");
+      return;
+    }
+
+    await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_PROVIDER", value: validProvider, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: appConfigTable.key, set: { value: validProvider, updatedAt: new Date() } });
 
     if (customUrl !== undefined) {
       if (customUrl) {
@@ -339,6 +354,13 @@ router.put("/settings/active-provider", async (req, res) => {
 router.post("/settings/active-provider/test", async (req, res) => {
   try {
     const { provider, customUrl, model } = req.body as { provider?: string; customUrl?: string; model?: string };
+    if (provider) {
+      const validProvider = validateWhitelist(provider, ALLOWED_PROVIDERS);
+      if (!validProvider) {
+        apiError(res, 400, "Invalid provider");
+        return;
+      }
+    }
     // Dynamic import to avoid circular deps
     const { callLLM } = await import("../lib/llm-client.js");
     const result = await callLLM(
@@ -386,11 +408,19 @@ router.post("/settings/channels", async (req, res) => {
       return;
     }
 
-    // Insert or Update logic
+    // Insert or Update logic scoped by userId
+    const existingConditions = [
+      eq(channelConfigsTable.platform, platform),
+      eq(channelConfigsTable.externalId, externalId),
+    ];
+    if (isRealUser(userId)) {
+      existingConditions.push(eq(channelConfigsTable.userId, userId));
+    }
+
     const [existing] = await db
       .select()
       .from(channelConfigsTable)
-      .where(and(eq(channelConfigsTable.platform, platform), eq(channelConfigsTable.externalId, externalId)))
+      .where(and(...existingConditions))
       .limit(1);
 
     if (existing) {

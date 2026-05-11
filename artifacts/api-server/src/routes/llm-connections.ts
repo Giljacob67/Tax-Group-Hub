@@ -7,6 +7,7 @@ import { isRealUser } from "../middlewares/auth.js";
 import { discoverModels } from "../lib/model-discovery.js";
 import { callLLM } from "../lib/llm-client.js";
 import { healthCheckConnections } from "../lib/llm-router.js";
+import { validateIdParam } from "../lib/validation.js";
 
 const router: IRouter = Router();
 
@@ -472,6 +473,35 @@ router.post("/llm/profiles", async (req, res) => {
 
     if (!body.name?.trim()) { apiError(res, 400, "name is required"); return; }
 
+    // Validate connectionIds exist and belong to user
+    const connectionIds = [
+      body.chatConnectionId,
+      body.fastConnectionId,
+      body.reasoningConnectionId,
+      body.visionConnectionId,
+      body.embeddingConnectionId,
+      body.imageConnectionId,
+      body.transcriptionConnectionId,
+    ].filter((id): id is number => typeof id === "number" && !Number.isNaN(id));
+
+    if (connectionIds.length > 0) {
+      const owned = await db
+        .select({ id: llmConnectionsTable.id })
+        .from(llmConnectionsTable)
+        .where(
+          and(
+            inArray(llmConnectionsTable.id, connectionIds),
+            isRealUser(userId) ? eq(llmConnectionsTable.userId, userId) : undefined
+          )
+        );
+      const ownedIds = new Set(owned.map((c) => c.id));
+      const missing = connectionIds.filter((id) => !ownedIds.has(id));
+      if (missing.length > 0) {
+        apiError(res, 400, `Invalid connectionIds: ${missing.join(", ")}`);
+        return;
+      }
+    }
+
     // Clear previous default if this one is default
     const isDefault = true; // first profile becomes default
     await db
@@ -507,8 +537,8 @@ router.post("/llm/profiles", async (req, res) => {
 router.put("/llm/profiles/:id", async (req, res) => {
   try {
     const userId = req.userId;
-    const id = Number(req.params.id);
-    if (isNaN(id)) { apiError(res, 400, "Invalid profile id"); return; }
+    const id = validateIdParam(req.params.id);
+    if (id === null) { apiError(res, 400, "Invalid profile id"); return; }
 
     const body = req.body as Partial<{
       name: string;
@@ -522,6 +552,35 @@ router.put("/llm/profiles/:id", async (req, res) => {
       transcriptionConnectionId: number | null;
       isDefault: boolean;
     }>;
+
+    // Validate connectionIds exist and belong to user
+    const connectionIds = [
+      body.chatConnectionId,
+      body.fastConnectionId,
+      body.reasoningConnectionId,
+      body.visionConnectionId,
+      body.embeddingConnectionId,
+      body.imageConnectionId,
+      body.transcriptionConnectionId,
+    ].filter((id): id is number => typeof id === "number" && !Number.isNaN(id));
+
+    if (connectionIds.length > 0) {
+      const owned = await db
+        .select({ id: llmConnectionsTable.id })
+        .from(llmConnectionsTable)
+        .where(
+          and(
+            inArray(llmConnectionsTable.id, connectionIds),
+            isRealUser(userId) ? eq(llmConnectionsTable.userId, userId) : undefined
+          )
+        );
+      const ownedIds = new Set(owned.map((c) => c.id));
+      const missing = connectionIds.filter((id) => !ownedIds.has(id));
+      if (missing.length > 0) {
+        apiError(res, 400, `Invalid connectionIds: ${missing.join(", ")}`);
+        return;
+      }
+    }
 
     const updateData: Record<string, any> = { updatedAt: new Date() };
     if (body.name !== undefined) updateData.name = body.name;
@@ -648,7 +707,15 @@ router.get("/llm/active-profile", async (req, res) => {
     ].filter(Boolean) as number[];
 
     const resolved: typeof llmConnectionsTable.$inferSelect[] = connIds.length
-      ? await db.select().from(llmConnectionsTable).where(inArray(llmConnectionsTable.id, connIds))
+      ? await db
+          .select()
+          .from(llmConnectionsTable)
+          .where(
+            and(
+              inArray(llmConnectionsTable.id, connIds),
+              isRealUser(userId) ? eq(llmConnectionsTable.userId, userId) : undefined
+            )
+          )
       : [];
     const connMap = new Map(resolved.map((c: typeof llmConnectionsTable.$inferSelect) => [c.id, c]));
 

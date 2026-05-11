@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import { db, knowledgeDocumentsTable, embeddingCacheTable } from "@workspace/db";
-import { eq, inArray, lt } from "drizzle-orm";
+import { eq, inArray, lt, and } from "drizzle-orm";
 import fs from "node:fs";
 import { processDocumentAsync } from "./knowledge.js";
 import { apiError } from "../lib/api-response.js";
+import { safeNumber } from "../lib/validation.js";
 
 const router: IRouter = Router();
 
@@ -17,18 +18,18 @@ router.post("/system/jobs/retry", async (req, res) => {
     // Enforce admin/system level restriction here if needed
     // For now, allow retry on user's own docs or any doc if global admin.
     
-    let query = db.select().from(knowledgeDocumentsTable).where(inArray(knowledgeDocumentsTable.status, ["error", "pending"]));
+    const conditions = [inArray(knowledgeDocumentsTable.status, ["error", "pending"])];
     
     if (docIds && docIds.length > 0) {
-      query = query.where(inArray(knowledgeDocumentsTable.id, docIds));
+      conditions.push(inArray(knowledgeDocumentsTable.id, docIds));
     }
     
     // Strict tenancy: regular users can only retry their own jobs
     if (userId && userId !== "system" && userId !== "dev-user") {
-      query = query.where(eq(knowledgeDocumentsTable.userId, userId));
+      conditions.push(eq(knowledgeDocumentsTable.userId, userId));
     }
 
-    const stuckDocs = await query;
+    const stuckDocs = await db.select().from(knowledgeDocumentsTable).where(and(...conditions));
 
     if (stuckDocs.length === 0) {
       res.json({ success: true, message: "No stuck or failed documents found to retry.", retriedCount: 0 });
@@ -80,7 +81,7 @@ router.post("/system/jobs/retry", async (req, res) => {
  */
 router.delete("/system/cache/embeddings", async (req, res) => {
   try {
-    const days = Math.max(1, Number(req.query.days) || 90);
+    const days = safeNumber(req.query.days, { min: 1, max: 365 }) ?? 90;
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     const deleted = await db

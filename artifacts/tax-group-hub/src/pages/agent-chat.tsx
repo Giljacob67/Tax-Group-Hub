@@ -81,8 +81,10 @@ export default function AgentChat() {
   const [orchestrationPlan, setOrchestrationPlan] = useState<Array<{agentId: string; task: string}> | null>(null);
   const [showOrchestrateModal, setShowOrchestrateModal] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingConvId, setStreamingConvId] = useState<string | null>(null);
   const [streamingContent, setStreamingContent] = useState("");
   const [optimisticUserMsg, setOptimisticUserMsg] = useState<string | null>(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [showMobileHistory, setShowMobileHistory] = useState(false);
 
   const { data: agent, isLoading: isLoadingAgent } = useGetAgent(agentId!);
@@ -107,9 +109,13 @@ export default function AgentChat() {
   const provider = selectedConnection?.provider || activeConv?.provider || "auto";
   const isApiOnline = !!healthData?.status && !healthError;
 
-  useEffect(() => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeConv?.messages, sendMutation.isPending]);
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [activeConv?.messages, scrollToBottom]);
 
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
   const [availableConnections, setAvailableConnections] = useState<LlmConnection[]>([]);
@@ -155,6 +161,7 @@ export default function AgentChat() {
 
     try {
       let convId = activeConvId;
+      setStreamingConvId(convId || "new");
       if (!convId) {
         const newConv = await createMutation.mutateAsync({ 
           data: { agentId, model: effectiveModel, provider: selectedConnection?.provider, connectionId: selectedConnection?.id || undefined } 
@@ -214,8 +221,10 @@ export default function AgentChat() {
       setInput(text);
     } finally {
       setIsStreaming(false);
+      setStreamingConvId(null);
       setOptimisticUserMsg(null);
       setStreamingContent("");
+      scrollToBottom();
     }
   };
 
@@ -285,18 +294,20 @@ export default function AgentChat() {
   };
 
   const handleRegenerate = async (msgId: string) => {
-    if (isStreaming || !activeConvId) return;
+    if (isStreaming || isRegenerating || !activeConvId) return;
+    setIsRegenerating(true);
     try {
       await deleteMsgMutation.mutateAsync({ messageId: Number(msgId) });
       queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(activeConvId) });
-      // Find the last user message to replay
       const lastUserMsg = activeConv?.messages?.filter(m => m.role === 'user').pop();
       if (lastUserMsg) {
-        handleCreateAndSend(lastUserMsg.content);
+        await handleCreateAndSend(lastUserMsg.content);
       }
     } catch (err) {
       console.error("[Chat] regenerate failed:", err);
       toast({ title: "Erro ao regenerar", variant: "destructive" });
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
