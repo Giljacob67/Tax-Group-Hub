@@ -24,21 +24,22 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useBranding } from "../contexts/BrandingContext";
 
 const BLOCKS = [
-  { id: "estrategia",  label: "Estratégia",   icon: Crown,     color: "text-amber-400"  },
-  { id: "prospeccao",  label: "Prospecção",    icon: Briefcase, color: "text-blue-400"   },
-  { id: "marketing",   label: "Marketing",     icon: Megaphone, color: "text-purple-400" },
-  { id: "gestao",      label: "Gestão",        icon: Settings2, color: "text-emerald-400"},
+  { id: "estrategia",  label: "Estratégia",   icon: Crown,     color: "text-[#D6A847]"  },
+  { id: "prospeccao",  label: "Prospecção",    icon: Briefcase, color: "text-[#107EC2]"   },
+  { id: "marketing",   label: "Marketing",     icon: Megaphone, color: "text-[#A78BFA]" },
+  { id: "gestao",      label: "Gestão",        icon: Settings2, color: "text-[#22C55E]"},
 ];
 
 const NAV_ITEMS = [
-  { path: "/",             label: "Dashboard",       icon: LayoutDashboard, color: "text-sky-400"      },
-  { path: "/crm",          label: "CRM e Pipeline",  icon: Users,           color: "text-blue-400"     },
-  { path: "/automations",  label: "Automações",      icon: Zap,             color: "text-emerald-400"  },
-  { path: "/integrations", label: "AI Integrations", icon: Bot,             color: "text-amber-400"    },
+  { path: "/",             label: "Command Center",   icon: LayoutDashboard, color: "text-[#107EC2]" },
+  { path: "/crm",          label: "CRM & Pipeline",   icon: Users,           color: "text-[#94A3B8]" },
+  { path: "/agent/coordenador-geral-tax-group", label: "Agentes", icon: Bot, color: "text-[#94A3B8]" },
+  { path: "/automations",  label: "Campanhas",        icon: Zap,             color: "text-[#94A3B8]" },
+  { path: "/knowledge",    label: "Base de Conhecimento", icon: BookOpen,    color: "text-[#94A3B8]" },
+  { path: "/integrations", label: "Integrações",      icon: Settings2,       color: "text-[#94A3B8]" },
 ];
 
 const FOOTER_ITEMS = [
-  { path: "/knowledge", label: "Knowledge Base", icon: BookOpen, color: "text-emerald-400"    },
   { path: "/settings",  label: "Configurações",  icon: Settings, color: "text-muted-foreground" },
 ];
 
@@ -74,8 +75,8 @@ export function AppSidebar() {
           {/* Name — only when expanded */}
           {open && (
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold text-white truncate">{branding.companyName}</div>
-              <div className="text-[11px] text-primary font-bold tracking-widest uppercase opacity-70">AI Hub</div>
+              <div className="text-sm font-bold text-foreground truncate">{branding.companyName}</div>
+              <div className="text-[11px] text-muted-foreground font-medium tracking-wider uppercase">Command Center</div>
             </div>
           )}
 
@@ -96,7 +97,7 @@ export function AppSidebar() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Buscar agente..."
+              placeholder="Buscar agente ou função..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-8 pr-7 py-1.5 text-xs bg-muted/40 border border-border/40 rounded-md focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/60"

@@ -88,6 +88,8 @@ export const CreateConversationBody = zod.object({
   agentId: zod.string(),
   title: zod.string().optional(),
   model: zod.string().optional(),
+  provider: zod.string().nullish(),
+  connectionId: zod.number().nullish(),
 });
 
 /**
@@ -117,6 +119,7 @@ export const GetConversationResponse = zod.object({
   updatedAt: zod.date(),
   model: zod.string(),
   provider: zod.string(),
+  connectionId: zod.number().nullish(),
   agentName: zod.string(),
   messages: zod.array(
     zod.object({

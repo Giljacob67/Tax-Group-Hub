@@ -1,6 +1,6 @@
-# Tax Group AI Hub
+# Tax Group Command Center
 
-Um sistema centralizado de agentes de Inteligência Artificial para operar no ecossistema do Tax Group. O projeto engloba automação, RAG (Retrieval-Augmented Generation), e integração com múltiplas plataformas como Telegram, Webhooks (Make.com) e aplicações internas.
+Plataforma B2B premium de inteligência tributária, CRM, agentes de IA e operação comercial para o ecossistema Tax Group. O projeto engloba automação, RAG (Retrieval-Augmented Generation), pipeline de vendas, e integração com múltiplas plataformas como Telegram, Webhooks (Make.com) e aplicações internas.
 
 ## 🏗 Arquitetura do Projeto
 
@@ -13,7 +13,7 @@ O repositório é um **monorepo** gerenciado pelo `pnpm`, estruturado nos seguin
 - `lib/db/`: Esquemas de banco de dados e migrações do Drizzle ORM (PostgreSQL/Neon).
 - `lib/api-zod/`: Schemas do Zod criados para ser a fonte de verdade na validação de interface/API.
 
-A arquitetura usa design **Multi-Tenant**, onde os dados pertencem a um usuário e as integrações são customizáveis. O suporte multimodelo permite conexões simultâneas com Google Gemini, Anthropic Claude, OpenAI Ollama.
+A arquitetura usa design **Multi-Tenant**, onde os dados pertencem a um usuário e as integrações são customizáveis. O suporte multimodelo permite conexões simultâneas com Google Gemini, Anthropic Claude, OpenAI, OpenRouter e Ollama.
 
 ## 🚀 Setup de Desenvolvimento (Local)
 
@@ -60,6 +60,19 @@ pnpm --filter @workspace/db run push
 # 3. Rodar o projeto (Front-end e Back-end simultaneamente em dev mode)
 pnpm run dev
 ```
+
+## 🎨 Identidade Visual
+
+O Command Center utiliza um tema dark corporativo premium:
+- **Primary:** `#107EC2` (Tax Group Blue)
+- **Background:** `#07111F`
+- **Surface/Card:** `#0B1220` / `#111827`
+- **Border:** `#1E293B`
+- **Foreground:** `#F8FAFC`
+- **Muted:** `#94A3B8`
+- **Accent Premium:** `#D6A847` (Gold)
+
+A estética segue padrões SaaS B2B/fintech, com hierarquia visual clara, menos ruído e acabamento executivo.
 
 ## 🔒 Segurança (Fatores Importantes)
 

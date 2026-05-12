@@ -1,4 +1,4 @@
-# Tax Group AI Hub — Automação via Make
+# Tax Group Command Center — Automação via Make
 
 ## Visão Geral
 

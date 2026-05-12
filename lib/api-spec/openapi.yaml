@@ -653,6 +653,9 @@ components:
           type: string
         provider:
           type: string
+        connectionId:
+          type: integer
+          nullable: true
         agentName:
           type: string
         messages:
@@ -670,6 +673,12 @@ components:
           type: string
         model:
           type: string
+        provider:
+          type: string
+          nullable: true
+        connectionId:
+          type: integer
+          nullable: true
       required: [agentId]
 
     RenameConversationRequest:

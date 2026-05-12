@@ -645,7 +645,7 @@ router.get("/deals", async (req: Request, res: Response) => {
 router.post("/deals", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes"] as const;
+    const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId"] as const;
     const [deal] = await db.insert(crmDealsTable).values({ ...pick(req.body, allowedDealFields), userId }).returning();
     res.status(201).json({ success: true, deal });
   } catch (err: any) {
@@ -666,7 +666,7 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
       if (body.stage === "lost" && !body.lostAt) body.lostAt = new Date();
     }
 
-    const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes"] as const;
+    const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId"] as const;
     const [deal] = await db.update(crmDealsTable)
       .set({ ...pick(body, allowedDealFields), updatedAt: new Date() })
       .where(eq(crmDealsTable.id, oldDeal.id))
@@ -833,7 +833,7 @@ router.get("/tasks", async (req: Request, res: Response) => {
 router.post("/tasks", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
-    const allowedTaskFields = ["contactId","dealId","title","description","type","priority","status","dueDate","reminderAt","assignedTo","completedAt"] as const;
+    const allowedTaskFields = ["contactId","dealId","title","description","type","priority","status","dueDate","reminderAt","assignedTo","completedAt","conversationId"] as const;
     const [task] = await db.insert(crmTasksTable)
       .values({ ...pick(req.body, allowedTaskFields), userId })
       .returning();
@@ -848,7 +848,7 @@ router.put("/tasks/:id", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const body = req.body;
     if (body.status === "done" && !body.completedAt) body.completedAt = new Date();
-    const allowedTaskFields = ["contactId","dealId","title","description","type","priority","status","dueDate","reminderAt","assignedTo","completedAt"] as const;
+    const allowedTaskFields = ["contactId","dealId","title","description","type","priority","status","dueDate","reminderAt","assignedTo","completedAt","conversationId"] as const;
     const [task] = await db.update(crmTasksTable)
       .set({ ...pick(body, allowedTaskFields), updatedAt: new Date() })
       .where(and(eq(crmTasksTable.id, Number(req.params.id)), eq(crmTasksTable.userId, userId)))
@@ -1250,6 +1250,68 @@ router.delete("/pipelines/:id", async (req: Request, res: Response) => {
     res.json({ success: true });
   } catch (err: any) {
     apiError(res, 500, "Failed to delete pipeline");
+  }
+});
+
+// ─── Segment Analytics ────────────────────────────────────────────────────────
+// GET /api/crm/segments — returns contact/deal stats by business segment
+router.get("/segments", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const contacts = await db.select().from(crmContactsTable)
+      .where(eq(crmContactsTable.userId, userId));
+
+    const deals = await db.select().from(crmDealsTable)
+      .where(eq(crmDealsTable.userId, userId));
+
+    function classifySegment(contact: typeof contacts[0]): string | null {
+      const text = `${contact.cnae || ""} ${contact.tags?.join(" ") || ""} ${contact.razaoSocial || ""} ${contact.nomeFantasia || ""}`.toLowerCase();
+      if (/agro|pecuária|agricultura|rural|grãos|lavoura|pastagem|avícola|suínocultura/.test(text)) return "agro";
+      if (/indústria|fabrica|manufatura|produção|metalurgia|química|alimentícia|textil|plástico/.test(text)) return "industria";
+      if (/atacado|atacadista|distribuidor|revenda|representação/.test(text)) return "atacado";
+      if (/transporte|logística|armazenagem|carga|frete|expedição|mudança/.test(text)) return "logistica";
+      return null;
+    }
+
+    const segments: Record<string, { label: string; contacts: number; deals: number; potentialValue: number; hotLeads: number }> = {
+      agro:      { label: "Agro",       contacts: 0, deals: 0, potentialValue: 0, hotLeads: 0 },
+      industria: { label: "Indústria",  contacts: 0, deals: 0, potentialValue: 0, hotLeads: 0 },
+      atacado:   { label: "Atacado",    contacts: 0, deals: 0, potentialValue: 0, hotLeads: 0 },
+      logistica: { label: "Logística",  contacts: 0, deals: 0, potentialValue: 0, hotLeads: 0 },
+    };
+
+    for (const c of contacts) {
+      const seg = classifySegment(c);
+      if (seg && segments[seg]) {
+        segments[seg].contacts++;
+        if ((c.aiScore ?? 0) >= 70) segments[seg].hotLeads++;
+      }
+    }
+
+    for (const d of deals) {
+      const contact = contacts.find(c => c.id === d.contactId);
+      if (!contact) continue;
+      const seg = classifySegment(contact);
+      if (seg && segments[seg]) {
+        segments[seg].deals++;
+        const val = Number(d.value) || 0;
+        segments[seg].potentialValue += val;
+      }
+    }
+
+    res.json({
+      segments: Object.entries(segments).map(([id, s]) => ({
+        id,
+        label: s.label,
+        contacts: s.contacts,
+        deals: s.deals,
+        potentialValue: s.potentialValue,
+        hotLeads: s.hotLeads,
+      })).filter(s => s.contacts > 0),
+    });
+  } catch (err: any) {
+    console.error("[CRM] segments error:", err);
+    apiError(res, 500, "Failed to compute segments");
   }
 });
 

@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { BulkImportDialog } from "@/components/crm/BulkImportDialog";
 import { UploadCloud } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
@@ -231,7 +232,7 @@ function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CRMPage() {
-  const [activeTab, setActiveTab]             = useState("contacts");
+  const [activeTab, setActiveTab]             = useState("today");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isImportOpen, setIsImportOpen]       = useState(false);
   const queryClient = useQueryClient();
@@ -250,13 +251,10 @@ export default function CRMPage() {
     <div className="flex h-full overflow-hidden bg-background">
       <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v !== "contacts") setSelectedContact(null); }} className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="flex-none px-6 pt-6 pb-3">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-6">
-              <h1 className="text-xl font-bold tracking-tight text-foreground">CRM</h1>
-              <TabsList className="bg-muted/50 border border-border/50">
-                <TabsTrigger value="dashboard" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Dashboard</TabsTrigger>
-                <TabsTrigger value="contacts" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Contatos</TabsTrigger>
-                <TabsTrigger value="pipeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Pipeline</TabsTrigger>
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">CRM & Pipeline</h1>
+              <TabsList className="bg-muted/50 border border-border/50 h-auto flex-wrap">
                 <TabsTrigger value="today" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative">
                   Hoje
                   {pendingCount > 0 && (
@@ -265,11 +263,14 @@ export default function CRMPage() {
                     </span>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="timeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Timeline</TabsTrigger>
+                <TabsTrigger value="pipeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Pipeline</TabsTrigger>
+                <TabsTrigger value="contacts" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Empresas</TabsTrigger>
+                <TabsTrigger value="timeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Atividades</TabsTrigger>
                 <TabsTrigger value="automations" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Automações</TabsTrigger>
+                <TabsTrigger value="dashboard" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Resumo</TabsTrigger>
               </TabsList>
             </div>
-            {activeTab === "contacts" && (
+            {(activeTab === "contacts" || activeTab === "today") && (
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
                   <UploadCloud className="w-4 h-4 mr-2" />Importar
@@ -302,17 +303,36 @@ export default function CRMPage() {
         </div>
       </Tabs>
 
+      {/* Desktop: side panel */}
       {selectedContact && (
-        <ContactDetailPanel
-          contact={selectedContact}
-          onClose={() => setSelectedContact(null)}
-          onUpdate={(c) => setSelectedContact(c)}
-          onDelete={() => {
-            setSelectedContact(null);
-            queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-          }}
-        />
+        <div className="hidden md:block">
+          <ContactDetailPanel
+            contact={selectedContact}
+            onClose={() => setSelectedContact(null)}
+            onUpdate={(c) => setSelectedContact(c)}
+            onDelete={() => {
+              setSelectedContact(null);
+              queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+            }}
+          />
+        </div>
       )}
+      {/* Mobile: sheet drawer */}
+      <Sheet open={!!selectedContact} onOpenChange={(open) => { if (!open) setSelectedContact(null); }}>
+        <SheetContent side="right" className="w-full sm:w-[480px] p-0 md:hidden">
+          {selectedContact && (
+            <ContactDetailPanel
+              contact={selectedContact}
+              onClose={() => setSelectedContact(null)}
+              onUpdate={(c) => setSelectedContact(c)}
+              onDelete={() => {
+                setSelectedContact(null);
+                queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+              }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
 
       <BulkImportDialog
         open={isImportOpen}
@@ -467,8 +487,12 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
 
   const PRESET_VIEWS: { id: string; name: string; emoji: string; filters: Record<string, string> }[] = [
     { id: "all", name: "Todos", emoji: "📋", filters: {} },
-    { id: "hot", name: "Leads Quentes", emoji: "🔥", filters: { scoreMin: "70", status: "qualified" } },
-    { id: "opps", name: "Oportunidades", emoji: "💰", filters: { status: "opportunity" } },
+    { id: "hot", name: "Leads quentes", emoji: "🔥", filters: { scoreMin: "70" } },
+    { id: "agro", name: "Agro prioritário", emoji: "🌾", filters: { tag: "agro" } },
+    { id: "lucro_real", name: "Indústrias Lucro Real", emoji: "🏭", filters: { regime: "lucro_real" } },
+    { id: "atacado", name: "Atacado", emoji: "📦", filters: { tag: "atacado" } },
+    { id: "opps", name: "Oportunidades RTI", emoji: "💰", filters: { status: "opportunity" } },
+    { id: "proposals", name: "Propostas abertas", emoji: "📄", filters: { status: "opportunity" } },
     { id: "lost", name: "Perdidos", emoji: "⚠️", filters: { status: "lost" } },
   ];
 
@@ -1214,15 +1238,15 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
   }
 
   return (
-    <div className="w-[480px] flex-shrink-0 border-l border-border/50 bg-card/30 flex flex-col h-full overflow-hidden">
+    <div className="w-full md:w-[480px] flex-shrink-0 border-l border-border bg-card flex flex-col h-full overflow-hidden">
       {/* Header with avatar */}
-      <div className="flex-none p-4 border-b border-border/50 bg-card/50">
+      <div className="flex-none p-4 border-b border-border bg-muted/20">
         <div className="flex items-start gap-3">
           <CompanyAvatar name={contact.razaoSocial} size="lg" />
           <div className="min-w-0 flex-1">
             <h3 className="font-bold text-sm leading-tight truncate">{contact.razaoSocial || "Empresa"}</h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="flex items-center gap-1.5 text-xs font-medium bg-muted px-1.5 py-0.5 rounded-full border border-border/50">
+              <span className="flex items-center gap-1.5 text-xs font-medium bg-background px-1.5 py-0.5 rounded-full border border-border">
                 <span className={`w-2 h-2 rounded-full ${healthColor}`} />
                 {healthLabel}
               </span>
@@ -1339,15 +1363,15 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
         </div>
       </div>
 
-      {/* Score + Status + Actions */}
-      <div className="flex-none p-4 space-y-3 border-b border-border/50">
+      {/* Score + Status + Product */}
+      <div className="flex-none p-4 space-y-3 border-b border-border">
         <div className="flex gap-2">
-          <div className="flex-1 bg-muted/40 rounded-lg p-3 text-center">
+          <div className="flex-1 bg-background rounded-lg p-3 text-center border border-border">
             <div className="text-xs text-muted-foreground mb-1">Score IA</div>
             <ScoreBadge score={contact.aiScore} />
             {scoreDetails?.tier && <div className="text-xs text-muted-foreground mt-0.5">Tier {scoreDetails.tier}</div>}
           </div>
-          <div className="flex-1 bg-muted/40 rounded-lg p-3 text-center">
+          <div className="flex-1 bg-background rounded-lg p-3 text-center border border-border">
             <div className="text-xs text-muted-foreground mb-1">Status</div>
             <Select value={contact.status} onValueChange={(v) => updateStatusMutation.mutate(v)}>
               <SelectTrigger className="h-auto border-0 bg-transparent p-0 text-center focus:ring-0 shadow-none">
@@ -1365,12 +1389,21 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
             </Select>
           </div>
           {contact.aiRecommendedProduct && (
-            <div className="flex-1 bg-primary/10 rounded-lg p-3 text-center">
-              <div className="text-xs text-muted-foreground mb-1">Produto</div>
+            <div className="flex-1 bg-primary/10 rounded-lg p-3 text-center border border-primary/20">
+              <div className="text-xs text-muted-foreground mb-1">Produto recomendado</div>
               <span className="text-xs font-bold text-primary leading-tight block">{contact.aiRecommendedProduct}</span>
             </div>
           )}
         </div>
+        {scoreDetails?.nextAction && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+            <div className="text-[11px] text-muted-foreground mb-1">Próximo passo sugerido</div>
+            <div className="text-xs text-foreground font-medium flex items-start gap-1.5">
+              <ArrowRight className="w-3 h-3 text-primary mt-0.5 flex-shrink-0" />
+              {scoreDetails.nextAction}
+            </div>
+          </div>
+        )}
         {/* Active sequence enrollment indicator */}
         {(enrollmentsData?.enrollments?.length ?? 0) > 0 && (
           <div className="space-y-1">
@@ -1396,7 +1429,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           <Button size="sm" variant="outline" className="flex-1 text-xs"
             disabled={enrichMutation.isPending} onClick={() => enrichMutation.mutate()}>
             {enrichMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <RefreshCw className="w-3 h-3 mr-1.5" />}
-            Enriquecer
+            Enriquecer dados
           </Button>
           <Button size="sm" className="flex-1 text-xs bg-primary"
             disabled={qualifyMutation.isPending} onClick={() => qualifyMutation.mutate()}>

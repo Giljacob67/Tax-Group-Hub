@@ -60,9 +60,9 @@ export const crmDealsTable = pgTable("crm_deals", {
   userId: text("user_id").notNull(),
   pipelineId: text("pipeline_id").notNull().default("default"),
   title: text("title").notNull(),
-  produto: text("produto"), 
-  stage: text("stage").notNull().default("prospecting"), 
-  value: text("value"), 
+  produto: text("produto"),
+  stage: text("stage").notNull().default("prospecting"),
+  value: text("value"),
   probability: integer("probability").default(0),
   expectedCloseDate: timestamp("expected_close_date"),
   customFields: jsonb("custom_fields").$type<Record<string, any>>(),
@@ -71,6 +71,7 @@ export const crmDealsTable = pgTable("crm_deals", {
   lostAt: timestamp("lost_at"),
   assignedTo: text("assigned_to"),
   notes: text("notes"),
+  conversationId: integer("conversation_id").references(() => conversationsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -144,6 +145,7 @@ export const crmTasksTable = pgTable("crm_tasks", {
   reminderAt: timestamp("reminder_at"),
   assignedTo: text("assigned_to"),
   completedAt: timestamp("completed_at"),
+  conversationId: integer("conversation_id").references(() => conversationsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

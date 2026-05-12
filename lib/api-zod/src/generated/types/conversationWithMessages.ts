@@ -15,6 +15,7 @@ export interface ConversationWithMessages {
   updatedAt: Date;
   model: string;
   provider: string;
+  connectionId?: number | null;
   agentName: string;
   messages: Message[];
 }
