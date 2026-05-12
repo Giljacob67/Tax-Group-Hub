@@ -24,10 +24,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useBranding } from "../contexts/BrandingContext";
 
 const BLOCKS = [
-  { id: "estrategia",  label: "Estratégia",   icon: Crown,     color: "text-[#D6A847]"  },
-  { id: "prospeccao",  label: "Prospecção",    icon: Briefcase, color: "text-[#107EC2]"   },
-  { id: "marketing",   label: "Marketing",     icon: Megaphone, color: "text-[#A78BFA]" },
-  { id: "gestao",      label: "Gestão",        icon: Settings2, color: "text-[#22C55E]"},
+  { id: "estrategia",  label: "Estratégia e Inteligência",   icon: Crown,     color: "text-muted-foreground"  },
+  { id: "prospeccao",  label: "Prospecção Comercial",    icon: Briefcase, color: "text-muted-foreground"   },
+  { id: "marketing",   label: "Agência Virtual de Marketing",     icon: Megaphone, color: "text-muted-foreground" },
+  { id: "gestao",      label: "Gestão e Operação Interna",        icon: Settings2, color: "text-muted-foreground"},
 ];
 
 const NAV_ITEMS = [
@@ -76,7 +76,7 @@ export function AppSidebar() {
           {open && (
             <div className="min-w-0 flex-1">
               <div className="text-sm font-bold text-foreground truncate">{branding.companyName}</div>
-              <div className="text-[11px] text-muted-foreground font-medium tracking-wider uppercase">Command Center</div>
+              <div className="text-[11px] text-muted-foreground font-medium tracking-wider uppercase">Centro de Comando</div>
             </div>
           )}
 

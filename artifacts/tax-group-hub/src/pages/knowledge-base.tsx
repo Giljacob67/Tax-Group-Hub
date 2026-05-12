@@ -106,9 +106,9 @@ export default function KnowledgeBase() {
   };
 
   const getFileIcon = (type: string) => {
-    if (type.includes('image')) return <FileImage className="w-8 h-8 text-blue-400" />;
-    if (type.includes('video')) return <FileVideo className="w-8 h-8 text-purple-400" />;
-    if (type.includes('pdf')) return <FileText className="w-8 h-8 text-red-400" />;
+    if (type.includes('image')) return <FileImage className="w-8 h-8 text-primary" />;
+    if (type.includes('video')) return <FileVideo className="w-8 h-8 text-primary" />;
+    if (type.includes('pdf')) return <FileText className="w-8 h-8 text-muted-foreground" />;
     return <File className="w-8 h-8 text-muted-foreground" />;
   };
 
@@ -124,7 +124,7 @@ export default function KnowledgeBase() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Busca semântica nos docs..."
+              placeholder="Busca semântica nos documentos..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
@@ -154,8 +154,8 @@ export default function KnowledgeBase() {
 
         <div
           {...getRootProps()}
-          className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-300 ${
-            isDragActive ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(30,64,175,0.2)]' : 'border-border/60 hover:border-primary/50 hover:bg-card/50'
+          className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all duration-300 ${
+            isDragActive ? 'border-primary bg-primary/10' : 'border-border/60 hover:border-primary/50 hover:bg-card/50'
           }`}
         >
           <input {...getInputProps()} />
@@ -187,7 +187,7 @@ export default function KnowledgeBase() {
               ))}
             </div>
           ) : docsData?.documents?.length === 0 ? (
-            <div className="text-center py-16 bg-card/30 rounded-2xl border border-border/50">
+            <div className="text-center py-16 bg-card/30 rounded-xl border border-border/50">
               <Shield className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground">Nenhum documento ainda</h3>
               <p className="text-muted-foreground">Envie seu primeiro documento para enriquecer o conhecimento dos agentes.</p>
@@ -213,8 +213,8 @@ export default function KnowledgeBase() {
                           <span className="text-xs text-muted-foreground">{formatBytes(doc.fileSize)}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
                             doc.hasContent || doc.status === "processed"
-                              ? 'bg-emerald-500/10 text-emerald-500'
-                              : 'bg-amber-500/10 text-amber-500'
+                              ? 'bg-primary/10 text-primary'
+                              : 'bg-muted/10 text-muted-foreground'
                           }`}>
                             {doc.hasContent || doc.status === "processed" ? (
                               <><CheckCircle2 className="w-2.5 h-2.5" /> Indexado</>

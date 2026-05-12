@@ -8,7 +8,8 @@ import {
   Globe, Mail, Phone, Layers, ShieldCheck,
   Server, Database, Wifi, AlertCircle,
   Building2, Target, DollarSign, Flame,
-  Plus, FileText, Wheat, Factory, ShoppingCart, Truck
+  Plus, FileText, Wheat, Factory, ShoppingCart, Truck,
+  CheckCircle2
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useListAgents, useListConversations } from "@workspace/api-client-react";
@@ -141,10 +142,10 @@ export default function Dashboard() {
   const metrics = [
     { label: "Empresas no CRM", value: totalContacts, icon: Building2, spark: [2,4,3,5,6,7,8,9,8,10], color: "#107EC2" },
     { label: "Leads quentes", value: hotLeads, icon: Flame, spark: [0,1,2,3,5,7,8,10,12,15], color: "#D6A847" },
-    { label: "Propostas abertas", value: openDeals, icon: FileText, spark: [1,2,3,5,4,6,8,7,9,10], color: "#22C55E" },
-    { label: "Receita potencial", value: potentialRevenue > 0 ? `R$ ${(potentialRevenue/1_000_000).toFixed(1)}M` : "R$ 0", icon: DollarSign, spark: [10,12,15,14,18,20,22,25,28,30], color: "#0ea5e9" },
-    { label: "Ações hoje", value: pendingTasks, icon: Clock, spark: [0,2,4,3,5,7,6,8,10,9], color: "#f97316" },
-    { label: "Campanhas ativas", value: activeSeqs, icon: Zap, spark: [1,1,2,2,3,3,4,4,5,5], color: "#10b981" },
+    { label: "Propostas abertas", value: openDeals, icon: FileText, spark: [1,2,3,5,4,6,8,7,9,10], color: "#107EC2" },
+    { label: "Receita potencial", value: potentialRevenue > 0 ? `R$ ${(potentialRevenue/1_000_000).toFixed(1)}M` : "R$ 0", icon: DollarSign, spark: [10,12,15,14,18,20,22,25,28,30], color: "#107EC2" },
+    { label: "Ações hoje", value: pendingTasks, icon: Clock, spark: [0,2,4,3,5,7,6,8,10,9], color: "#D6A847" },
+    { label: "Campanhas ativas", value: activeSeqs, icon: Zap, spark: [1,1,2,2,3,3,4,4,5,5], color: "#107EC2" },
   ];
 
   const isLoading = isLoadingAgents || isLoadingConvs;
@@ -163,8 +164,8 @@ export default function Dashboard() {
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-emerald-400/80">Operação ativa</span>
+                <span className="inline-flex h-2 w-2 rounded-full bg-primary" />
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-primary/80">Operação ativa</span>
               </div>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
                 Command Center Tax Group
@@ -280,28 +281,28 @@ export default function Dashboard() {
             </div>
             <div className="space-y-3 flex-1">
               {pendingTasks > 0 ? (
-                <div className="flex items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-                  <Clock className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                  <Clock className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="text-xs font-medium text-foreground">{pendingTasks} tarefa(s) pendente(s)</div>
                     <div className="text-[11px] text-muted-foreground mt-0.5">Revisar no CRM &gt; Aba Hoje</div>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-start gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                  <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="text-xs font-medium text-foreground">Nenhuma ação urgente</div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">Todas as tarefas do dia estão em dia</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">Todas as tarefas estão em dia</div>
                   </div>
                 </div>
               )}
               {hotLeads > 0 && (
                 <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3">
-                  <Flame className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                  <Flame className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="text-xs font-medium text-foreground">{hotLeads} lead(s) quente(s)</div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">Score IA acima de 70 — priorizar contato</div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">Pontuação IA acima de 70 — priorizar contato</div>
                   </div>
                 </div>
               )}
@@ -388,13 +389,13 @@ export default function Dashboard() {
             </div>
             <div className="space-y-2 flex-1">
               <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
-                <div className="w-6 h-6 rounded bg-emerald-500/15 flex items-center justify-center">
-                  <Server className="w-3 h-3 text-emerald-400" />
+                <div className="w-6 h-6 rounded bg-primary/15 flex items-center justify-center">
+                  <Server className="w-3 h-3 text-primary" />
                 </div>
                 <div className="flex-1">
                   <div className="text-[11px] text-muted-foreground">API Backend</div>
                 </div>
-                <span className="text-[11px] font-medium text-emerald-400">Operacional</span>
+                <span className="text-[11px] font-medium text-primary">Operacional</span>
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
                 <div className="w-6 h-6 rounded bg-primary/15 flex items-center justify-center">
@@ -406,13 +407,13 @@ export default function Dashboard() {
                 <span className="text-[11px] font-medium text-primary">Conectado</span>
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
-                <div className="w-6 h-6 rounded bg-amber-500/15 flex items-center justify-center">
-                  <ShieldCheck className="w-3 h-3 text-amber-400" />
+                <div className="w-6 h-6 rounded bg-primary/15 flex items-center justify-center">
+                  <ShieldCheck className="w-3 h-3 text-primary" />
                 </div>
                 <div className="flex-1">
                   <div className="text-[11px] text-muted-foreground">Autenticação</div>
                 </div>
-                <span className="text-[11px] font-medium text-amber-400">Segura</span>
+                <span className="text-[11px] font-medium text-primary">Segura</span>
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-border">
@@ -559,11 +560,4 @@ export default function Dashboard() {
   );
 }
 
-function CheckCircle2(props: any) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="12" cy="12" r="10"/>
-      <path d="m9 12 2 2 4-4"/>
-    </svg>
-  );
-}
+

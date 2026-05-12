@@ -3,11 +3,13 @@ import { useParams, useLocation, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Send, Bot, User, Plus, MessageSquare, Loader2,
   Copy, CheckCheck, Trash2, Search, Download,
   Settings, Sparkles, Pencil, Check, X, Cpu,
-  RotateCw, History, MessageCircle
+  RotateCw, History, FileText, CheckSquare, Building2,
+  ClipboardList, Rocket
 } from "lucide-react";
 import { SkeletonChat, SkeletonChatSidebar } from "@/components/skeletons";
 import { EmptyState } from "@/components/empty-state";
@@ -445,7 +447,7 @@ export default function AgentChat() {
                       </span>
                     )}
                     <span className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(conv.updatedAt), "MMM d, h:mm a")}
+                      {format(new Date(conv.updatedAt), "dd 'de' MMM, HH:mm", { locale: ptBR })}
                     </span>
                   </div>
                 </div>
@@ -472,7 +474,7 @@ export default function AgentChat() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col relative bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+      <div className="flex-1 flex flex-col relative bg-background">
         <header className="h-16 border-b border-border bg-background flex items-center justify-between px-6 sticky top-0 z-10">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 text-xl select-none">
@@ -485,13 +487,13 @@ export default function AgentChat() {
                 <span
                   className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 border ${
                     isApiOnline
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : 'bg-red-500/10 text-red-400 border-red-500/20'
+                      ? 'bg-primary/10 text-primary border-primary/20'
+                      : 'bg-destructive/10 text-destructive border-destructive/20'
                   }`}
                   role="status"
                   aria-label={isApiOnline ? "API Online" : "API Offline"}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${isApiOnline ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${isApiOnline ? 'bg-primary' : 'bg-destructive animate-pulse'}`} />
                   {isApiOnline ? 'Online' : 'Offline'}
                 </span>
               </div>
@@ -501,7 +503,7 @@ export default function AgentChat() {
             {/* Mobile history button — only visible on small screens */}
             <button
               onClick={() => setShowMobileHistory(true)}
-              className="md:hidden p-2 rounded-lg hover:bg-white/5 text-muted-foreground transition-colors"
+              className="md:hidden p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
               title="Histórico de conversas"
               aria-label="Abrir histórico de conversas"
             >
@@ -511,7 +513,7 @@ export default function AgentChat() {
               <button
                 onClick={() => setShowDesignStudio(!showDesignStudio)}
                 className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium ${
-                  showDesignStudio ? 'bg-purple-500/20 text-purple-400' : 'hover:bg-white/5 text-muted-foreground'
+                  showDesignStudio ? 'bg-primary/20 text-primary' : 'hover:bg-muted text-muted-foreground'
                 }`}
                 title="Design Studio"
                 aria-label="Abrir Design Studio"
@@ -546,7 +548,7 @@ export default function AgentChat() {
             {!activeConvId && !isLoadingMessages && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center mt-16">
                 <div className="bg-card border border-border rounded-2xl p-10 max-w-lg w-full text-center mb-8">
-                  <div className="text-5xl mb-5 select-none">{agent.icon || "🤖"}</div>
+                  <div className="text-5xl mb-5 select-none">{agent.icon ? <span role="img" aria-label="Assistente">{agent.icon}</span> : <Bot className="w-12 h-12 text-primary mx-auto" />}</div>
                   <h3 className="text-xl font-bold text-foreground mb-2">{agent.name}</h3>
                   <p className="text-muted-foreground text-sm leading-relaxed">{agent.description}</p>
                 </div>
@@ -574,12 +576,12 @@ export default function AgentChat() {
                 <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[92%] md:max-w-[85%] flex ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-end gap-3`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 text-base select-none ${msg.role === 'user' ? 'bg-secondary' : 'bg-primary/15 border border-primary/20'}`}>
-                      {msg.role === 'user' ? <User className="w-4 h-4 text-foreground/70" /> : <span>{agent.icon || "🤖"}</span>}
+                      {msg.role === 'user' ? <User className="w-4 h-4 text-foreground/70" /> : agent.icon ? <span role="img" aria-label="Assistente">{agent.icon}</span> : <Bot className="w-4 h-4 text-primary" />}
                     </div>
                     <div className={`relative group p-4 rounded-2xl ${msg.role === 'user' ? 'bg-primary text-white rounded-br-sm shadow-md' : 'bg-card text-foreground rounded-bl-sm shadow-sm border border-border'}`}>
                       {msg.role === 'assistant' && (
                         <button onClick={() => handleCopy(msg.content, msg.id)} className="absolute right-2 top-2 md:-right-10 md:top-2 p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" title="Copiar" aria-label="Copiar mensagem">
-                          {copiedId === msg.id ? <CheckCheck className="w-4 h-4 text-emerald-500" aria-hidden="true" /> : <Copy className="w-4 h-4" aria-hidden="true" />}
+                          {copiedId === msg.id ? <CheckCheck className="w-4 h-4 text-primary" aria-hidden="true" /> : <Copy className="w-4 h-4" aria-hidden="true" />}
                         </button>
                       )}
                       {msg.role === 'assistant' && msg.id === activeConv?.messages?.[activeConv.messages.length - 1]?.id && (
@@ -596,7 +598,7 @@ export default function AgentChat() {
                         <ReactMarkdown>{msg.role === 'assistant' ? stripOrchestrationBlock(msg.content) : msg.content}</ReactMarkdown>
                       </div>
                       <div className={`text-xs mt-2 text-right ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                        {format(new Date(msg.createdAt), "h:mm a")}
+                        {format(new Date(msg.createdAt), "HH:mm")}
                       </div>
                       {msg.role === 'assistant' && agentId === 'coordenador-geral-tax-group' && (() => {
                         const plan = parseOrchestrationPlan(msg.content);
@@ -604,9 +606,9 @@ export default function AgentChat() {
                         return (
                           <button
                             onClick={() => { setOrchestrationPlan(plan); setShowOrchestrateModal(true); }}
-                            className="mt-3 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg"
+                            className="mt-3 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
                           >
-                            🚀 Executar Plano com Agentes ({plan.length} agente{plan.length !== 1 ? 's' : ''})
+                            <Rocket className="w-4 h-4" /> Executar Plano com Agentes ({plan.length} agente{plan.length !== 1 ? 's' : ''})
                           </button>
                         );
                       })()}
@@ -634,7 +636,7 @@ export default function AgentChat() {
                 <motion.div key="optimistic-bot" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
                   <div className="max-w-[92%] md:max-w-[85%] flex flex-row items-end gap-3">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mb-1 text-base select-none bg-primary/15 border border-primary/20">
-                      <span>{agent.icon || "🤖"}</span>
+                      {agent.icon ? <span role="img" aria-label="Assistente">{agent.icon}</span> : <Bot className="w-4 h-4 text-primary" />}
                     </div>
                     <div className="relative p-4 rounded-2xl bg-card/30 text-foreground rounded-bl-sm shadow-sm">
                       {streamingContent ? (
@@ -662,7 +664,34 @@ export default function AgentChat() {
           </div>
         </div>
 
-        {/* Right context panel — only on large screens */}
+        <div className="p-4 bg-background border-t border-border">
+          <div className="max-w-3xl mx-auto relative flex items-center">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCreateAndSend(input); } }}
+              placeholder={`Envie uma mensagem para ${agent.name}...`}
+              className="w-full bg-card border border-border focus:border-primary focus:ring-1 focus:ring-primary/20 rounded-xl pl-5 pr-14 py-4 text-sm shadow-sm transition-all outline-none"
+              disabled={isStreaming}
+            />
+            <button
+              onClick={() => handleCreateAndSend(input)}
+              disabled={!input.trim() || isStreaming}
+              className="absolute right-2 p-2.5 rounded-lg bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
+              aria-label="Enviar mensagem"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="text-center mt-2 text-[11px] text-muted-foreground flex items-center justify-center gap-2">
+            <Cpu className="w-3 h-3" /> {displayModel}
+            {customSystemPrompt && <span className="text-primary">• Instrução customizada</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Right context panel — only on large screens */}
       <div className="w-64 border-l border-border bg-card/40 flex-col hidden xl:flex">
         <div className="p-4 border-b border-border">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contexto do Agente</h3>
@@ -684,24 +713,24 @@ export default function AgentChat() {
             <div className="space-y-1.5">
               <button
                 onClick={() => handleCreateAndSend("Gere um resumo executivo das oportunidades tributárias identificadas.")}
-                className="w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors"
+                className="w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors flex items-center gap-2"
               >
-                📋 Resumo executivo
+                <ClipboardList className="w-3.5 h-3.5 text-muted-foreground" /> Resumo executivo
               </button>
               <button
                 onClick={() => handleCreateAndSend("Baseado nesta conversa, gere uma proposta comercial estruturada.")}
-                className="w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors"
+                className="w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors flex items-center gap-2"
               >
-                📄 Gerar proposta
+                <FileText className="w-3.5 h-3.5 text-muted-foreground" /> Gerar proposta
               </button>
               <button
                 onClick={() => handleCreateAndSend("Crie uma tarefa de follow-up com os próximos passos.")}
-                className="w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors"
+                className="w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors flex items-center gap-2"
               >
-                ✅ Criar tarefa
+                <CheckSquare className="w-3.5 h-3.5 text-muted-foreground" /> Criar tarefa
               </button>
-              <Link href="/crm" className="block w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors">
-                🏢 Adicionar nota no CRM
+              <Link href="/crm" className="block w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors flex items-center gap-2">
+                <Building2 className="w-3.5 h-3.5 text-muted-foreground" /> Adicionar nota no CRM
               </Link>
             </div>
           </div>
@@ -713,34 +742,8 @@ export default function AgentChat() {
               placeholder="Modelo padrão"
             />
             {customSystemPrompt && (
-              <div className="mt-2 text-[11px] text-amber-400">⚙️ Prompt customizado ativo</div>
+              <div className="mt-2 text-[11px] text-primary flex items-center gap-1"><Settings className="w-3 h-3" /> Instrução customizada ativa</div>
             )}
-          </div>
-        </div>
-      </div>
-
-        <div className="p-4 bg-background border-t border-border">
-          <div className="max-w-3xl mx-auto relative flex items-center">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCreateAndSend(input); } }}
-              placeholder={`Envie uma mensagem para ${agent.name}...`}
-              className="w-full bg-card border border-border focus:border-primary focus:ring-1 focus:ring-primary/20 rounded-xl pl-5 pr-14 py-4 text-sm shadow-sm transition-all outline-none"
-              disabled={isStreaming}
-            />
-            <button
-              onClick={() => handleCreateAndSend(input)}
-              disabled={!input.trim() || isStreaming}
-              className="absolute right-2 p-2.5 rounded-lg bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="text-center mt-2 text-[11px] text-muted-foreground flex items-center justify-center gap-2">
-            <Cpu className="w-3 h-3" /> {displayModel}
-            {customSystemPrompt && <span className="text-amber-400">• Prompt customizado</span>}
           </div>
         </div>
       </div>
@@ -800,14 +803,14 @@ export default function AgentChat() {
             {customSystemPrompt && (
               <button
                 onClick={() => { setEditingPrompt(agent.systemPrompt || ""); setCustomSystemPrompt(null); }}
-                className="text-amber-400 hover:text-amber-300 underline"
+                className="text-primary hover:text-primary/80 underline"
               >
                 Restaurar original
               </button>
             )}
           </div>
           <DialogFooter>
-            <button onClick={() => setShowSystemPrompt(false)} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-white/5 transition-colors">
+            <button onClick={() => setShowSystemPrompt(false)} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted transition-colors">
               Cancelar
             </button>
             <button onClick={handleSaveSystemPrompt} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 transition-colors">
@@ -869,7 +872,7 @@ export default function AgentChat() {
                     className={`w-full text-left p-3 rounded-xl transition-all cursor-pointer flex items-center gap-3 ${
                       activeConvId === conv.id
                         ? "bg-primary/10 border-l-2 border-primary rounded-l-none"
-                        : "hover:bg-muted/30"
+                        : "hover:bg-muted"
                     }`}
                   >
                     <MessageSquare className={`w-4 h-4 flex-shrink-0 ${activeConvId === conv.id ? "text-primary" : "text-muted-foreground"}`} />

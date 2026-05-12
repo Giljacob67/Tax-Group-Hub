@@ -131,6 +131,7 @@ const REGIMES = [
   { value: "simples",          label: "Simples Nacional" },
   { value: "lucro_presumido",  label: "Lucro Presumido" },
   { value: "lucro_real",       label: "Lucro Real" },
+  { value: "lucro_presumido",  label: "Lucro Presumido" },
   { value: "mei",              label: "MEI" },
 ];
 
@@ -143,22 +144,22 @@ const PORTES = [
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  prospect:    { label: "Prospect",     color: "bg-slate-500/20 text-slate-300 border-slate-500/30" },
-  qualified:   { label: "Qualificado",  color: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
-  opportunity: { label: "Oportunidade", color: "bg-amber-500/20 text-amber-300 border-amber-500/30" },
-  client:      { label: "Cliente",      color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" },
-  churned:     { label: "Churned",      color: "bg-red-500/20 text-red-300 border-red-500/30" },
-  lost:        { label: "Perdido",      color: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30" },
+  prospect:    { label: "Prospect",     color: "bg-muted/40 text-muted-foreground border-border" },
+  qualified:   { label: "Qualificado",  color: "bg-primary/10 text-primary border-primary/30" },
+  opportunity: { label: "Oportunidade", color: "bg-secondary text-secondary-foreground border-secondary" },
+  client:      { label: "Cliente",      color: "bg-primary/10 text-primary border-primary/30" },
+  churned:     { label: "Churned",      color: "bg-destructive/10 text-destructive border-destructive/30" },
+  lost:        { label: "Perdido",      color: "bg-muted/30 text-muted-foreground border-muted" },
 };
 
 const STAGE_DICT: Record<string, { label: string; accent: string; header: string }> = {
-  prospecting: { label: "Prospecção",  accent: "border-t-slate-400",   header: "text-slate-300" },
-  discovery:   { label: "Descoberta",  accent: "border-t-blue-400",    header: "text-blue-300" },
-  proposal:    { label: "Proposta",    accent: "border-t-amber-400",   header: "text-amber-300" },
-  negotiation: { label: "Negociação",  accent: "border-t-orange-400",  header: "text-orange-300" },
-  closing:     { label: "Fechamento",  accent: "border-t-purple-400",  header: "text-purple-300" },
-  won:         { label: "Ganhos",      accent: "border-t-emerald-400", header: "text-emerald-300" },
-  lost:        { label: "Perdidos",    accent: "border-t-red-400",     header: "text-red-300" },
+  prospecting: { label: "Prospecção",  accent: "border-t-muted-foreground", header: "text-muted-foreground" },
+  discovery:   { label: "Descoberta",  accent: "border-t-primary",          header: "text-primary" },
+  proposal:    { label: "Proposta",    accent: "border-t-primary",          header: "text-primary" },
+  negotiation: { label: "Negociação",  accent: "border-t-primary",          header: "text-primary" },
+  closing:     { label: "Fechamento",  accent: "border-t-primary",          header: "text-primary" },
+  won:         { label: "Ganhos",      accent: "border-t-primary",          header: "text-primary" },
+  lost:        { label: "Perdidos",    accent: "border-t-muted-foreground", header: "text-muted-foreground" },
 };
 
 const ACTIVITY_ICONS: Record<string, any> = {
@@ -214,7 +215,7 @@ async function exportContactsToXlsx(contacts: Contact[]) {
 // ─── Score Badge ──────────────────────────────────────────────────────────────
 function ScoreBadge({ score }: { score: number | null }) {
   if (score == null) return <span className="text-muted-foreground text-xs">—</span>;
-  const color = score >= 70 ? "text-emerald-400" : score >= 45 ? "text-amber-400" : "text-red-400";
+  const color = score >= 70 ? "text-primary" : score >= 45 ? "text-muted-foreground" : "text-destructive";
   return (
     <span className={`font-bold text-sm ${color}`}>
       {score}<span className="text-xs font-normal text-muted-foreground">/100</span>
@@ -526,7 +527,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
       queryClient.invalidateQueries({ queryKey: ["/api/crm/views"] });
       setIsSaveViewOpen(false);
       setNewViewName("");
-      toast({ title: "View salva com sucesso." });
+      toast({ title: "Visualização salva com sucesso." });
     },
     onError: () => toast({ title: "Erro ao salvar view", variant: "destructive" }),
   });
@@ -539,7 +540,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/views"] });
       setActiveViewId("all");
-      toast({ title: "View removida." });
+      toast({ title: "Visualização removida." });
     }
   });
 
@@ -1058,7 +1059,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
     onSuccess: (data) => {
       onUpdate(data.contact);
       queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      toast({ title: `✅ Enriquecido! ${data.fieldsUpdated?.length || 0} campos atualizados.` });
+      toast({ title: `Dados enriquecidos! ${data.fieldsUpdated?.length || 0} campos atualizados.` });
     },
     onError: (e: any) => toast({ title: "Erro no enriquecimento", description: e.message, variant: "destructive" }),
   });
@@ -1074,7 +1075,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
       queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
       queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
-      toast({ title: `🤖 Score: ${data.qualification?.score}/100 — Tier ${data.qualification?.tier}` });
+      toast({ title: `Pontuação IA: ${data.qualification?.score}/100 — Nível ${data.qualification?.tier}` });
     },
     onError: (e: any) => toast({ title: "Erro na qualificação", description: e.message, variant: "destructive" }),
   });
@@ -1202,7 +1203,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
       if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
       refetchAttachments();
       queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
-      toast({ title: `📎 ${file.name} anexado!` });
+      toast({ title: `${file.name} anexado.` });
     } catch (e: any) {
       toast({ title: "Erro no upload", description: e.message, variant: "destructive" });
     } finally {
@@ -1321,7 +1322,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   }),
                 });
                 queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
-                toast({ title: "💬 WhatsApp aberto e atividade registrada!" });
+                toast({ title: "WhatsApp aberto e atividade registrada." });
               }}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-xs text-green-400 hover:text-green-300 transition-colors border border-green-500/20"
               title="Abrir WhatsApp"
@@ -1344,7 +1345,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   }),
                 });
                 queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
-                toast({ title: "📧 Cliente de e-mail aberto e atividade registrada!" });
+                toast({ title: "Cliente de e-mail aberto e atividade registrada." });
               }}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-xs text-blue-400 hover:text-blue-300 transition-colors border border-blue-500/20"
               title={contact.email}
@@ -1415,7 +1416,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   <Zap className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-primary truncate">{en.sequenceName ?? "Sequência"}</div>
-                    <div className="text-xs text-muted-foreground">Step {en.currentStep + 1}/{total} · {pct}% concluído</div>
+                    <div className="text-xs text-muted-foreground">Etapa {en.currentStep + 1}/{total} · {pct}% concluído</div>
                   </div>
                   <div className="w-12 h-1.5 bg-primary/20 rounded-full overflow-hidden flex-shrink-0">
                     <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
@@ -1725,7 +1726,7 @@ function AddLeadDialog() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      toast({ title: "✅ Lead criado!" + (data.enriched ? " Dados enriquecidos!" : "") });
+      toast({ title: "Lead criado." + (data.enriched ? " Dados enriquecidos." : "") });
       setOpen(false); setCnpj("");
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
@@ -1789,7 +1790,7 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
       if (!res.ok) throw new Error("Erro ao salvar");
       return res.json();
     },
-    onSuccess: () => { toast({ title: "Deal atualizado!" }); onSaved(); },
+    onSuccess: () => { toast({ title: "Negócio atualizado." }); onSaved(); },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
@@ -1798,8 +1799,8 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
       const res = await fetch(`/api/crm/deals/${deal.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Erro");
     },
-    onSuccess: () => { toast({ title: "Deal removido." }); onDeleted(); },
-    onError: () => toast({ title: "Erro ao deletar", variant: "destructive" }),
+    onSuccess: () => { toast({ title: "Negócio removido." }); onDeleted(); },
+    onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
   });
 
   return (
@@ -2024,11 +2025,11 @@ function PipelineKanbanView() {
     },
     onSuccess: (_, { stage }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
-      toast({ title: `Deal movido para ${STAGE_DICT[stage]?.label || stage}` });
+      toast({ title: `Negócio movido para ${STAGE_DICT[stage]?.label || stage}` });
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
-      toast({ title: "Erro ao mover deal", variant: "destructive" });
+      toast({ title: "Erro ao mover negócio", variant: "destructive" });
     },
   });
 
@@ -2205,7 +2206,7 @@ function PipelineKanbanView() {
       {allDeals.length === 0 && (
         <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-xl">
           <Trophy className="w-10 h-10 mx-auto mb-2 text-muted-foreground/30" />
-          Nenhum deal criado ainda. Qualifique um lead ou use o "+" em qualquer coluna.
+          Nenhum negócio criado ainda. Qualifique um lead ou use o "+" em qualquer coluna.
         </div>
       )}
 

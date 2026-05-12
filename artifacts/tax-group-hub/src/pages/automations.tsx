@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
-  Zap, Play, Pause, Trash2, Plus, Users, Clock,
-  CheckCircle2, XCircle, ChevronRight, Megaphone,
-  CalendarClock, AlertCircle, ToggleLeft, ToggleRight,
-  RefreshCw, MessageSquare, List, Send,
+  Zap, Trash2, Plus, Users, Clock,
+  CheckCircle2, ChevronRight, Megaphone,
+  AlertCircle, ToggleLeft, ToggleRight,
+  RefreshCw, List, Send,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,16 +57,16 @@ type Enrollment = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const TRIGGER_LABELS: Record<string, string> = {
   score_above:        "Score acima de",
-  deal_stage_changed: "Deal muda para",
+  deal_stage_changed: "Negócio muda para",
   contact_created:    "Novo contato",
   manual:             "Manual",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  active:    "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  paused:    "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  completed: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  cancelled: "bg-red-500/20 text-red-300 border-red-500/30",
+  active:    "bg-primary/20 text-primary border-primary/30",
+  paused:    "bg-muted/20 text-muted-foreground border-muted/30",
+  completed: "bg-primary/20 text-primary border-primary/30",
+  cancelled: "bg-destructive/20 text-destructive border-destructive/30",
 };
 
 function fmtDate(iso: string) {
@@ -148,7 +148,7 @@ export default function AutomationsPage() {
       qc.invalidateQueries({ queryKey: ["/api/automate/enrollments"] });
       setShowEnrollDialog(false);
       setEnrollContactId("");
-      toast({ title: "✅ Contato enrolado na sequência" });
+      toast({ title: "Contato inscrito na sequência" });
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
@@ -175,7 +175,7 @@ export default function AutomationsPage() {
     },
     onSuccess: (data) => {
       setShowBroadcastDialog(false);
-      toast({ title: `📤 Broadcast enviado: ${data.queued} contatos na fila` });
+      toast({ title: `Broadcast enviado: ${data.queued} contatos na fila` });
     },
     onError: (e: any) => toast({ title: "Erro no broadcast", description: e.message, variant: "destructive" }),
   });
@@ -194,7 +194,7 @@ export default function AutomationsPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowEnrollDialog(true)}>
-              <Plus className="w-4 h-4 mr-1" /> Enrolar Contato
+              <Plus className="w-4 h-4 mr-1" /> Inscrever Contato
             </Button>
             <Button size="sm" onClick={() => setShowBroadcastDialog(true)} className="bg-primary hover:bg-primary/90">
               <Megaphone className="w-4 h-4 mr-1" /> Broadcast
@@ -204,9 +204,9 @@ export default function AutomationsPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-3 gap-4 mt-5">
-          <KpiCard icon={<List className="w-4 h-4 text-blue-400" />} label="Sequências ativas" value={sequences.filter(s => s.isActive).length} color="blue" />
-          <KpiCard icon={<Users className="w-4 h-4 text-amber-400" />} label="Contatos em andamento" value={activeEnrollments.length} color="amber" />
-          <KpiCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-400" />} label="Concluídos hoje" value={completedToday} color="emerald" />
+          <KpiCard icon={<List className="w-4 h-4 text-primary" />} label="Sequências ativas" value={sequences.filter(s => s.isActive).length} color="primary" />
+          <KpiCard icon={<Users className="w-4 h-4 text-muted-foreground" />} label="Contatos em andamento" value={activeEnrollments.length} color="muted" />
+          <KpiCard icon={<CheckCircle2 className="w-4 h-4 text-primary" />} label="Concluídos hoje" value={completedToday} color="primary" />
         </div>
       </div>
 
@@ -247,7 +247,7 @@ export default function AutomationsPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-sm text-foreground">{seq.name}</span>
-                            <Badge variant="outline" className={seq.isActive ? "border-emerald-500/40 text-emerald-400" : "border-muted text-muted-foreground"}>
+                            <Badge variant="outline" className={seq.isActive ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}>
                               {seq.isActive ? "Ativa" : "Pausada"}
                             </Badge>
                           </div>
@@ -262,8 +262,8 @@ export default function AutomationsPage() {
                               {seq.steps.length} etapas
                             </span>
                             <span className="flex items-center gap-1">
-                              <Users className="w-3 h-3 text-amber-400" />
-                              <span className="text-amber-400">{active} ativos</span>
+                              <Users className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-muted-foreground">{active} ativos</span>
                             </span>
                           </div>
                           {/* Steps preview */}
@@ -271,7 +271,7 @@ export default function AutomationsPage() {
                             {seq.steps.map((s, i) => (
                               <div key={i} className="flex items-center gap-0.5">
                                 <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 border border-primary/20 text-primary/80">
-                                  D+{s.day} · {s.channel === "whatsapp" ? "WA" : s.channel === "email" ? "✉" : "📝"}
+                                  D+{s.day} · {s.channel === "whatsapp" ? "WA" : s.channel === "email" ? "E-mail" : "Nota"}
                                 </span>
                                 {i < seq.steps.length - 1 && <ChevronRight className="w-3 h-3 text-muted-foreground/40" />}
                               </div>
@@ -296,14 +296,14 @@ export default function AutomationsPage() {
                               setShowEnrollDialog(true);
                             }}
                             className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
-                            title="Enrolar contato"
+                            title="Inscrever contato"
                           >
                             <Plus className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="ghost" size="sm"
                             onClick={() => deleteMutation.mutate(seq.id)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-400"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -341,8 +341,8 @@ export default function AutomationsPage() {
                         <div className="text-sm font-medium truncate">{en.sequenceName ?? `Sequência #${en.sequenceId}`}</div>
                         <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                           <span>Contato #{en.contactId}</span>
-                          <span>Step {en.currentStep + 1}/{totalSteps}</span>
-                          <span className={`flex items-center gap-1 ${overdue ? "text-red-400" : "text-muted-foreground"}`}>
+                          <span>Etapa {en.currentStep + 1}/{totalSteps}</span>
+                          <span className={`flex items-center gap-1 ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
                             {overdue ? <AlertCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                             {overdue ? "Atrasado · " : "Próximo: "}
                             {fmtDate(en.nextSendAt)}
@@ -368,7 +368,7 @@ export default function AutomationsPage() {
       <Dialog open={showEnrollDialog} onOpenChange={setShowEnrollDialog}>
         <DialogContent className="bg-card/95 backdrop-blur-lg border-border/50 max-w-sm">
           <DialogHeader>
-            <DialogTitle>Enrolar Contato em Sequência</DialogTitle>
+            <DialogTitle>Inscrever Contato em Sequência</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -399,7 +399,7 @@ export default function AutomationsPage() {
               disabled={!enrollSeqId || !enrollContactId || enrollMutation.isPending}
             >
               {enrollMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : null}
-              Enrolar
+              Inscrever
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -474,9 +474,8 @@ export default function AutomationsPage() {
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
   const colorMap: Record<string, string> = {
-    blue:    "bg-blue-500/10 border-blue-500/20",
-    amber:   "bg-amber-500/10 border-amber-500/20",
-    emerald: "bg-emerald-500/10 border-emerald-500/20",
+    primary: "bg-primary/10 border-primary/20",
+    muted:   "bg-muted/10 border-muted/20",
   };
   return (
     <div className={`rounded-xl border p-4 ${colorMap[color] ?? "bg-card/50 border-border/40"}`}>

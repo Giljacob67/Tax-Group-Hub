@@ -3,7 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, Loader2,
-  AlertCircle, Crown, MessageSquare, Cpu, Settings as SettingsIcon,
+  Crown, MessageSquare, Cpu,
   Trash2, Copy, Plus, Save, UploadCloud,
   ChevronDown,
 } from "lucide-react";
@@ -123,7 +123,7 @@ function WhatsAppSection() {
             const url   = `${window.location.origin}/api/webhooks/whatsapp/${ch.id}`;
             return (
               <div key={ch.id} className="flex items-center gap-3 bg-card/50 border border-border/40 rounded-xl px-4 py-3">
-                <MessageSquare className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <MessageSquare className="w-4 h-4 text-primary flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium">{agent ? `${agent.icon} ${agent.name}` : ch.agentId}</div>
                   <div className="flex items-center gap-1.5 mt-0.5">
@@ -135,7 +135,7 @@ function WhatsAppSection() {
                 </div>
                 <Button
                   variant="ghost" size="sm"
-                  className="text-muted-foreground hover:text-red-400 h-8 w-8 p-0 flex-shrink-0"
+                  className="text-muted-foreground hover:text-destructive h-8 w-8 p-0 flex-shrink-0"
                   onClick={() => handleDelete(ch.id)}
                   disabled={deletingId === ch.id}
                 >
@@ -148,8 +148,10 @@ function WhatsAppSection() {
       )}
 
       {channels.length === 0 && !showForm && (
-        <div className="text-center py-10 text-sm text-muted-foreground border border-dashed border-border/40 rounded-xl">
-          Nenhum canal configurado. Clique em "Adicionar" para começar.
+        <div className="text-center py-10 bg-card/30 border border-dashed border-border/40 rounded-xl">
+          <MessageSquare className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
+          <h3 className="text-sm font-medium text-foreground">Nenhum canal configurado</h3>
+          <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar" para começar.</p>
         </div>
       )}
 
@@ -168,7 +170,7 @@ function WhatsAppSection() {
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1 block">Phone Number ID <span className="text-red-400">*</span></Label>
+                  <Label className="text-xs text-muted-foreground mb-1 block">Phone Number ID <span className="text-destructive">*</span></Label>
                   <Input
                     placeholder="123456789..."
                     value={form.phoneNumberId}
@@ -177,7 +179,7 @@ function WhatsAppSection() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1 block">Agente Responsável <span className="text-red-400">*</span></Label>
+                  <Label className="text-xs text-muted-foreground mb-1 block">Agente Responsável <span className="text-destructive">*</span></Label>
                   <div className="relative">
                     <select
                       value={form.agentId}
@@ -191,7 +193,7 @@ function WhatsAppSection() {
                   </div>
                 </div>
                 <div className="col-span-2">
-                  <Label className="text-xs text-muted-foreground mb-1 block">Access Token <span className="text-red-400">*</span></Label>
+                  <Label className="text-xs text-muted-foreground mb-1 block">Access Token <span className="text-destructive">*</span></Label>
                   <Input
                     type="password"
                     placeholder="EAAxxxxxxxx..."
@@ -201,7 +203,7 @@ function WhatsAppSection() {
                   />
                 </div>
                 <div className="col-span-2">
-                  <Label className="text-xs text-muted-foreground mb-1 block">Verify Token <span className="text-red-400">*</span></Label>
+                  <Label className="text-xs text-muted-foreground mb-1 block">Verify Token <span className="text-destructive">*</span></Label>
                   <Input
                     placeholder="seu-token-secreto"
                     value={form.verifyToken}
@@ -218,8 +220,8 @@ function WhatsAppSection() {
 
               <AnimatePresence>
                 {webhookUrl && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 space-y-2">
-                    <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-primary/10 border border-primary/20 rounded-xl p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-primary font-semibold text-sm">
                       <CheckCircle2 className="w-4 h-4" /> Canal criado! Registre o webhook no Meta:
                     </div>
                     <div className="flex items-center gap-2 bg-background rounded-lg px-3 py-2 border border-border/40">
