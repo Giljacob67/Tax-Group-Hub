@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 
 type Automation = {
   id: number;
@@ -68,6 +69,7 @@ function actionLabel(auto: Automation) {
 }
 
 export default function AutomationsPanel() {
+  const [showConfirm, confirmDialog] = useConfirmDialog();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -325,7 +327,12 @@ export default function AutomationsPanel() {
                   <Button
                     variant="ghost" size="icon"
                     className="text-muted-foreground hover:text-destructive h-8 w-8"
-                    onClick={() => { if (confirm(`Remover "${auto.name}"?`)) deleteMutation.mutate(auto.id); }}
+                    onClick={() => {
+                      showConfirm(
+                        { title: `Remover "${auto.name}"?`, variant: "destructive", confirmLabel: "Remover" },
+                        () => deleteMutation.mutate(auto.id)
+                      );
+                    }}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -335,6 +342,7 @@ export default function AutomationsPanel() {
           </div>
         )}
       </CardContent>
+      {confirmDialog}
     </Card>
   );
 }

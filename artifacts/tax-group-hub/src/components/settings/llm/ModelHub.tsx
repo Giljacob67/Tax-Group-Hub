@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Loader2, RefreshCw, Shield, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import ProviderSidebar from "./ProviderSidebar";
 import ModelCatalog from "./ModelCatalog";
 import ConnectionWizard from "./ConnectionWizard";
@@ -12,6 +13,7 @@ import type { ProviderMeta, LlmConnection, LlmProfile } from "./types";
 
 export default function ModelHub() {
   const { toast } = useToast();
+  const [showConfirm, confirmDialog] = useConfirmDialog();
   const [providers, setProviders] = useState<ProviderMeta[]>([]);
   const [connections, setConnections] = useState<LlmConnection[]>([]);
   const [profiles, setProfiles] = useState<LlmProfile[]>([]);
@@ -83,16 +85,20 @@ export default function ModelHub() {
     }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm("Tem certeza que deseja remover esta conexão?")) return;
-    try {
-      const r = await fetch(`/api/llm/connections/${id}`, { method: "DELETE" });
-      if (!r.ok) throw new Error();
-      toast({ title: "Conexão removida" });
-      fetchAll();
-    } catch {
-      toast({ title: "Erro ao remover", variant: "destructive" });
-    }
+  function handleDelete(id: number) {
+    showConfirm(
+      { title: "Remover conexão?", description: "Tem certeza que deseja remover esta conexão? Esta ação não pode ser desfeita.", variant: "destructive", confirmLabel: "Remover" },
+      async () => {
+        try {
+          const r = await fetch(`/api/llm/connections/${id}`, { method: "DELETE" });
+          if (!r.ok) throw new Error();
+          toast({ title: "Conexão removida" });
+          fetchAll();
+        } catch {
+          toast({ title: "Erro ao remover", variant: "destructive" });
+        }
+      }
+    );
   }
 
   async function handleHealthCheck() {
@@ -229,6 +235,7 @@ export default function ModelHub() {
           }}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }

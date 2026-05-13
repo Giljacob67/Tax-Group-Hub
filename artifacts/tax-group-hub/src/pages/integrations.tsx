@@ -3,8 +3,10 @@ import { motion } from "framer-motion";
 import { Image as ImageIcon, Link2, Sparkles, PenTool, Loader2 } from "lucide-react";
 import { useGenerateImage, useGetCanvaLink } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { usePageTitle } from "@/hooks/use-page-title";
 
 export default function Integrations() {
+  usePageTitle("Integrações");
   const { toast } = useToast();
   
   // Image Gen State

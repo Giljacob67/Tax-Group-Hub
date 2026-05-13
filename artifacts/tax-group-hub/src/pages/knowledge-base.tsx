@@ -14,6 +14,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { getListKnowledgeDocumentsQueryKey } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { formatBytes } from "@/lib/utils";
 import {
   AlertDialog,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function KnowledgeBase() {
+  usePageTitle("Base de Conhecimento");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isUploading, setIsUploading] = useState(false);

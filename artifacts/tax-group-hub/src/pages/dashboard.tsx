@@ -16,6 +16,7 @@ import { useListAgents, useListConversations } from "@workspace/api-client-react
 import { SkeletonMetricsGrid, SkeletonAgentBlocks } from "@/components/skeletons";
 import { EmptyState } from "@/components/empty-state";
 import { useDemoMode } from "@/hooks/use-demo-mode";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { DEMO_CONTACTS, DEMO_SEGMENTS, DEMO_TASKS, DEMO_JOURNEY_STEPS, DEMO_DEALS } from "@/lib/demo-data";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer
@@ -84,6 +85,7 @@ function MiniSpark({ data, color }: { data: number[]; color: string }) {
 }
 
 export default function Dashboard() {
+  usePageTitle("Command Center");
   const { isDemo } = useDemoMode();
   const { data: agentsData, isLoading: isLoadingAgents } = useListAgents();
   const { data: convData, isLoading: isLoadingConvs } = useListConversations();

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight, BarChart3, Bot, Briefcase, Building2,
   CheckCircle2, ChevronRight, Crown, FileText, Flame,
@@ -24,6 +24,20 @@ const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
 };
+
+function AnimatedDivider() {
+  return (
+    <div className="max-w-7xl mx-auto px-6">
+      <motion.div
+        initial={{ scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: true, margin: "-40px" }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="h-px bg-gradient-to-r from-transparent via-border to-transparent origin-left"
+      />
+    </div>
+  );
+}
 
 const VALUE_CARDS = [
   {
@@ -103,6 +117,8 @@ const FLOW_STEPS = [
 ];
 
 export default function LandingPage() {
+  const { scrollY } = useScroll();
+  const heroY = useTransform(scrollY, [0, 500], [0, 80]);
   const { branding } = useBranding();
   const logoUrl = branding.logoStorageKey
     ? `/uploads/${branding.logoStorageKey}`
@@ -137,7 +153,10 @@ export default function LandingPage() {
 
       {/* ── Hero ── */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_-10%,hsl(200_76%_41%/0.08),transparent)]" />
+        <motion.div
+          className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_-10%,hsl(200_76%_41%/0.08),transparent)]"
+          style={{ y: heroY }}
+        />
         <div className="max-w-7xl mx-auto px-6 pt-16 pb-20 md:pt-24 md:pb-28 relative">
           <motion.div
             variants={containerVariants}
@@ -146,7 +165,7 @@ export default function LandingPage() {
             className="max-w-3xl"
           >
             <motion.div variants={itemVariants} className="flex items-center gap-2 mb-5">
-              <span className="inline-flex h-2 w-2 rounded-full bg-primary" />
+              <span className="inline-flex h-2 w-2 rounded-full bg-primary animate-pulse" />
               <span className="text-[11px] font-semibold uppercase tracking-widest text-primary/80">
                 Plataforma operacional da Tax Group
               </span>
@@ -185,8 +204,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <AnimatedDivider />
       {/* ── Cards de Valor ── */}
-      <section className="border-t border-border/40">
+      <section>
         <div className="max-w-7xl mx-auto px-6 py-16 md:py-20">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -212,7 +232,9 @@ export default function LandingPage() {
               <motion.div
                 key={card.title}
                 variants={itemVariants}
-                className="group rounded-xl border border-border bg-card p-6 hover:border-primary/30 transition-colors"
+                whileHover={{ scale: 1.02, y: -4 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="group rounded-xl border border-border bg-card p-6 hover:border-primary/30 transition-colors hover:shadow-lg hover:shadow-primary/5"
               >
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 ring-1 ring-primary/20">
                   <card.icon className="w-5 h-5 text-primary" />
@@ -225,8 +247,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <AnimatedDivider />
       {/* ── Como o hub gera valor ── */}
-      <section className="border-t border-border/40 bg-muted/20">
+      <section className="bg-muted/20">
         <div className="max-w-7xl mx-auto px-6 py-16 md:py-20">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -252,9 +275,10 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ duration: 0.4, delay: idx * 0.08 }}
+                whileHover={{ scale: 1.02, y: -4 }}
                 className="relative"
               >
-                <div className="rounded-xl border border-border bg-card p-5 h-full">
+                <div className="rounded-xl border border-border bg-card p-5 h-full hover:border-primary/30 transition-colors hover:shadow-lg hover:shadow-primary/5">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center ring-1 ring-primary/20">
                       <s.icon className="w-4 h-4 text-primary" />
@@ -273,8 +297,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <AnimatedDivider />
       {/* ── Fluxo da operação ── */}
-      <section className="border-t border-border/40">
+      <section>
         <div className="max-w-7xl mx-auto px-6 py-16 md:py-20">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -297,9 +322,10 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.35, delay: idx * 0.06 }}
+                whileHover={{ scale: 1.01 }}
                 className="flex-1 flex items-center gap-3"
               >
-                <div className="flex-1 rounded-xl border border-border bg-card p-4 flex items-center gap-3">
+                <div className="flex-1 rounded-xl border border-border bg-card p-4 flex items-center gap-3 hover:border-primary/30 transition-colors hover:shadow-lg hover:shadow-primary/5">
                   <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 ring-1 ring-primary/20">
                     <step.icon className="w-4 h-4 text-primary" />
                   </div>
@@ -319,8 +345,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <AnimatedDivider />
       {/* ── Agentes especializados ── */}
-      <section className="border-t border-border/40 bg-muted/20">
+      <section className="bg-muted/20">
         <div className="max-w-7xl mx-auto px-6 py-16 md:py-20">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -346,7 +373,9 @@ export default function LandingPage() {
               <motion.div
                 key={block.id}
                 variants={itemVariants}
-                className="rounded-xl border border-border bg-card p-5 hover:border-primary/30 transition-colors"
+                whileHover={{ scale: 1.02, y: -4 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className="rounded-xl border border-border bg-card p-5 hover:border-primary/30 transition-colors hover:shadow-lg hover:shadow-primary/5"
               >
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 ring-1 ring-primary/20">
                   <block.icon className="w-5 h-5 text-primary" />
@@ -359,8 +388,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <AnimatedDivider />
       {/* ── CTA Final ── */}
-      <section className="border-t border-border/40">
+      <section>
         <div className="max-w-7xl mx-auto px-6 py-16 md:py-24">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -396,8 +426,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <AnimatedDivider />
       {/* ── Rodapé ── */}
-      <footer className="border-t border-border/40 bg-muted/20">
+      <footer className="bg-muted/20">
         <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded bg-primary/15 flex items-center justify-center">

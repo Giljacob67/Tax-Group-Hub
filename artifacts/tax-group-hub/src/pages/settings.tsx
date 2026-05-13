@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, Loader2,
@@ -362,6 +363,7 @@ function BrandingSection() {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
+  usePageTitle("Configurações");
   const [section, setSection] = useState("llm");
 
   return (

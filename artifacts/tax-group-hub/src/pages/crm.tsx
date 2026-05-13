@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -28,6 +29,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { usePageTitle } from "@/hooks/use-page-title";
+import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { Separator } from "@/components/ui/separator";
 import { BulkImportDialog } from "@/components/crm/BulkImportDialog";
 import { UploadCloud } from "lucide-react";
@@ -235,7 +238,9 @@ function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CRMPage() {
+  usePageTitle("CRM");
   const [activeTab, setActiveTab]             = useState("today");
+
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isImportOpen, setIsImportOpen]       = useState(false);
   const queryClient = useQueryClient();
@@ -351,6 +356,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
   const { isDemo } = useDemoMode();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirmDialogState = useConfirmDialog();
 
   const [search, setSearch]           = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -595,9 +601,10 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               key={`user-${v.id}`}
               onClick={() => applyView(`user-${v.id}`, v.filters)}
               onDoubleClick={() => {
-                if (confirm(`Excluir view "${v.name}"?`)) {
-                  deleteViewMutation.mutate(v.id);
-                }
+                confirmDialogState[0](
+                  { title: `Excluir view "${v.name}"?`, description: "Esta ação não pode ser desfeita.", variant: "destructive", confirmLabel: "Excluir" },
+                  () => deleteViewMutation.mutate(v.id)
+                );
               }}
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-colors ${
                 activeViewId === `user-${v.id}`
@@ -879,8 +886,10 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               <Button
                 variant="outline" size="sm" className="text-xs h-7 gap-1 text-destructive hover:text-destructive border-destructive/30"
                 onClick={() => {
-                  if (confirm(`Deletar ${selectedIds.size} contato(s)? Esta ação não pode ser desfeita.`))
-                    bulkDeleteMutation.mutate(selectedArray);
+                  confirmDialogState[0](
+                    { title: "Excluir contatos?", description: `Deletar ${selectedIds.size} contato(s)? Esta ação não pode ser desfeita.`, variant: "destructive", confirmLabel: "Excluir" },
+                    () => bulkDeleteMutation.mutate(selectedArray)
+                  );
                 }}
                 disabled={bulkDeleteMutation.isPending}
               >
@@ -1035,6 +1044,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
           </div>
         )}
       </div>
+      {confirmDialogState[1]}
     </div>
   );
 }
