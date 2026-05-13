@@ -9,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { useDemoMode } from "@/hooks/use-demo-mode";
+import { DEMO_TASKS } from "@/lib/demo-data";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type Task = {
@@ -147,6 +149,7 @@ function SectionHeader({ label, count, color }: { label: string; count: number; 
 
 // ─── Main TodayView ─────────────────────────────────────────────────────────
 export default function TodayView() {
+  const { isDemo } = useDemoMode();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showDone, setShowDone] = useState(false);
@@ -187,7 +190,13 @@ export default function TodayView() {
     onError: () => toast({ title: "Erro ao concluir tarefa", variant: "destructive" }),
   });
 
-  const allTasks = pendingData?.tasks || [];
+  let allTasks = pendingData?.tasks || [];
+
+  // Demo fallback
+  if (isDemo && allTasks.length === 0 && !loadingPending) {
+    allTasks = DEMO_TASKS as unknown as Task[];
+  }
+
   const overdueTasks   = allTasks.filter(t => isOverdue(t));
   const todayTasks     = allTasks.filter(t => isToday(t) && !isOverdue(t));
   const tomorrowTasks  = allTasks.filter(t => isTomorrow(t));
@@ -216,7 +225,7 @@ export default function TodayView() {
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               {totalActionable === 0
-                ? "🎉 Nenhuma tarefa urgente — tudo em dia!"
+                ? "Nenhuma tarefa urgente — todas as ações estão em dia."
                 : `${totalActionable} tarefa${totalActionable !== 1 ? "s" : ""} para hoje${overdueTasks.length > 0 ? ` · ${overdueTasks.length} atrasada${overdueTasks.length !== 1 ? "s" : ""}` : ""}`}
             </p>
           </div>
@@ -242,7 +251,7 @@ export default function TodayView() {
             </Badge>
           )}
           {tomorrowTasks.length > 0 && (
-            <Badge variant="outline" className="text-xs border-blue-500/40 text-blue-400 bg-blue-500/5">
+            <Badge variant="outline" className="text-xs border-primary/40 text-primary bg-primary/5">
               <Clock className="w-2.5 h-2.5 mr-1" />
               {tomorrowTasks.length} amanhã
             </Badge>
@@ -258,10 +267,10 @@ export default function TodayView() {
       {/* Task list */}
       <div className="flex-1 overflow-y-auto">
         {allTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-            <CheckCircle2 className="w-12 h-12 text-emerald-400/30" />
-            <p className="text-sm font-medium">Nenhuma tarefa pendente!</p>
-            <p className="text-xs">Crie tarefas no painel do contato ou no Pipeline.</p>
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground px-6">
+            <CheckCircle2 className="w-12 h-12 text-primary/20" />
+            <p className="text-sm font-medium text-foreground">Nenhuma tarefa pendente</p>
+            <p className="text-xs text-center max-w-sm">Crie tarefas no painel do contato ou no pipeline para organizar o follow-up comercial.</p>
           </div>
         ) : (
           <AnimatePresence>
@@ -296,10 +305,10 @@ export default function TodayView() {
             {/* TOMORROW */}
             {tomorrowTasks.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-blue-500/20 bg-blue-500/5">
-                  <ChevronRight className="w-3.5 h-3.5 text-blue-400" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-blue-400">Amanhã</span>
-                  <span className="text-xs font-mono bg-blue-500/10 text-blue-400 rounded-full px-2 py-0.5">{tomorrowTasks.length}</span>
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-primary/20 bg-primary/5">
+                  <ChevronRight className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary">Amanhã</span>
+                  <span className="text-xs font-mono bg-primary/10 text-primary rounded-full px-2 py-0.5">{tomorrowTasks.length}</span>
                 </div>
                 {tomorrowTasks.map(t => (
                   <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate(id)} />

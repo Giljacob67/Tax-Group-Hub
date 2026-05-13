@@ -11,7 +11,7 @@ import {
   Target, ArrowRight, Edit2, Save, BarChart3, Percent,
   PhoneCall, AtSign, Users, StickyNote, Layers,
   SlidersHorizontal, CheckSquare, Square,
-  LayoutGrid, List, AlertCircle, Link2, ExternalLink,
+  List, AlertCircle, Link2, ExternalLink,
   Flame, Zap, Compass, ShoppingCart
 } from "lucide-react";
 import { useDemoMode } from "@/hooks/use-demo-mode";
@@ -261,7 +261,7 @@ export default function CRMPage() {
                 <TabsTrigger value="today" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative">
                   Hoje
                   {pendingCount > 0 && (
-                    <span className="ml-1.5 text-[11px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                    <span className="ml-1.5 text-[11px] font-bold bg-primary/20 text-primary rounded-full px-1.5 py-0.5 leading-none border border-primary/30">
                       {pendingCount}
                     </span>
                   )}
@@ -1306,7 +1306,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                 setActivityContent(`Ligação para ${contact.telefone}`);
                 setTimeout(() => logActivityMutation.mutate(), 0);
               }}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-xs text-emerald-400 hover:text-emerald-300 transition-colors border border-emerald-500/20"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-xs text-primary hover:text-primary/80 transition-colors border border-primary/20"
               title={contact.telefone}
             >
               <PhoneCall className="w-3 h-3" /> Ligar
@@ -1320,7 +1320,6 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                 const name = contact.razaoSocial || "empresa";
                 const text = encodeURIComponent(`Olá, tudo bem? Meu nome é da Tax Group Hub e gostaria de conversar sobre oportunidades de otimização tributária para a ${name}.`);
                 window.open(`https://wa.me/${fullPhone}?text=${text}`, "_blank");
-                // Auto-log the activity
                 await fetch(`/api/crm/contacts/${contact.id}/activities`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -1334,7 +1333,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                 queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
                 toast({ title: "WhatsApp aberto e atividade registrada." });
               }}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-xs text-green-400 hover:text-green-300 transition-colors border border-green-500/20"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-xs text-primary hover:text-primary/80 transition-colors border border-primary/20"
               title="Abrir WhatsApp"
             >
               <MessageSquare className="w-3 h-3" /> WhatsApp
@@ -1357,7 +1356,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                 queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
                 toast({ title: "Cliente de e-mail aberto e atividade registrada." });
               }}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-xs text-blue-400 hover:text-blue-300 transition-colors border border-blue-500/20"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/50"
               title={contact.email}
             >
               <AtSign className="w-3 h-3" /> Email
@@ -2208,10 +2207,10 @@ function PipelineKanbanView() {
       {/* ── Stats bar ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-4 gap-3 flex-none">
         {[
-          { label: "Pipeline Ativo",   value: formatCurrencyShort(totalActiveValue), icon: BarChart3, color: "text-blue-400" },
-          { label: "Valor Ponderado",  value: formatCurrencyShort(weightedValue),    icon: Target,    color: "text-amber-400" },
-          { label: "Ganhos",           value: formatCurrencyShort(wonValue),          icon: Trophy,    color: "text-emerald-400" },
-          { label: "Oportunidades",    value: `${activeDeals.length} deals`,          icon: Layers,    color: "text-purple-400" },
+          { label: "Pipeline Ativo",   value: formatCurrencyShort(totalActiveValue), icon: BarChart3, color: "text-primary" },
+          { label: "Valor Ponderado",  value: formatCurrencyShort(weightedValue),    icon: Target,    color: "text-muted-foreground" },
+          { label: "Ganhos",           value: formatCurrencyShort(wonValue),          icon: Trophy,    color: "text-primary" },
+          { label: "Oportunidades",    value: `${activeDeals.length} deals`,          icon: Layers,    color: "text-muted-foreground" },
         ].map(stat => (
           <div key={stat.label} className="bg-card/50 border border-border/40 rounded-xl p-3 flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">

@@ -371,7 +371,13 @@ export default function AgentChat() {
       <SkeletonChat />
     </div>
   );
-  if (!agent) return <div className="flex-1 flex items-center justify-center text-muted-foreground">Agent not found</div>;
+  if (!agent) return (
+    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3 p-8">
+      <Bot className="w-10 h-10 text-muted-foreground/20" />
+      <p className="text-sm font-medium text-foreground">Agente não encontrado</p>
+      <p className="text-xs text-center max-w-sm">Verifique se o agente está configurado corretamente ou retorne para a lista de agentes.</p>
+    </div>
+  );
 
   return (
     <div className="flex flex-1 h-full overflow-hidden bg-background">
@@ -494,12 +500,12 @@ export default function AgentChat() {
                   className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 border ${
                     isApiOnline
                       ? 'bg-primary/10 text-primary border-primary/20'
-                      : 'bg-destructive/10 text-destructive border-destructive/20'
+                      : 'bg-muted text-muted-foreground border-border'
                   }`}
                   role="status"
                   aria-label={isApiOnline ? "API Online" : "API Offline"}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${isApiOnline ? 'bg-primary' : 'bg-destructive animate-pulse'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${isApiOnline ? 'bg-primary' : 'bg-muted-foreground'}`} />
                   {isApiOnline ? 'Online' : 'Offline'}
                 </span>
               </div>
@@ -685,7 +691,7 @@ export default function AgentChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCreateAndSend(input); } }}
-              placeholder={`Envie uma mensagem para ${agent.name}...`}
+              placeholder={agent?.name ? `Envie uma mensagem para ${agent.name}...` : "Digite sua mensagem..."}
               className="w-full bg-card border border-border focus:border-primary focus:ring-1 focus:ring-primary/20 rounded-xl pl-5 pr-14 py-4 text-sm shadow-sm transition-all outline-none"
               disabled={isStreaming}
             />

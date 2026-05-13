@@ -5,8 +5,8 @@ import {
   Users, TrendingUp, Clock, Activity,
   Crown, Briefcase, Megaphone, Settings2,
   Sparkles, ChevronRight, BarChart3, Cpu,
-  Globe, Mail, Phone, Layers, ShieldCheck,
-  Server, Database, Wifi, AlertCircle,
+  Layers, ShieldCheck,
+  Server, Database, AlertCircle,
   Building2, Target, DollarSign, Flame,
   Plus, FileText, Wheat, Factory, ShoppingCart, Truck,
   CheckCircle2, Route, Compass, Crosshair, Handshake
@@ -191,7 +191,7 @@ export default function Dashboard() {
           className="relative overflow-hidden rounded-xl border border-border bg-card p-8"
         >
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="max-w-2xl">
+            <div className="max-w-xl lg:max-w-2xl">
               <div className="flex items-center gap-2 mb-3">
                 <span className="inline-flex h-2 w-2 rounded-full bg-primary" />
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-primary/80">Operação ativa</span>
