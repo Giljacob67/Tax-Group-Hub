@@ -9,8 +9,10 @@ import {
   Copy, CheckCheck, Trash2, Search, Download,
   Settings, Sparkles, Pencil, Check, X, Cpu,
   RotateCw, History, FileText, CheckSquare, Building2,
-  ClipboardList, Rocket
+  ClipboardList, Rocket, Lightbulb
 } from "lucide-react";
+import { useDemoMode } from "@/hooks/use-demo-mode";
+import { DEMO_CHAT_SUGGESTIONS } from "@/lib/demo-data";
 import { SkeletonChat, SkeletonChatSidebar } from "@/components/skeletons";
 import { EmptyState } from "@/components/empty-state";
 import {
@@ -52,6 +54,7 @@ import ModelSelector from "@/components/settings/llm/ModelSelector";
 import type { LlmConnection } from "@/components/settings/llm/types";
 
 export default function AgentChat() {
+  const { isDemo } = useDemoMode();
   const { id: agentId } = useParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -396,8 +399,11 @@ export default function AgentChat() {
           {isLoadingConvs ? (
             <SkeletonChatSidebar />
           ) : filteredConversations?.length === 0 ? (
-            <div className="text-center p-4 text-sm text-muted-foreground">
-              {searchFilter ? "Nenhum resultado" : "Nenhuma conversa ainda"}
+            <div className="text-center p-6">
+              <MessageSquare className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                {searchFilter ? "Nenhum resultado" : "Inicie uma conversa com o agente para transformar uma oportunidade em plano de ação."}
+              </p>
             </div>
           ) : (
             filteredConversations?.map((conv) => (
@@ -546,17 +552,25 @@ export default function AgentChat() {
         <div className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
           <div className="max-w-3xl mx-auto space-y-6 pb-4">
             {!activeConvId && !isLoadingMessages && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center mt-16">
-                <div className="bg-card border border-border rounded-2xl p-10 max-w-lg w-full text-center mb-8">
-                  <div className="text-5xl mb-5 select-none">{agent.icon ? <span role="img" aria-label="Assistente">{agent.icon}</span> : <Bot className="w-12 h-12 text-primary mx-auto" />}</div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">{agent.name}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{agent.description}</p>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center mt-12">
+                <div className="bg-card border border-border rounded-2xl p-8 max-w-lg w-full text-center mb-6">
+                  <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4 border border-primary/20">
+                    {agent.icon ? <span className="text-2xl select-none" role="img" aria-label="Assistente">{agent.icon}</span> : <Bot className="w-7 h-7 text-primary" />}
+                  </div>
+                  <h3 className="text-lg font-bold text-foreground mb-1">{agent.name}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{agent.description || "Assistente especializado da Tax Group."}</p>
+                  {isDemo && (
+                    <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
+                      <Lightbulb className="w-3 h-3 text-primary" />
+                      <span className="text-[11px] text-primary font-medium">Modo de apresentação ativo</span>
+                    </div>
+                  )}
                 </div>
-                {agent.suggestedPrompts?.length > 0 && (
+                {(agent.suggestedPrompts?.length > 0 || isDemo) && (
                   <div className="w-full max-w-2xl">
                     <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold mb-3 text-center">Sugestões de início</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {agent.suggestedPrompts.map((prompt: string, i: number) => (
+                      {(isDemo ? DEMO_CHAT_SUGGESTIONS : agent.suggestedPrompts || []).map((prompt: string, i: number) => (
                         <button
                           key={i}
                           onClick={() => handleCreateAndSend(prompt)}

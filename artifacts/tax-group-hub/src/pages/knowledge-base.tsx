@@ -189,8 +189,8 @@ export default function KnowledgeBase() {
           ) : docsData?.documents?.length === 0 ? (
             <div className="text-center py-16 bg-card/30 rounded-xl border border-border/50">
               <Shield className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground">Nenhum documento ainda</h3>
-              <p className="text-muted-foreground">Envie seu primeiro documento para enriquecer o conhecimento dos agentes.</p>
+              <h3 className="text-lg font-medium text-foreground">Base de conhecimento vazia</h3>
+              <p className="text-muted-foreground max-w-md mx-auto">Envie legislação tributária, pareceres, modelos de contrato e normas para que os agentes respondam com precisão jurídica.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

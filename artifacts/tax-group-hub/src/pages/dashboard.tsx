@@ -9,12 +9,14 @@ import {
   Server, Database, Wifi, AlertCircle,
   Building2, Target, DollarSign, Flame,
   Plus, FileText, Wheat, Factory, ShoppingCart, Truck,
-  CheckCircle2
+  CheckCircle2, Route, Compass, Crosshair, Handshake
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useListAgents, useListConversations } from "@workspace/api-client-react";
 import { SkeletonMetricsGrid, SkeletonAgentBlocks } from "@/components/skeletons";
 import { EmptyState } from "@/components/empty-state";
+import { useDemoMode } from "@/hooks/use-demo-mode";
+import { DEMO_CONTACTS, DEMO_SEGMENTS, DEMO_TASKS, DEMO_JOURNEY_STEPS, DEMO_DEALS } from "@/lib/demo-data";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer
 } from "recharts";
@@ -50,6 +52,8 @@ const SEGMENT_META: Record<string, { label: string; icon: any; color: string; bg
   logistica: { label: "Logística", icon: Truck,        color: "text-purple-400",  bg: "bg-purple-500/10",  border: "border-purple-500/20" },
 };
 
+const JOURNEY_ICONS = [Compass, Crosshair, Target, Handshake];
+
 const containerVariants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.06 } }
@@ -80,6 +84,7 @@ function MiniSpark({ data, color }: { data: number[]; color: string }) {
 }
 
 export default function Dashboard() {
+  const { isDemo } = useDemoMode();
   const { data: agentsData, isLoading: isLoadingAgents } = useListAgents();
   const { data: convData, isLoading: isLoadingConvs } = useListConversations();
 
@@ -129,14 +134,26 @@ export default function Dashboard() {
     queryFn: () => fetch("/api/automate/sequences").then(r => r.json()),
   });
 
+  // Demo fallbacks
+  const demoContacts = isDemo && (contactsData?.total ?? 0) === 0 ? DEMO_CONTACTS : [];
+  const demoSegments = isDemo && !(segmentsData?.segments?.length) ? DEMO_SEGMENTS : [];
+  const demoTasks = isDemo && !(tasksData?.tasks?.length) ? DEMO_TASKS : [];
+  const demoDeals = isDemo && !(pipelineData?.meta?.totalValue) ? DEMO_DEALS : [];
+
+  const effectiveContacts = demoContacts.length > 0 ? demoContacts : [];
+  const effectiveSegments = demoSegments.length > 0 ? demoSegments : (segmentsData?.segments ?? []);
+  const effectiveTasks = demoTasks.length > 0 ? demoTasks : (tasksData?.tasks ?? []);
+
   const activeSeqs = seqData?.sequences?.filter((s: any) => s.isActive).length ?? 0;
-  const totalContacts = contactsData?.total ?? 0;
-  const hotLeads = contactsData?.hot ?? 0;
-  const openDeals = contactsData?.deals ?? 0;
-  const potentialRevenue = pipelineData?.meta?.totalValue ?? 0;
-  const pendingTasks = tasksData?.tasks?.filter((t: any) =>
+  const totalContacts = isDemo && demoContacts.length > 0 ? demoContacts.length : (contactsData?.total ?? 0);
+  const hotLeads = isDemo && demoContacts.length > 0 ? demoContacts.filter(c => c.aiScore >= 70).length : (contactsData?.hot ?? 0);
+  const openDeals = isDemo && demoContacts.length > 0 ? demoContacts.filter(c => c.status === "opportunity").length : (contactsData?.deals ?? 0);
+  const potentialRevenue = isDemo && demoDeals.length > 0
+    ? demoDeals.reduce((s, d) => s + (parseFloat(d.value) || 0), 0)
+    : (pipelineData?.meta?.totalValue ?? 0);
+  const pendingTasks = effectiveTasks.filter((t: any) =>
     t.dueDate && new Date(t.dueDate) <= new Date(new Date().setHours(23,59,59,999))
-  ).length ?? 0;
+  ).length;
   const totalConvs = (convData as any)?.conversations?.length ?? 0;
 
   const metrics = [
@@ -154,6 +171,18 @@ export default function Dashboard() {
     <div className="h-full overflow-y-auto overflow-x-hidden pb-safe">
       <div className="p-6 max-w-7xl mx-auto space-y-8">
 
+        {/* ── Demo badge ── */}
+        {isDemo && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 w-fit"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-medium text-primary">Modo de apresentação ativo — dados demonstrativos</span>
+          </motion.div>
+        )}
+
         {/* ── Hero ── */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -162,29 +191,31 @@ export default function Dashboard() {
           className="relative overflow-hidden rounded-xl border border-border bg-card p-8"
         >
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div>
+            <div className="max-w-2xl">
               <div className="flex items-center gap-2 mb-3">
                 <span className="inline-flex h-2 w-2 rounded-full bg-primary" />
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-primary/80">Operação ativa</span>
               </div>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-                Command Center Tax Group
+                Centro de Comando Tax Group
               </h1>
-              <p className="text-sm text-muted-foreground mt-2 max-w-xl leading-relaxed">
-                Inteligência tributária operacional para transformar dados, agentes e pipeline em contratos.
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                Transforme empresas-alvo em oportunidades tributárias qualificadas. 
+                Agentes especializados para prospecção, diagnóstico e follow-up. 
+                Pipeline comercial orientado por dados e inteligência tributária.
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-shrink-0">
               <Link href="/crm">
                 <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted transition-colors">
                   <Plus className="w-4 h-4" />
-                  <span>Adicionar empresa-alvo</span>
+                  <span>Importar empresas-alvo</span>
                 </button>
               </Link>
               <Link href="/agent/coordenador-geral-tax-group">
                 <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
                   <Target className="w-4 h-4" />
-                  <span>Acionar Coordenador Geral</span>
+                  <span>Iniciar diagnóstico</span>
                 </button>
               </Link>
             </div>
@@ -240,8 +271,8 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {segmentsData?.segments?.length ? (
-                segmentsData.segments.map((seg) => {
+              {effectiveSegments.length ? (
+                effectiveSegments.map((seg) => {
                   const meta = SEGMENT_META[seg.id];
                   if (!meta) return null;
                   const Icon = meta.icon;
@@ -321,6 +352,39 @@ export default function Dashboard() {
             </div>
           </motion.div>
         </div>
+
+        {/* ── Roteiro da operação ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.22, duration: 0.4 }}
+          className="rounded-xl border border-border bg-card p-6"
+        >
+          <div className="flex items-center gap-2 mb-5">
+            <Route className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">Como o hub gera valor</h2>
+            <span className="text-[11px] text-muted-foreground">Da empresa-alvo ao contrato</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {DEMO_JOURNEY_STEPS.map((s, idx) => {
+              const Icon = JOURNEY_ICONS[idx];
+              return (
+                <div key={s.step} className="relative flex gap-3 p-4 rounded-lg border border-border/50 bg-muted/20">
+                  {idx < DEMO_JOURNEY_STEPS.length - 1 && (
+                    <div className="hidden lg:block absolute top-1/2 -right-2 w-4 h-px bg-border/50" />
+                  )}
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-foreground">{s.step}. {s.title}</div>
+                    <div className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{s.description}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
 
         {/* ── Charts + System Status ── */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -429,6 +493,45 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
+        {/* ── Pipeline Tributário (mini preview) ── */}
+        {isDemo && demoDeals.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.32, duration: 0.4 }}
+            className="rounded-xl border border-border bg-card p-6"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Pipeline Tributário</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Oportunidades em andamento</p>
+              </div>
+              <Link href="/crm" className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors">
+                Ver pipeline completo <ChevronRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {demoDeals.slice(0, 3).map((deal) => (
+                <div key={deal.id} className="rounded-lg border border-border/50 bg-muted/20 p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground truncate pr-2">{deal.title}</span>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{deal.stage}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">{deal.razaoSocial}</span>
+                    <span className="text-xs font-bold text-primary">
+                      R$ {(parseFloat(deal.value)/1000).toFixed(0)}k
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Produto: <span className="text-foreground font-medium">{deal.produto}</span> · Prob: {deal.probability}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {/* ── Agent Blocks ── */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -437,7 +540,7 @@ export default function Dashboard() {
         >
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Blocos de Agentes</h2>
+              <h2 className="text-sm font-semibold text-foreground">Agentes em ação</h2>
               <p className="text-[11px] text-muted-foreground mt-0.5">{agentsData?.agents?.length ?? 0} agentes organizados por função</p>
             </div>
             <Link href="/settings" className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors">
@@ -450,8 +553,8 @@ export default function Dashboard() {
           ) : agentsData?.agents?.length === 0 ? (
             <EmptyState
               icon={Bot}
-              title="Nenhum agente encontrado"
-              description="Os agentes de IA ainda não foram configurados. Verifique se o backend está rodando corretamente."
+              title="Nenhum agente configurado"
+              description="Configure agentes especializados para apoiar prospecção, diagnóstico, proposta e follow-up comercial."
             />
           ) : (
             <motion.div
@@ -559,5 +662,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-

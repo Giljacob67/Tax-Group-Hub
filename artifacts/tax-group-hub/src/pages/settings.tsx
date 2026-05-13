@@ -150,8 +150,8 @@ function WhatsAppSection() {
       {channels.length === 0 && !showForm && (
         <div className="text-center py-10 bg-card/30 border border-dashed border-border/40 rounded-xl">
           <MessageSquare className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
-          <h3 className="text-sm font-medium text-foreground">Nenhum canal configurado</h3>
-          <p className="text-xs text-muted-foreground mt-1">Clique em "Adicionar" para começar.</p>
+          <h3 className="text-sm font-medium text-foreground">WhatsApp não configurado</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">Conecte uma conta do WhatsApp Business para ativar atendimento e broadcasts automatizados.</p>
         </div>
       )}
 

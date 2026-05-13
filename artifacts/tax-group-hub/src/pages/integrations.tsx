@@ -42,8 +42,8 @@ export default function Integrations() {
       <div className="max-w-4xl mx-auto space-y-12">
         
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Integrações de IA</h1>
-          <p className="text-muted-foreground">Estenda seu fluxo de trabalho com ferramentas de IA e links diretos para plataformas.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Ferramentas e Integrações</h1>
+          <p className="text-muted-foreground">Extensões do fluxo de trabalho comercial: geração de imagens, links para Canva e integrações com plataformas externas.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

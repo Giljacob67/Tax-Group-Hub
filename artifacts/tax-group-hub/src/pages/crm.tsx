@@ -12,8 +12,10 @@ import {
   PhoneCall, AtSign, Users, StickyNote, Layers,
   SlidersHorizontal, CheckSquare, Square,
   LayoutGrid, List, AlertCircle, Link2, ExternalLink,
-  Flame, Zap
+  Flame, Zap, Compass, ShoppingCart
 } from "lucide-react";
+import { useDemoMode } from "@/hooks/use-demo-mode";
+import { DEMO_CONTACTS, DEMO_DEALS } from "@/lib/demo-data";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -346,6 +348,7 @@ export default function CRMPage() {
 
 // ─── Contacts View ────────────────────────────────────────────────────────────
 function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; selected: Contact | null }) {
+  const { isDemo } = useDemoMode();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -388,7 +391,12 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
     },
   });
 
-  const contacts = data?.contacts || [];
+  let contacts = data?.contacts || [];
+
+  // Demo fallback: quando não há dados reais e modo demo está ativo
+  if (isDemo && contacts.length === 0 && !isLoading) {
+    contacts = DEMO_CONTACTS as unknown as Contact[];
+  }
 
   function toggleSort(field: string) {
     setSort(prev => {
@@ -486,15 +494,15 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
     setSearch("");
   }
 
-  const PRESET_VIEWS: { id: string; name: string; emoji: string; filters: Record<string, string> }[] = [
-    { id: "all", name: "Todos", emoji: "📋", filters: {} },
-    { id: "hot", name: "Leads quentes", emoji: "🔥", filters: { scoreMin: "70" } },
-    { id: "agro", name: "Agro prioritário", emoji: "🌾", filters: { tag: "agro" } },
-    { id: "lucro_real", name: "Indústrias Lucro Real", emoji: "🏭", filters: { regime: "lucro_real" } },
-    { id: "atacado", name: "Atacado", emoji: "📦", filters: { tag: "atacado" } },
-    { id: "opps", name: "Oportunidades RTI", emoji: "💰", filters: { status: "opportunity" } },
-    { id: "proposals", name: "Propostas abertas", emoji: "📄", filters: { status: "opportunity" } },
-    { id: "lost", name: "Perdidos", emoji: "⚠️", filters: { status: "lost" } },
+  const PRESET_VIEWS: { id: string; name: string; icon: any; filters: Record<string, string> }[] = [
+    { id: "all", name: "Todos", icon: List, filters: {} },
+    { id: "hot", name: "Leads quentes", icon: Flame, filters: { scoreMin: "70" } },
+    { id: "agro", name: "Agro prioritário", icon: Compass, filters: { tag: "agro" } },
+    { id: "lucro_real", name: "Indústrias Lucro Real", icon: Building2, filters: { regime: "lucro_real" } },
+    { id: "atacado", name: "Atacado", icon: ShoppingCart, filters: { tag: "atacado" } },
+    { id: "opps", name: "Oportunidades RTI", icon: DollarSign, filters: { status: "opportunity" } },
+    { id: "proposals", name: "Propostas abertas", icon: FileText, filters: { status: "opportunity" } },
+    { id: "lost", name: "Perdidos", icon: AlertCircle, filters: { status: "lost" } },
   ];
 
   const [activeViewId, setActiveViewId] = useState("all");
@@ -576,7 +584,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                   : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               }`}
             >
-              <span>{v.emoji}</span> {v.name}
+              <v.icon className="w-3 h-3" /> {v.name}
             </button>
           ))}
           
@@ -598,7 +606,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               }`}
               title="Duplo clique para excluir"
             >
-              <span>{v.emoji}</span> {v.name}
+              <List className="w-3 h-3" /> {v.name}
             </button>
           ))}
 
@@ -901,11 +909,13 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
         ) : contacts.length === 0 ? (
           <div className="text-center py-14 border-t border-border/50">
             <Building2 className="w-14 h-14 text-muted-foreground/20 mx-auto mb-3" />
-            <h3 className="text-base font-medium">Nenhum lead encontrado</h3>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h3 className="text-base font-medium">
+              {activeFilterCount > 0 ? "Nenhum resultado para os filtros" : "Sua operação comercial ainda não tem empresas mapeadas"}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
               {activeFilterCount > 0 ? (
-                <>Nenhum resultado para os filtros aplicados. <button onClick={clearFilters} className="text-primary hover:underline">Limpar filtros</button></>
-              ) : "Adicione o primeiro CNPJ ou importe uma lista."}
+                <>Ajuste os critérios ou <button onClick={clearFilters} className="text-primary hover:underline">limpar filtros</button>.</>
+              ) : "Importe uma lista de CNPJs ou adicione uma empresa-alvo para iniciar a priorização por IA."}
             </p>
           </div>
         ) : (
@@ -1981,6 +1991,7 @@ function QuickAddDealForm({ stage, onDone }: { stage: string; onDone: () => void
 
 // ─── Pipeline Kanban ──────────────────────────────────────────────────────────
 function PipelineKanbanView() {
+  const { isDemo } = useDemoMode();
   const queryClient = useQueryClient();
   const { toast }   = useToast();
   const [draggedDealId, setDraggedDealId]       = useState<number | null>(null);
@@ -2069,8 +2080,19 @@ function PipelineKanbanView() {
     </div>
   );
 
-  const pipeline    = data?.pipeline || {};
-  const stages      = data?.stages || [];
+  let pipeline    = data?.pipeline || {};
+  let stages      = data?.stages || [];
+
+  // Demo fallback: quando pipeline está vazio e modo demo ativo
+  if (isDemo && stages.length === 0 && Object.keys(pipeline).length === 0) {
+    stages = ["prospecting", "discovery", "proposal", "negotiation", "closing", "won", "lost"];
+    const demoPipeline: Record<string, Deal[]> = {};
+    for (const s of stages) {
+      demoPipeline[s] = DEMO_DEALS.filter(d => d.stage === s) as unknown as Deal[];
+    }
+    pipeline = demoPipeline;
+  }
+
   const allDeals    = Object.values(pipeline).flat() as Deal[];
   const activeDeals = allDeals.filter(d => !["lost"].includes(d.stage));
   const totalActiveValue = activeDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
@@ -2204,9 +2226,12 @@ function PipelineKanbanView() {
       </div>
 
       {allDeals.length === 0 && (
-        <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-xl">
-          <Trophy className="w-10 h-10 mx-auto mb-2 text-muted-foreground/30" />
-          Nenhum negócio criado ainda. Qualifique um lead ou use o "+" em qualquer coluna.
+        <div className="text-center py-10 text-sm text-muted-foreground border border-dashed border-border/40 rounded-xl bg-card/30">
+          <Trophy className="w-10 h-10 mx-auto mb-3 text-muted-foreground/20" />
+          <p className="font-medium text-foreground">Pipeline vazio</p>
+          <p className="text-xs mt-1 max-w-md mx-auto">
+            Sua operação comercial ainda não tem negócios em andamento. Qualifique um lead no CRM ou crie uma oportunidade manualmente.
+          </p>
         </div>
       )}
 

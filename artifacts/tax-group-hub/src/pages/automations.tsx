@@ -229,7 +229,8 @@ export default function AutomationsPage() {
             ) : sequences.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground">
                 <Zap className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">Nenhuma sequência cadastrada.</p>
+                <p className="text-sm font-medium text-foreground">Nenhuma automação configurada</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">Crie sequências de WhatsApp e e-mail para nurturing automático de leads qualificados.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -327,7 +328,8 @@ export default function AutomationsPage() {
             ) : activeEnrollments.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground">
                 <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">Nenhum contato em andamento no momento.</p>
+                <p className="text-sm font-medium text-foreground">Nenhum contato em sequência</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">Inscreva leads em campanhas automáticas de follow-up comercial.</p>
               </div>
             ) : (
               <div className="space-y-2">
