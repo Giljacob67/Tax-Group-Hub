@@ -1,19 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
-import { Loader2, RefreshCw, Shield, AlertCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Activity, Plus, RefreshCw, Loader2, Wifi, AlertTriangle,
+  Star, Settings2, BarChart3
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
-import ProviderSidebar from "./ProviderSidebar";
-import ModelCatalog from "./ModelCatalog";
-import ConnectionWizard from "./ConnectionWizard";
+import { ProviderGrid } from "./ProviderGrid";
+import { ConnectionTable } from "./ConnectionTable";
+import { DiagnosticsDrawer } from "./DiagnosticsDrawer";
+import { HealthCheckPanel } from "./HealthCheckPanel";
+import { ProfileMatrix } from "./ProfileMatrix";
+import { ConnectionWizardV2 } from "./ConnectionWizardV2";
 import EditConnectionModal from "./EditConnectionModal";
-import ProfileManager from "./ProfileManager";
-import type { ProviderMeta, LlmConnection, LlmProfile } from "./types";
+import type { ProviderMeta, LlmConnection, LlmProfile, DiagnosticResult, HealthCheckResult } from "./types";
 
 export default function ModelHub() {
   const { toast } = useToast();
-  const [showConfirm, confirmDialog] = useConfirmDialog();
+
   const [providers, setProviders] = useState<ProviderMeta[]>([]);
   const [connections, setConnections] = useState<LlmConnection[]>([]);
   const [profiles, setProfiles] = useState<LlmProfile[]>([]);
@@ -21,30 +26,29 @@ export default function ModelHub() {
   const [selectedProvider, setSelectedProvider] = useState<ProviderMeta | null>(null);
   const [activeTab, setActiveTab] = useState<"connections" | "profiles">("connections");
   const [showWizard, setShowWizard] = useState(false);
+  const [wizardProviderId, setWizardProviderId] = useState<string | undefined>();
   const [editingConnection, setEditingConnection] = useState<LlmConnection | null>(null);
   const [testingId, setTestingId] = useState<number | null>(null);
-  const [healthRunning, setHealthRunning] = useState(false);
+  const [healthResults, setHealthResults] = useState<HealthCheckResult[]>([]);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [showHealth, setShowHealth] = useState(false);
+  const [diagnosticsMap, setDiagnosticsMap] = useState<Map<number, { results: DiagnosticResult[]; overall: string }>>(new Map());
+  const [diagConnection, setDiagConnection] = useState<LlmConnection | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [pRes, cRes, profRes] = await Promise.all([
+      const [pRes, cRes, prRes] = await Promise.all([
         fetch("/api/llm/providers"),
         fetch("/api/llm/connections"),
         fetch("/api/llm/profiles"),
       ]);
-      if (pRes.ok) {
-        const d = await pRes.json();
-        setProviders(d.providers || []);
-      }
-      if (cRes.ok) {
-        const d = await cRes.json();
-        setConnections(d.connections || []);
-      }
-      if (profRes.ok) {
-        const d = await profRes.json();
-        setProfiles(d.profiles || []);
-      }
+      const pData = await pRes.json();
+      const cData = await cRes.json();
+      const prData = await prRes.json();
+      setProviders(pData.providers || []);
+      setConnections(cData.connections || []);
+      setProfiles(prData.profiles || []);
     } catch {
       toast({ title: "Erro ao carregar configurações", variant: "destructive" });
     } finally {
@@ -52,205 +56,280 @@ export default function ModelHub() {
     }
   }, [toast]);
 
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  async function handleTest(id: number) {
-    setTestingId(id);
+  const handleTest = async (conn: LlmConnection) => {
+    setTestingId(conn.id);
     try {
-      const r = await fetch(`/api/llm/connections/${id}/test`, { method: "POST" });
-      const data = await r.json();
-      if (data.ok) {
-        toast({ title: "Conexão OK", description: `${data.provider} · ${data.model}` });
-      } else {
-        toast({ title: "Falha na conexão", description: data.error || "Erro desconhecido", variant: "destructive" });
+      const res = await fetch(`/api/llm/connections/${conn.id}/diagnostics`, { method: "POST" });
+      const data = await res.json();
+      if (data.diagnostics) {
+        setDiagnosticsMap((prev) => new Map(prev).set(conn.id, data.diagnostics));
+        toast({
+          title: data.diagnostics.overall === "ok" ? "Conexão OK" : "Problemas detectados",
+          description: data.diagnostics.results.find((r: DiagnosticResult) => !r.ok)?.userMessage || "Todas as etapas passaram.",
+          variant: data.diagnostics.overall === "ok" ? "default" : "destructive",
+        });
       }
-      fetchAll();
     } catch {
-      toast({ title: "Erro ao testar", variant: "destructive" });
+      toast({ title: "Erro ao testar conexão", variant: "destructive" });
     } finally {
       setTestingId(null);
     }
-  }
+  };
 
-  async function handleActivate(id: number) {
+  const handleActivate = async (conn: LlmConnection) => {
     try {
-      const r = await fetch(`/api/llm/connections/${id}/activate`, { method: "POST" });
-      if (!r.ok) throw new Error();
+      await fetch(`/api/llm/connections/${conn.id}/activate`, { method: "POST" });
       toast({ title: "Conexão ativada como padrão" });
       fetchAll();
     } catch {
       toast({ title: "Erro ao ativar", variant: "destructive" });
     }
-  }
+  };
 
-  function handleDelete(id: number) {
-    showConfirm(
-      { title: "Remover conexão?", description: "Tem certeza que deseja remover esta conexão? Esta ação não pode ser desfeita.", variant: "destructive", confirmLabel: "Remover" },
-      async () => {
-        try {
-          const r = await fetch(`/api/llm/connections/${id}`, { method: "DELETE" });
-          if (!r.ok) throw new Error();
-          toast({ title: "Conexão removida" });
-          fetchAll();
-        } catch {
-          toast({ title: "Erro ao remover", variant: "destructive" });
-        }
-      }
-    );
-  }
-
-  async function handleHealthCheck() {
-    setHealthRunning(true);
+  const handleDelete = async (conn: LlmConnection) => {
+    if (!window.confirm(`Remover conexão "${conn.name}"?`)) return;
     try {
-      const r = await fetch("/api/llm/health-check", { method: "POST" });
-      const data = await r.json();
-      const ok = data.results?.filter((x: any) => x.status === "ok").length || 0;
-      const err = data.results?.filter((x: any) => x.status === "error").length || 0;
-      toast({ title: `Health check: ${ok} OK, ${err} erro(s)` });
+      await fetch(`/api/llm/connections/${conn.id}`, { method: "DELETE" });
+      toast({ title: "Conexão removida" });
       fetchAll();
+    } catch {
+      toast({ title: "Erro ao remover", variant: "destructive" });
+    }
+  };
+
+  const handleHealthCheck = async () => {
+    setHealthLoading(true);
+    setShowHealth(true);
+    try {
+      const res = await fetch("/api/llm/health-check", { method: "POST" });
+      const data = await res.json();
+      setHealthResults(data.results || []);
+      // Also update diagnostics map
+      const newMap = new Map(diagnosticsMap);
+      (data.results || []).forEach((r: HealthCheckResult) => {
+        if (r.diagnostics) newMap.set(r.connectionId, r.diagnostics);
+      });
+      setDiagnosticsMap(newMap);
+      const okCount = (data.results || []).filter((r: HealthCheckResult) => !r.error && r.diagnostics?.overall === "ok").length;
+      toast({ title: `Health check: ${okCount} OK, ${data.results.length - okCount} erro(s)` });
     } catch {
       toast({ title: "Erro no health check", variant: "destructive" });
     } finally {
-      setHealthRunning(false);
+      setHealthLoading(false);
     }
-  }
+  };
+
+  const handleProfileCreate = async (profile: Omit<LlmProfile, "id" | "userId" | "createdAt" | "updatedAt">) => {
+    try {
+      await fetch("/api/llm/profiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile),
+      });
+      toast({ title: "Perfil criado" });
+      fetchAll();
+    } catch {
+      toast({ title: "Erro ao criar perfil", variant: "destructive" });
+    }
+  };
+
+  const handleProfileActivate = async (id: number) => {
+    try {
+      await fetch(`/api/llm/profiles/${id}/activate`, { method: "POST" });
+      toast({ title: "Perfil ativado" });
+      fetchAll();
+    } catch {
+      toast({ title: "Erro ao ativar perfil", variant: "destructive" });
+    }
+  };
+
+  const handleProfileDelete = async (id: number) => {
+    if (!window.confirm("Remover perfil? Esta ação não pode ser desfeita.")) return;
+    try {
+      await fetch(`/api/llm/profiles/${id}`, { method: "DELETE" });
+      toast({ title: "Perfil removido" });
+      fetchAll();
+    } catch {
+      toast({ title: "Erro ao remover perfil", variant: "destructive" });
+    }
+  };
+
+  // Stats
+  const connectedProviders = new Set(connections.map((c) => c.provider)).size;
+  const onlineConns = connections.filter((c) => c.lastTestStatus === "ok").length;
+  const defaultConn = connections.find((c) => c.isDefault);
+  const errorConns = connections.filter((c) => c.lastTestStatus === "error").length;
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-7 h-7 animate-spin text-primary" aria-label="Carregando Model Hub" />
+      <div className="h-full flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <span className="text-xs text-muted-foreground">Carregando Central de Modelos...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Top bar */}
-      <div className="h-14 border-b border-border/30 flex items-center justify-between px-4 bg-background/50">
-        <div className="flex items-center gap-3">
-          <h2 className="text-sm font-semibold">Model Hub</h2>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-muted border border-border/30 text-muted-foreground">
-            {connections.length} conex{connections.length === 1 ? "ão" : "ões"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-[11px] h-8"
-            onClick={handleHealthCheck}
-            disabled={healthRunning || connections.length === 0}
-          >
-            {healthRunning ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-            ) : (
-              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-            )}
-            Health Check
-          </Button>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        <ProviderSidebar
-          providers={providers}
-          connections={connections}
-          onSelectProvider={setSelectedProvider}
-          onRefresh={fetchAll}
-          onNewConnection={() => setShowWizard(true)}
-          loading={loading}
-        />
-
-        <div className="flex-1 flex flex-col min-w-0 order-first lg:order-none">
-          {/* Tabs */}
-          <div className="flex items-center gap-1 px-4 py-2 border-b border-border/30 bg-background/30">
-            <ModelHubTab id="connections" label="Conexões" active={activeTab === "connections"} onClick={() => setActiveTab("connections")} />
-            <ModelHubTab id="profiles" label="Perfis" active={activeTab === "profiles"} onClick={() => setActiveTab("profiles")} />
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Central de Modelos IA</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Conecte provedores, valide modelos e defina perfis para os agentes da Tax Group.
+            </p>
           </div>
-
-          <div className="flex-1 overflow-hidden">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="h-full"
-            >
-              {activeTab === "connections" ? (
-                <ModelCatalog
-                  connections={connections}
-                  providers={providers}
-                  selectedProvider={selectedProvider}
-                  onTest={handleTest}
-                  onActivate={handleActivate}
-                  onDelete={handleDelete}
-                  onEdit={(conn) => setEditingConnection(conn)}
-                  testingId={testingId}
-                />
-              ) : (
-                <div className="h-full overflow-y-auto p-4">
-                  <ProfileManager profiles={profiles} connections={connections} onRefresh={fetchAll} />
-                </div>
-              )}
-            </motion.div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={handleHealthCheck}>
+              <BarChart3 className="w-3.5 h-3.5" />Health Check
+            </Button>
+            <Button size="sm" className="h-8 gap-1 text-xs" onClick={() => { setWizardProviderId(undefined); setShowWizard(true); }}>
+              <Plus className="w-3.5 h-3.5" />Nova conexão
+            </Button>
           </div>
         </div>
 
-        {/* Right panel: Profiles quick view — hidden on mobile */}
-        <div className="hidden xl:block w-72 flex-shrink-0 border-l border-border/30 bg-background/30 overflow-y-auto p-4">
-          <ProfileManager profiles={profiles} connections={connections} onRefresh={fetchAll} />
+        {/* Stats cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="rounded-xl border border-border/40 bg-card/40 p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs text-muted-foreground">Provedores</span>
+            </div>
+            <p className="text-lg font-bold text-foreground">{connectedProviders} <span className="text-xs font-normal text-muted-foreground">/ {providers.length}</span></p>
+          </div>
+          <div className="rounded-xl border border-border/40 bg-card/40 p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Activity className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs text-muted-foreground">Conexões online</span>
+            </div>
+            <p className="text-lg font-bold text-foreground">{onlineConns} <span className="text-xs font-normal text-muted-foreground">/ {connections.length}</span></p>
+          </div>
+          <div className="rounded-xl border border-border/40 bg-card/40 p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Star className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-xs text-muted-foreground">Modelo padrão</span>
+            </div>
+            <p className="text-sm font-bold text-foreground truncate">{defaultConn?.modelId || "—"}</p>
+          </div>
+          <div className="rounded-xl border border-border/40 bg-card/40 p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle className={`w-3.5 h-3.5 ${errorConns > 0 ? "text-red-400" : "text-muted-foreground"}`} />
+              <span className="text-xs text-muted-foreground">Erros pendentes</span>
+            </div>
+            <p className={`text-lg font-bold ${errorConns > 0 ? "text-red-400" : "text-foreground"}`}>{errorConns}</p>
+          </div>
+        </div>
+
+        {/* Health Check Panel */}
+        <AnimatePresence>
+          {showHealth && (
+            <HealthCheckPanel
+              results={healthResults}
+              loading={healthLoading}
+              onRun={handleHealthCheck}
+              onClose={() => setShowHealth(false)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+          <TabsList className="h-8">
+            <TabsTrigger value="connections" className="text-xs h-7 gap-1"><Settings2 className="w-3 h-3" />Conexões</TabsTrigger>
+            <TabsTrigger value="profiles" className="text-xs h-7 gap-1"><Star className="w-3 h-3" />Perfis</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="connections" className="mt-4 space-y-4">
+            <ProviderGrid
+              providers={providers}
+              connections={connections}
+              onSelectProvider={setSelectedProvider}
+              onNewConnection={(id) => { setWizardProviderId(id); setShowWizard(true); }}
+            />
+
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {selectedProvider ? `Conexões: ${selectedProvider.name}` : "Todas as conexões"}
+                </h3>
+                {selectedProvider && (
+                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedProvider(null)}>
+                    Ver todas
+                  </Button>
+                )}
+              </div>
+              <ConnectionTable
+                connections={connections}
+                providers={providers}
+                selectedProvider={selectedProvider}
+                testingId={testingId}
+                diagnosticsMap={diagnosticsMap}
+                onTest={handleTest}
+                onActivate={handleActivate}
+                onDelete={handleDelete}
+                onEdit={setEditingConnection}
+                onShowDiagnostics={(conn) => {
+                  setDiagConnection(conn);
+                  // Ensure we have diagnostics
+                  if (!diagnosticsMap.has(conn.id)) {
+                    handleTest(conn);
+                  }
+                }}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="profiles" className="mt-4">
+            <ProfileMatrix
+              profiles={profiles}
+              connections={connections}
+              onCreate={handleProfileCreate}
+              onActivate={handleProfileActivate}
+              onDelete={handleProfileDelete}
+            />
+          </TabsContent>
+        </Tabs>
+
+        {/* Security note */}
+        <div className="text-center text-[11px] text-muted-foreground/60 pt-4 pb-2">
+          🔒 Chaves API armazenadas com criptografia AES-256-GCM. Nunca expostas no frontend.
         </div>
       </div>
 
-      {/* Security note */}
-      <div className="px-4 py-2 border-t border-border/30 bg-background/50 flex items-center gap-2 text-[11px] text-muted-foreground/60">
-        <Shield className="w-3 h-3" />
-        <span>Chaves armazenadas com criptografia AES-256-GCM. Nenhuma chave é enviada ao frontend.</span>
-      </div>
+      {/* Modals */}
+      <AnimatePresence>
+        {showWizard && (
+          <ConnectionWizardV2
+            providers={providers}
+            initialProviderId={wizardProviderId}
+            onClose={() => setShowWizard(false)}
+            onCreated={fetchAll}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Wizard Modal */}
-      {showWizard && (
-        <ConnectionWizard
-          providers={providers}
-          onClose={() => setShowWizard(false)}
-          onCreated={() => {
-            setShowWizard(false);
-            fetchAll();
-          }}
-        />
-      )}
-
-      {/* Edit Modal */}
       {editingConnection && (
         <EditConnectionModal
           connection={editingConnection}
           providers={providers}
           onClose={() => setEditingConnection(null)}
-          onSaved={() => {
-            setEditingConnection(null);
-            fetchAll();
-            toast({ title: "Conexão atualizada" });
-          }}
+          onSaved={fetchAll}
         />
       )}
-      {confirmDialog}
-    </div>
-  );
-}
 
-function ModelHubTab({ id, label, active, onClick }: { id: string; label: string; active?: boolean; onClick?: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-        active
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-      }`}
-    >
-      {label}
-    </button>
+      <DiagnosticsDrawer
+        connection={diagConnection}
+        diagnostics={diagConnection ? diagnosticsMap.get(diagConnection.id) || null : null}
+        onClose={() => setDiagConnection(null)}
+        onRetest={handleTest}
+      />
+
+    </div>
   );
 }

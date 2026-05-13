@@ -8,6 +8,7 @@ import { discoverModels } from "../lib/model-discovery.js";
 import { callLLM } from "../lib/llm-client.js";
 import { healthCheckConnections } from "../lib/llm-router.js";
 import { validateIdParam } from "../lib/validation.js";
+import { runDiagnostics, validateCredentials, testCapability } from "../lib/llm-diagnostics.js";
 
 const router: IRouter = Router();
 
@@ -752,7 +753,30 @@ router.get("/llm/active-profile", async (req, res) => {
 router.post("/llm/health-check", async (req, res) => {
   try {
     const userId = req.userId;
-    const results = await healthCheckConnections(isRealUser(userId) ? userId : undefined);
+    const conditions = [eq(llmConnectionsTable.isActive, true)];
+    const userScope = scopeByUser(userId);
+    if (userScope) conditions.push(userScope);
+
+    const connections = await db
+      .select()
+      .from(llmConnectionsTable)
+      .where(and(...conditions));
+
+    const results = await Promise.all(
+      connections.map(async (conn) => {
+        try {
+          const apiKey = decrypt(conn.apiKey);
+          const diagnostics = await runDiagnostics(
+            { id: conn.id, provider: conn.provider, modelId: conn.modelId, baseUrl: conn.baseUrl, supportsJson: conn.supportsJson ?? undefined, supportsTools: conn.supportsTools ?? undefined, apiKey },
+            userId
+          );
+          return { connectionId: conn.id, name: conn.name, provider: conn.provider, diagnostics };
+        } catch (err: any) {
+          return { connectionId: conn.id, name: conn.name, provider: conn.provider, error: err.message };
+        }
+      })
+    );
+
     res.json({ success: true, results });
   } catch (err) {
     console.error("[LLM] health-check error:", err);
