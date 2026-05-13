@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import NotFound from "@/pages/not-found";
+import LandingPage from "./pages/landing";
 
 import { AppSidebar } from "./components/app-sidebar";
 import { ErrorBoundary } from "./components/error-boundary";
@@ -59,6 +60,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/">
+        <LandingPage />
+      </Route>
+      <Route path="/command-center">
         <AnimatedRoute><Dashboard /></AnimatedRoute>
       </Route>
       <Route path="/crm">

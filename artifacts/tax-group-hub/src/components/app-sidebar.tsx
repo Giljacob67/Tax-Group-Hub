@@ -31,7 +31,7 @@ const BLOCKS = [
 ];
 
 const NAV_ITEMS = [
-  { path: "/",             label: "Command Center",   icon: LayoutDashboard, color: "text-[#107EC2]" },
+  { path: "/command-center", label: "Command Center",   icon: LayoutDashboard, color: "text-[#107EC2]" },
   { path: "/crm",          label: "CRM & Pipeline",   icon: Users,           color: "text-[#94A3B8]" },
   { path: "/agent/coordenador-geral-tax-group", label: "Agentes", icon: Bot, color: "text-[#94A3B8]" },
   { path: "/automations",  label: "Campanhas",        icon: Zap,             color: "text-[#94A3B8]" },
@@ -123,7 +123,7 @@ export function AppSidebar() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <SidebarMenuButton
-                        isActive={item.path === "/" ? location === "/" : location.startsWith(item.path)}
+                        isActive={item.path === "/command-center" ? location === "/command-center" : location.startsWith(item.path)}
                         onClick={() => navigate(item.path)}
                         className="cursor-pointer"
                       >
