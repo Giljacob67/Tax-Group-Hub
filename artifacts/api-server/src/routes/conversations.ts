@@ -338,7 +338,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     let autoTitle: string | null = null;
     if (userMessageCount === 1) {
       autoTitle = content.trim().length > 60 ? content.trim().substring(0, 57) + "..." : content.trim();
-      await db.update(conversationsTable).set({ title: autoTitle, updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
+      await db.update(conversationsTable).set({ title: autoTitle ?? undefined, updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
     }
 
     let systemPrompt = customSystemPrompt 

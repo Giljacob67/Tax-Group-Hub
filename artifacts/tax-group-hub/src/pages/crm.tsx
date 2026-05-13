@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState, useRef } from "react";
+import { useState, useRef, lazy, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -39,7 +39,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import CRMDashboard from "@/components/crm/CRMDashboard";
+const CRMDashboard = lazy(() => import("@/components/crm/CRMDashboard"));
 import TasksPanel from "@/components/crm/TasksPanel";
 import GlobalTimeline from "@/components/crm/GlobalTimeline";
 import AutomationsPanel from "@/components/crm/AutomationsPanel";
@@ -256,7 +256,7 @@ export default function CRMPage() {
   ).length || 0;
 
   return (
-    <div className="flex h-full overflow-hidden bg-background">
+    <div className="flex h-full overflow-hidden bg-background" data-tour="crm">
       <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v !== "contacts") setSelectedContact(null); }} className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="flex-none px-6 pt-6 pb-3">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-5">
@@ -306,7 +306,13 @@ export default function CRMPage() {
             <AutomationsPanel />
           </TabsContent>
           <TabsContent value="dashboard" className="h-full m-0 p-6 overflow-y-auto">
-            <CRMDashboard />
+            <Suspense fallback={
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            }>
+              <CRMDashboard />
+            </Suspense>
           </TabsContent>
         </div>
       </Tabs>
@@ -1461,8 +1467,8 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
 
       {/* Tabs */}
       <Tabs value={detailTab} onValueChange={setDetailTab} className="flex flex-col flex-1 overflow-hidden">
-        <div className="flex-none border-b border-border/50 px-4">
-          <TabsList className="bg-transparent p-0 h-9 gap-4">
+        <div className="flex-none border-b border-border/50 px-4 overflow-x-auto">
+          <TabsList className="bg-transparent p-0 h-auto gap-4 flex-wrap">
             {[
               { value: "info",     label: "Dados" },
               { value: "deals",    label: `Negócios (${deals.length})` },

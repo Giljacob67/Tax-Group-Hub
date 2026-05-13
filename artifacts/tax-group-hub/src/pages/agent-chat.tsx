@@ -382,7 +382,7 @@ export default function AgentChat() {
   );
 
   return (
-    <div className="flex flex-1 h-full overflow-hidden bg-background">
+    <div className="flex flex-1 h-full overflow-hidden bg-background" data-tour="chat">
       {/* Left sidebar — conversation history */}
       <div className="w-72 border-r border-border bg-card/40 flex flex-col hidden md:flex">
         <div className="p-4 border-b border-border flex justify-between items-center bg-muted/20">

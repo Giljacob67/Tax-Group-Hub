@@ -62,7 +62,7 @@ async function evaluateAutomations(
           type: payload.type || "call",
           priority: payload.priority || "high",
           status: "pending",
-          dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
         });
 
       } else if (auto.actionType === "log_activity") {
@@ -247,7 +247,7 @@ router.post("/contacts", async (req: Request, res: Response) => {
     const sanitizedData = pick(data, allowedContactFields);
     const [newContact] = await db
       .insert(crmContactsTable)
-      .values({ ...enrichedFields, ...sanitizedData, cnpj: cleanCnpj, userId, source: enrichSource, lastEnrichedAt: enrichSource === "empresaqui" ? new Date() : null })
+      .values({ ...enrichedFields, ...sanitizedData, cnpj: cleanCnpj, userId, source: enrichSource, lastEnrichedAt: enrichSource === "empresaqui" ? new Date() : null } as any)
       .returning();
 
     if (enrichSource === "empresaqui" && Object.keys(enrichedFields).length > 0) {
@@ -646,7 +646,7 @@ router.post("/deals", async (req: Request, res: Response) => {
   try {
     const userId = req.userId || "system";
     const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId"] as const;
-    const [deal] = await db.insert(crmDealsTable).values({ ...pick(req.body, allowedDealFields), userId }).returning();
+    const [deal] = await db.insert(crmDealsTable).values({ ...pick(req.body, allowedDealFields), userId } as any).returning();
     res.status(201).json({ success: true, deal });
   } catch (err: any) {
     apiError(res, 400, "Failed to create deal");
@@ -732,7 +732,7 @@ router.post("/contacts/:id/activities", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const allowedActivityFields = ["dealId","type","direction","subject","content","scheduledAt","completedAt","agentId","conversationId"] as const;
     const [activity] = await db.insert(crmActivitiesTable)
-      .values({ ...pick(req.body, allowedActivityFields), contactId: Number(req.params.id), userId })
+      .values({ ...pick(req.body, allowedActivityFields), contactId: Number(req.params.id), userId } as any)
       .returning();
     res.status(201).json({ success: true, activity });
   } catch (err: any) {
@@ -835,7 +835,7 @@ router.post("/tasks", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const allowedTaskFields = ["contactId","dealId","title","description","type","priority","status","dueDate","reminderAt","assignedTo","completedAt","conversationId"] as const;
     const [task] = await db.insert(crmTasksTable)
-      .values({ ...pick(req.body, allowedTaskFields), userId })
+      .values({ ...pick(req.body, allowedTaskFields), userId } as any)
       .returning();
     res.status(201).json({ success: true, task });
   } catch (err: any) {
@@ -922,7 +922,7 @@ router.post("/views", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const allowedViewFields = ["name","emoji","filters","isDefault","sortField","sortDir"] as const;
     const [view] = await db.insert(crmSavedViewsTable)
-      .values({ ...pick(req.body, allowedViewFields), userId })
+      .values({ ...pick(req.body, allowedViewFields), userId } as any)
       .returning();
     res.status(201).json({ success: true, view });
   } catch (err: any) {
@@ -1144,7 +1144,7 @@ router.post("/automations", async (req: Request, res: Response) => {
     const userId = req.userId || "system";
     const allowedAutoFields = ["name","triggerType","triggerValue","actionType","actionPayload","isActive"] as const;
     const [auto] = await db.insert(crmAutomationsTable)
-      .values({ ...pick(req.body, allowedAutoFields), userId })
+      .values({ ...pick(req.body, allowedAutoFields), userId } as any)
       .returning();
     res.status(201).json({ success: true, automation: auto });
   } catch (err: any) {

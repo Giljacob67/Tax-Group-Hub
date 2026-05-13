@@ -508,7 +508,7 @@ router.post("/webhooks/crm/inbound/:tenantId", async (req, res) => {
         email: email ? String(email) : null,
         telefone: phone ? String(phone) : null,
         source: source,
-      }).returning();
+      } as any).returning();
       contact = newContact;
       // AI scoring in background — also auto-creates deal if score >= 60
       setImmediate(() => {

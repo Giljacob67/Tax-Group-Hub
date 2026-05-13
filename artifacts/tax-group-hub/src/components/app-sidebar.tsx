@@ -62,7 +62,7 @@ export function AppSidebar() {
     : null;
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border/50 bg-background/50 backdrop-blur-xl">
+    <Sidebar collapsible="icon" className="border-r border-border/50 bg-background/50 backdrop-blur-xl" data-tour="sidebar">
 
       {/* ── Header ───────────────────────────── */}
       <SidebarHeader className="px-3 py-3 border-b border-border/30">

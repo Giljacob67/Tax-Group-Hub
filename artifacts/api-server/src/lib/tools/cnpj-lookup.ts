@@ -4,10 +4,10 @@ import { EmpresAquiClient } from "@workspace/empresaqui";
 
 export const cnpjLookupTool = tool({
   description: "Consulta dados e informações institucionais completos de uma empresa pelo CNPJ (via EmpresAqui). Retorna razão social, regime, telefone, endereço, porte e sócios. Use isso quando você receber o CNPJ de um lead.",
-  parameters: z.object({
+  inputSchema: z.object({
     cnpj: z.string().describe("O CNPJ da empresa, apenas números ou formatado."),
   }),
-  execute: async ({ cnpj }: { cnpj: string }) => {
+  execute: async ({ cnpj }: { cnpj: string }, _options) => {
     // In a real scenario, this key could be fetched from the db (via apiKeyTable) per user.
     // For tool definitions without req context, we use the system env key fallback or simulation.
     const apiKey = process.env.EMPRESAQUI_API_KEY;

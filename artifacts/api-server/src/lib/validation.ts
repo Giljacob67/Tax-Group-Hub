@@ -5,7 +5,7 @@
 /** Pick only allowed fields from an object */
 export function pick<T extends Record<string, any>>(
   obj: T,
-  keys: (keyof T)[]
+  keys: readonly (keyof T)[]
 ): Partial<T> {
   const result: Partial<T> = {};
   for (const key of keys) {

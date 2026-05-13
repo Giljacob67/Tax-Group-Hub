@@ -3,13 +3,15 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import LandingPage from "./pages/landing";
 
 import { AppSidebar } from "./components/app-sidebar";
 import { ErrorBoundary } from "./components/error-boundary";
 import { PageTransition } from "./components/page-transition";
 import { BrandingProvider } from "./contexts/BrandingContext";
+import { OnboardingTour } from "./components/onboarding-tour";
+import { useOnboarding, TOUR_STEPS } from "./hooks/use-onboarding";
 
 const Dashboard = lazy(() => import("./pages/dashboard"));
 const CRMPage = lazy(() => import("./pages/crm"));
@@ -46,16 +48,33 @@ function Layout({ children }: { children: React.ReactNode }) {
     "--sidebar-width-icon": "4rem",
   } as React.CSSProperties;
 
+  const tour = useOnboarding();
+
   return (
     <SidebarProvider style={style} defaultOpen={true}>
       <div className="flex h-screen w-full bg-background overflow-hidden selection:bg-primary/30">
         <AppSidebar />
         <div className="flex flex-col flex-1 relative w-full min-w-0">
+          <div className="md:hidden p-2 border-b border-border/50 flex items-center gap-2 bg-background">
+            <SidebarTrigger />
+            <span className="text-sm font-medium text-foreground">Menu</span>
+          </div>
           <main className="flex-1 overflow-hidden flex flex-col w-full h-full">
             {children}
           </main>
         </div>
       </div>
+      <OnboardingTour
+        isOpen={tour.isOpen}
+        step={tour.currentStep}
+        stepIndex={tour.stepIndex}
+        totalSteps={TOUR_STEPS.length}
+        isFirst={tour.isFirst}
+        isLast={tour.isLast}
+        onNext={tour.next}
+        onPrev={tour.prev}
+        onFinish={tour.finish}
+      />
     </SidebarProvider>
   );
 }

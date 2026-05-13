@@ -221,19 +221,24 @@ export async function callLLM(
   const isArrayPayload = Array.isArray(userMessage);
   const hasTools = Object.keys(tools).length > 0;
 
-  const result = await generateText({
-    model,
-    system: systemPrompt,
-    maxTokens: 4096,
-    tools: hasTools ? (tools as Parameters<typeof generateText>[0]["tools"]) : undefined,
-    maxSteps: hasTools ? 5 : 1,
-    ...(isArrayPayload
-      ? { messages: userMessage as Parameters<typeof generateText>[0]["messages"] }
-      : { prompt: userMessage as string }),
-  });
+  const result = isArrayPayload
+    ? await generateText({
+        model,
+        system: systemPrompt,
+        maxOutputTokens: 4096,
+        tools: hasTools ? (tools as Parameters<typeof generateText>[0]["tools"]) : undefined,
+        messages: userMessage as NonNullable<Parameters<typeof generateText>[0]["messages"]>
+      })
+    : await generateText({
+        model,
+        system: systemPrompt,
+        maxOutputTokens: 4096,
+        tools: hasTools ? (tools as Parameters<typeof generateText>[0]["tools"]) : undefined,
+        prompt: userMessage as string,
+      });
 
   const executionTimeMs = Date.now() - startTime;
-  const tokensUsed = (result.usage?.promptTokens ?? 0) + (result.usage?.completionTokens ?? 0);
+  const tokensUsed = (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0);
 
   console.info(`[LLM] ${providerName} (${modelId}) | tokens=${tokensUsed} steps=${result.steps?.length ?? 1} ms=${executionTimeMs}`);
 
@@ -258,7 +263,7 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
   const googleKey = await getApiKey("google", userId);
   const ollamaUrl = (await getEffectiveOllamaUrl()).url;
 
-  let embeddingModel: EmbeddingModel<string>;
+  let embeddingModel: EmbeddingModel;
 
   if (googleKey) {
     const googleProvider = createGoogleGenerativeAI({ apiKey: googleKey });

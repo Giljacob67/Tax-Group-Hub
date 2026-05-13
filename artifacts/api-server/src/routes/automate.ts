@@ -9,6 +9,7 @@ import {
   channelConfigsTable,
   automationSequencesTable,
   sequenceEnrollmentsTable,
+  type SequenceStep,
 } from "@workspace/db";
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
@@ -755,7 +756,7 @@ router.post("/automate/sequences", async (req, res) => {
       name?: string;
       trigger?: string;
       triggerValue?: string;
-      steps?: unknown[];
+      steps?: SequenceStep[];
       isActive?: boolean;
     };
 
@@ -782,7 +783,7 @@ router.put("/automate/sequences/:id", async (req, res) => {
     if (isNaN(id)) { apiError(res, 400, "Invalid sequence id"); return; }
 
     const { name, trigger, triggerValue, steps, isActive } = req.body as {
-      name?: string; trigger?: string; triggerValue?: string; steps?: unknown[]; isActive?: boolean;
+      name?: string; trigger?: string; triggerValue?: string; steps?: SequenceStep[]; isActive?: boolean;
     };
 
     const [updated] = await db

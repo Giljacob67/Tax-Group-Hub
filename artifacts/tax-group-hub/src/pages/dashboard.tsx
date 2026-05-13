@@ -170,7 +170,7 @@ export default function Dashboard() {
   const isLoading = isLoadingAgents || isLoadingConvs;
 
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden pb-safe">
+    <div className="h-full overflow-y-auto overflow-x-hidden pb-safe" data-tour="dashboard">
       <div className="p-6 max-w-7xl mx-auto space-y-8">
 
         {/* ── Demo badge ── */}

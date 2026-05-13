@@ -3,10 +3,10 @@ import { z } from "zod";
 
 export const webSearchTool = tool({
   description: "Busca informações recentes na internet para resolver dúvidas, responder perguntas e obter contexto atualizado.",
-  parameters: z.object({
+  inputSchema: z.object({
     query: z.string().describe("A string de busca (em português) otimizada para a web."),
   }),
-  execute: async ({ query }: { query: string }) => {
+  execute: async ({ query }: { query: string }, _options) => {
     const apiKey = process.env.TAVILY_API_KEY;
     if (!apiKey) {
       return { 
@@ -28,7 +28,7 @@ export const webSearchTool = tool({
           max_results: 5
         }),
       });
-      const data = await response.json();
+      const data = await response.json() as Record<string, any>;
       return { 
         success: true, 
         answer: data.answer || "Nenhuma resposta de IA encontada.", 

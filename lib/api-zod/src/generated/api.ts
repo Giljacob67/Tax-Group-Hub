@@ -175,6 +175,7 @@ export const SendMessageBody = zod.object({
   useKnowledgeBase: zod.boolean().optional(),
   customSystemPrompt: zod.string().optional(),
   model: zod.string().optional(),
+  connectionId: zod.number().optional(),
   stream: zod.boolean().optional(),
 });
 
