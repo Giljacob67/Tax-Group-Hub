@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, count, desc } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import multer from "multer";
 import { createRequire } from "node:module";
@@ -9,10 +9,12 @@ const require = createRequire(import.meta.url);
 const pdfParse = require("pdf-parse");
 import mammoth from "mammoth";
 import { validateIdParam } from "../lib/validation.js";
+import path from "node:path";
+import fs from "node:fs";
+import { apiError } from "../lib/api-response.js";
 
 const router: IRouter = Router();
 
-// Whitelist: only allow document file types
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -20,7 +22,7 @@ const ALLOWED_MIME_TYPES = [
   "text/plain",
   "text/markdown",
   "text/x-markdown",
-  "application/octet-stream", // fallback for .md files
+  "application/octet-stream",
 ];
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt", ".md"];
@@ -29,17 +31,12 @@ function fileFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterC
   const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf("."));
   const mimeOk = ALLOWED_MIME_TYPES.includes(file.mimetype);
   const extOk = ALLOWED_EXTENSIONS.includes(ext);
-
   if (mimeOk || extOk) {
     cb(null, true);
   } else {
-    cb(new Error(`File type not allowed. Accepted: ${ALLOWED_EXTENSIONS.join(", ")}`));
+    cb(new Error(`Tipo não permitido. Aceitos: ${ALLOWED_EXTENSIONS.join(", ")}`));
   }
 }
-
-import path from "node:path";
-import fs from "node:fs";
-import { apiError } from "../lib/api-response.js";
 
 const UPLOADS_DIR = process.env.VERCEL
   ? path.resolve("/tmp", "uploads")
@@ -49,23 +46,20 @@ try {
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
   }
 } catch {
-  // Serverless environments may have read-only FS — uploads will use memory fallback
+  // Serverless environments may have read-only FS
 }
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, UPLOADS_DIR);
-  },
+  destination: (_req, _file, cb) => { cb(null, UPLOADS_DIR); },
   filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, `doc-${uniqueSuffix}${ext}`);
+    cb(null, `doc-${uniqueSuffix}${path.extname(file.originalname)}`);
   },
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter,
 });
 
@@ -85,131 +79,186 @@ export async function extractTextContent(buffer: Buffer, fileType: string, filen
   return "";
 }
 
-function chunkText(text: string, chunkSize: number = 800, overlap: number = 200): string[] {
+function chunkText(text: string, chunkSize = 800, overlap = 200): string[] {
   if (!text.trim()) return [];
   const words = text.split(/\s+/);
   const chunks: string[] = [];
   let i = 0;
   while (i < words.length) {
-    const chunkWords = words.slice(i, i + chunkSize);
-    chunks.push(chunkWords.join(" "));
+    chunks.push(words.slice(i, i + chunkSize).join(" "));
     i += chunkSize - overlap;
   }
   return chunks;
 }
 
-/**
- * Process a document in the background: extract text, chunk, embed, and store.
- * Updates the document status to 'processing' → 'processed' | 'error'.
- */
-export async function processDocumentAsync(docId: number, buffer: Buffer, fileType: string, filename: string): Promise<void> {
+function mapDoc(d: any) {
+  return {
+    id: String(d.id),
+    filename: d.filename,
+    fileType: d.fileType,
+    fileSize: d.fileSize,
+    agentId: d.agentId,
+    status: d.status ?? "pending",
+    processed: d.processed ?? false,
+    hasContent: d.processed && !!d.extractedContent,
+    category: d.category ?? null,
+    product: d.product ?? null,
+    origin: d.origin ?? "upload",
+    tags: d.tags ?? [],
+    chunkCount: d.chunkCount ?? 0,
+    retries: d.retries ?? 0,
+    errorLog: d.errorLog ?? null,
+    embeddingModel: d.embeddingModel ?? null,
+    createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt,
+  };
+}
+
+export async function processDocumentAsync(
+  docId: number,
+  buffer: Buffer,
+  fileType: string,
+  filename: string,
+): Promise<void> {
   try {
-    // Increment retries and mark as processing
     await db
       .update(knowledgeDocumentsTable)
-      .set({ 
-        status: "processing", 
-        retries: sql`${knowledgeDocumentsTable.retries} + 1` 
-      })
+      .set({ status: "processing", retries: sql`${knowledgeDocumentsTable.retries} + 1` })
       .where(eq(knowledgeDocumentsTable.id, docId));
 
     const extractedContent = await extractTextContent(buffer, fileType, filename);
 
-    // Update extracted content in DB
     await db
       .update(knowledgeDocumentsTable)
       .set({ extractedContent })
       .where(eq(knowledgeDocumentsTable.id, docId));
 
     const chunks = chunkText(extractedContent);
+    let embeddingModel: string | null = null;
+
     if (chunks.length > 0) {
       const embeddings = await generateEmbeddings(chunks);
-      const chunkValues = chunks.map((chunk, i) => ({
-        documentId: docId,
-        content: chunk,
-        embedding: embeddings[i],
-      }));
-      await db.insert(knowledgeChunksTable).values(chunkValues);
+      await db.insert(knowledgeChunksTable).values(
+        chunks.map((chunk, i) => ({ documentId: docId, content: chunk, embedding: embeddings[i] })),
+      );
+      embeddingModel = "text-embedding-004"; // google default; actual model from llm-client
     }
 
-    // Mark as processed
     await db
       .update(knowledgeDocumentsTable)
-      .set({ status: "processed", processed: true, errorLog: null })
+      .set({ status: "processed", processed: true, errorLog: null, chunkCount: chunks.length, embeddingModel })
       .where(eq(knowledgeDocumentsTable.id, docId));
 
-    console.log(`[Knowledge] Document ${docId} (${filename}) processed successfully. ${chunks.length} chunks indexed.`);
+    console.log(`[Knowledge] Doc ${docId} (${filename}) OK — ${chunks.length} chunks`);
   } catch (err) {
-    const errorMsg = (err as Error).message || String(err);
-    console.error(`[Knowledge] Error processing document ${docId}:`, errorMsg);
+    const msg = (err as Error).message || String(err);
+    console.error(`[Knowledge] Doc ${docId} failed:`, msg);
     await db
       .update(knowledgeDocumentsTable)
-      .set({ status: "error", errorLog: errorMsg })
+      .set({ status: "error", errorLog: msg })
       .where(eq(knowledgeDocumentsTable.id, docId))
       .catch(() => {});
   }
 }
 
-// GET /knowledge — List documents, filtered by agentId and/or userId
+// ── GET /knowledge/health ────────────────────────────────────────────────────
+
+router.get("/knowledge/health", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const userFilter = userId && userId !== "default" && userId !== "dev-user"
+      ? eq(knowledgeDocumentsTable.userId, userId)
+      : undefined;
+
+    const [stats] = await db
+      .select({
+        total: count(),
+        indexed: sql<number>`count(*) filter (where ${knowledgeDocumentsTable.status} = 'processed')`,
+        pending: sql<number>`count(*) filter (where ${knowledgeDocumentsTable.status} in ('pending', 'processing'))`,
+        errors: sql<number>`count(*) filter (where ${knowledgeDocumentsTable.status} = 'error')`,
+        totalChunks: sql<number>`coalesce(sum(${knowledgeDocumentsTable.chunkCount}), 0)`,
+      })
+      .from(knowledgeDocumentsTable)
+      .where(userFilter);
+
+    const [lastDoc] = await db
+      .select({ createdAt: knowledgeDocumentsTable.createdAt })
+      .from(knowledgeDocumentsTable)
+      .where(userFilter)
+      .orderBy(desc(knowledgeDocumentsTable.createdAt))
+      .limit(1);
+
+    const origins = await db
+      .select({
+        origin: knowledgeDocumentsTable.origin,
+        cnt: count(),
+      })
+      .from(knowledgeDocumentsTable)
+      .where(userFilter)
+      .groupBy(knowledgeDocumentsTable.origin);
+
+    res.json({
+      total: Number(stats?.total ?? 0),
+      indexed: Number(stats?.indexed ?? 0),
+      pending: Number(stats?.pending ?? 0),
+      errors: Number(stats?.errors ?? 0),
+      totalChunks: Number(stats?.totalChunks ?? 0),
+      lastSync: lastDoc?.createdAt instanceof Date ? lastDoc.createdAt.toISOString() : (lastDoc?.createdAt ?? null),
+      sources: origins.map((o) => ({ origin: o.origin ?? "upload", count: Number(o.cnt) })),
+    });
+  } catch (err) {
+    console.error("Knowledge health error:", err);
+    apiError(res, 500, "Failed to get knowledge health");
+  }
+});
+
+// ── GET /knowledge ───────────────────────────────────────────────────────────
+
 router.get("/knowledge", async (req, res) => {
   try {
     const { agentId } = req.query;
-    const userId = req.userId; // injected by auth middleware
+    const userId = req.userId;
+    const userFilter = userId && userId !== "default" && userId !== "dev-user"
+      ? eq(knowledgeDocumentsTable.userId, userId)
+      : undefined;
 
     let documents;
     if (agentId && typeof agentId === "string") {
       documents = await db
         .select()
         .from(knowledgeDocumentsTable)
-        .where(
-          userId && userId !== "default" && userId !== "dev-user"
-            ? and(eq(knowledgeDocumentsTable.agentId, agentId), eq(knowledgeDocumentsTable.userId, userId))
-            : eq(knowledgeDocumentsTable.agentId, agentId),
-        )
-        .orderBy(knowledgeDocumentsTable.createdAt);
+        .where(userFilter ? and(eq(knowledgeDocumentsTable.agentId, agentId), userFilter) : eq(knowledgeDocumentsTable.agentId, agentId))
+        .orderBy(desc(knowledgeDocumentsTable.createdAt));
     } else {
       documents = await db
         .select()
         .from(knowledgeDocumentsTable)
-        .where(
-          userId && userId !== "default" && userId !== "dev-user"
-            ? eq(knowledgeDocumentsTable.userId, userId)
-            : undefined,
-        )
-        .orderBy(knowledgeDocumentsTable.createdAt);
+        .where(userFilter)
+        .orderBy(desc(knowledgeDocumentsTable.createdAt));
     }
 
-    res.json({
-      documents: documents.map((d: any) => ({
-        id: String(d.id),
-        filename: d.filename,
-        fileType: d.fileType,
-        fileSize: d.fileSize,
-        agentId: d.agentId,
-        status: d.status ?? "pending",
-        processed: d.processed ?? false,
-        hasContent: d.processed && !!d.extractedContent,
-        createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt,
-      })),
-    });
+    res.json({ documents: documents.map(mapDoc) });
   } catch (err) {
     console.error("Knowledge list error:", err);
     apiError(res, 500, "Failed to list documents");
   }
 });
 
-// POST /knowledge/upload — Accept file, return immediately, process in background
+// ── POST /knowledge/upload ───────────────────────────────────────────────────
+
 router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
-      apiError(res, 400, "No file provided");
+      apiError(res, 400, "Nenhum arquivo enviado");
       return;
     }
 
-    const { agentId } = req.body;
+    const { agentId, category, product, origin, tags } = req.body;
     const userId = req.userId;
 
-    // 1. Persist the document record immediately with status 'pending'
+    const parsedTags = tags
+      ? (typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()).filter(Boolean) : tags)
+      : [];
+
     const [doc] = await db
       .insert(knowledgeDocumentsTable)
       .values({
@@ -217,66 +266,314 @@ router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
         fileType: req.file.mimetype,
         fileSize: req.file.size,
         extractedContent: null,
-        storageKey: req.file.path || `local-memory-${Date.now()}-${req.file.originalname}`,
+        storageKey: req.file.path || `mem-${Date.now()}-${req.file.originalname}`,
         agentId: agentId || "global",
         userId: userId || null,
         status: "pending",
         processed: false,
+        category: category || null,
+        product: product || null,
+        origin: origin || "upload",
+        tags: parsedTags.length > 0 ? parsedTags : null,
       })
       .returning();
 
-    // 2. Return immediately to the client
     res.status(202).json({
       success: true,
       message: "Documento recebido. Processamento em andamento.",
-      document: {
-        id: String(doc.id),
-        filename: doc.filename,
-        fileType: doc.fileType,
-        fileSize: doc.fileSize,
-        agentId: doc.agentId,
-        status: "pending",
-        processed: false,
-        hasContent: false,
-        createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
-      },
+      document: mapDoc(doc),
     });
 
-    // 3. Process asynchronously (fire and forget)
-    // If multer is configured for disk Storage, req.file.path exists. Otherwise fallback to buffer (memory)
     const filePath = req.file.path;
-    const fileBuffer = filePath ? fs.readFileSync(filePath) : (req.file.buffer ? Buffer.from(req.file.buffer) : Buffer.alloc(0));
-    const fileMime = req.file.mimetype;
-    const fileName = req.file.originalname;
-    
+    const fileBuffer = filePath
+      ? fs.readFileSync(filePath)
+      : req.file.buffer
+        ? Buffer.from(req.file.buffer)
+        : Buffer.alloc(0);
+
     setImmediate(() => {
-      processDocumentAsync(doc.id, fileBuffer, fileMime, fileName).catch(() => {});
+      processDocumentAsync(doc.id, fileBuffer, req.file!.mimetype, req.file!.originalname).catch(() => {});
     });
   } catch (err) {
     console.error("Knowledge upload error:", err);
-    apiError(res, 500, "Failed to upload document");
+    apiError(res, 500, "Falha no upload do documento");
   }
 });
 
-// DELETE /knowledge/:id — Remove a document (scoped by userId if provided)
-router.delete("/knowledge/:id", async (req, res) => {
-  try {
-    const id = validateIdParam(req.params.id);
-    const userId = req.userId;
+// ── GET /knowledge/sources ───────────────────────────────────────────────────
 
-    if (id === null) {
-      apiError(res, 400, "Invalid document id");
+router.get("/knowledge/sources", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const userFilter = userId && userId !== "default" && userId !== "dev-user"
+      ? eq(knowledgeDocumentsTable.userId, userId)
+      : undefined;
+
+    const origins = await db
+      .select({
+        origin: knowledgeDocumentsTable.origin,
+        total: count(),
+        indexed: sql<number>`count(*) filter (where ${knowledgeDocumentsTable.status} = 'processed')`,
+        errors: sql<number>`count(*) filter (where ${knowledgeDocumentsTable.status} = 'error')`,
+      })
+      .from(knowledgeDocumentsTable)
+      .where(userFilter)
+      .groupBy(knowledgeDocumentsTable.origin);
+
+    const sources = [
+      { id: "upload", label: "Upload Manual", status: "active", icon: "upload" },
+      { id: "drive", label: "Google Drive", status: "planned", icon: "drive" },
+      { id: "internal", label: "Base Interna", status: "planned", icon: "database" },
+      { id: "system", label: "Sistema", status: "active", icon: "cpu" },
+    ].map((s) => {
+      const stats = origins.find((o) => (o.origin ?? "upload") === s.id);
+      return {
+        ...s,
+        total: Number(stats?.total ?? 0),
+        indexed: Number(stats?.indexed ?? 0),
+        errors: Number(stats?.errors ?? 0),
+      };
+    });
+
+    res.json({ sources });
+  } catch (err) {
+    console.error("Knowledge sources error:", err);
+    apiError(res, 500, "Failed to get sources");
+  }
+});
+
+// ── POST /knowledge/search ───────────────────────────────────────────────────
+
+router.post("/knowledge/search", async (req, res) => {
+  try {
+    const { query, agentId, limit, category, product } = req.body as {
+      query?: string;
+      agentId?: string;
+      limit?: number;
+      category?: string;
+      product?: string;
+    };
+
+    if (!query?.trim()) {
+      apiError(res, 400, "query é obrigatório");
       return;
     }
 
-    // If we have a real userId, ensure the user owns this document
+    try {
+      const [queryEmbedding] = await generateEmbeddings([query]);
+      const userId = req.userId;
+
+      const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
+
+      const filters = [
+        agentId ? eq(knowledgeDocumentsTable.agentId, agentId) : sql`TRUE`,
+        userId && userId !== "default" && userId !== "dev-user"
+          ? eq(knowledgeDocumentsTable.userId, userId)
+          : sql`TRUE`,
+        category ? eq(knowledgeDocumentsTable.category, category) : sql`TRUE`,
+        product ? eq(knowledgeDocumentsTable.product, product) : sql`TRUE`,
+      ];
+
+      const results = await db
+        .select({
+          documentId: knowledgeChunksTable.documentId,
+          chunkId: knowledgeChunksTable.id,
+          content: knowledgeChunksTable.content,
+          score: similarity,
+          filename: knowledgeDocumentsTable.filename,
+          category: knowledgeDocumentsTable.category,
+          product: knowledgeDocumentsTable.product,
+          origin: knowledgeDocumentsTable.origin,
+          createdAt: knowledgeDocumentsTable.createdAt,
+        })
+        .from(knowledgeChunksTable)
+        .innerJoin(knowledgeDocumentsTable, eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id))
+        .where(and(...filters))
+        .orderBy(desc(similarity))
+        .limit(limit || 8);
+
+      res.json({
+        query,
+        results: results.filter((r) => r.score > 0.25).map((r) => ({
+          ...r,
+          documentId: String(r.documentId),
+          chunkId: String(r.chunkId),
+          score: Math.round(r.score * 1000) / 1000,
+          createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+        })),
+      });
+    } catch (embErr) {
+      console.error("Vector search error:", embErr);
+      // Fallback: text search if embeddings unavailable
+      const userFilter = req.userId && req.userId !== "default" && req.userId !== "dev-user"
+        ? eq(knowledgeDocumentsTable.userId, req.userId)
+        : undefined;
+
+      const docs = await db
+        .select()
+        .from(knowledgeDocumentsTable)
+        .where(
+          and(
+            userFilter,
+            sql`${knowledgeDocumentsTable.extractedContent} ilike ${"%" + query + "%"}`,
+          ),
+        )
+        .limit(limit || 5);
+
+      res.json({
+        query,
+        fallback: true,
+        embeddingError: "Embeddings indisponíveis — busca textual usada como fallback.",
+        results: docs.map((d) => ({
+          documentId: String(d.id),
+          chunkId: null,
+          filename: d.filename,
+          content: d.extractedContent?.slice(0, 400) ?? "",
+          score: 0.5,
+          category: d.category,
+          product: d.product,
+          origin: d.origin,
+          createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt,
+        })),
+      });
+    }
+  } catch (err) {
+    console.error("Knowledge search error:", err);
+    apiError(res, 500, "Falha na busca");
+  }
+});
+
+// ── GET /knowledge/:id/chunks ────────────────────────────────────────────────
+
+router.get("/knowledge/:id/chunks", async (req, res) => {
+  try {
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      apiError(res, 400, "ID inválido");
+      return;
+    }
+
+    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
+    const pageSize = Math.min(50, parseInt(String(req.query.pageSize ?? "20"), 10));
+    const offset = (page - 1) * pageSize;
+
+    const [doc] = await db
+      .select({ id: knowledgeDocumentsTable.id, filename: knowledgeDocumentsTable.filename })
+      .from(knowledgeDocumentsTable)
+      .where(eq(knowledgeDocumentsTable.id, id));
+
+    if (!doc) {
+      apiError(res, 404, "Documento não encontrado");
+      return;
+    }
+
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(knowledgeChunksTable)
+      .where(eq(knowledgeChunksTable.documentId, id));
+
+    const chunks = await db
+      .select({
+        id: knowledgeChunksTable.id,
+        content: knowledgeChunksTable.content,
+        createdAt: knowledgeChunksTable.createdAt,
+      })
+      .from(knowledgeChunksTable)
+      .where(eq(knowledgeChunksTable.documentId, id))
+      .orderBy(knowledgeChunksTable.id)
+      .limit(pageSize)
+      .offset(offset);
+
+    res.json({
+      documentId: String(id),
+      filename: doc.filename,
+      total: Number(total),
+      page,
+      pageSize,
+      chunks: chunks.map((c, i) => ({
+        id: String(c.id),
+        index: offset + i + 1,
+        content: c.content,
+        tokens: Math.ceil(c.content.split(/\s+/).length * 1.3),
+        hasEmbedding: true,
+        createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+      })),
+    });
+  } catch (err) {
+    console.error("Knowledge chunks error:", err);
+    apiError(res, 500, "Falha ao carregar chunks");
+  }
+});
+
+// ── POST /knowledge/:id/reindex ──────────────────────────────────────────────
+
+router.post("/knowledge/:id/reindex", async (req, res) => {
+  try {
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      apiError(res, 400, "ID inválido");
+      return;
+    }
+
+    const [doc] = await db
+      .select()
+      .from(knowledgeDocumentsTable)
+      .where(eq(knowledgeDocumentsTable.id, id));
+
+    if (!doc) {
+      apiError(res, 404, "Documento não encontrado");
+      return;
+    }
+
+    // Delete existing chunks
+    await db.delete(knowledgeChunksTable).where(eq(knowledgeChunksTable.documentId, id));
+
+    // Mark as pending
+    await db
+      .update(knowledgeDocumentsTable)
+      .set({ status: "pending", processed: false, chunkCount: 0, errorLog: null })
+      .where(eq(knowledgeDocumentsTable.id, id));
+
+    res.json({ success: true, message: "Reindexação iniciada." });
+
+    // Try to read file from disk for reprocessing
+    const filePath = doc.storageKey;
+    if (filePath && fs.existsSync(filePath)) {
+      const buffer = fs.readFileSync(filePath);
+      setImmediate(() => {
+        processDocumentAsync(id, buffer, doc.fileType, doc.filename).catch(() => {});
+      });
+    } else {
+      // File no longer on disk — mark with helpful error
+      await db
+        .update(knowledgeDocumentsTable)
+        .set({ status: "error", errorLog: "Arquivo original não encontrado em disco. Faça novo upload." })
+        .where(eq(knowledgeDocumentsTable.id, id));
+    }
+  } catch (err) {
+    console.error("Knowledge reindex error:", err);
+    apiError(res, 500, "Falha ao reindexar");
+  }
+});
+
+// ── DELETE /knowledge/:id ────────────────────────────────────────────────────
+
+router.delete("/knowledge/:id", async (req, res) => {
+  try {
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      apiError(res, 400, "ID inválido");
+      return;
+    }
+
+    const userId = req.userId;
     if (userId && userId !== "default" && userId !== "dev-user") {
       const [doc] = await db
         .select()
         .from(knowledgeDocumentsTable)
         .where(and(eq(knowledgeDocumentsTable.id, id), eq(knowledgeDocumentsTable.userId, userId)));
       if (!doc) {
-        apiError(res, 404, "Document not found or access denied");
+        apiError(res, 404, "Documento não encontrado ou acesso negado");
         return;
       }
     }
@@ -285,7 +582,7 @@ router.delete("/knowledge/:id", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error("Knowledge delete error:", err);
-    apiError(res, 500, "Failed to delete document");
+    apiError(res, 500, "Falha ao excluir documento");
   }
 });
 

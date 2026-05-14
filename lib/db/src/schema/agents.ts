@@ -38,11 +38,15 @@ export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   processed: boolean("processed").notNull().default(false),
   retries: integer("retries").notNull().default(0), // Added for resiliency
   errorLog: text("error_log"), // Added for debug
-  // --- Novos campos de classificação e RAG ---
-  category: text("category"), // 'legislacao' | 'jurisprudencia' | 'manual' | 'material_interno'
-  tags: jsonb("tags").$type<string[]>(), // ex: ["IBS", "CBS", "Split Payment"]
-  validUntil: timestamp("valid_until"), // data de validade do documento
-  priority: integer("priority").default(5), // boost no RAG (1-10)
+  // --- Classificação e RAG ---
+  category: text("category"), // 'RTI' | 'AFD' | 'REP' | 'Propostas' | etc.
+  product: text("product"), // produto relacionado: 'RTI' | 'AFD' | 'REP' | 'Reforma Tributária' | etc.
+  origin: text("origin").default("upload"), // 'upload' | 'drive' | 'internal' | 'system'
+  tags: jsonb("tags").$type<string[]>(),
+  validUntil: timestamp("valid_until"),
+  priority: integer("priority").default(5),
+  chunkCount: integer("chunk_count").default(0),
+  embeddingModel: text("embedding_model"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
