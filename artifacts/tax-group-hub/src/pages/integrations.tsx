@@ -962,7 +962,7 @@ export default function Integrations() {
                         <code className="text-xs font-mono text-primary">{ev.name}</code>
                         <p className="text-xs text-muted-foreground mt-0.5">{ev.description}</p>
                       </div>
-                      <ArrowDownLeft className="w-3.5 h-3.5 text-blue-400 shrink-0" title="Inbound" />
+                      <ArrowDownLeft className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                     </div>
                   ))}
                 </div>
@@ -1070,8 +1070,8 @@ export default function Integrations() {
                         <td className="px-4 py-3 font-mono text-muted-foreground hidden sm:table-cell">{log.eventType}</td>
                         <td className="px-4 py-3">
                           {log.direction === "inbound"
-                            ? <ArrowDownLeft className="w-3.5 h-3.5 text-blue-400" title="Inbound" />
-                            : <ArrowUpRight className="w-3.5 h-3.5 text-purple-400" title="Outbound" />}
+                            ? <ArrowDownLeft className="w-3.5 h-3.5 text-blue-400" />
+                            : <ArrowUpRight className="w-3.5 h-3.5 text-purple-400" />}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
