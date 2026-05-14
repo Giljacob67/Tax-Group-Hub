@@ -6,6 +6,15 @@
 import { transcribeAudio, callLLM, getLanguageModel } from "./llm-client.js";
 import { extractTextContent } from "../routes/knowledge.js";
 import { generateText } from "ai";
+import { validateHttpUrl } from "./validation.js";
+
+const ALLOWED_MEDIA_DOMAINS = [
+  "api.telegram.org",
+  "graph.facebook.com",
+  "lookaside.fbsbx.com",
+  "mmg.whatsapp.net",
+  "media.whatsapp.net",
+];
 
 export interface ProcessedMedia {
   type: "text" | "image" | "audio" | "document";
@@ -24,7 +33,11 @@ export async function processExternalMedia(
   let buffer: Buffer;
   
   if (typeof mediaSource === "string") {
-    // Download if it's a URL
+    if (!validateHttpUrl(mediaSource)) throw new Error("URL de mídia inválida.");
+    const { hostname } = new URL(mediaSource);
+    if (!ALLOWED_MEDIA_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+      throw new Error(`Domínio de mídia não permitido: ${hostname}`);
+    }
     const response = await fetch(mediaSource);
     if (!response.ok) throw new Error(`Failed to download media: ${response.statusText}`);
     buffer = Buffer.from(await response.arrayBuffer());

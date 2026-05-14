@@ -1,5 +1,12 @@
 import { Router, type IRouter } from "express";
+import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+
+function safeCompare(a: string, b: string): boolean {
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ba.length === bb.length && timingSafeEqual(ba, bb);
+}
 import {
   db,
   conversationsTable,
@@ -119,7 +126,7 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
     if (!isLegacyToken) {
       const expectedSecret = (config.config as any)?.webhookSecret;
       const receivedSecret = req.headers["x-telegram-bot-api-secret-token"];
-      if (expectedSecret && receivedSecret !== expectedSecret) {
+      if (expectedSecret && (!receivedSecret || !safeCompare(String(receivedSecret), expectedSecret))) {
         console.warn(`[Webhook] Invalid secret for Telegram config ${config.id}`);
         return;
       }

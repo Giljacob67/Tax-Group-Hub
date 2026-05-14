@@ -52,7 +52,7 @@ router.post("/automate/execute", async (req, res) => {
     if (variables) {
       for (const [key, value] of Object.entries(variables)) {
         const safeKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        systemPrompt = systemPrompt.replace(new RegExp(`\\{\\{${safeKey}\\}\\}`, "g"), value);
+        systemPrompt = systemPrompt.replace(new RegExp(`\\{\\{${safeKey}\\}\\}`, "g"), () => value);
       }
     }
 

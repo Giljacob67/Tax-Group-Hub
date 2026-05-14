@@ -1,5 +1,12 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { timingSafeEqual } from "node:crypto";
+
+function safeCompare(a: string, b: string): boolean {
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ba.length === bb.length && timingSafeEqual(ba, bb);
+}
 
 // Extend Express Request to carry userId for multi-tenancy
 declare global {
@@ -63,7 +70,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
   // 1. Webhook Authentication (Automate/Webhooks routes)
   const webhookProvided = req.headers["x-webhook-secret"];
-  if (webhookProvided && webhookSecret && webhookProvided === webhookSecret) {
+  if (webhookProvided && webhookSecret && safeCompare(String(webhookProvided), webhookSecret)) {
     req.userId = String(req.headers["x-user-id"] || "system");
     next();
     return;
@@ -90,7 +97,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     }
 
     // Fallback/Alternative: System API Key
-    if (systemApiKey && token === systemApiKey) {
+    if (systemApiKey && safeCompare(token, systemApiKey)) {
       req.userId = String(req.headers["x-user-id"] || "default");
       next();
       return;
@@ -99,7 +106,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
   // 3. Simple Header Authentication (x-api-key)
   const headerKey = req.headers["x-api-key"];
-  if (systemApiKey && headerKey === systemApiKey) {
+  if (systemApiKey && headerKey && safeCompare(String(headerKey), systemApiKey)) {
     req.userId = String(req.headers["x-user-id"] || "default");
     next();
     return;

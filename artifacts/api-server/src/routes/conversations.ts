@@ -328,11 +328,13 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       .values({ conversationId, role: "user", content: content.trim() })
       .returning();
 
-    const existingMessages = await db
+    const existingMessages = (await db
       .select()
       .from(messagesTable)
       .where(eq(messagesTable.conversationId, conversationId))
-      .orderBy(messagesTable.createdAt);
+      .orderBy(desc(messagesTable.createdAt))
+      .limit(100)
+    ).reverse();
 
     const userMessageCount = existingMessages.filter(m => m.role === "user").length;
     let autoTitle: string | null = null;
