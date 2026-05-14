@@ -6,7 +6,7 @@ import { generateEmbeddings } from "../lib/llm-client.js";
 import multer from "multer";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { PDFParse } = require("pdf-parse");
+const pdfParse = require("pdf-parse/lib/pdf-parse");
 import mammoth from "mammoth";
 import { validateIdParam } from "../lib/validation.js";
 import path from "node:path";
@@ -66,10 +66,8 @@ const upload = multer({
 export async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
   const lower = (fileType + filename).toLowerCase();
   if (lower.includes("pdf")) {
-    const parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
-    await parser.destroy().catch(() => {});
-    return result.text || "";
+    const data = await pdfParse(buffer);
+    return data.text || "";
   }
   if (lower.includes("docx") || lower.includes("word") || lower.includes("officedocument")) {
     const result = await mammoth.extractRawText({ buffer });
