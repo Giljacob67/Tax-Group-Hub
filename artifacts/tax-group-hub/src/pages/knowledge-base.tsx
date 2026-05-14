@@ -1009,7 +1009,7 @@ export default function KnowledgeBase() {
     query: {
       refetchInterval: (data: any) => {
         const hasPending = data?.documents?.some((d: any) => d.status === "pending" || d.status === "processing");
-        return hasPending ? 4000 : false;
+        return hasPending ? 8000 : false;
       },
     } as any,
   });
@@ -1017,12 +1017,19 @@ export default function KnowledgeBase() {
   const docs: KnowledgeDoc[] = (docsData?.documents ?? []) as unknown as KnowledgeDoc[];
   const deleteMutation = useDeleteKnowledgeDocument();
 
+  // Stable key: only refetch health when count or status distribution changes
+  const docsSummaryKey = docs.map((d) => `${d.id}:${d.status}`).join(",");
+
   useEffect(() => {
     fetch("/api/knowledge/health")
       .then((r) => r.json())
       .then((d: any) => setHealth(d))
       .catch(() => {});
-  }, [docs]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docsSummaryKey]);
+
+  // Stable key for sources: only re-fetch when count changes
+  const docsCountKey = docs.length;
 
   useEffect(() => {
     if (activeTab !== "sources") return;
@@ -1032,7 +1039,8 @@ export default function KnowledgeBase() {
       .then((d: any) => setSources(d.sources ?? []))
       .catch(() => {})
       .finally(() => setSourcesLoading(false));
-  }, [activeTab, docs]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, docsCountKey]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;

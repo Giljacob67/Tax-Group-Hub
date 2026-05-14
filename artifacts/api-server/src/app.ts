@@ -2,7 +2,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { authMiddleware } from "./middlewares/auth.js";
-import { apiLimiter, llmLimiter } from "./middlewares/rate-limit.js";
+import { apiLimiter, llmLimiter, uploadLimiter } from "./middlewares/rate-limit.js";
 import { requestId } from "./middlewares/request-id.js";
 import { errorHandler } from "./middlewares/error-handler.js";
 import router from "./routes";
@@ -59,6 +59,9 @@ app.use("/api/automate/execute", llmLimiter);
 app.use("/api/automate/pipeline", llmLimiter);
 app.use("/api/automate/trigger", llmLimiter);
 app.use("/api/orchestrate", llmLimiter);
+
+// Upload-specific rate limit (separate from general API limiter)
+app.use("/api/knowledge/upload", uploadLimiter);
 
 // Routes
 app.use("/api", router);
