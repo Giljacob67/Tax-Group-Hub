@@ -178,6 +178,32 @@ export type TenantBranding = typeof tenantBrandingTable.$inferSelect;
 export const insertTenantBrandingSchema = createInsertSchema(tenantBrandingTable).omit({ id: true, createdAt: true, updatedAt: true });
 
 /**
+ * Integration execution logs — tracks every inbound/outbound integration event.
+ * Payload previews are truncated and must never contain secrets/tokens.
+ */
+export const integrationLogsTable = pgTable("integration_logs", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id"),
+  integrationKey: text("integration_key").notNull(), // 'make' | 'webhooks' | 'whatsapp' | 'canva' | etc
+  integrationName: text("integration_name").notNull(),
+  eventType: text("event_type").notNull(), // 'lead.created' | 'webhook.received' | 'integration.tested' etc
+  direction: text("direction").notNull().default("outbound"), // 'inbound' | 'outbound'
+  status: text("status").notNull().default("pending"), // 'success' | 'error' | 'pending' | 'ignored'
+  durationMs: integer("duration_ms"),
+  httpStatus: integer("http_status"),
+  requestUrl: text("request_url"), // masked: show domain only, no secrets in query params
+  requestMethod: text("request_method").default("POST"),
+  payloadPreview: text("payload_preview"), // truncated JSON, no secrets
+  errorMessage: text("error_message"),
+  technicalDetails: text("technical_details"),
+  correlationId: text("correlation_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type IntegrationLog = typeof integrationLogsTable.$inferSelect;
+export const insertIntegrationLogSchema = createInsertSchema(integrationLogsTable).omit({ id: true, createdAt: true });
+
+/**
  * Registra cada execução de pipeline multi-agente (/automate/pipeline)
  * para analytics e auditoria de uso.
  */
