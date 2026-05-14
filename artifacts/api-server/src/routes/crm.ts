@@ -5,6 +5,7 @@ import {
   crmEnrichmentLogTable, crmPipelinesTable, crmAttachmentsTable,
   crmTasksTable, crmSavedViewsTable, crmAutomationsTable,
   automationSequencesTable, sequenceEnrollmentsTable,
+  appConfigTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, ilike, or, gte, lte, inArray, sql } from "drizzle-orm";
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
@@ -13,8 +14,42 @@ import { getAgentById } from "../lib/agents-data.js";
 import { apiError } from "../lib/api-response.js";
 import { enrichContact } from "../lib/cnpj-enrichment.js";
 import { pick, safeNumber, validateHttpUrl } from "../lib/validation.js";
+import { dispatchWebhook } from "../lib/webhook-dispatcher.js";
+import { decrypt } from "../lib/crypto.js";
 
 const router = Router();
+
+// ─── Integration Event Dispatcher ────────────────────────────────────────────
+// Fire-and-forget: never blocks the API response, never throws to caller.
+function fireIntegrationEvent(
+  eventType: string,
+  payload: Record<string, unknown>,
+  userId?: string,
+): void {
+  setImmediate(async () => {
+    try {
+      const rows = await db.select().from(appConfigTable).where(
+        sql`${appConfigTable.key} LIKE 'integration:make:%'`
+      );
+      const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+      const makeUrl = map["integration:make:webhook_url"];
+      const makeEnabled = map["integration:make:enabled"] === "true";
+      if (!makeUrl || !makeEnabled) return;
+      const secret = map["integration:make:secret"] ? decrypt(map["integration:make:secret"]) : undefined;
+      await dispatchWebhook({
+        targetUrl: makeUrl,
+        eventType,
+        payload,
+        secret,
+        userId,
+        integrationKey: "make",
+        integrationName: "Make.com",
+      });
+    } catch (err) {
+      console.error(`[Integration] fireIntegrationEvent(${eventType}) failed:`, err);
+    }
+  });
+}
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 async function getEmpresAquiToken(): Promise<string | null> {
@@ -258,12 +293,20 @@ router.post("/contacts", async (req: Request, res: Response) => {
 
     res.status(201).json({ success: true, contact: newContact, enriched: enrichSource === "empresaqui" });
 
-    // AI scoring in background — fire-and-forget
+    // Background: enrich + integration event
     setImmediate(() => {
       enrichContact(newContact.id, userId).catch((err: Error) =>
         console.error("[Enrichment] Background enrich failed for contact", newContact.id, err)
       );
     });
+    fireIntegrationEvent("lead.created", {
+      contactId: newContact.id,
+      cnpj: newContact.cnpj,
+      razaoSocial: newContact.razaoSocial,
+      status: newContact.status,
+      source: newContact.source,
+      uf: newContact.uf,
+    }, userId);
   } catch (err: any) {
     apiError(res, 400, "Failed to create contact");
   }
@@ -557,6 +600,21 @@ Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","RE
     }
 
     res.json({ success: true, contact: updated, qualification: scoreData, dealCreated });
+
+    // Fire integration event for qualified leads (score >= 60 = actionable)
+    if (updated.aiScore !== null && updated.aiScore >= 60) {
+      fireIntegrationEvent("lead.qualified", {
+        contactId: updated.id,
+        cnpj: updated.cnpj,
+        razaoSocial: updated.razaoSocial,
+        score: updated.aiScore,
+        tier: scoreData.tier,
+        recommendedProducts: scoreData.products,
+        nextAction: scoreData.nextAction,
+        status: updated.status,
+        dealCreated,
+      }, userId);
+    }
   } catch (err: any) {
     apiError(res, 500, "Qualification failed");
   }
@@ -648,6 +706,14 @@ router.post("/deals", async (req: Request, res: Response) => {
     const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId"] as const;
     const [deal] = await db.insert(crmDealsTable).values({ ...pick(req.body, allowedDealFields), userId } as any).returning();
     res.status(201).json({ success: true, deal });
+    fireIntegrationEvent("deal.created", {
+      dealId: deal.id,
+      contactId: deal.contactId,
+      title: deal.title,
+      stage: deal.stage,
+      value: deal.value,
+      produto: deal.produto,
+    }, userId);
   } catch (err: any) {
     apiError(res, 400, "Failed to create deal");
   }
@@ -693,6 +759,21 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
           evaluateAutomations(userId, deal.contactId, "deal_stage_changed", body.stage, deal.id)
             .catch(err => console.error("[Automations] deal_stage_changed error:", err));
         });
+
+        // Integration event fan-out
+        const stageEventType = body.stage === "won" ? "deal.won"
+          : body.stage === "lost" ? "deal.lost"
+          : "deal.stage_changed";
+        fireIntegrationEvent(stageEventType, {
+          dealId: deal.id,
+          contactId: deal.contactId,
+          title: deal.title,
+          previousStage: oldDeal.stage,
+          newStage: deal.stage,
+          value: deal.value,
+          produto: deal.produto,
+          lostReason: deal.lostReason,
+        }, userId);
       } catch { /* non-fatal */ }
     }
 
