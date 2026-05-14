@@ -255,3 +255,67 @@ export type ContentPerformance = typeof contentPerformanceTable.$inferSelect;
 export const insertContentPerformanceSchema = createInsertSchema(contentPerformanceTable).omit({ id: true, createdAt: true });
 export type InsertContentPerformance = z.infer<typeof insertContentPerformanceSchema>;
 
+/**
+ * User feedback on individual AI responses — thumbs up/down + optional reason.
+ * messageId references messagesTable but is stored as integer (not FK) to avoid
+ * cascade complexity when messages are deleted.
+ */
+export const aiResponseFeedbackTable = pgTable("ai_response_feedback", {
+  id: serial("id").primaryKey(),
+  messageId: integer("message_id").notNull(),
+  conversationId: integer("conversation_id").notNull(),
+  agentId: text("agent_id").notNull(),
+  userId: text("user_id"),
+  rating: integer("rating").notNull(), // 1 = thumbs up, -1 = thumbs down
+  reason: text("reason"), // 'wrong_info' | 'incomplete' | 'hallucination' | 'off_topic' | 'great'
+  comment: text("comment"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type AiResponseFeedback = typeof aiResponseFeedbackTable.$inferSelect;
+export const insertAiResponseFeedbackSchema = createInsertSchema(aiResponseFeedbackTable).omit({ id: true, createdAt: true });
+export type InsertAiResponseFeedback = z.infer<typeof insertAiResponseFeedbackSchema>;
+
+/**
+ * Test cases for regression testing agent responses.
+ * expectedSources: list of filenames expected in RAG context.
+ */
+export const aiTestCasesTable = pgTable("ai_test_cases", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  agentId: text("agent_id").notNull(),
+  userId: text("user_id"),
+  question: text("question").notNull(),
+  expectedAnswer: text("expected_answer"),
+  expectedSources: jsonb("expected_sources").$type<string[]>(),
+  criteria: text("criteria"), // free-text evaluation criteria
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type AiTestCase = typeof aiTestCasesTable.$inferSelect;
+export const insertAiTestCaseSchema = createInsertSchema(aiTestCasesTable).omit({ id: true, createdAt: true });
+export type InsertAiTestCase = z.infer<typeof insertAiTestCaseSchema>;
+
+/**
+ * Execution log for each test case run — supports model comparison.
+ */
+export const aiTestRunsTable = pgTable("ai_test_runs", {
+  id: serial("id").primaryKey(),
+  testCaseId: integer("test_case_id").notNull().references(() => aiTestCasesTable.id, { onDelete: "cascade" }),
+  model: text("model").notNull(),
+  provider: text("provider").notNull(),
+  status: text("status").notNull().default("pending"), // 'pending' | 'running' | 'passed' | 'failed' | 'error'
+  score: integer("score"), // 0-100 manual or automated score
+  response: text("response"),
+  ragSources: jsonb("rag_sources").$type<string[]>(),
+  latencyMs: integer("latency_ms"),
+  tokensUsed: integer("tokens_used"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type AiTestRun = typeof aiTestRunsTable.$inferSelect;
+export const insertAiTestRunSchema = createInsertSchema(aiTestRunsTable).omit({ id: true, createdAt: true });
+export type InsertAiTestRun = z.infer<typeof insertAiTestRunSchema>;
+
