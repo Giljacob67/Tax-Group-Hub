@@ -24,6 +24,8 @@ export const llmConnectionsTable = pgTable("llm_connections", {
   supportsJson: boolean("supports_json").default(false),
   priceInput: text("price_input"), // e.g. "$2.50 / 1M tokens"
   priceOutput: text("price_output"), // e.g. "$10.00 / 1M tokens"
+  pricePer1MInput: integer("price_per_1m_input"), // in cents, e.g. 250 = $2.50
+  pricePer1MOutput: integer("price_per_1m_output"), // in cents
   providerMetadata: jsonb("provider_metadata").$type<Record<string, unknown>>(), // raw extras from discovery
 
   // Usage classification

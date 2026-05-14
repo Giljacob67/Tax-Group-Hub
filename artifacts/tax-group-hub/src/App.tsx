@@ -20,6 +20,7 @@ const KnowledgeBase = lazy(() => import("./pages/knowledge-base"));
 const AutomationsPage = lazy(() => import("./pages/automations"));
 const Integrations = lazy(() => import("./pages/integrations"));
 const SettingsPage = lazy(() => import("./pages/settings"));
+const AnalyticsPage = lazy(() => import("./pages/analytics"));
 const NotFound = lazy(() => import("./pages/not-found"));
 
 const queryClient = new QueryClient({
@@ -139,6 +140,13 @@ function Router() {
         <AnimatedRoute>
           <Suspense fallback={<PageLoader />}>
             <SettingsPage />
+          </Suspense>
+        </AnimatedRoute>
+      </Route>
+      <Route path="/analytics">
+        <AnimatedRoute>
+          <Suspense fallback={<PageLoader />}>
+            <AnalyticsPage />
           </Suspense>
         </AnimatedRoute>
       </Route>

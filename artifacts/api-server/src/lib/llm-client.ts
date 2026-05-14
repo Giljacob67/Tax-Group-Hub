@@ -26,6 +26,8 @@ import { decrypt } from "./crypto.js";
 export interface LLMResult {
   output: string;
   tokensUsed: number;
+  promptTokens: number;
+  completionTokens: number;
   executionTimeMs: number;
   model: string;
   provider: string;
@@ -203,7 +205,7 @@ export async function callLLM(
     const data = await response.json() as { message?: { content?: string }; response?: string };
     const output = data.message?.content || data.response || "";
 
-    return { output, tokensUsed: 0, executionTimeMs: Date.now() - startTime, model: modelId, provider: "Ollama Cloud" };
+    return { output, tokensUsed: 0, promptTokens: 0, completionTokens: 0, executionTimeMs: Date.now() - startTime, model: modelId, provider: "Ollama Cloud" };
   }
 
   const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model, options?.userId, options?.customUrl);
@@ -238,13 +240,17 @@ export async function callLLM(
       });
 
   const executionTimeMs = Date.now() - startTime;
-  const tokensUsed = (result.usage?.inputTokens ?? 0) + (result.usage?.outputTokens ?? 0);
+  const promptTokens = result.usage?.inputTokens ?? 0;
+  const completionTokens = result.usage?.outputTokens ?? 0;
+  const tokensUsed = promptTokens + completionTokens;
 
   console.info(`[LLM] ${providerName} (${modelId}) | tokens=${tokensUsed} steps=${result.steps?.length ?? 1} ms=${executionTimeMs}`);
 
   return {
     output: result.text,
     tokensUsed,
+    promptTokens,
+    completionTokens,
     executionTimeMs,
     model: modelId,
     provider: providerName,

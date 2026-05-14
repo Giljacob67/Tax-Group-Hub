@@ -142,13 +142,18 @@ export const usageLogsTable = pgTable("usage_logs", {
   userId: text("user_id"),
   conversationId: integer("conversation_id"),
   agentId: text("agent_id"),
+  connectionId: integer("connection_id"),
   model: text("model"),
   provider: text("provider"),
+  usageType: text("usage_type").default("chat"),
   promptTokens: integer("prompt_tokens").notNull().default(0),
   completionTokens: integer("completion_tokens").notNull().default(0),
   totalTokens: integer("total_tokens").notNull().default(0),
+  cost: integer("cost"), // stored in cents (e.g. 125 = $1.25)
   latencyMs: integer("latency_ms"),
   platform: text("platform").notNull().default("web"), // 'web' | 'whatsapp' | 'telegram' | 'automate'
+  success: boolean("success").notNull().default(true),
+  errorMessage: text("error_message"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
