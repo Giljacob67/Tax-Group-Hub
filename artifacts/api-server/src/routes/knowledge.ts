@@ -4,13 +4,9 @@ import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
 import { eq, and, sql, count, desc } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import multer from "multer";
-import { createRequire } from "node:module";
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse/lib/pdf-parse");
+import PDFParser from "pdf2json";
 import mammoth from "mammoth";
 import { validateIdParam } from "../lib/validation.js";
-import path from "node:path";
-import fs from "node:fs";
 import { apiError } from "../lib/api-response.js";
 
 const router: IRouter = Router();
@@ -38,36 +34,29 @@ function fileFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterC
   }
 }
 
-const UPLOADS_DIR = process.env.VERCEL
-  ? path.resolve("/tmp", "uploads")
-  : path.resolve(process.cwd(), "uploads");
-try {
-  if (!fs.existsSync(UPLOADS_DIR)) {
-    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-  }
-} catch {
-  // Serverless environments may have read-only FS
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => { cb(null, UPLOADS_DIR); },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, `doc-${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
-});
-
+// Memory storage: avoids all disk/path issues in serverless (Vercel Lambda)
 const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB — Vercel function body limit
   fileFilter,
 });
 
 export async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
   const lower = (fileType + filename).toLowerCase();
   if (lower.includes("pdf")) {
-    const data = await pdfParse(buffer);
-    return data.text || "";
+    return new Promise<string>((resolve) => {
+      const parser = new (PDFParser as any)(null, 1);
+      parser.on("pdfParser_dataReady", () => {
+        try {
+          const raw: string = parser.getRawTextContent();
+          resolve(raw.replace(/\r\n/g, "\n").trim());
+        } catch {
+          resolve("");
+        }
+      });
+      parser.on("pdfParser_dataError", () => resolve(""));
+      parser.parseBuffer(buffer);
+    });
   }
   if (lower.includes("docx") || lower.includes("word") || lower.includes("officedocument")) {
     const result = await mammoth.extractRawText({ buffer });
@@ -263,7 +252,9 @@ function handleUpload(req: any, res: any, next: any) {
 
 router.post("/knowledge/upload", handleUpload, async (req, res) => {
   try {
+    console.log("[Upload] received:", req.file?.originalname, req.file?.size, "bytes");
     if (!req.file) {
+      console.log("[Upload] no file in request");
       apiError(res, 400, "Nenhum arquivo enviado");
       return;
     }
@@ -275,6 +266,7 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
       ? (typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()).filter(Boolean) : tags)
       : [];
 
+    console.log("[Upload] inserting DB record...");
     const [doc] = await db
       .insert(knowledgeDocumentsTable)
       .values({
@@ -282,7 +274,7 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
         fileType: req.file.mimetype,
         fileSize: req.file.size,
         extractedContent: null,
-        storageKey: req.file.path || `mem-${Date.now()}-${req.file.originalname}`,
+        storageKey: `mem-${Date.now()}-${req.file.originalname}`,
         agentId: agentId || "global",
         userId: userId || null,
         status: "pending",
@@ -294,24 +286,23 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
       })
       .returning();
 
+    console.log("[Upload] 202 → doc", doc.id);
     res.status(202).json({
       success: true,
       message: "Documento recebido. Processamento em andamento.",
       document: mapDoc(doc),
     });
 
-    const filePath = req.file.path;
-    const fileBuffer = filePath
-      ? fs.readFileSync(filePath)
-      : req.file.buffer
-        ? Buffer.from(req.file.buffer)
-        : Buffer.alloc(0);
+    // Buffer is already in memory (memoryStorage)
+    const fileBuffer = req.file.buffer ?? Buffer.alloc(0);
+    const mime = req.file.mimetype;
+    const name = req.file.originalname;
 
     setImmediate(() => {
-      processDocumentAsync(doc.id, fileBuffer, req.file!.mimetype, req.file!.originalname).catch(() => {});
+      processDocumentAsync(doc.id, fileBuffer, mime, name).catch(() => {});
     });
   } catch (err) {
-    console.error("Knowledge upload error:", err);
+    console.error("[Upload] error:", err);
     apiError(res, 500, "Falha no upload do documento");
   }
 });
@@ -552,20 +543,11 @@ router.post("/knowledge/:id/reindex", async (req, res) => {
 
     res.json({ success: true, message: "Reindexação iniciada." });
 
-    // Try to read file from disk for reprocessing
-    const filePath = doc.storageKey;
-    if (filePath && fs.existsSync(filePath)) {
-      const buffer = fs.readFileSync(filePath);
-      setImmediate(() => {
-        processDocumentAsync(id, buffer, doc.fileType, doc.filename).catch(() => {});
-      });
-    } else {
-      // File no longer on disk — mark with helpful error
-      await db
-        .update(knowledgeDocumentsTable)
-        .set({ status: "error", errorLog: "Arquivo original não encontrado em disco. Faça novo upload." })
-        .where(eq(knowledgeDocumentsTable.id, id));
-    }
+    // Files are stored in memory (memoryStorage) and not persisted — re-upload required for reindex
+    await db
+      .update(knowledgeDocumentsTable)
+      .set({ status: "error", errorLog: "Arquivo original não encontrado em disco. Faça novo upload." })
+      .where(eq(knowledgeDocumentsTable.id, id));
   } catch (err) {
     console.error("Knowledge reindex error:", err);
     apiError(res, 500, "Falha ao reindexar");
