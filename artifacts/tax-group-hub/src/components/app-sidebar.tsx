@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import {
   LayoutDashboard, Users, Zap, BookOpen, Settings,
   MessageCircle, Crown, Briefcase, Megaphone, Settings2,
-  ChevronRight, Loader2, Search, X, Bot, BarChart3, ShieldCheck,
+  ChevronRight, Loader2, Search, X, Bot, BarChart3, ShieldCheck, FileText,
 } from "lucide-react";
 import { useListAgents } from "@workspace/api-client-react";
 import { useState } from "react";
@@ -38,6 +38,7 @@ const NAV_ITEMS = [
   { path: "/knowledge",    label: "Base de Conhecimento", icon: BookOpen,    color: "text-[#94A3B8]" },
   { path: "/analytics",    label: "Analytics",        icon: BarChart3,       color: "text-[#94A3B8]" },
   { path: "/ai-quality",   label: "Qualidade IA",     icon: ShieldCheck,     color: "text-[#94A3B8]" },
+  { path: "/deliverables", label: "Entregáveis",      icon: FileText,        color: "text-[#94A3B8]" },
   { path: "/integrations", label: "Integrações",      icon: Settings2,       color: "text-[#94A3B8]" },
 ];
 

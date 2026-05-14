@@ -14,6 +14,7 @@ import brandingRouter from "./branding.js";
 import crmRouter from "./crm.js";
 import llmConnectionsRouter from "./llm-connections.js";
 import aiQualityRouter from "./ai-quality.js";
+import deliverablesRouter from "./deliverables.js";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(brandingRouter);
 router.use(llmConnectionsRouter);
 router.use("/crm", crmRouter);
 router.use(aiQualityRouter);
+router.use(deliverablesRouter);
 
 export default router;

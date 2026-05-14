@@ -22,6 +22,7 @@ const Integrations = lazy(() => import("./pages/integrations"));
 const SettingsPage = lazy(() => import("./pages/settings"));
 const AnalyticsPage = lazy(() => import("./pages/analytics"));
 const AiQualityPage = lazy(() => import("./pages/ai-quality"));
+const DeliverablesPage = lazy(() => import("./pages/deliverables"));
 const NotFound = lazy(() => import("./pages/not-found"));
 
 const queryClient = new QueryClient({
@@ -148,6 +149,13 @@ function Router() {
         <AnimatedRoute>
           <Suspense fallback={<PageLoader />}>
             <AiQualityPage />
+          </Suspense>
+        </AnimatedRoute>
+      </Route>
+      <Route path="/deliverables">
+        <AnimatedRoute>
+          <Suspense fallback={<PageLoader />}>
+            <DeliverablesPage />
           </Suspense>
         </AnimatedRoute>
       </Route>
