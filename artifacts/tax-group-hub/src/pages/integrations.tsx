@@ -262,7 +262,7 @@ export default function Integrations() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background">
+    <div className="h-full overflow-y-auto overflow-x-hidden bg-background">
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
 
         {/* Header */}
