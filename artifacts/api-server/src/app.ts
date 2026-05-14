@@ -12,9 +12,9 @@ const app: Express = express();
 // Trust proxy — required for rate-limit to read real client IP behind Vercel/reverse proxy
 app.set("trust proxy", 1);
 
-const getOrigins = () => {
-  if (process.env.CORS_ORIGINS) return process.env.CORS_ORIGINS.split(',');
-  if (process.env.NODE_ENV === "production") return [process.env.APP_URL || false];
+const getOrigins = (): string[] => {
+  if (process.env.CORS_ORIGINS) return process.env.CORS_ORIGINS.split(',').map(o => o.trim()).filter(Boolean);
+  if (process.env.NODE_ENV === "production") return process.env.APP_URL ? [process.env.APP_URL] : [];
   return ["http://localhost:5173", "http://127.0.0.1:5173"];
 };
 
@@ -28,7 +28,7 @@ app.use(requestId);
 app.use(cors({
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     const allowed = getOrigins();
-    if (!origin || allowed.includes(origin) || allowed.includes(true) || allowed.includes("true")) {
+    if (!origin || allowed.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));

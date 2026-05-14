@@ -191,19 +191,18 @@ router.post("/llm/connections", async (req, res) => {
     }
 
     const encryptedKey = encrypt(body.apiKey.trim());
+    const effectiveUsageType = body.usageType || "chat";
 
-    // If setting as default for this usageType, clear previous defaults
-    if (body.usageType) {
-      await db
-        .update(llmConnectionsTable)
-        .set({ isDefault: false })
-        .where(
-          and(
-            eq(llmConnectionsTable.usageType, body.usageType),
-            scopeByUser(userId) as any
-          )
-        );
-    }
+    // Clear previous default for this usageType before inserting the new one
+    await db
+      .update(llmConnectionsTable)
+      .set({ isDefault: false })
+      .where(
+        and(
+          eq(llmConnectionsTable.usageType, effectiveUsageType),
+          scopeByUser(userId) as any
+        )
+      );
 
     const [conn] = await db
       .insert(llmConnectionsTable)
@@ -223,8 +222,8 @@ router.post("/llm/connections", async (req, res) => {
         priceInput: body.priceInput || null,
         priceOutput: body.priceOutput || null,
         providerMetadata: body.providerMetadata || null,
-        usageType: body.usageType || "chat",
-        isDefault: true, // first connection of a usageType becomes default
+        usageType: effectiveUsageType,
+        isDefault: true,
         isActive: true,
       })
       .returning();

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, designGalleryTable, knowledgeChunksTable, knowledgeDocumentsTable } from "@workspace/db";
-import { eq, and, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, inArray, sql, isNull } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import { apiError } from "../lib/api-response.js";
 
@@ -74,7 +74,7 @@ router.post("/integrations/generate-image", async (req, res) => {
       .where(
         and(
           eq(designGalleryTable.agentId, galleryKey),
-          userId ? eq(designGalleryTable.userId, userId) : sql`TRUE`
+          userId ? eq(designGalleryTable.userId, userId) : isNull(designGalleryTable.userId)
         )
       )
       .orderBy(desc(designGalleryTable.createdAt));
@@ -99,7 +99,7 @@ router.post("/integrations/generate-image", async (req, res) => {
       .where(
         and(
           eq(designGalleryTable.agentId, galleryKey),
-          userId ? eq(designGalleryTable.userId, userId) : sql`TRUE`
+          userId ? eq(designGalleryTable.userId, userId) : isNull(designGalleryTable.userId)
         )
       )
       .orderBy(desc(designGalleryTable.createdAt));
@@ -126,7 +126,7 @@ router.get("/integrations/image-gallery/:agentId", async (req, res) => {
       .where(
         and(
           eq(designGalleryTable.agentId, agentId),
-          userId ? eq(designGalleryTable.userId, userId) : sql`TRUE`
+          userId ? eq(designGalleryTable.userId, userId) : isNull(designGalleryTable.userId)
         )
       )
       .orderBy(desc(designGalleryTable.createdAt));

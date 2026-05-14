@@ -94,6 +94,7 @@ export default function Dashboard() {
     queryKey: ["/api/crm/contacts/summary"],
     queryFn: async () => {
       const r = await fetch("/api/crm/contacts?limit=1000");
+      if (!r.ok) throw new Error(`contacts fetch failed: ${r.status}`);
       const d = await r.json();
       const contacts = d.contacts ?? [];
       return {
@@ -111,6 +112,7 @@ export default function Dashboard() {
     queryKey: ["/api/crm/deals/pipeline"],
     queryFn: async () => {
       const r = await fetch("/api/crm/deals/pipeline");
+      if (!r.ok) throw new Error(`pipeline fetch failed: ${r.status}`);
       return r.json();
     },
     staleTime: 60_000,
@@ -120,6 +122,7 @@ export default function Dashboard() {
     queryKey: ["/api/crm/segments"],
     queryFn: async () => {
       const r = await fetch("/api/crm/segments");
+      if (!r.ok) throw new Error(`segments fetch failed: ${r.status}`);
       return r.json();
     },
     staleTime: 60_000,
@@ -127,7 +130,7 @@ export default function Dashboard() {
 
   const { data: tasksData } = useQuery<{ tasks: any[] }>({
     queryKey: ["/api/crm/tasks?status=pending"],
-    queryFn: async () => { const r = await fetch("/api/crm/tasks?status=pending"); return r.json(); },
+    queryFn: async () => { const r = await fetch("/api/crm/tasks?status=pending"); if (!r.ok) throw new Error(`tasks fetch failed: ${r.status}`); return r.json(); },
     staleTime: 30_000,
   });
 
