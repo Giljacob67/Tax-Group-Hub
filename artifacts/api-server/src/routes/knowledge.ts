@@ -245,7 +245,23 @@ router.get("/knowledge", async (req, res) => {
 
 // ── POST /knowledge/upload ───────────────────────────────────────────────────
 
-router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
+// Multer errors (fileFilter rejection, size limit) bypass route try/catch —
+// handle them here before the main handler.
+function handleUpload(req: any, res: any, next: any) {
+  upload.single("file")(req, res, (err: any) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        apiError(res, 400, "Arquivo muito grande. Limite: 50MB.");
+        return;
+      }
+      apiError(res, 400, err.message ?? "Erro no upload do arquivo.");
+      return;
+    }
+    next();
+  });
+}
+
+router.post("/knowledge/upload", handleUpload, async (req, res) => {
   try {
     if (!req.file) {
       apiError(res, 400, "Nenhum arquivo enviado");
