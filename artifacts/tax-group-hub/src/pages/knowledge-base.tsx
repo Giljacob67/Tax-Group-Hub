@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
+import { put } from "@vercel/blob/client";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
@@ -223,25 +224,25 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
     let success = 0;
     for (const file of files) {
       try {
-        // Encode as base64 JSON — multipart streaming is unreliable on Vercel Lambda
-        // Use FileReader for robust binary→base64 (handles all byte values correctly)
-        const fileData = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            // result is "data:*/*;base64,xxxx" — strip the prefix
-            const base64 = result.split(",")[1];
-            resolve(base64);
-          };
-          reader.onerror = () => reject(new Error("Falha ao ler arquivo"));
-          reader.readAsDataURL(file);
+        // 1. Request client token from backend
+        const tokenRes = await fetch("/api/knowledge/upload-token", { method: "POST" });
+        const tokenData = await tokenRes.json().catch(() => ({}));
+        if (!tokenRes.ok || !tokenData.token) {
+          throw new Error(tokenData.error || "Falha ao obter token de upload");
+        }
+
+        // 2. Upload directly to Vercel Blob (bypasses 4.5MB serverless payload limit)
+        const blobResult = await put(file.name, file, {
+          access: "public",
+          token: tokenData.token,
         });
 
+        // 3. Notify backend with Blob URL
         const r = await fetch("/api/knowledge/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fileData,
+            blobUrl: blobResult.url,
             filename: file.name,
             mimetype: file.type || "application/octet-stream",
             agentId: "global",

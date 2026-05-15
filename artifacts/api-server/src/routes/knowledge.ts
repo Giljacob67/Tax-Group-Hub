@@ -7,6 +7,7 @@ import PDFParser from "pdf2json";
 import mammoth from "mammoth";
 import { validateIdParam } from "../lib/validation.js";
 import { apiError } from "../lib/api-response.js";
+import { generateClientTokenFromReadWriteToken } from "@vercel/blob/client";
 
 const router: IRouter = Router();
 
@@ -22,7 +23,7 @@ const ALLOWED_MIME_TYPES = [
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt", ".md"];
 
-const MAX_UPLOAD_BYTES = 6 * 1024 * 1024; // 6 MB raw (≈8MB base64 JSON, within Vercel 4.5MB function payload after base64 decode)
+const BLOB_RW_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, context: string): Promise<T> {
   return Promise.race([
@@ -238,78 +239,93 @@ router.get("/knowledge", async (req, res) => {
 
 // ── POST /knowledge/upload ───────────────────────────────────────────────────
 
-// JSON base64 upload validator.
-// Multipart/form-data stream parsing (multer, busboy) hangs indefinitely
-// on Vercel Lambda — the req stream is not reliably pipeable in serverless.
-// Instead: frontend sends { fileData: base64, filename, mimetype, ... } as
-// application/json, which express.json() parses reliably (same path as chat).
-function handleUpload(req: any, res: any, next: any) {
-  const { fileData, filename, mimetype } = req.body ?? {};
-  if (!fileData || typeof fileData !== "string") {
-    apiError(res, 400, "Campo fileData (base64) obrigatório.");
-    return;
-  }
-  if (!filename || typeof filename !== "string") {
-    apiError(res, 400, "Campo filename obrigatório.");
-    return;
-  }
-  const ext = filename.toLowerCase().slice(filename.lastIndexOf("."));
-  const mimeType: string = mimetype || "application/octet-stream";
-  const mimeOk = ALLOWED_MIME_TYPES.includes(mimeType);
-  const extOk = ALLOWED_EXTENSIONS.includes(ext);
-  if (!mimeOk && !extOk) {
-    apiError(res, 400, `Tipo não permitido. Aceitos: ${ALLOWED_EXTENSIONS.join(", ")}`);
-    return;
-  }
-  let buffer: Buffer;
+// ── POST /knowledge/upload-token ──────────────────────────────────────────────
+// Gera um client token para upload direto ao Vercel Blob.
+// O arquivo vai do browser → Blob, sem passar pelo serverless function.
+
+router.post("/knowledge/upload-token", async (req, res) => {
   try {
-    buffer = Buffer.from(fileData, "base64");
-  } catch {
-    apiError(res, 400, "fileData inválido (base64 corrompido).");
-    return;
+    if (!BLOB_RW_TOKEN) {
+      apiError(res, 500, "BLOB_READ_WRITE_TOKEN não configurado no servidor.");
+      return;
+    }
+    const token = await generateClientTokenFromReadWriteToken({
+      token: BLOB_RW_TOKEN,
+      pathname: `knowledge/${Date.now()}`,
+    });
+    res.json({ token });
+  } catch (err) {
+    console.error("[UploadToken] error:", err);
+    apiError(res, 500, "Falha ao gerar token de upload");
   }
-  if (buffer.length > MAX_UPLOAD_BYTES) {
-    apiError(res, 400, `Arquivo muito grande. Limite: ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB.`);
-    return;
+});
+
+// ── POST /knowledge/upload ───────────────────────────────────────────────────
+// Recebe a URL do Vercel Blob após o upload do cliente.
+// Baixa o arquivo, processa (síncrono se < 2MB) ou enfileira.
+
+async function downloadBlob(url: string): Promise<Buffer> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Falha ao baixar do Blob: ${response.status}`);
   }
-  req.file = { originalname: filename, mimetype: mimeType, buffer, size: buffer.length };
-  next();
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
-router.post("/knowledge/upload", handleUpload, async (req, res) => {
+router.post("/knowledge/upload", async (req, res) => {
   try {
-    console.log("[Upload] received:", req.file?.originalname, req.file?.size, "bytes");
-    if (!req.file) {
-      console.log("[Upload] no file in request");
-      apiError(res, 400, "Nenhum arquivo enviado");
+    const { blobUrl, filename, mimetype, agentId, category, product, origin, tags } = req.body ?? {};
+
+    if (!blobUrl || typeof blobUrl !== "string") {
+      apiError(res, 400, "Campo blobUrl obrigatório.");
+      return;
+    }
+    if (!filename || typeof filename !== "string") {
+      apiError(res, 400, "Campo filename obrigatório.");
       return;
     }
 
-    const { agentId, category, product, origin, tags } = req.body;
-    const userId = req.userId;
+    const ext = filename.toLowerCase().slice(filename.lastIndexOf("."));
+    const mimeType: string = mimetype || "application/octet-stream";
+    const mimeOk = ALLOWED_MIME_TYPES.includes(mimeType);
+    const extOk = ALLOWED_EXTENSIONS.includes(ext);
+    if (!mimeOk && !extOk) {
+      apiError(res, 400, `Tipo não permitido. Aceitos: ${ALLOWED_EXTENSIONS.join(", ")}`);
+      return;
+    }
 
+    const userId = req.userId;
     const parsedTags = tags
       ? (typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()).filter(Boolean) : tags)
       : [];
 
-    // Encode buffer as base64 to persist in DB for async processing / reindex
-    const fileDataBase64 = req.file.buffer.toString("base64");
+    // Download file from Blob to get size
+    console.log("[Upload] downloading from Blob:", blobUrl);
+    let buffer: Buffer;
+    try {
+      buffer = await withTimeout(downloadBlob(blobUrl), 15000, "Download do Blob");
+    } catch (e: any) {
+      console.error("[Upload] download error:", e.message);
+      apiError(res, 500, "Falha ao baixar arquivo do storage.");
+      return;
+    }
 
-    // Synchronous processing for files < 2MB (timeout 25s).
-    // Vercel Hobby with Fluid Compute supports up to 300s; without it, up to 60s.
-    // Large files are queued for the daily cron job.
+    const fileSize = buffer.length;
+    console.log("[Upload] received:", filename, fileSize, "bytes");
+
     const SYNC_THRESHOLD = 2 * 1024 * 1024; // 2 MB
-    const isSmall = req.file.buffer.length < SYNC_THRESHOLD;
+    const isSmall = fileSize < SYNC_THRESHOLD;
 
     console.log("[Upload] inserting DB record...");
     const [doc] = await db
       .insert(knowledgeDocumentsTable)
       .values({
-        filename: req.file.originalname,
-        fileType: req.file.mimetype,
-        fileSize: req.file.size,
+        filename,
+        fileType: mimeType,
+        fileSize,
         extractedContent: null,
-        storageKey: `mem-${Date.now()}-${req.file.originalname}`,
+        storageKey: `blob-${Date.now()}-${filename}`,
         agentId: agentId || "global",
         userId: userId || null,
         status: isSmall ? "processing" : "pending",
@@ -318,15 +334,14 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
         product: product || null,
         origin: origin || "upload",
         tags: parsedTags.length > 0 ? parsedTags : null,
-        fileData: fileDataBase64,
+        blobUrl,
       })
       .returning();
 
     if (isSmall) {
-      // Try synchronous processing (safe within Vercel Hobby limits)
       try {
         await withTimeout(
-          processDocumentAsync(doc.id, req.file.buffer, req.file.mimetype, req.file.originalname),
+          processDocumentAsync(doc.id, buffer, mimeType, filename),
           25000,
           `Processamento rápido do documento ${doc.id}`
         );
@@ -344,7 +359,6 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
       } catch (procErr: any) {
         const msg = procErr?.message || String(procErr);
         console.error(`[Upload] doc ${doc.id} falha no processamento rápido:`, msg);
-        // Mark as pending so cron will retry
         await db
           .update(knowledgeDocumentsTable)
           .set({ status: "pending", errorLog: msg })
@@ -667,22 +681,38 @@ router.post("/knowledge/process-queue", async (req, res) => {
     let failed = 0;
 
     for (const doc of pending) {
-      if (!doc.fileData) {
-        console.log(`[Cron KB] Doc ${doc.id} sem fileData — pulando`);
+      let buffer: Buffer | null = null;
+
+      // Prefer blobUrl (Vercel Blob) over fileData (legacy base64)
+      if (doc.blobUrl) {
+        try {
+          buffer = await withTimeout(downloadBlob(doc.blobUrl), 15000, `Download Blob doc ${doc.id}`);
+        } catch (e: any) {
+          console.error(`[Cron KB] Doc ${doc.id} falha ao baixar do Blob:`, e.message);
+        }
+      } else if (doc.fileData) {
+        try {
+          buffer = Buffer.from(doc.fileData, "base64");
+        } catch (e: any) {
+          console.error(`[Cron KB] Doc ${doc.id} fileData inválido:`, e.message);
+        }
+      }
+
+      if (!buffer) {
+        console.log(`[Cron KB] Doc ${doc.id} sem arquivo disponível — pulando`);
         await db
           .update(knowledgeDocumentsTable)
-          .set({ status: "error", errorLog: "Arquivo original não encontrado no banco." })
+          .set({ status: "error", errorLog: "Arquivo original não encontrado (sem Blob URL nem base64)." })
           .where(eq(knowledgeDocumentsTable.id, doc.id));
         failed++;
         continue;
       }
 
       try {
-        const buffer = Buffer.from(doc.fileData, "base64");
         await processDocumentAsync(doc.id, buffer, doc.fileType, doc.filename);
         processed++;
       } catch (err: any) {
-        console.error(`[Cron KB] Doc ${doc.id} falha:`, err.message);
+        console.error(`[Cron KB] Doc ${doc.id} falha no processamento:`, err.message);
         failed++;
       }
     }
