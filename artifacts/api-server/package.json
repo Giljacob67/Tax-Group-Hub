@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.68",
+    "busboy": "^1.6.0",
     "@ai-sdk/google": "^3.0.60",
     "@ai-sdk/openai": "^3.0.52",
     "@workspace/api-zod": "workspace:*",

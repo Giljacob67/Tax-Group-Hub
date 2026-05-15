@@ -3,7 +3,8 @@ import { db } from "@workspace/db";
 import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
 import { eq, and, sql, count, desc } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
-import multer from "multer";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const Busboy: (opts: any) => any = require("busboy");
 import PDFParser from "pdf2json";
 import mammoth from "mammoth";
 import { validateIdParam } from "../lib/validation.js";
@@ -23,23 +24,7 @@ const ALLOWED_MIME_TYPES = [
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt", ".md"];
 
-function fileFilter(_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) {
-  const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf("."));
-  const mimeOk = ALLOWED_MIME_TYPES.includes(file.mimetype);
-  const extOk = ALLOWED_EXTENSIONS.includes(ext);
-  if (mimeOk || extOk) {
-    cb(null, true);
-  } else {
-    cb(new Error(`Tipo não permitido. Aceitos: ${ALLOWED_EXTENSIONS.join(", ")}`));
-  }
-}
-
-// Memory storage: avoids all disk/path issues in serverless (Vercel Lambda)
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB — Vercel function body limit
-  fileFilter,
-});
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
   const lower = (fileType + filename).toLowerCase();
@@ -234,20 +219,56 @@ router.get("/knowledge", async (req, res) => {
 
 // ── POST /knowledge/upload ───────────────────────────────────────────────────
 
-// Multer errors (fileFilter rejection, size limit) bypass route try/catch —
-// handle them here before the main handler.
+// Busboy-based upload parser — replaces multer to avoid serverless stream hang.
+// Multer v2 + memoryStorage hangs indefinitely on Vercel Lambda because
+// busboy never fires `finish` when the req stream isn't piped in time.
+// Direct busboy usage gives full control over the stream lifecycle.
 function handleUpload(req: any, res: any, next: any) {
-  upload.single("file")(req, res, (err: any) => {
-    if (err) {
-      if (err.code === "LIMIT_FILE_SIZE") {
-        apiError(res, 400, "Arquivo muito grande. Limite: 50MB.");
+  const ct: string = req.headers["content-type"] ?? "";
+  if (!ct.includes("multipart/form-data")) {
+    apiError(res, 400, "Requisição deve ser multipart/form-data.");
+    return;
+  }
+  try {
+    const bb = Busboy({ headers: req.headers, limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } });
+    const fields: Record<string, string> = {};
+    const chunks: Buffer[] = [];
+    let fileMeta: { filename: string; mimetype: string } | null = null;
+    let tooLarge = false;
+    let rejected: string | null = null;
+
+    bb.on("file", (_name: string, stream: any, info: any) => {
+      const { filename, mimeType } = info;
+      const ext = filename.toLowerCase().slice(filename.lastIndexOf("."));
+      if (!ALLOWED_MIME_TYPES.includes(mimeType) && !ALLOWED_EXTENSIONS.includes(ext)) {
+        rejected = `Tipo não permitido. Aceitos: ${ALLOWED_EXTENSIONS.join(", ")}`;
+        stream.resume();
         return;
       }
-      apiError(res, 400, err.message ?? "Erro no upload do arquivo.");
-      return;
-    }
-    next();
-  });
+      fileMeta = { filename, mimetype: mimeType };
+      stream.on("data", (d: Buffer) => chunks.push(d));
+      stream.on("limit", () => { tooLarge = true; stream.destroy(); });
+    });
+
+    bb.on("field", (name: string, value: string) => { fields[name] = value; });
+
+    bb.on("finish", () => {
+      if (rejected) { apiError(res, 400, rejected); return; }
+      if (tooLarge)  { apiError(res, 400, "Arquivo muito grande. Limite: 10MB."); return; }
+      if (fileMeta) {
+        const buf = Buffer.concat(chunks);
+        req.file = { originalname: fileMeta.filename, mimetype: fileMeta.mimetype, buffer: buf, size: buf.length };
+      }
+      req.body = { ...req.body, ...fields };
+      next();
+    });
+
+    bb.on("error", (err: any) => { apiError(res, 400, err?.message ?? "Erro no upload."); });
+
+    req.pipe(bb);
+  } catch (err: any) {
+    apiError(res, 400, err?.message ?? "Erro ao processar upload.");
+  }
 }
 
 router.post("/knowledge/upload", handleUpload, async (req, res) => {
