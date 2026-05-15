@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import * as React from "react";
+import { useState, useRef, lazy, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -28,6 +29,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { usePageTitle } from "@/hooks/use-page-title";
+import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { Separator } from "@/components/ui/separator";
 import { BulkImportDialog } from "@/components/crm/BulkImportDialog";
 import { UploadCloud } from "lucide-react";
@@ -36,7 +39,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import CRMDashboard from "@/components/crm/CRMDashboard";
+const CRMDashboard = lazy(() => import("@/components/crm/CRMDashboard"));
 import TasksPanel from "@/components/crm/TasksPanel";
 import GlobalTimeline from "@/components/crm/GlobalTimeline";
 import AutomationsPanel from "@/components/crm/AutomationsPanel";
@@ -235,7 +238,9 @@ function SortIcon({ field, sort }: { field: string; sort: { field: string; dir: 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CRMPage() {
+  usePageTitle("CRM");
   const [activeTab, setActiveTab]             = useState("today");
+
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isImportOpen, setIsImportOpen]       = useState(false);
   const queryClient = useQueryClient();
@@ -251,7 +256,7 @@ export default function CRMPage() {
   ).length || 0;
 
   return (
-    <div className="flex h-full overflow-hidden bg-background">
+    <div className="flex h-full overflow-hidden bg-background" data-tour="crm">
       <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v !== "contacts") setSelectedContact(null); }} className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="flex-none px-6 pt-6 pb-3">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-5">
@@ -301,7 +306,13 @@ export default function CRMPage() {
             <AutomationsPanel />
           </TabsContent>
           <TabsContent value="dashboard" className="h-full m-0 p-6 overflow-y-auto">
-            <CRMDashboard />
+            <Suspense fallback={
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            }>
+              <CRMDashboard />
+            </Suspense>
           </TabsContent>
         </div>
       </Tabs>
@@ -351,6 +362,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
   const { isDemo } = useDemoMode();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirmDialogState = useConfirmDialog();
 
   const [search, setSearch]           = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -595,9 +607,10 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               key={`user-${v.id}`}
               onClick={() => applyView(`user-${v.id}`, v.filters)}
               onDoubleClick={() => {
-                if (confirm(`Excluir view "${v.name}"?`)) {
-                  deleteViewMutation.mutate(v.id);
-                }
+                confirmDialogState[0](
+                  { title: `Excluir view "${v.name}"?`, description: "Esta ação não pode ser desfeita.", variant: "destructive", confirmLabel: "Excluir" },
+                  () => deleteViewMutation.mutate(v.id)
+                );
               }}
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-colors ${
                 activeViewId === `user-${v.id}`
@@ -879,8 +892,10 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               <Button
                 variant="outline" size="sm" className="text-xs h-7 gap-1 text-destructive hover:text-destructive border-destructive/30"
                 onClick={() => {
-                  if (confirm(`Deletar ${selectedIds.size} contato(s)? Esta ação não pode ser desfeita.`))
-                    bulkDeleteMutation.mutate(selectedArray);
+                  confirmDialogState[0](
+                    { title: "Excluir contatos?", description: `Deletar ${selectedIds.size} contato(s)? Esta ação não pode ser desfeita.`, variant: "destructive", confirmLabel: "Excluir" },
+                    () => bulkDeleteMutation.mutate(selectedArray)
+                  );
                 }}
                 disabled={bulkDeleteMutation.isPending}
               >
@@ -1035,6 +1050,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
           </div>
         )}
       </div>
+      {confirmDialogState[1]}
     </div>
   );
 }
@@ -1451,8 +1467,8 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
 
       {/* Tabs */}
       <Tabs value={detailTab} onValueChange={setDetailTab} className="flex flex-col flex-1 overflow-hidden">
-        <div className="flex-none border-b border-border/50 px-4">
-          <TabsList className="bg-transparent p-0 h-9 gap-4">
+        <div className="flex-none border-b border-border/50 px-4 overflow-x-auto">
+          <TabsList className="bg-transparent p-0 h-auto gap-4 flex-wrap">
             {[
               { value: "info",     label: "Dados" },
               { value: "deals",    label: `Negócios (${deals.length})` },

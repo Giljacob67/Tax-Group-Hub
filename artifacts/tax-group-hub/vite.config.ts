@@ -23,6 +23,16 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom"],
+          "vendor-motion": ["framer-motion"],
+          "vendor-query": ["@tanstack/react-query"],
+          "vendor-ui": ["lucide-react", "clsx", "tailwind-merge", "class-variance-authority"],
+        },
+      },
+    },
   },
   server: {
     port,

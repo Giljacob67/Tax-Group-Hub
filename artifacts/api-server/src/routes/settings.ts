@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, appConfigTable, channelConfigsTable, apiKeysTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { encrypt, decrypt } from "../lib/crypto.js";
-import { validateWhitelist } from "../lib/validation.js";
+import { validateWhitelist, validateSafeUrl } from "../lib/validation.js";
 
 const router: IRouter = Router();
 
@@ -328,8 +328,13 @@ router.put("/settings/active-provider", async (req, res) => {
 
     if (customUrl !== undefined) {
       if (customUrl) {
-        await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_URL", value: customUrl.trim(), updatedAt: new Date() })
-          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: customUrl.trim(), updatedAt: new Date() } });
+        const safeCustomUrl = validateSafeUrl(customUrl.trim());
+        if (!safeCustomUrl) {
+          apiError(res, 400, "URL inválida ou aponta para endereço privado/interno.");
+          return;
+        }
+        await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_URL", value: safeCustomUrl, updatedAt: new Date() })
+          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: safeCustomUrl, updatedAt: new Date() } });
       } else {
         await db.delete(appConfigTable).where(eq(appConfigTable.key, "ACTIVE_LLM_URL"));
       }
@@ -598,13 +603,12 @@ router.post("/settings/ollama/test", async (req, res) => {
     let testUrl: string;
 
     if (url) {
-      try {
-        new URL(url);
-      } catch {
-        apiError(res, 500, "URL invalida. Use o formato: http://host:porta");
+      const safeUrl = validateSafeUrl(url.trim());
+      if (!safeUrl) {
+        apiError(res, 400, "URL inválida ou aponta para endereço privado/interno. Use o formato: http://host:porta");
         return;
       }
-      testUrl = url.replace(/\/+$/, "");
+      testUrl = safeUrl.replace(/\/+$/, "");
     } else {
       const { url: effectiveUrl } = await getEffectiveOllamaUrl();
       if (!effectiveUrl) {

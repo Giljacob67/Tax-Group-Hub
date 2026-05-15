@@ -328,28 +328,33 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       .values({ conversationId, role: "user", content: content.trim() })
       .returning();
 
-    const existingMessages = await db
+    const existingMessages = (await db
       .select()
       .from(messagesTable)
       .where(eq(messagesTable.conversationId, conversationId))
-      .orderBy(messagesTable.createdAt);
+      .orderBy(desc(messagesTable.createdAt))
+      .limit(100)
+    ).reverse();
 
     const userMessageCount = existingMessages.filter(m => m.role === "user").length;
     let autoTitle: string | null = null;
     if (userMessageCount === 1) {
       autoTitle = content.trim().length > 60 ? content.trim().substring(0, 57) + "..." : content.trim();
-      await db.update(conversationsTable).set({ title: autoTitle, updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
+      await db.update(conversationsTable).set({ title: autoTitle ?? undefined, updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
     }
 
-    let systemPrompt = customSystemPrompt 
-      ? `${agent.systemPrompt}\n\n[Instructions Addicionais do Usuario para esta sessao]: ${customSystemPrompt}` 
+    let systemPrompt = customSystemPrompt
+      ? `${agent.systemPrompt}\n\n[Instructions Addicionais do Usuario para esta sessao]: ${customSystemPrompt}`
       : agent.systemPrompt;
+
+    // RAG sources captured for metadata + SSE done event
+    let ragSources: Array<{ filename: string; score: number }> = [];
+    let confidenceLevel: "high" | "medium" | "low" | "none" = "none";
 
     if (useKnowledgeBase !== false) {
       try {
         const [queryEmbedding] = await generateEmbeddings([content.trim()]);
-        
-        // Find top chunks for this agent and global
+
         const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
         const results = await db
           .select({
@@ -372,6 +377,21 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         if (relevantChunks.length > 0) {
           const contextText = relevantChunks.map(c => `[Doc: ${c.filename}]\n${c.content}`).join("\n\n");
           systemPrompt += `\n\n--- CONTEXTO REFERÊNCIA ---\n${contextText}`;
+
+          // Deduplicate sources by filename, keep highest score per file
+          const sourceMap = new Map<string, number>();
+          for (const chunk of relevantChunks) {
+            const prev = sourceMap.get(chunk.filename) ?? 0;
+            if (chunk.score > prev) sourceMap.set(chunk.filename, chunk.score);
+          }
+          ragSources = Array.from(sourceMap.entries()).map(([filename, score]) => ({ filename, score }));
+
+          const topScore = ragSources[0]?.score ?? 0;
+          confidenceLevel = topScore >= 0.75 ? "high" : topScore >= 0.5 ? "medium" : "low";
+        } else {
+          // No relevant context — instruct model to be transparent about uncertainty
+          systemPrompt += `\n\n[AVISO INTERNO]: Nenhum documento relevante foi encontrado na base de conhecimento para esta pergunta. Seja transparente sobre as limitações do seu conhecimento e evite inventar informações específicas.`;
+          confidenceLevel = "none";
         }
       } catch (ragErr) {
         console.error("Failed to generate vector context:", ragErr);
@@ -563,15 +583,32 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       if (isStream) res.write(`data: ${JSON.stringify({ type: "token", text: assistantContent })}\n\n`);
     }
 
+    const messageMetadata = {
+      ragSources,
+      confidenceLevel,
+      ragSourceCount: ragSources.length,
+    };
+
     const [assistantMsg] = await db
       .insert(messagesTable)
-      .values({ conversationId, role: "assistant", content: assistantContent })
+      .values({ conversationId, role: "assistant", content: assistantContent, metadata: messageMetadata })
       .returning();
 
     await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
 
     if (isStream) {
-      res.write(`data: ${JSON.stringify({ type: "done", assistantMessage: { id: String(assistantMsg.id), conversationId: String(assistantMsg.conversationId), role: assistantMsg.role, content: assistantMsg.content, createdAt: assistantMsg.createdAt.toISOString() } })}\n\n`);
+      res.write(`data: ${JSON.stringify({
+        type: "done",
+        assistantMessage: {
+          id: String(assistantMsg.id),
+          conversationId: String(assistantMsg.conversationId),
+          role: assistantMsg.role,
+          content: assistantMsg.content,
+          createdAt: assistantMsg.createdAt.toISOString(),
+        },
+        ragSources,
+        confidenceLevel,
+      })}\n\n`);
       res.end();
       return;
     }
@@ -592,6 +629,8 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         createdAt: assistantMsg.createdAt.toISOString(),
       },
       autoTitle,
+      ragSources,
+      confidenceLevel,
     });
   } catch (err: any) {
     console.error("Error sending message:", err);

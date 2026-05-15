@@ -3,12 +3,12 @@ import { z } from "zod";
 
 export const emailSenderTool = tool({
   description: "Envia um e-mail formal ou informal para um lead ou contato comercial.",
-  parameters: z.object({
+  inputSchema: z.object({
     to: z.string().email().describe("O endereço de e-mail do destinatário."),
     subject: z.string().describe("O assunto formal do e-mail."),
     body: z.string().describe("O conteúdo do e-mail formatado em HTML simples."),
   }),
-  execute: async ({ to, subject, body }: { to: string; subject: string; body: string }) => {
+  execute: async ({ to, subject, body }: { to: string; subject: string; body: string }, _options) => {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
       console.warn("[Email Tool] Simulação ativada. Nenhuma RESEND_API_KEY configurada.");
@@ -32,7 +32,7 @@ export const emailSenderTool = tool({
           html: body,
         }),
       });
-      const data = await response.json();
+      const data = await response.json() as Record<string, any>;
       if (!response.ok) {
         throw new Error(data.message || JSON.stringify(data));
       }

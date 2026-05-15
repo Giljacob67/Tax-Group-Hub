@@ -2,9 +2,21 @@ import { Router, type IRouter } from "express";
 import { db, knowledgeDocumentsTable, embeddingCacheTable } from "@workspace/db";
 import { eq, inArray, lt, and } from "drizzle-orm";
 import fs from "node:fs";
+import path from "node:path";
 import { processDocumentAsync } from "./knowledge.js";
 import { apiError } from "../lib/api-response.js";
 import { safeNumber } from "../lib/validation.js";
+
+const UPLOADS_DIR_LOCAL = path.resolve(process.cwd(), "uploads");
+const UPLOADS_DIR_VERCEL = path.resolve("/tmp", "uploads");
+
+function isAllowedStoragePath(storageKey: string): boolean {
+  const normalized = path.resolve(storageKey);
+  return (
+    normalized.startsWith(UPLOADS_DIR_LOCAL + path.sep) ||
+    normalized.startsWith(UPLOADS_DIR_VERCEL + path.sep)
+  );
+}
 
 const router: IRouter = Router();
 
@@ -41,8 +53,8 @@ router.post("/system/jobs/retry", async (req, res) => {
 
     for (const doc of stuckDocs) {
       try {
-        if (!doc.storageKey || !fs.existsSync(doc.storageKey)) {
-           errors.push({ id: doc.id, error: "Arquivo físico não encontrado no storageKey.", path: doc.storageKey });
+        if (!doc.storageKey || !isAllowedStoragePath(doc.storageKey) || !fs.existsSync(doc.storageKey)) {
+           errors.push({ id: doc.id, error: "Arquivo físico não encontrado ou caminho inválido.", path: doc.storageKey });
            continue;
         }
 

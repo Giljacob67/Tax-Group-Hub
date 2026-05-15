@@ -18,7 +18,7 @@ export default function NotFound() {
 
           <div className="mt-6">
             <Button asChild variant="outline">
-              <a href="/">Voltar ao início</a>
+              <a href="/command-center">Voltar ao Command Center</a>
             </Button>
           </div>
         </CardContent>

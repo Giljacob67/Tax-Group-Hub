@@ -8,6 +8,7 @@ import { discoverModels } from "../lib/model-discovery.js";
 import { callLLM } from "../lib/llm-client.js";
 import { healthCheckConnections } from "../lib/llm-router.js";
 import { validateIdParam } from "../lib/validation.js";
+import { runDiagnostics, validateCredentials, testCapability } from "../lib/llm-diagnostics.js";
 
 const router: IRouter = Router();
 
@@ -190,19 +191,18 @@ router.post("/llm/connections", async (req, res) => {
     }
 
     const encryptedKey = encrypt(body.apiKey.trim());
+    const effectiveUsageType = body.usageType || "chat";
 
-    // If setting as default for this usageType, clear previous defaults
-    if (body.usageType) {
-      await db
-        .update(llmConnectionsTable)
-        .set({ isDefault: false })
-        .where(
-          and(
-            eq(llmConnectionsTable.usageType, body.usageType),
-            scopeByUser(userId) as any
-          )
-        );
-    }
+    // Clear previous default for this usageType before inserting the new one
+    await db
+      .update(llmConnectionsTable)
+      .set({ isDefault: false })
+      .where(
+        and(
+          eq(llmConnectionsTable.usageType, effectiveUsageType),
+          scopeByUser(userId) as any
+        )
+      );
 
     const [conn] = await db
       .insert(llmConnectionsTable)
@@ -222,8 +222,8 @@ router.post("/llm/connections", async (req, res) => {
         priceInput: body.priceInput || null,
         priceOutput: body.priceOutput || null,
         providerMetadata: body.providerMetadata || null,
-        usageType: body.usageType || "chat",
-        isDefault: true, // first connection of a usageType becomes default
+        usageType: effectiveUsageType,
+        isDefault: true,
         isActive: true,
       })
       .returning();
@@ -752,7 +752,30 @@ router.get("/llm/active-profile", async (req, res) => {
 router.post("/llm/health-check", async (req, res) => {
   try {
     const userId = req.userId;
-    const results = await healthCheckConnections(isRealUser(userId) ? userId : undefined);
+    const conditions = [eq(llmConnectionsTable.isActive, true)];
+    const userScope = scopeByUser(userId);
+    if (userScope) conditions.push(userScope);
+
+    const connections = await db
+      .select()
+      .from(llmConnectionsTable)
+      .where(and(...conditions));
+
+    const results = await Promise.all(
+      connections.map(async (conn) => {
+        try {
+          const apiKey = decrypt(conn.apiKey);
+          const diagnostics = await runDiagnostics(
+            { id: conn.id, provider: conn.provider, modelId: conn.modelId, baseUrl: conn.baseUrl, supportsJson: conn.supportsJson ?? undefined, supportsTools: conn.supportsTools ?? undefined, apiKey },
+            userId
+          );
+          return { connectionId: conn.id, name: conn.name, provider: conn.provider, diagnostics };
+        } catch (err: any) {
+          return { connectionId: conn.id, name: conn.name, provider: conn.provider, error: err.message };
+        }
+      })
+    );
+
     res.json({ success: true, results });
   } catch (err) {
     console.error("[LLM] health-check error:", err);

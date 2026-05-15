@@ -2,7 +2,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { authMiddleware } from "./middlewares/auth.js";
-import { apiLimiter, llmLimiter } from "./middlewares/rate-limit.js";
+import { apiLimiter, llmLimiter, uploadLimiter } from "./middlewares/rate-limit.js";
 import { requestId } from "./middlewares/request-id.js";
 import { errorHandler } from "./middlewares/error-handler.js";
 import router from "./routes";
@@ -12,9 +12,9 @@ const app: Express = express();
 // Trust proxy — required for rate-limit to read real client IP behind Vercel/reverse proxy
 app.set("trust proxy", 1);
 
-const getOrigins = () => {
-  if (process.env.CORS_ORIGINS) return process.env.CORS_ORIGINS.split(',');
-  if (process.env.NODE_ENV === "production") return [process.env.APP_URL || false];
+const getOrigins = (): string[] => {
+  if (process.env.CORS_ORIGINS) return process.env.CORS_ORIGINS.split(',').map(o => o.trim()).filter(Boolean);
+  if (process.env.NODE_ENV === "production") return process.env.APP_URL ? [process.env.APP_URL] : [];
   return ["http://localhost:5173", "http://127.0.0.1:5173"];
 };
 
@@ -28,7 +28,7 @@ app.use(requestId);
 app.use(cors({
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     const allowed = getOrigins();
-    if (!origin || allowed.includes(origin) || allowed.includes(true) || allowed.includes("true")) {
+    if (!origin || allowed.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -38,7 +38,8 @@ app.use(cors({
 }));
 
 // Body parsing — with size limits to prevent payload attacks
-app.use(express.json({ limit: "2mb" }));
+// 8mb: allows base64-encoded file uploads up to ~6mb via /api/knowledge/upload
+app.use(express.json({ limit: "8mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Serve static uploads (Phase 10 Branding)
@@ -59,6 +60,9 @@ app.use("/api/automate/execute", llmLimiter);
 app.use("/api/automate/pipeline", llmLimiter);
 app.use("/api/automate/trigger", llmLimiter);
 app.use("/api/orchestrate", llmLimiter);
+
+// Upload-specific rate limit (separate from general API limiter)
+app.use("/api/knowledge/upload", uploadLimiter);
 
 // Routes
 app.use("/api", router);

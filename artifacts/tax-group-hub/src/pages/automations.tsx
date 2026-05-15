@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { usePageTitle } from "@/hooks/use-page-title";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -75,6 +76,7 @@ function fmtDate(iso: string) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function AutomationsPage() {
+  usePageTitle("Automações");
   const { toast } = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState("sequences");

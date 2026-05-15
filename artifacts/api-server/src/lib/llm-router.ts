@@ -3,7 +3,7 @@
  */
 
 import { db, llmConnectionsTable, llmProfilesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { callLLM, type LLMResult } from "./llm-client.js";
 import { decrypt } from "./crypto.js";
 import logger from "./logger.js";
@@ -24,12 +24,15 @@ export interface RouterOptions {
 async function resolveConnection(
   opts: RouterOptions
 ): Promise<typeof llmConnectionsTable.$inferSelect | null> {
-  // 1. Direct connectionId
+  // 1. Direct connectionId — allow user-owned OR global (userId IS NULL) connections
   if (opts.connectionId) {
+    const tenancyFilter = opts.userId
+      ? or(eq(llmConnectionsTable.userId, opts.userId), isNull(llmConnectionsTable.userId))
+      : isNull(llmConnectionsTable.userId);
     const [conn] = await db
       .select()
       .from(llmConnectionsTable)
-      .where(eq(llmConnectionsTable.id, opts.connectionId))
+      .where(and(eq(llmConnectionsTable.id, opts.connectionId), tenancyFilter))
       .limit(1);
     if (conn) return conn;
   }

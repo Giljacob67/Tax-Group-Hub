@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { conversationsTable } from "./agents.js";
@@ -6,7 +6,7 @@ import { conversationsTable } from "./agents.js";
 export const crmContactsTable = pgTable("crm_contacts", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
-  cnpj: text("cnpj").notNull(), // Deve ter unique constraint composto ou lidar via app
+  cnpj: text("cnpj").notNull(),
   razaoSocial: text("razao_social"),
   nomeFantasia: text("nome_fantasia"),
   regimeTributario: text("regime_tributario"), // 'lucro_real' | 'lucro_presumido' | 'simples' | 'mei'
@@ -34,7 +34,7 @@ export const crmContactsTable = pgTable("crm_contacts", {
   lastEnrichedAt: timestamp("last_enriched_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [uniqueIndex("crm_contacts_user_cnpj_idx").on(t.userId, t.cnpj)]);
 
 export const insertCrmContactSchema = createInsertSchema(crmContactsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type CrmContact = typeof crmContactsTable.$inferSelect;

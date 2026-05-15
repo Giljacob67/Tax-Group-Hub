@@ -9,9 +9,12 @@ import {
   Copy, CheckCheck, Trash2, Search, Download,
   Settings, Sparkles, Pencil, Check, X, Cpu,
   RotateCw, History, FileText, CheckSquare, Building2,
-  ClipboardList, Rocket, Lightbulb
+  ClipboardList, Rocket, Lightbulb,
+  ThumbsUp, ThumbsDown, ChevronDown, ChevronUp,
+  Shield, AlertTriangle, BookOpen
 } from "lucide-react";
 import { useDemoMode } from "@/hooks/use-demo-mode";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { DEMO_CHAT_SUGGESTIONS } from "@/lib/demo-data";
 import { SkeletonChat, SkeletonChatSidebar } from "@/components/skeletons";
 import { EmptyState } from "@/components/empty-state";
@@ -54,6 +57,7 @@ import ModelSelector from "@/components/settings/llm/ModelSelector";
 import type { LlmConnection } from "@/components/settings/llm/types";
 
 export default function AgentChat() {
+  usePageTitle("Agente");
   const { isDemo } = useDemoMode();
   const { id: agentId } = useParams();
   const { toast } = useToast();
@@ -91,6 +95,16 @@ export default function AgentChat() {
   const [optimisticUserMsg, setOptimisticUserMsg] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [showMobileHistory, setShowMobileHistory] = useState(false);
+
+  // Per-message RAG quality metadata (captured from SSE done event)
+  const [messageMeta, setMessageMeta] = useState<Record<string, {
+    ragSources: Array<{ filename: string; score: number }>;
+    confidenceLevel: string;
+  }>>({});
+  // Track which message sources panels are open
+  const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
+  // Track feedback sent per message
+  const [feedbackSent, setFeedbackSent] = useState<Record<string, 1 | -1>>({});
 
   const { data: agent, isLoading: isLoadingAgent } = useGetAgent(agentId!);
   const { data: conversations, isLoading: isLoadingConvs } = useListConversations({ agentId });
@@ -211,6 +225,15 @@ export default function AgentChat() {
                 } else if (data.type === "token" && data.text) {
                    fullText += data.text;
                    setStreamingContent(fullText);
+                } else if (data.type === "done" && data.assistantMessage?.id) {
+                   const msgId = String(data.assistantMessage.id);
+                   setMessageMeta(prev => ({
+                     ...prev,
+                     [msgId]: {
+                       ragSources: data.ragSources || [],
+                       confidenceLevel: data.confidenceLevel || "none",
+                     }
+                   }));
                 }
               } catch (e) { console.warn("[Chat] malformed SSE chunk:", e); }
             }
@@ -337,6 +360,32 @@ export default function AgentChat() {
     }
   };
 
+  const handleFeedback = async (
+    messageId: string,
+    convId: string,
+    rating: 1 | -1,
+    reason?: string
+  ) => {
+    if (feedbackSent[messageId]) return;
+    try {
+      await fetch("/api/ai-quality/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId: Number(messageId),
+          conversationId: Number(convId),
+          agentId: agentId || "",
+          rating,
+          reason,
+        }),
+      });
+      setFeedbackSent(prev => ({ ...prev, [messageId]: rating }));
+      toast({ title: rating === 1 ? "Obrigado pelo feedback positivo!" : "Feedback registrado", duration: 2000 });
+    } catch {
+      toast({ title: "Erro ao registrar feedback", variant: "destructive" });
+    }
+  };
+
   const filteredConversations = conversations?.conversations?.filter(
     c => !searchFilter || c.title.toLowerCase().includes(searchFilter.toLowerCase())
   );
@@ -380,7 +429,7 @@ export default function AgentChat() {
   );
 
   return (
-    <div className="flex flex-1 h-full overflow-hidden bg-background">
+    <div className="flex flex-1 h-full overflow-hidden bg-background" data-tour="chat">
       {/* Left sidebar — conversation history */}
       <div className="w-72 border-r border-border bg-card/40 flex flex-col hidden md:flex">
         <div className="p-4 border-b border-border flex justify-between items-center bg-muted/20">
@@ -605,9 +654,9 @@ export default function AgentChat() {
                         </button>
                       )}
                       {msg.role === 'assistant' && msg.id === activeConv?.messages?.[activeConv.messages.length - 1]?.id && (
-                        <button 
-                          onClick={() => handleRegenerate(msg.id)} 
-                          className="absolute right-2 top-10 md:-right-10 md:top-10 p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" 
+                        <button
+                          onClick={() => handleRegenerate(msg.id)}
+                          className="absolute right-2 top-10 md:-right-10 md:top-10 p-1.5 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                           disabled={isStreaming}
                           title="Regenerar"
                         >
@@ -630,6 +679,87 @@ export default function AgentChat() {
                           >
                             <Rocket className="w-4 h-4" /> Executar Plano com Agentes ({plan.length} agente{plan.length !== 1 ? 's' : ''})
                           </button>
+                        );
+                      })()}
+                      {/* Quality layer: confidence + sources + feedback */}
+                      {msg.role === 'assistant' && (() => {
+                        const meta = messageMeta[msg.id] || (() => {
+                          const raw = (msg as any).metadata;
+                          if (raw && raw.confidenceLevel) return raw;
+                          return null;
+                        })();
+                        if (!meta) return null;
+                        const { confidenceLevel, ragSources } = meta;
+                        const confColors: Record<string, string> = {
+                          high: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
+                          medium: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+                          low: "text-orange-400 border-orange-500/30 bg-orange-500/10",
+                          none: "text-muted-foreground border-border bg-muted/30",
+                        };
+                        const confLabel: Record<string, string> = {
+                          high: "Alta confiança", medium: "Confiança média",
+                          low: "Baixa confiança", none: "Sem contexto RAG",
+                        };
+                        const isOpen = expandedSources[msg.id];
+                        return (
+                          <div className="mt-3 border-t border-border/50 pt-2 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${confColors[confidenceLevel] || confColors.none}`}>
+                                  {confidenceLevel === "none" ? <AlertTriangle className="w-3 h-3" /> : <Shield className="w-3 h-3" />}
+                                  {confLabel[confidenceLevel] || confidenceLevel}
+                                </span>
+                                {ragSources?.length > 0 && (
+                                  <button
+                                    onClick={() => setExpandedSources(prev => ({ ...prev, [msg.id]: !prev[msg.id] }))}
+                                    className="inline-flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 transition-colors"
+                                  >
+                                    <BookOpen className="w-3 h-3" />
+                                    {ragSources.length} fonte{ragSources.length !== 1 ? 's' : ''}
+                                    {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                  </button>
+                                )}
+                              </div>
+                              {/* Feedback buttons */}
+                              <div className="flex items-center gap-1">
+                                {feedbackSent[msg.id] ? (
+                                  <span className="text-[10px] text-muted-foreground">{feedbackSent[msg.id] === 1 ? "👍 Obrigado!" : "👎 Registrado"}</span>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => handleFeedback(msg.id, String(msg.conversationId), 1)}
+                                      className="p-1 rounded text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                                      title="Resposta útil"
+                                    >
+                                      <ThumbsUp className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleFeedback(msg.id, String(msg.conversationId), -1, "poor_quality")}
+                                      className="p-1 rounded text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                      title="Resposta problemática"
+                                    >
+                                      <ThumbsDown className="w-3 h-3" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            {isOpen && ragSources?.length > 0 && (
+                              <div className="space-y-1">
+                                {ragSources.map((src: { filename: string; score: number }, i: number) => (
+                                  <div key={i} className="flex items-center justify-between text-[10px] bg-muted/40 rounded px-2 py-1 gap-2">
+                                    <span className="flex items-center gap-1.5 text-foreground/70 truncate">
+                                      <FileText className="w-3 h-3 flex-shrink-0 text-primary/60" />
+                                      <span className="truncate">{src.filename}</span>
+                                    </span>
+                                    <span className={`flex-shrink-0 font-medium ${src.score >= 0.75 ? 'text-emerald-400' : src.score >= 0.5 ? 'text-amber-400' : 'text-orange-400'}`}>
+                                      {Math.round(src.score * 100)}%
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         );
                       })()}
                     </div>

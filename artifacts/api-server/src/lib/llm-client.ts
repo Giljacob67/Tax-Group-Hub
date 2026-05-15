@@ -26,6 +26,8 @@ import { decrypt } from "./crypto.js";
 export interface LLMResult {
   output: string;
   tokensUsed: number;
+  promptTokens: number;
+  completionTokens: number;
   executionTimeMs: number;
   model: string;
   provider: string;
@@ -203,7 +205,7 @@ export async function callLLM(
     const data = await response.json() as { message?: { content?: string }; response?: string };
     const output = data.message?.content || data.response || "";
 
-    return { output, tokensUsed: 0, executionTimeMs: Date.now() - startTime, model: modelId, provider: "Ollama Cloud" };
+    return { output, tokensUsed: 0, promptTokens: 0, completionTokens: 0, executionTimeMs: Date.now() - startTime, model: modelId, provider: "Ollama Cloud" };
   }
 
   const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model, options?.userId, options?.customUrl);
@@ -221,25 +223,34 @@ export async function callLLM(
   const isArrayPayload = Array.isArray(userMessage);
   const hasTools = Object.keys(tools).length > 0;
 
-  const result = await generateText({
-    model,
-    system: systemPrompt,
-    maxTokens: 4096,
-    tools: hasTools ? (tools as Parameters<typeof generateText>[0]["tools"]) : undefined,
-    maxSteps: hasTools ? 5 : 1,
-    ...(isArrayPayload
-      ? { messages: userMessage as Parameters<typeof generateText>[0]["messages"] }
-      : { prompt: userMessage as string }),
-  });
+  const result = isArrayPayload
+    ? await generateText({
+        model,
+        system: systemPrompt,
+        maxOutputTokens: 4096,
+        tools: hasTools ? (tools as Parameters<typeof generateText>[0]["tools"]) : undefined,
+        messages: userMessage as NonNullable<Parameters<typeof generateText>[0]["messages"]>
+      })
+    : await generateText({
+        model,
+        system: systemPrompt,
+        maxOutputTokens: 4096,
+        tools: hasTools ? (tools as Parameters<typeof generateText>[0]["tools"]) : undefined,
+        prompt: userMessage as string,
+      });
 
   const executionTimeMs = Date.now() - startTime;
-  const tokensUsed = (result.usage?.promptTokens ?? 0) + (result.usage?.completionTokens ?? 0);
+  const promptTokens = result.usage?.inputTokens ?? 0;
+  const completionTokens = result.usage?.outputTokens ?? 0;
+  const tokensUsed = promptTokens + completionTokens;
 
   console.info(`[LLM] ${providerName} (${modelId}) | tokens=${tokensUsed} steps=${result.steps?.length ?? 1} ms=${executionTimeMs}`);
 
   return {
     output: result.text,
     tokensUsed,
+    promptTokens,
+    completionTokens,
     executionTimeMs,
     model: modelId,
     provider: providerName,
@@ -258,7 +269,7 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
   const googleKey = await getApiKey("google", userId);
   const ollamaUrl = (await getEffectiveOllamaUrl()).url;
 
-  let embeddingModel: EmbeddingModel<string>;
+  let embeddingModel: EmbeddingModel;
 
   if (googleKey) {
     const googleProvider = createGoogleGenerativeAI({ apiKey: googleKey });

@@ -16,6 +16,7 @@ import { useListAgents, useListConversations } from "@workspace/api-client-react
 import { SkeletonMetricsGrid, SkeletonAgentBlocks } from "@/components/skeletons";
 import { EmptyState } from "@/components/empty-state";
 import { useDemoMode } from "@/hooks/use-demo-mode";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { DEMO_CONTACTS, DEMO_SEGMENTS, DEMO_TASKS, DEMO_JOURNEY_STEPS, DEMO_DEALS } from "@/lib/demo-data";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer
@@ -84,6 +85,7 @@ function MiniSpark({ data, color }: { data: number[]; color: string }) {
 }
 
 export default function Dashboard() {
+  usePageTitle("Command Center");
   const { isDemo } = useDemoMode();
   const { data: agentsData, isLoading: isLoadingAgents } = useListAgents();
   const { data: convData, isLoading: isLoadingConvs } = useListConversations();
@@ -92,6 +94,7 @@ export default function Dashboard() {
     queryKey: ["/api/crm/contacts/summary"],
     queryFn: async () => {
       const r = await fetch("/api/crm/contacts?limit=1000");
+      if (!r.ok) throw new Error(`contacts fetch failed: ${r.status}`);
       const d = await r.json();
       const contacts = d.contacts ?? [];
       return {
@@ -109,6 +112,7 @@ export default function Dashboard() {
     queryKey: ["/api/crm/deals/pipeline"],
     queryFn: async () => {
       const r = await fetch("/api/crm/deals/pipeline");
+      if (!r.ok) throw new Error(`pipeline fetch failed: ${r.status}`);
       return r.json();
     },
     staleTime: 60_000,
@@ -118,6 +122,7 @@ export default function Dashboard() {
     queryKey: ["/api/crm/segments"],
     queryFn: async () => {
       const r = await fetch("/api/crm/segments");
+      if (!r.ok) throw new Error(`segments fetch failed: ${r.status}`);
       return r.json();
     },
     staleTime: 60_000,
@@ -125,7 +130,7 @@ export default function Dashboard() {
 
   const { data: tasksData } = useQuery<{ tasks: any[] }>({
     queryKey: ["/api/crm/tasks?status=pending"],
-    queryFn: async () => { const r = await fetch("/api/crm/tasks?status=pending"); return r.json(); },
+    queryFn: async () => { const r = await fetch("/api/crm/tasks?status=pending"); if (!r.ok) throw new Error(`tasks fetch failed: ${r.status}`); return r.json(); },
     staleTime: 30_000,
   });
 
@@ -168,7 +173,7 @@ export default function Dashboard() {
   const isLoading = isLoadingAgents || isLoadingConvs;
 
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden pb-safe">
+    <div className="h-full overflow-y-auto overflow-x-hidden pb-safe" data-tour="dashboard">
       <div className="p-6 max-w-7xl mx-auto space-y-8">
 
         {/* ── Demo badge ── */}

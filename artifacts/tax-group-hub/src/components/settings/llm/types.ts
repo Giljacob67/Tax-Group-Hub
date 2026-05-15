@@ -11,6 +11,8 @@ export interface ProviderMeta {
   baseUrlPlaceholder?: string;
   keyLabel: string;
   keyPlaceholder: string;
+  description?: string;
+  tag?: "cloud" | "local" | "compatible";
 }
 
 export interface DiscoveredModel {
@@ -87,3 +89,61 @@ export const USAGE_TYPES: { id: UsageType; label: string; icon: string }[] = [
   { id: "image", label: "Geração de Imagem", icon: "🎨" },
   { id: "transcription", label: "Transcrição", icon: "🎙️" },
 ];
+
+// ─── Diagnostics Types ────────────────────────────────────────────────────────
+
+export type DiagnosticStage = "auth" | "models" | "chat" | "json" | "tools";
+
+export interface DiagnosticResult {
+  ok: boolean;
+  stage: DiagnosticStage;
+  status?: number;
+  latencyMs: number;
+  message: string;
+  userMessage: string;
+  howToFix?: string;
+  technicalDetails?: string;
+  capabilities?: {
+    tools?: boolean;
+    json?: boolean;
+    vision?: boolean;
+    contextWindow?: number;
+  };
+}
+
+export interface ConnectionDiagnostics {
+  connectionId: number;
+  results: DiagnosticResult[];
+  overall: "ok" | "warning" | "error";
+}
+
+export type ProviderCardStatus =
+  | "online"
+  | "unconfigured"
+  | "error"
+  | "offline"
+  | "no_models"
+  | "attention_required";
+
+export interface WizardStep {
+  id: number;
+  label: string;
+}
+
+export const WIZARD_STEPS: WizardStep[] = [
+  { id: 1, label: "Provedor" },
+  { id: 2, label: "Credenciais" },
+  { id: 3, label: "Validar" },
+  { id: 4, label: "Modelos" },
+  { id: 5, label: "Finalidade" },
+  { id: 6, label: "Testar" },
+  { id: 7, label: "Salvar" },
+];
+
+export interface HealthCheckResult {
+  connectionId: number;
+  name: string;
+  provider: string;
+  diagnostics?: ConnectionDiagnostics;
+  error?: string;
+}

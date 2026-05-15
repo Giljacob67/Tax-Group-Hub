@@ -38,11 +38,15 @@ export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   processed: boolean("processed").notNull().default(false),
   retries: integer("retries").notNull().default(0), // Added for resiliency
   errorLog: text("error_log"), // Added for debug
-  // --- Novos campos de classificação e RAG ---
-  category: text("category"), // 'legislacao' | 'jurisprudencia' | 'manual' | 'material_interno'
-  tags: jsonb("tags").$type<string[]>(), // ex: ["IBS", "CBS", "Split Payment"]
-  validUntil: timestamp("valid_until"), // data de validade do documento
-  priority: integer("priority").default(5), // boost no RAG (1-10)
+  // --- Classificação e RAG ---
+  category: text("category"), // 'RTI' | 'AFD' | 'REP' | 'Propostas' | etc.
+  product: text("product"), // produto relacionado: 'RTI' | 'AFD' | 'REP' | 'Reforma Tributária' | etc.
+  origin: text("origin").default("upload"), // 'upload' | 'drive' | 'internal' | 'system'
+  tags: jsonb("tags").$type<string[]>(),
+  validUntil: timestamp("valid_until"),
+  priority: integer("priority").default(5),
+  chunkCount: integer("chunk_count").default(0),
+  embeddingModel: text("embedding_model"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -142,13 +146,18 @@ export const usageLogsTable = pgTable("usage_logs", {
   userId: text("user_id"),
   conversationId: integer("conversation_id"),
   agentId: text("agent_id"),
+  connectionId: integer("connection_id"),
   model: text("model"),
   provider: text("provider"),
+  usageType: text("usage_type").default("chat"),
   promptTokens: integer("prompt_tokens").notNull().default(0),
   completionTokens: integer("completion_tokens").notNull().default(0),
   totalTokens: integer("total_tokens").notNull().default(0),
+  cost: integer("cost"), // stored in cents (e.g. 125 = $1.25)
   latencyMs: integer("latency_ms"),
   platform: text("platform").notNull().default("web"), // 'web' | 'whatsapp' | 'telegram' | 'automate'
+  success: boolean("success").notNull().default(true),
+  errorMessage: text("error_message"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -171,6 +180,32 @@ export const tenantBrandingTable = pgTable("tenant_branding", {
 
 export type TenantBranding = typeof tenantBrandingTable.$inferSelect;
 export const insertTenantBrandingSchema = createInsertSchema(tenantBrandingTable).omit({ id: true, createdAt: true, updatedAt: true });
+
+/**
+ * Integration execution logs — tracks every inbound/outbound integration event.
+ * Payload previews are truncated and must never contain secrets/tokens.
+ */
+export const integrationLogsTable = pgTable("integration_logs", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id"),
+  integrationKey: text("integration_key").notNull(), // 'make' | 'webhooks' | 'whatsapp' | 'canva' | etc
+  integrationName: text("integration_name").notNull(),
+  eventType: text("event_type").notNull(), // 'lead.created' | 'webhook.received' | 'integration.tested' etc
+  direction: text("direction").notNull().default("outbound"), // 'inbound' | 'outbound'
+  status: text("status").notNull().default("pending"), // 'success' | 'error' | 'pending' | 'ignored'
+  durationMs: integer("duration_ms"),
+  httpStatus: integer("http_status"),
+  requestUrl: text("request_url"), // masked: show domain only, no secrets in query params
+  requestMethod: text("request_method").default("POST"),
+  payloadPreview: text("payload_preview"), // truncated JSON, no secrets
+  errorMessage: text("error_message"),
+  technicalDetails: text("technical_details"),
+  correlationId: text("correlation_id").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type IntegrationLog = typeof integrationLogsTable.$inferSelect;
+export const insertIntegrationLogSchema = createInsertSchema(integrationLogsTable).omit({ id: true, createdAt: true });
 
 /**
  * Registra cada execução de pipeline multi-agente (/automate/pipeline)
@@ -219,4 +254,68 @@ export const contentPerformanceTable = pgTable("content_performance", {
 export type ContentPerformance = typeof contentPerformanceTable.$inferSelect;
 export const insertContentPerformanceSchema = createInsertSchema(contentPerformanceTable).omit({ id: true, createdAt: true });
 export type InsertContentPerformance = z.infer<typeof insertContentPerformanceSchema>;
+
+/**
+ * User feedback on individual AI responses — thumbs up/down + optional reason.
+ * messageId references messagesTable but is stored as integer (not FK) to avoid
+ * cascade complexity when messages are deleted.
+ */
+export const aiResponseFeedbackTable = pgTable("ai_response_feedback", {
+  id: serial("id").primaryKey(),
+  messageId: integer("message_id").notNull(),
+  conversationId: integer("conversation_id").notNull(),
+  agentId: text("agent_id").notNull(),
+  userId: text("user_id"),
+  rating: integer("rating").notNull(), // 1 = thumbs up, -1 = thumbs down
+  reason: text("reason"), // 'wrong_info' | 'incomplete' | 'hallucination' | 'off_topic' | 'great'
+  comment: text("comment"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type AiResponseFeedback = typeof aiResponseFeedbackTable.$inferSelect;
+export const insertAiResponseFeedbackSchema = createInsertSchema(aiResponseFeedbackTable).omit({ id: true, createdAt: true });
+export type InsertAiResponseFeedback = z.infer<typeof insertAiResponseFeedbackSchema>;
+
+/**
+ * Test cases for regression testing agent responses.
+ * expectedSources: list of filenames expected in RAG context.
+ */
+export const aiTestCasesTable = pgTable("ai_test_cases", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  agentId: text("agent_id").notNull(),
+  userId: text("user_id"),
+  question: text("question").notNull(),
+  expectedAnswer: text("expected_answer"),
+  expectedSources: jsonb("expected_sources").$type<string[]>(),
+  criteria: text("criteria"), // free-text evaluation criteria
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type AiTestCase = typeof aiTestCasesTable.$inferSelect;
+export const insertAiTestCaseSchema = createInsertSchema(aiTestCasesTable).omit({ id: true, createdAt: true });
+export type InsertAiTestCase = z.infer<typeof insertAiTestCaseSchema>;
+
+/**
+ * Execution log for each test case run — supports model comparison.
+ */
+export const aiTestRunsTable = pgTable("ai_test_runs", {
+  id: serial("id").primaryKey(),
+  testCaseId: integer("test_case_id").notNull().references(() => aiTestCasesTable.id, { onDelete: "cascade" }),
+  model: text("model").notNull(),
+  provider: text("provider").notNull(),
+  status: text("status").notNull().default("pending"), // 'pending' | 'running' | 'passed' | 'failed' | 'error'
+  score: integer("score"), // 0-100 manual or automated score
+  response: text("response"),
+  ragSources: jsonb("rag_sources").$type<string[]>(),
+  latencyMs: integer("latency_ms"),
+  tokensUsed: integer("tokens_used"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type AiTestRun = typeof aiTestRunsTable.$inferSelect;
+export const insertAiTestRunSchema = createInsertSchema(aiTestRunsTable).omit({ id: true, createdAt: true });
+export type InsertAiTestRun = z.infer<typeof insertAiTestRunSchema>;
 
