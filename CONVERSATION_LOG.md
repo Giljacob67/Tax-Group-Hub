@@ -88,7 +88,12 @@
 ## Problemas Conhecidos / Próximos Passos
 
 ### Resolvidos nesta sessão
-- [x] Upload KB travado em "processando" → processamento síncrono + timeouts
+- [x] Upload KB travado em "processando" → **arquitetura híbrida robusta**
+  - Arquivos < 200KB: processamento síncrono com timeout de 8s (dentro do limite Hobby)
+  - Arquivos ≥ 200KB: enfileirados no PostgreSQL com `fileData` (base64 persistido)
+  - Cron diário (`0 8 * * *`) processa documentos pendentes e retries
+  - Endpoint `POST /api/knowledge/process-queue` para o cron job
+- [x] Reindexação quebrada → usa `fileData` do DB em vez de ler do disco
 - [x] `btoa()` falha para bytes > 127 → `FileReader.readAsDataURL()`
 - [x] `console.error/warn` em `agent-chat.tsx` → removidos
 - [x] Chunk `AreaChart` sem nome → `vendor-charts` no manualChunks
@@ -143,8 +148,36 @@ fa0f168 feat: Etapa 9 – Central de Integrações (remodelagem completa)
 
 ## Notas para Retomada
 
-1. O upload de KB agora processa **sincronamente antes de responder HTTP**. Isso evita que a Vercel congele/mate o worker, mas significa que uploads grandes (> 1MB) podem demorar. Se estourar o timeout (25s/45s), o doc é marcado como `error` e o usuário vê aviso para reindexar.
-2. O hook `useConfirmDialog` retorna uma tupla `[requestConfirm, dialogJSX]` para evitar problemas de inferência de tipos do TypeScript com objetos contendo JSX.
-3. O arquivo `crm.tsx` é muito grande (2400+ linhas). A função `CRMPage` termina na linha ~349; o resto são componentes auxiliares (`ContactsView`, `ContactDetailPanel`, `AddLeadDialog`, etc.). Variáveis declaradas no `CRMPage` NÃO estão acessíveis nos componentes auxiliares.
-4. O modo demo é ativado via query param `?demo=1` e só aplica fallback quando APIs retornam arrays vazios.
-5. O roteamento na Vercel usa SPA fallback: todas as rotas não-API vão para `index.html`.
+### Arquitetura de Upload da Base de Conhecimento (KB)
+
+**Plano Vercel: Hobby** (maxDuration: 10s por request, cron jobs: 1x por dia)
+
+O upload usa uma **abordagem híbrida** para funcionar dentro das restrições do serverless:
+
+1. **Arquivos pequenos** (< 200KB):
+   - Processamento síncrono com timeout de **8s**
+   - Se der timeout → marca como `pending` para o cron processar depois
+   - A maioria dos PDFs de proposta/material comercial cabe aqui
+
+2. **Arquivos grandes** (≥ 200KB):
+   - Salva no DB com `status: "pending"` e `fileData` (base64 do arquivo)
+   - Responde imediato: "Será processado em breve"
+   - **Cron diário** (`0 8 * * *`) processa fila via `POST /api/knowledge/process-queue`
+   - Processa até 5 documentos por execução (evita estourar 60s do cron)
+
+3. **Reindexação:**
+   - Usa o `fileData` persistido no PostgreSQL
+   - Marca como `pending` → cron pega na próxima execução
+   - Não requer novo upload do arquivo
+
+4. **Retry automático:**
+   - Documentos com `status = "error"` e `retries < 3` são retentados pelo cron
+   - `extractTextContent` tem timeout de 15s (pdf2json/mammoth)
+   - `embedMany` tem timeout de 30s (API de embeddings)
+
+### Outras Notas
+
+- O hook `useConfirmDialog` retorna uma tupla `[requestConfirm, dialogJSX]` para evitar problemas de inferência de tipos do TypeScript com objetos contendo JSX.
+- O arquivo `crm.tsx` é muito grande (2400+ linhas). A função `CRMPage` termina na linha ~349; o resto são componentes auxiliares (`ContactsView`, `ContactDetailPanel`, `AddLeadDialog`, etc.). Variáveis declaradas no `CRMPage` NÃO estão acessíveis nos componentes auxiliares.
+- O modo demo é ativado via query param `?demo=1` e só aplica fallback quando APIs retornam arrays vazios.
+- O roteamento na Vercel usa SPA fallback: todas as rotas não-API vão para `index.html`.
