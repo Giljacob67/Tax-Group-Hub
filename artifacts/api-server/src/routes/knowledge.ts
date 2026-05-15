@@ -8,6 +8,7 @@ import mammoth from "mammoth";
 import { validateIdParam } from "../lib/validation.js";
 import { apiError } from "../lib/api-response.js";
 import { generateClientTokenFromReadWriteToken } from "@vercel/blob/client";
+import { get } from "@vercel/blob";
 
 const router: IRouter = Router();
 
@@ -270,7 +271,9 @@ router.post("/knowledge/upload-token", async (req, res) => {
 // Baixa o arquivo, processa (síncrono se < 2MB) ou enfileira.
 
 async function downloadBlob(url: string): Promise<Buffer> {
-  // Extrair pathname da URL do Vercel Blob para download autenticado
+  console.log(`[downloadBlob] token disponível: ${!!BLOB_RW_TOKEN}`);
+
+  // Extrair pathname da URL do Vercel Blob
   let pathname = "";
   try {
     const urlObj = new URL(url);
@@ -278,21 +281,34 @@ async function downloadBlob(url: string): Promise<Buffer> {
   } catch {
     pathname = url;
   }
+  console.log(`[downloadBlob] pathname extraído: ${pathname}`);
 
-  // Tentar download autenticado com BLOB_READ_WRITE_TOKEN (funciona para public e private)
+  // Método 1: Usar o SDK @vercel/blob get() (forma recomendada para blobs privados)
   if (BLOB_RW_TOKEN && pathname) {
-    const apiUrl = `https://blob.vercel-storage.com/${pathname}`;
-    const authResponse = await fetch(apiUrl, {
-      headers: { Authorization: `Bearer ${BLOB_RW_TOKEN}` },
-    });
-    if (authResponse.ok) {
-      const arrayBuffer = await authResponse.arrayBuffer();
-      return Buffer.from(arrayBuffer);
+    try {
+      console.log(`[downloadBlob] tentando get() do SDK...`);
+      const blobResult = await get(pathname, {
+        access: "private",
+        token: BLOB_RW_TOKEN,
+      });
+      if (blobResult) {
+        console.log(`[downloadBlob] get() sucesso, contentType: ${blobResult.blob?.contentType}, size: ${blobResult.blob?.size}`);
+        const chunks: Buffer[] = [];
+        const reader = blobResult.stream.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(Buffer.from(value));
+        }
+        return Buffer.concat(chunks);
+      }
+    } catch (sdkErr: any) {
+      console.log(`[downloadBlob] get() falhou: ${sdkErr.message}`);
     }
-    // Se falhar, tenta fetch direto na URL como fallback
-    console.log(`[downloadBlob] Auth download falhou (${authResponse.status}), tentando URL direta...`);
   }
 
+  // Método 2: Fetch direto na URL (funciona para blobs públicos ou URLs pré-assinadas)
+  console.log(`[downloadBlob] tentando fetch direto na URL...`);
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Falha ao baixar do Blob: ${response.status}`);
