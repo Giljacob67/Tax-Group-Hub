@@ -270,6 +270,29 @@ router.post("/knowledge/upload-token", async (req, res) => {
 // Baixa o arquivo, processa (síncrono se < 2MB) ou enfileira.
 
 async function downloadBlob(url: string): Promise<Buffer> {
+  // Extrair pathname da URL do Vercel Blob para download autenticado
+  let pathname = "";
+  try {
+    const urlObj = new URL(url);
+    pathname = urlObj.pathname.replace(/^\//, "");
+  } catch {
+    pathname = url;
+  }
+
+  // Tentar download autenticado com BLOB_READ_WRITE_TOKEN (funciona para public e private)
+  if (BLOB_RW_TOKEN && pathname) {
+    const apiUrl = `https://blob.vercel-storage.com/${pathname}`;
+    const authResponse = await fetch(apiUrl, {
+      headers: { Authorization: `Bearer ${BLOB_RW_TOKEN}` },
+    });
+    if (authResponse.ok) {
+      const arrayBuffer = await authResponse.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    }
+    // Se falhar, tenta fetch direto na URL como fallback
+    console.log(`[downloadBlob] Auth download falhou (${authResponse.status}), tentando URL direta...`);
+  }
+
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Falha ao baixar do Blob: ${response.status}`);
