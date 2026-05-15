@@ -3,8 +3,6 @@ import { db } from "@workspace/db";
 import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
 import { eq, and, sql, count, desc } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const Busboy: (opts: any) => any = require("busboy");
 import PDFParser from "pdf2json";
 import mammoth from "mammoth";
 import { validateIdParam } from "../lib/validation.js";
@@ -24,7 +22,7 @@ const ALLOWED_MIME_TYPES = [
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt", ".md"];
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_UPLOAD_BYTES = 6 * 1024 * 1024; // 6 MB raw (≈8MB base64 JSON, within Vercel 4.5MB function payload after base64 decode)
 
 export async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
   const lower = (fileType + filename).toLowerCase();
@@ -219,56 +217,42 @@ router.get("/knowledge", async (req, res) => {
 
 // ── POST /knowledge/upload ───────────────────────────────────────────────────
 
-// Busboy-based upload parser — replaces multer to avoid serverless stream hang.
-// Multer v2 + memoryStorage hangs indefinitely on Vercel Lambda because
-// busboy never fires `finish` when the req stream isn't piped in time.
-// Direct busboy usage gives full control over the stream lifecycle.
+// JSON base64 upload validator.
+// Multipart/form-data stream parsing (multer, busboy) hangs indefinitely
+// on Vercel Lambda — the req stream is not reliably pipeable in serverless.
+// Instead: frontend sends { fileData: base64, filename, mimetype, ... } as
+// application/json, which express.json() parses reliably (same path as chat).
 function handleUpload(req: any, res: any, next: any) {
-  const ct: string = req.headers["content-type"] ?? "";
-  if (!ct.includes("multipart/form-data")) {
-    apiError(res, 400, "Requisição deve ser multipart/form-data.");
+  const { fileData, filename, mimetype } = req.body ?? {};
+  if (!fileData || typeof fileData !== "string") {
+    apiError(res, 400, "Campo fileData (base64) obrigatório.");
     return;
   }
-  try {
-    const bb = Busboy({ headers: req.headers, limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } });
-    const fields: Record<string, string> = {};
-    const chunks: Buffer[] = [];
-    let fileMeta: { filename: string; mimetype: string } | null = null;
-    let tooLarge = false;
-    let rejected: string | null = null;
-
-    bb.on("file", (_name: string, stream: any, info: any) => {
-      const { filename, mimeType } = info;
-      const ext = filename.toLowerCase().slice(filename.lastIndexOf("."));
-      if (!ALLOWED_MIME_TYPES.includes(mimeType) && !ALLOWED_EXTENSIONS.includes(ext)) {
-        rejected = `Tipo não permitido. Aceitos: ${ALLOWED_EXTENSIONS.join(", ")}`;
-        stream.resume();
-        return;
-      }
-      fileMeta = { filename, mimetype: mimeType };
-      stream.on("data", (d: Buffer) => chunks.push(d));
-      stream.on("limit", () => { tooLarge = true; stream.destroy(); });
-    });
-
-    bb.on("field", (name: string, value: string) => { fields[name] = value; });
-
-    bb.on("finish", () => {
-      if (rejected) { apiError(res, 400, rejected); return; }
-      if (tooLarge)  { apiError(res, 400, "Arquivo muito grande. Limite: 10MB."); return; }
-      if (fileMeta) {
-        const buf = Buffer.concat(chunks);
-        req.file = { originalname: fileMeta.filename, mimetype: fileMeta.mimetype, buffer: buf, size: buf.length };
-      }
-      req.body = { ...req.body, ...fields };
-      next();
-    });
-
-    bb.on("error", (err: any) => { apiError(res, 400, err?.message ?? "Erro no upload."); });
-
-    req.pipe(bb);
-  } catch (err: any) {
-    apiError(res, 400, err?.message ?? "Erro ao processar upload.");
+  if (!filename || typeof filename !== "string") {
+    apiError(res, 400, "Campo filename obrigatório.");
+    return;
   }
+  const ext = filename.toLowerCase().slice(filename.lastIndexOf("."));
+  const mimeType: string = mimetype || "application/octet-stream";
+  const mimeOk = ALLOWED_MIME_TYPES.includes(mimeType);
+  const extOk = ALLOWED_EXTENSIONS.includes(ext);
+  if (!mimeOk && !extOk) {
+    apiError(res, 400, `Tipo não permitido. Aceitos: ${ALLOWED_EXTENSIONS.join(", ")}`);
+    return;
+  }
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(fileData, "base64");
+  } catch {
+    apiError(res, 400, "fileData inválido (base64 corrompido).");
+    return;
+  }
+  if (buffer.length > MAX_UPLOAD_BYTES) {
+    apiError(res, 400, `Arquivo muito grande. Limite: ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB.`);
+    return;
+  }
+  req.file = { originalname: filename, mimetype: mimeType, buffer, size: buffer.length };
+  next();
 }
 
 router.post("/knowledge/upload", handleUpload, async (req, res) => {

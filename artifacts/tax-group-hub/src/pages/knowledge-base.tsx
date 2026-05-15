@@ -223,17 +223,29 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
     let success = 0;
     for (const file of files) {
       try {
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("agentId", "global");
-        fd.append("origin", "upload");
-        if (category) fd.append("category", category);
-        if (product) fd.append("product", product);
+        // Encode as base64 JSON — multipart streaming is unreliable on Vercel Lambda
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        let binary = "";
+        for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+        const fileData = btoa(binary);
 
-        const r = await fetch("/api/knowledge/upload", { method: "POST", body: fd });
+        const r = await fetch("/api/knowledge/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileData,
+            filename: file.name,
+            mimetype: file.type || "application/octet-stream",
+            agentId: "global",
+            origin: "upload",
+            ...(category ? { category } : {}),
+            ...(product ? { product } : {}),
+          }),
+        });
         if (!r.ok) {
           const err = await r.json().catch(() => ({}));
-          throw new Error((err as any).error || "Upload falhou");
+          throw new Error((err as any).error || `HTTP ${r.status}`);
         }
         success++;
       } catch (e: any) {

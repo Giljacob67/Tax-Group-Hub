@@ -38,7 +38,8 @@ app.use(cors({
 }));
 
 // Body parsing — with size limits to prevent payload attacks
-app.use(express.json({ limit: "2mb" }));
+// 8mb: allows base64-encoded file uploads up to ~6mb via /api/knowledge/upload
+app.use(express.json({ limit: "8mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Serve static uploads (Phase 10 Branding)
