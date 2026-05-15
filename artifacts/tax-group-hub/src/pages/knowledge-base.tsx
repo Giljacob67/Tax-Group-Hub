@@ -233,7 +233,7 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
 
         // 2. Upload directly to Vercel Blob (bypasses 4.5MB serverless payload limit)
         const blobResult = await put(file.name, file, {
-          access: "public",
+          access: "private",
           token: tokenData.token,
         });
 
