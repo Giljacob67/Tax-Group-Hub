@@ -271,7 +271,7 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
 
   if (googleKey) {
     const googleProvider = createGoogleGenerativeAI({ apiKey: googleKey });
-    embeddingModel = googleProvider.embeddingModel("text-embedding-004");
+    embeddingModel = googleProvider.embeddingModel("gemini-embedding-001");
   } else if (ollamaUrl) {
     const ollamaProvider = createOpenAI({
       baseURL: ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
@@ -312,7 +312,16 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
   if (missingTexts.length > 0) {
     console.log(`[Embedding Cache] MISS - calling API for ${missingTexts.length}/${texts.length} texts`);
     const { embeddings } = await Promise.race([
-      embedMany({ model: embeddingModel, values: missingTexts }),
+      embedMany({
+        model: embeddingModel,
+        values: missingTexts,
+        providerOptions: {
+          google: {
+            outputDimensionality: 768, // manter compatibilidade com schema DB (768 dimensões)
+            taskType: "RETRIEVAL_DOCUMENT",
+          },
+        },
+      }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Timeout: embedMany excedeu 30000ms")), 30000)
       ),
