@@ -292,8 +292,13 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
       ? (typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()).filter(Boolean) : tags)
       : [];
 
-    // Encode buffer as base64 to persist in DB for async processing
+    // Encode buffer as base64 to persist in DB for async processing / reindex
     const fileDataBase64 = req.file.buffer.toString("base64");
+
+    // Hobby plan: synchronous processing only for small files (< 200KB, timeout 8s)
+    // Large files are queued for the daily cron job
+    const SYNC_THRESHOLD = 200 * 1024; // 200 KB
+    const isSmall = req.file.buffer.length < SYNC_THRESHOLD;
 
     console.log("[Upload] inserting DB record...");
     const [doc] = await db
@@ -306,7 +311,7 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
         storageKey: `mem-${Date.now()}-${req.file.originalname}`,
         agentId: agentId || "global",
         userId: userId || null,
-        status: "pending",
+        status: isSmall ? "processing" : "pending",
         processed: false,
         category: category || null,
         product: product || null,
@@ -315,6 +320,37 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
         fileData: fileDataBase64,
       })
       .returning();
+
+    if (isSmall) {
+      // Try synchronous processing (Hobby limit: 10s total function time)
+      try {
+        await withTimeout(
+          processDocumentAsync(doc.id, req.file.buffer, req.file.mimetype, req.file.originalname),
+          8000,
+          `Processamento rápido do documento ${doc.id}`
+        );
+        const [updatedDoc] = await db
+          .select()
+          .from(knowledgeDocumentsTable)
+          .where(eq(knowledgeDocumentsTable.id, doc.id));
+        console.log(`[Upload] doc ${doc.id} processado sincronamente`);
+        res.status(200).json({
+          success: true,
+          message: "Documento processado com sucesso.",
+          document: mapDoc(updatedDoc ?? doc),
+        });
+        return;
+      } catch (procErr: any) {
+        const msg = procErr?.message || String(procErr);
+        console.error(`[Upload] doc ${doc.id} falha no processamento rápido:`, msg);
+        // Mark as pending so cron will retry
+        await db
+          .update(knowledgeDocumentsTable)
+          .set({ status: "pending", errorLog: msg })
+          .where(eq(knowledgeDocumentsTable.id, doc.id))
+          .catch(() => {});
+      }
+    }
 
     console.log(`[Upload] 200 → doc ${doc.id} enfileirado`);
     res.status(200).json({
