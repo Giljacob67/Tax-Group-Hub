@@ -295,9 +295,10 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
     // Encode buffer as base64 to persist in DB for async processing / reindex
     const fileDataBase64 = req.file.buffer.toString("base64");
 
-    // Hobby plan: synchronous processing only for small files (< 200KB, timeout 8s)
-    // Large files are queued for the daily cron job
-    const SYNC_THRESHOLD = 200 * 1024; // 200 KB
+    // Synchronous processing for files < 2MB (timeout 25s).
+    // Vercel Hobby with Fluid Compute supports up to 300s; without it, up to 60s.
+    // Large files are queued for the daily cron job.
+    const SYNC_THRESHOLD = 2 * 1024 * 1024; // 2 MB
     const isSmall = req.file.buffer.length < SYNC_THRESHOLD;
 
     console.log("[Upload] inserting DB record...");
@@ -322,11 +323,11 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
       .returning();
 
     if (isSmall) {
-      // Try synchronous processing (Hobby limit: 10s total function time)
+      // Try synchronous processing (safe within Vercel Hobby limits)
       try {
         await withTimeout(
           processDocumentAsync(doc.id, req.file.buffer, req.file.mimetype, req.file.originalname),
-          8000,
+          25000,
           `Processamento rápido do documento ${doc.id}`
         );
         const [updatedDoc] = await db
