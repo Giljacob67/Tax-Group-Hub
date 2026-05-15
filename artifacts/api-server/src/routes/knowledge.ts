@@ -249,11 +249,16 @@ router.post("/knowledge/upload-token", async (req, res) => {
       apiError(res, 500, "BLOB_READ_WRITE_TOKEN não configurado no servidor.");
       return;
     }
+    const { filename } = req.body ?? {};
+    const safeName = typeof filename === "string" && filename.trim()
+      ? filename.trim().replace(/[^a-zA-Z0-9._-]/g, "_")
+      : `file-${Date.now()}`;
+    const pathname = `knowledge/${Date.now()}-${safeName}`;
     const token = await generateClientTokenFromReadWriteToken({
       token: BLOB_RW_TOKEN,
-      pathname: `knowledge/${Date.now()}`,
+      pathname,
     });
-    res.json({ token });
+    res.json({ token, pathname });
   } catch (err) {
     console.error("[UploadToken] error:", err);
     apiError(res, 500, "Falha ao gerar token de upload");

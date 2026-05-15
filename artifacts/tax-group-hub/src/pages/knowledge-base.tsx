@@ -224,15 +224,19 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
     let success = 0;
     for (const file of files) {
       try {
-        // 1. Request client token from backend
-        const tokenRes = await fetch("/api/knowledge/upload-token", { method: "POST" });
+        // 1. Request client token from backend (envia filename para gerar pathname correto)
+        const tokenRes = await fetch("/api/knowledge/upload-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name }),
+        });
         const tokenData = await tokenRes.json().catch(() => ({}));
-        if (!tokenRes.ok || !tokenData.token) {
+        if (!tokenRes.ok || !tokenData.token || !tokenData.pathname) {
           throw new Error(tokenData.error || "Falha ao obter token de upload");
         }
 
         // 2. Upload directly to Vercel Blob (bypasses 4.5MB serverless payload limit)
-        const blobResult = await put(file.name, file, {
+        const blobResult = await put(tokenData.pathname, file, {
           access: "private",
           token: tokenData.token,
         });
