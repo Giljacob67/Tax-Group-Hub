@@ -38,6 +38,7 @@ export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   processed: boolean("processed").notNull().default(false),
   retries: integer("retries").notNull().default(0), // Added for resiliency
   errorLog: text("error_log"), // Added for debug
+  fileData: text("file_data"), // Base64 do arquivo original (persistido para reindexação)
   // --- Classificação e RAG ---
   category: text("category"), // 'RTI' | 'AFD' | 'REP' | 'Propostas' | etc.
   product: text("product"), // produto relacionado: 'RTI' | 'AFD' | 'REP' | 'Reforma Tributária' | etc.

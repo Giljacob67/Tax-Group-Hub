@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
-import { eq, and, sql, count, desc } from "drizzle-orm";
+import { eq, and, or, sql, count, desc, lt } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import PDFParser from "pdf2json";
 import mammoth from "mammoth";
@@ -292,6 +292,9 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
       ? (typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()).filter(Boolean) : tags)
       : [];
 
+    // Encode buffer as base64 to persist in DB for async processing
+    const fileDataBase64 = req.file.buffer.toString("base64");
+
     console.log("[Upload] inserting DB record...");
     const [doc] = await db
       .insert(knowledgeDocumentsTable)
@@ -309,50 +312,16 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
         product: product || null,
         origin: origin || "upload",
         tags: parsedTags.length > 0 ? parsedTags : null,
+        fileData: fileDataBase64,
       })
       .returning();
 
-    // Buffer is already in memory (memoryStorage)
-    const fileBuffer = req.file.buffer ?? Buffer.alloc(0);
-    const mime = req.file.mimetype;
-    const name = req.file.originalname;
-
-    // Processamento síncrono ANTES de responder — evita morte do worker
-    // serverless da Vercel (a função é congelada após resposta HTTP).
-    // Arquivos < 1MB têm timeout de 25s; >= 1MB têm 45s.
-    const SYNC_SIZE_THRESHOLD = 1024 * 1024; // 1 MB
-    const isSmall = fileBuffer.length < SYNC_SIZE_THRESHOLD;
-
-    try {
-      await withTimeout(
-        processDocumentAsync(doc.id, fileBuffer, mime, name),
-        isSmall ? 25000 : 45000,
-        `Processamento do documento ${doc.id}`
-      );
-      console.log(`[Upload] doc ${doc.id} processado sincronamente`);
-      const [updatedDoc] = await db
-        .select()
-        .from(knowledgeDocumentsTable)
-        .where(eq(knowledgeDocumentsTable.id, doc.id));
-      res.status(200).json({
-        success: true,
-        message: "Documento processado com sucesso.",
-        document: mapDoc(updatedDoc ?? doc),
-      });
-    } catch (procErr: any) {
-      const msg = procErr?.message || String(procErr);
-      console.error(`[Upload] doc ${doc.id} falha no processamento:`, msg);
-      await db
-        .update(knowledgeDocumentsTable)
-        .set({ status: "error", errorLog: msg })
-        .where(eq(knowledgeDocumentsTable.id, doc.id))
-        .catch(() => {});
-      res.status(202).json({
-        success: false,
-        message: "Documento recebido, mas o processamento falhou. Tente reindexar.",
-        document: mapDoc(doc),
-      });
-    }
+    console.log(`[Upload] 200 → doc ${doc.id} enfileirado`);
+    res.status(200).json({
+      success: true,
+      message: "Documento recebido e enfileirado para processamento.",
+      document: mapDoc(doc),
+    });
   } catch (err) {
     console.error("[Upload] error:", err);
     apiError(res, 500, "Falha no upload do documento");
@@ -595,11 +564,8 @@ router.post("/knowledge/:id/reindex", async (req, res) => {
 
     res.json({ success: true, message: "Reindexação iniciada." });
 
-    // Files are stored in memory (memoryStorage) and not persisted — re-upload required for reindex
-    await db
-      .update(knowledgeDocumentsTable)
-      .set({ status: "error", errorLog: "Arquivo original não encontrado em disco. Faça novo upload." })
-      .where(eq(knowledgeDocumentsTable.id, id));
+    // Processamento assíncrono após resposta — cron job ou próxima execução vai pegar
+    // Não processamos aqui para não estourar timeout da request
   } catch (err) {
     console.error("Knowledge reindex error:", err);
     apiError(res, 500, "Falha ao reindexar");
@@ -633,6 +599,66 @@ router.delete("/knowledge/:id", async (req, res) => {
   } catch (err) {
     console.error("Knowledge delete error:", err);
     apiError(res, 500, "Falha ao excluir documento");
+  }
+});
+
+// ── POST /knowledge/process-queue (Cron Job) ─────────────────────────────────
+// Roda a cada 5 minutos via Vercel Cron. Processa documentos pendentes
+// um por um para evitar concorrência e estourar o timeout de 60s.
+
+router.post("/knowledge/process-queue", async (req, res) => {
+  try {
+    // Buscar documentos pendentes ou com erro (retry até 3x)
+    const pending = await db
+      .select()
+      .from(knowledgeDocumentsTable)
+      .where(
+        or(
+          eq(knowledgeDocumentsTable.status, "pending"),
+          and(
+            eq(knowledgeDocumentsTable.status, "error"),
+            lt(knowledgeDocumentsTable.retries, 3)
+          )
+        )
+      )
+      .orderBy(knowledgeDocumentsTable.createdAt)
+      .limit(5);
+
+    console.log(`[Cron KB] ${pending.length} documento(s) para processar`);
+
+    let processed = 0;
+    let failed = 0;
+
+    for (const doc of pending) {
+      if (!doc.fileData) {
+        console.log(`[Cron KB] Doc ${doc.id} sem fileData — pulando`);
+        await db
+          .update(knowledgeDocumentsTable)
+          .set({ status: "error", errorLog: "Arquivo original não encontrado no banco." })
+          .where(eq(knowledgeDocumentsTable.id, doc.id));
+        failed++;
+        continue;
+      }
+
+      try {
+        const buffer = Buffer.from(doc.fileData, "base64");
+        await processDocumentAsync(doc.id, buffer, doc.fileType, doc.filename);
+        processed++;
+      } catch (err: any) {
+        console.error(`[Cron KB] Doc ${doc.id} falha:`, err.message);
+        failed++;
+      }
+    }
+
+    res.json({
+      success: true,
+      processed,
+      failed,
+      remaining: Math.max(0, pending.length - processed - failed),
+    });
+  } catch (err) {
+    console.error("[Cron KB] Erro no process-queue:", err);
+    apiError(res, 500, "Falha no processamento da fila");
   }
 });
 

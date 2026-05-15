@@ -265,7 +265,7 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
     }
     setUploading(false);
     if (success) {
-      toast({ title: `${success} arquivo(s) processado(s)`, description: "Documento indexado com sucesso." });
+      toast({ title: `${success} arquivo(s) enviado(s)`, description: "Serão processados em breve (até 5 min)." });
       onUploadDone();
     }
   }, [category, product, onUploadDone, toast]);

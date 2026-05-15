@@ -1,7 +1,7 @@
 # Log da Sessão — Tax Group AI Hub
 
-**Data:** 2026-05-12  
-**Contexto:** Reinicialização do computador solicitada. Este arquivo resume todo o trabalho realizado nesta sessão para retomada futura.
+**Data:** 2026-05-15  
+**Contexto:** Sistema reiniciou. Este arquivo resume todo o trabalho realizado até o momento.
 
 ---
 
@@ -23,71 +23,48 @@
 
 ## Etapas Concluídas
 
-### Etapa 1 — Frontend Remodeling (Command Center)
-- Dashboard remodelado como "Command Center" com métricas comerciais, segment cards, executive CTAs
-- Sidebar unificado em português profissional
-- CRM reorganizado com smart views (ícones Lucide, sem emojis)
-- Chat transformado em agent workspace (3 colunas: sidebar + chat + contexto)
+### 13/05 — Fundação e Remodelagem
+- **Etapa 1:** Remodelagem do frontend como "Command Center" (dashboard, sidebar, CRM, chat)
+- **Etapa 2:** Sincronia de types com OpenAPI + Orval + migration no Neon PostgreSQL
+- **Etapa 3:** Modo Demo criado (`?demo=1`) com dados de fallback
+- **Etapa 4:** QA visual — padronização de cores, fix do placeholder "undefined", badge pending
+- **Etapa 5:** Landing page institucional em `/` + Command Center movido para `/command-center`
+- **Extras:** Code splitting (React.lazy + Vite manual chunks), SEO meta tags, hook `usePageTitle`, AlertDialog no lugar de `confirm()`, animações parallax
 
-### Etapa 2 — Type Sync & Backend
-- OpenAPI spec atualizado com `connectionId`/`provider`
-- Orval types regenerados
-- Colunas `conversation_id` FK adicionadas a `crm_deals` e `crm_tasks`
-- Migration aplicada no Neon PostgreSQL
+### 14/05 — Funcionalidades Avançadas
+- **`2a90dd2`** — Fix de type errors backend, code-split do CRM, mobile QA, onboarding tour
+- **`ee02d50`** — Remodelagem Central de Modelos IA (Model Hub V2)
+- **`94f0a1d`** — Analytics de Uso de LLM
+- **`72d5d99`** — Security hardening e correções de produção (revisão end-to-end)
+- **`d7fb4c4`** — Pente fino de segurança (SSRF, timing attacks, integridade de dados)
+- **`fa0f168`** — Central de Integrações (remodelagem completa)
+- **`8a65eb2`** — Camada operacional de Webhooks, Make.com e Logs
+- **`cc3dbd9`** — CRM dispara eventos de integração automaticamente
+- **`132378d`** — Operationalize knowledge base com pipeline RAG
+- **`9fd289d`** — Central de Qualidade IA (avaliação e rastreabilidade de respostas)
+- **`342ad63`** — Central de Entregáveis Comerciais
+- **Sequência de fixes no upload KB:** pdf-parse v1↔v2, memoryStorage, busboy, JSON+base64
 
-### Etapa 3 — Demo Mode
-- `demo-data.ts` criado com 6 empresas demo, deals, segments, tasks, journey steps
-- Hook `use-demo-mode.ts` criado (`?demo=1`)
-- Fallback data adicionado a: dashboard, CRM, chat, automations, KB, settings, integrations
-
-### Etapa 4 — Visual QA
-- Cores hardcoded padronizadas para tokens (`primary`, `muted-foreground`)
-- Bug do placeholder "undefined" no chat corrigido
-- Status offline tornado discreto (`bg-muted text-muted-foreground`)
-- Badge de pending no CRM ajustado para `bg-primary/20 text-primary`
-- Imports não utilizados removidos
-- Committed como `d755648`
-
-### Etapa 5 — Landing Page + Route Restructure
-- Landing page institucional premium criada em `/` (hero, value cards, journey 4 steps, agent blocks, flow, footer)
-- Command Center movido de `/` para `/command-center`
-- `app-sidebar.tsx` e `not-found.tsx` atualizados com novas rotas
-- Landing sem sidebar; rotas internas mantêm Layout
-- Committed como `585f323`
-
-### Extras — Performance, UX, SEO e Animações
-- **Code Splitting:** `React.lazy()` + `Suspense` para todas as páginas internas
-- **Manual Chunks no Vite:** `vendor-react`, `vendor-motion`, `vendor-query`, `vendor-ui`
-- **Resultado:** Chunk principal reduzido de ~1.54MB para ~316KB
-- **UX:** 4× `confirm()` nativos substituídos por AlertDialog do shadcn
-  - Hook `useConfirmDialog` criado (`src/hooks/use-confirm-dialog.tsx`)
-  - Usado em: `crm.tsx` (2×), `AutomationsPanel.tsx`, `ModelHub.tsx`
-- **SEO:** Meta tags adicionadas ao `index.html` (description, Open Graph, Twitter Card)
-- **Page Titles:** Hook `usePageTitle` criado e aplicado em todas as rotas internas
-- **Animações:** Parallax no hero, hover effects nos cards, pulse no badge, dividers animados
-- Committed como `0649fbb`
-
----
-
-## Arquivos Criados/Modificados (Sessão Atual)
-
-### Criados
-- `src/hooks/use-confirm-dialog.tsx` — Hook reutilizável de confirmação AlertDialog
-- `src/hooks/use-page-title.ts` — Hook de título de página
-- `src/pages/landing.tsx` — Landing page institucional
-- `src/lib/demo-data.ts` — Dados de demonstração
-- `src/hooks/use-demo-mode.ts` — Hook de detecção de demo mode
-- `src/components/ui/delete-confirm-dialog.tsx` → **REMOVIDO** (não utilizado)
-
-### Modificados (principais)
-- `src/App.tsx` — Lazy loading + Suspense + roteamento `/` vs `/command-center`
-- `vite.config.ts` — Manual chunks
-- `index.html` — SEO meta tags
-- `src/pages/crm.tsx` — Smart views, confirm dialogs, demo fallback
-- `src/pages/dashboard.tsx` — Command Center layout, demo fallback
-- `src/pages/agent-chat.tsx` — Placeholder fix, offline status, demo fallback
-- `src/components/app-sidebar.tsx` — Rota `/command-center`
-- `src/pages/not-found.tsx` — Redirect para `/command-center`
+### 15/05 — Correções Críticas (Sessão Atual)
+- **`f5c5acb`** — Correções de upload, types, console cleanup, chunks:
+  1. **Upload KB travado em "processando":**
+     - Processamento agora é **síncrono antes da resposta HTTP** (evita morte do worker serverless da Vercel)
+     - Timeout de 15s no `pdf2json` e `mammoth` (evita travamento eterno)
+     - Timeout de 25s/45s no processamento total (arquivos < 1MB / >= 1MB)
+     - Se timeout: doc marcado como `error` com mensagem descritiva; frontend avisa usuário
+     - Frontend: `FileReader.readAsDataURL()` substitui `btoa()` (suporta bytes > 127)
+     - Frontend: polling reduzido para 6s; detecção de docs "stuck" (> 2 min em processing)
+  2. **Type errors backend (AI SDK v6):**
+     - `textEmbeddingModel()` → `embeddingModel()` (deprecation)
+     - Removido import não utilizado `generateObject`
+  3. **Console errors/warn frontend:**
+     - Removidos 6× `console.*` de `agent-chat.tsx`
+     - Fix de datas inválidas em `agent-chat.tsx` (try-catch em `format()`)
+     - Fix de datas inválidas em `knowledge-base.tsx` (LogsTab, SemanticSearchTab)
+  4. **Otimização de chunks:**
+     - Adicionado `"vendor-charts": ["recharts"]` ao `manualChunks` do Vite
+     - Removido `src/components/ui/chart.tsx` (código morto, importava recharts inteiro)
+     - Chunk `vendor-charts` nomeado previsivelmente (~424KB raw / ~114KB gzip)
 
 ---
 
@@ -96,59 +73,53 @@
 ```
 ✓ npx tsc --noEmit     (frontend) — PASSA
 ✓ npx vite build       (frontend) — PASSA
-✗ pnpm run typecheck   (root)     — FAIL (ERR_PNPM_IGNORED_BUILDS para esbuild)
+✓ npx tsc --noEmit     (backend)  — PASSA
 ```
 
 **Chunks do build:**
-- `index.js` — 315.85 KB gzip:100KB (antes era ~1.54MB)
-- `vendor-motion` — 132.31 KB
-- `crm.js` — 181.46 KB
-- `agent-chat.js` — 190.14 KB
-- `AreaChart` — 387.20 KB (ainda pode ser otimizado)
+- `index-*.js` — 322 KB gzip:102KB
+- `vendor-motion-*.js` — 132 KB gzip:44KB
+- `vendor-charts-*.js` — 424 KB gzip:114KB (recharts isolado)
+- `crm-*.js` — 137 KB gzip:34KB
+- `knowledge-base-*.js` — 102 KB gzip:27KB
 
 ---
 
 ## Problemas Conhecidos / Próximos Passos
 
-### Frontend
-- [ ] Chunk `AreaChart` ainda grande (387KB) — oportunidade de code-splitting
-- [ ] `console.error/warn` em `agent-chat.tsx` (6×) e `knowledge-base.tsx` (3×) — debugging de API
-- [ ] Sourcemap warnings em componentes UI do shadcn (pré-existentes)
+### Resolvidos nesta sessão
+- [x] Upload KB travado em "processando" → processamento síncrono + timeouts
+- [x] `btoa()` falha para bytes > 127 → `FileReader.readAsDataURL()`
+- [x] `console.error/warn` em `agent-chat.tsx` → removidos
+- [x] Chunk `AreaChart` sem nome → `vendor-charts` no manualChunks
+- [x] Type errors backend (deprecations AI SDK v6) → `embeddingModel()`, removido `generateObject`
+- [x] `chart.tsx` não utilizado → removido
 
-### Backend
-- [ ] **Erros de TypeScript pré-existentes** no backend:
-  - `src/lib/llm-client.ts` — `maxTokens` não existe no tipo; `promptTokens`/`completionTokens` removidos do `LanguageModelUsage`
-  - `src/lib/media-processor.ts` — `mimeType` não existe em `ImagePart`
-  - `src/lib/tools/cnpj-lookup.ts`, `email.ts`, `search.ts` — overload mismatch no `tool()`
-  - `src/routes/automate.ts` — overload mismatch
-- [ ] Causa raiz: Mudanças de API no SDK `ai` (Vercel AI SDK) — provavelmente upgrade de versão
-
-### Features Sugeridas
-- [ ] Corrigir type errors do backend
-- [ ] Code-split do AreaChart
-- [ ] Testes (backend já tem vitest)
+### Pendentes
+- [ ] Sourcemap warnings em componentes UI do shadcn (pré-existentes, não afetam runtime)
 - [ ] Mobile/responsividade QA nas páginas internas
 - [ ] Onboarding tour / feature highlights
 - [ ] Dark mode toggle (atualmente forçado)
 - [ ] Notificações persistentes/toast improvements
+- [ ] Testes (backend já tem vitest)
 
 ---
 
 ## Comandos Úteis
 
 ```bash
-# Frontend build (usar estes — pnpm root build quebra por esbuild)
-cd artifacts/tax-group-hub
-npx tsc --noEmit
-npx vite build
+# Frontend build
+ cd artifacts/tax-group-hub
+ npx tsc --noEmit
+ npx vite build
 
 # Backend typecheck
-cd artifacts/api-server
-npx tsc --noEmit
+ cd artifacts/api-server
+ npx tsc --noEmit
 
 # Backend tests
-cd artifacts/api-server
-pnpm test
+ cd artifacts/api-server
+ pnpm test
 ```
 
 ---
@@ -156,16 +127,24 @@ pnpm test
 ## Commits Recentes
 
 ```
-0649fbb feat: performance, UX, SEO e animações
-585f323 feat(landing): premium institutional landing page + route restructure
-d755648 feat(visual-qa): color standardization, chat placeholder fix, CRM polish
+f5c5acb fix(upload): processamento síncrono KB + timeouts, fix types AI SDK v6, console cleanup, chunk charts
+268a3e3 fix(knowledge): switch upload from multipart to JSON+base64
+b5fbb85 fix(knowledge): replace multer with busboy — fix serverless upload hang
+b8a3c5d fix(knowledge): memoryStorage + pdf2json — elimina travamento no upload
+6025ca6 fix(knowledge): downgrade pdf-parse v2→v1, fix serverless worker crash
+1b31470 fix(knowledge): migrate pdf-parse usage from v1 to v2 API
+342ad63 feat(deliverables): Etapa 8.6 – Central de Entregáveis Comerciais
+9fd289d feat(quality): Etapa 8.5 – qualidade, avaliação e rastreabilidade de respostas IA
+132378d feat(knowledge): operationalize knowledge base with RAG pipeline
+fa0f168 feat: Etapa 9 – Central de Integrações (remodelagem completa)
 ```
 
 ---
 
 ## Notas para Retomada
 
-1. O hook `useConfirmDialog` retorna uma tupla `[requestConfirm, dialogJSX]` para evitar problemas de inferência de tipos do TypeScript com objetos contendo JSX.
-2. O arquivo `crm.tsx` é muito grande (2400+ linhas). A função `CRMPage` termina na linha ~349; o resto são componentes auxiliares (`ContactsView`, `ContactDetailPanel`, `AddLeadDialog`, etc.). Variáveis declaradas no `CRMPage` NÃO estão acessíveis nos componentes auxiliares.
-3. O modo demo é ativado via query param `?demo=1` e só aplica fallback quando APIs retornam arrays vazios.
-4. O roteamento na Vercel usa SPA fallback: todas as rotas não-API vão para `index.html`.
+1. O upload de KB agora processa **sincronamente antes de responder HTTP**. Isso evita que a Vercel congele/mate o worker, mas significa que uploads grandes (> 1MB) podem demorar. Se estourar o timeout (25s/45s), o doc é marcado como `error` e o usuário vê aviso para reindexar.
+2. O hook `useConfirmDialog` retorna uma tupla `[requestConfirm, dialogJSX]` para evitar problemas de inferência de tipos do TypeScript com objetos contendo JSX.
+3. O arquivo `crm.tsx` é muito grande (2400+ linhas). A função `CRMPage` termina na linha ~349; o resto são componentes auxiliares (`ContactsView`, `ContactDetailPanel`, `AddLeadDialog`, etc.). Variáveis declaradas no `CRMPage` NÃO estão acessíveis nos componentes auxiliares.
+4. O modo demo é ativado via query param `?demo=1` e só aplica fallback quando APIs retornam arrays vazios.
+5. O roteamento na Vercel usa SPA fallback: todas as rotas não-API vão para `index.html`.

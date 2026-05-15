@@ -311,10 +311,12 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
   const newEmbeddings: number[][] = [];
   if (missingTexts.length > 0) {
     console.log(`[Embedding Cache] MISS - calling API for ${missingTexts.length}/${texts.length} texts`);
-    const { embeddings } = await embedMany({
-      model: embeddingModel,
-      values: missingTexts,
-    });
+    const { embeddings } = await Promise.race([
+      embedMany({ model: embeddingModel, values: missingTexts }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout: embedMany excedeu 30000ms")), 30000)
+      ),
+    ]);
     
     for (const emb of embeddings) {
       newEmbeddings.push(Array.from(emb));
