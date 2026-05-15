@@ -1119,7 +1119,7 @@ export default function KnowledgeBase() {
     : "—";
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background">
+    <div className="flex-1 overflow-y-auto bg-background h-full">
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Base de Conhecimento</h1>
