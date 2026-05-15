@@ -235,7 +235,7 @@ export default function AgentChat() {
                      }
                    }));
                 }
-              } catch (e) { console.warn("[Chat] malformed SSE chunk:", e); }
+              } catch (e) { /* SSE parse error — silently skip malformed chunks */ }
             }
           }
         }
@@ -244,7 +244,6 @@ export default function AgentChat() {
       queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(convId) });
       queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey({ agentId }) });
     } catch (err) {
-      console.error("[Chat] send failed:", err);
       toast({ title: "Erro ao enviar mensagem", description: "Tente novamente.", variant: "destructive" });
       setInput(text);
     } finally {
@@ -264,7 +263,6 @@ export default function AgentChat() {
       if (activeConvId === deleteTarget) setActiveConvId(null);
       toast({ title: "Conversa excluída" });
     } catch (err) {
-      console.error("[Chat] delete failed:", err);
       toast({ title: "Erro ao excluir", variant: "destructive" });
     }
     setDeleteTarget(null);
@@ -285,7 +283,6 @@ export default function AgentChat() {
         queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(convId) });
       }
     } catch (err) {
-      console.error("[Chat] rename failed:", err);
       toast({ title: "Erro ao renomear", variant: "destructive" });
     }
     setRenamingId(null);
@@ -306,7 +303,6 @@ export default function AgentChat() {
       URL.revokeObjectURL(url);
       toast({ title: "Conversa exportada!" });
     } catch (err) {
-      console.error("[Chat] export failed:", err);
       toast({ title: "Erro ao exportar", variant: "destructive" });
     }
   };
@@ -332,7 +328,6 @@ export default function AgentChat() {
         await handleCreateAndSend(lastUserMsg.content);
       }
     } catch (err) {
-      console.error("[Chat] regenerate failed:", err);
       toast({ title: "Erro ao regenerar", variant: "destructive" });
     } finally {
       setIsRegenerating(false);
@@ -508,7 +503,11 @@ export default function AgentChat() {
                       </span>
                     )}
                     <span className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(conv.updatedAt), "dd 'de' MMM, HH:mm", { locale: ptBR })}
+                      {(() => {
+                        try {
+                          return conv.updatedAt ? format(new Date(conv.updatedAt), "dd 'de' MMM, HH:mm", { locale: ptBR }) : "";
+                        } catch { return ""; }
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -667,7 +666,11 @@ export default function AgentChat() {
                         <ReactMarkdown>{msg.role === 'assistant' ? stripOrchestrationBlock(msg.content) : msg.content}</ReactMarkdown>
                       </div>
                       <div className={`text-xs mt-2 text-right ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                        {format(new Date(msg.createdAt), "HH:mm")}
+                        {(() => {
+                          try {
+                            return msg.createdAt ? format(new Date(msg.createdAt), "HH:mm") : "";
+                          } catch { return ""; }
+                        })()}
                       </div>
                       {msg.role === 'assistant' && agentId === 'coordenador-geral-tax-group' && (() => {
                         const plan = parseOrchestrationPlan(msg.content);

@@ -30,6 +30,7 @@ export default defineConfig({
           "vendor-motion": ["framer-motion"],
           "vendor-query": ["@tanstack/react-query"],
           "vendor-ui": ["lucide-react", "clsx", "tailwind-merge", "class-variance-authority"],
+          "vendor-charts": ["recharts"],
         },
       },
     },

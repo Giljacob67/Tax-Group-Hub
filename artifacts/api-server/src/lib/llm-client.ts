@@ -6,10 +6,8 @@
 import { createHash } from "node:crypto";
 import { 
   generateText, 
-  generateObject,
   embedMany,
   type LanguageModel,
-  type GenerateTextResult,
   type EmbeddingModel
 } from "ai";
 import { createOpenAI, openai } from "@ai-sdk/openai";
@@ -273,14 +271,14 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
 
   if (googleKey) {
     const googleProvider = createGoogleGenerativeAI({ apiKey: googleKey });
-    embeddingModel = googleProvider.textEmbeddingModel("text-embedding-004");
+    embeddingModel = googleProvider.embeddingModel("text-embedding-004");
   } else if (ollamaUrl) {
     const ollamaProvider = createOpenAI({
       baseURL: ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
       apiKey: "ollama",
     });
     const modelId = await getEffectiveOllamaModel() || "nomic-embed-text";
-    embeddingModel = ollamaProvider.textEmbeddingModel(modelId);
+    embeddingModel = ollamaProvider.embeddingModel(modelId);
   } else {
     throw new Error("Nenhum provedor configurado para embeddings.");
   }

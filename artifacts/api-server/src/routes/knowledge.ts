@@ -24,25 +24,46 @@ const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt", ".md"];
 
 const MAX_UPLOAD_BYTES = 6 * 1024 * 1024; // 6 MB raw (≈8MB base64 JSON, within Vercel 4.5MB function payload after base64 decode)
 
+function withTimeout<T>(promise: Promise<T>, ms: number, context: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout: ${context} excedeu ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 export async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
   const lower = (fileType + filename).toLowerCase();
   if (lower.includes("pdf")) {
-    return new Promise<string>((resolve) => {
-      const parser = new (PDFParser as any)(null, 1);
-      parser.on("pdfParser_dataReady", () => {
+    return withTimeout(
+      new Promise<string>((resolve, reject) => {
+        const parser = new (PDFParser as any)(null, 1);
+        parser.on("pdfParser_dataReady", () => {
+          try {
+            const raw: string = parser.getRawTextContent();
+            resolve(raw.replace(/\r\n/g, "\n").trim());
+          } catch (e) {
+            reject(new Error(`PDF parse error: ${e}`));
+          }
+        });
+        parser.on("pdfParser_dataError", (err: any) => reject(new Error(`PDF data error: ${err?.message || err}`)));
         try {
-          const raw: string = parser.getRawTextContent();
-          resolve(raw.replace(/\r\n/g, "\n").trim());
-        } catch {
-          resolve("");
+          parser.parseBuffer(buffer);
+        } catch (e) {
+          reject(new Error(`PDF parseBuffer error: ${e}`));
         }
-      });
-      parser.on("pdfParser_dataError", () => resolve(""));
-      parser.parseBuffer(buffer);
-    });
+      }),
+      15000,
+      "Extração de texto do PDF"
+    );
   }
   if (lower.includes("docx") || lower.includes("word") || lower.includes("officedocument")) {
-    const result = await mammoth.extractRawText({ buffer });
+    const result = await withTimeout(
+      mammoth.extractRawText({ buffer }),
+      15000,
+      "Extração de texto do DOCX"
+    );
     return result.value || "";
   }
   if (lower.includes("markdown") || lower.includes("text") || filename.endsWith(".md") || filename.endsWith(".txt")) {
@@ -291,21 +312,47 @@ router.post("/knowledge/upload", handleUpload, async (req, res) => {
       })
       .returning();
 
-    console.log("[Upload] 202 → doc", doc.id);
-    res.status(202).json({
-      success: true,
-      message: "Documento recebido. Processamento em andamento.",
-      document: mapDoc(doc),
-    });
-
     // Buffer is already in memory (memoryStorage)
     const fileBuffer = req.file.buffer ?? Buffer.alloc(0);
     const mime = req.file.mimetype;
     const name = req.file.originalname;
 
-    setImmediate(() => {
-      processDocumentAsync(doc.id, fileBuffer, mime, name).catch(() => {});
-    });
+    // Processamento síncrono ANTES de responder — evita morte do worker
+    // serverless da Vercel (a função é congelada após resposta HTTP).
+    // Arquivos < 1MB têm timeout de 25s; >= 1MB têm 45s.
+    const SYNC_SIZE_THRESHOLD = 1024 * 1024; // 1 MB
+    const isSmall = fileBuffer.length < SYNC_SIZE_THRESHOLD;
+
+    try {
+      await withTimeout(
+        processDocumentAsync(doc.id, fileBuffer, mime, name),
+        isSmall ? 25000 : 45000,
+        `Processamento do documento ${doc.id}`
+      );
+      console.log(`[Upload] doc ${doc.id} processado sincronamente`);
+      const [updatedDoc] = await db
+        .select()
+        .from(knowledgeDocumentsTable)
+        .where(eq(knowledgeDocumentsTable.id, doc.id));
+      res.status(200).json({
+        success: true,
+        message: "Documento processado com sucesso.",
+        document: mapDoc(updatedDoc ?? doc),
+      });
+    } catch (procErr: any) {
+      const msg = procErr?.message || String(procErr);
+      console.error(`[Upload] doc ${doc.id} falha no processamento:`, msg);
+      await db
+        .update(knowledgeDocumentsTable)
+        .set({ status: "error", errorLog: msg })
+        .where(eq(knowledgeDocumentsTable.id, doc.id))
+        .catch(() => {});
+      res.status(202).json({
+        success: false,
+        message: "Documento recebido, mas o processamento falhou. Tente reindexar.",
+        document: mapDoc(doc),
+      });
+    }
   } catch (err) {
     console.error("[Upload] error:", err);
     apiError(res, 500, "Falha no upload do documento");

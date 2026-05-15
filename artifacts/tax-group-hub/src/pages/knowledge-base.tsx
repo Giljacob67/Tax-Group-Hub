@@ -131,10 +131,10 @@ function statusColor(status: string) {
   }
 }
 
-function statusLabel(status: string) {
+function statusLabel(status: string, isStuck?: boolean) {
   switch (status) {
     case "processed": return "Indexado";
-    case "processing": return "Processando";
+    case "processing": return isStuck ? "Processando (lento)" : "Processando";
     case "pending": return "Pendente";
     case "error": return "Erro";
     default: return status;
@@ -224,11 +224,18 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
     for (const file of files) {
       try {
         // Encode as base64 JSON — multipart streaming is unreliable on Vercel Lambda
-        const arrayBuffer = await file.arrayBuffer();
-        const uint8 = new Uint8Array(arrayBuffer);
-        let binary = "";
-        for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
-        const fileData = btoa(binary);
+        // Use FileReader for robust binary→base64 (handles all byte values correctly)
+        const fileData = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // result is "data:*/*;base64,xxxx" — strip the prefix
+            const base64 = result.split(",")[1];
+            resolve(base64);
+          };
+          reader.onerror = () => reject(new Error("Falha ao ler arquivo"));
+          reader.readAsDataURL(file);
+        });
 
         const r = await fetch("/api/knowledge/upload", {
           method: "POST",
@@ -243,18 +250,22 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
             ...(product ? { product } : {}),
           }),
         });
+        const result = await r.json().catch(() => ({}));
         if (!r.ok) {
-          const err = await r.json().catch(() => ({}));
-          throw new Error((err as any).error || `HTTP ${r.status}`);
+          throw new Error((result as any).error || `HTTP ${r.status}`);
         }
-        success++;
+        if (result.success === false) {
+          toast({ title: `Atenção: ${file.name}`, description: result.message || "Processamento falhou — tente reindexar.", variant: "destructive" });
+        } else {
+          success++;
+        }
       } catch (e: any) {
         toast({ title: `Erro: ${file.name}`, description: e.message ?? "Falha no upload", variant: "destructive" });
       }
     }
     setUploading(false);
     if (success) {
-      toast({ title: `${success} arquivo(s) enviado(s)`, description: "Processamento em andamento." });
+      toast({ title: `${success} arquivo(s) processado(s)`, description: "Documento indexado com sucesso." });
       onUploadDone();
     }
   }, [category, product, onUploadDone, toast]);
@@ -343,12 +354,14 @@ function DocumentsTable({
   onReindex,
   onViewChunks,
   reindexing,
+  stuckIds,
 }: {
   docs: KnowledgeDoc[];
   onDelete: (id: string) => void;
   onReindex: (id: string) => void;
   onViewChunks: (doc: KnowledgeDoc) => void;
   reindexing: Set<string>;
+  stuckIds: Set<string>;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -413,7 +426,7 @@ function DocumentsTable({
                 <td className="px-4 py-3">
                   <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium ${statusColor(doc.status)}`}>
                     <StatusIcon status={doc.status} />
-                    {statusLabel(doc.status)}
+                    {statusLabel(doc.status, stuckIds.has(doc.id))}
                   </span>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
@@ -772,7 +785,7 @@ function SemanticSearchTab() {
                   <OriginIcon origin={r.origin} />
                   {originLabel(r.origin)}
                   <span>·</span>
-                  <span>{format(new Date(r.createdAt), "dd/MM/yy")}</span>
+                  <span>{(() => { try { return format(new Date(r.createdAt), "dd/MM/yy"); } catch { return "—"; } })()}</span>
                 </div>
                 <button
                   onClick={() => navigator.clipboard.writeText(r.content)}
@@ -855,7 +868,7 @@ function LogsTab({ docs }: { docs: KnowledgeDoc[] }) {
           {events.map((e, i) => (
             <tr key={i} className="border-b border-border/30 hover:bg-card/30 transition-colors">
               <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                {format(new Date(e.ts), "dd/MM HH:mm")}
+                {(() => { try { return format(new Date(e.ts), "dd/MM HH:mm"); } catch { return "—"; } })()}
               </td>
               <td className="px-4 py-2.5">
                 <span className={`text-xs font-mono ${eventColor(e.status)}`}>{e.event}</span>
@@ -1021,12 +1034,28 @@ export default function KnowledgeBase() {
     query: {
       refetchInterval: (data: any) => {
         const hasPending = data?.documents?.some((d: any) => d.status === "pending" || d.status === "processing");
-        return hasPending ? 8000 : false;
+        return hasPending ? 6000 : false;
       },
     } as any,
   });
 
   const docs: KnowledgeDoc[] = (docsData?.documents ?? []) as unknown as KnowledgeDoc[];
+
+  // Detect documents stuck in "processing" for > 2 min to warn user
+  const [stuckIds, setStuckIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const now = Date.now();
+    const stuck = new Set<string>();
+    for (const d of docs) {
+      if (d.status === "processing") {
+        const created = new Date(d.createdAt).getTime();
+        if (!isNaN(created) && now - created > 2 * 60 * 1000) {
+          stuck.add(d.id);
+        }
+      }
+    }
+    setStuckIds(stuck);
+  }, [docs]);
   const deleteMutation = useDeleteKnowledgeDocument();
 
   // Stable key: only refetch health when count or status distribution changes
@@ -1142,6 +1171,7 @@ export default function KnowledgeBase() {
                     onReindex={handleReindex}
                     onViewChunks={setChunksDoc}
                     reindexing={reindexing}
+                    stuckIds={stuckIds}
                   />
                 )}
               </div>
