@@ -30,6 +30,7 @@ export default function KnowledgeBase() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Array<{documentId: string; filename: string; score: number; content?: string}>>([]);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -48,35 +49,90 @@ export default function KnowledgeBase() {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (!acceptedFiles.length) return;
     setIsUploading(true);
+    const errors: string[] = [];
     try {
       for (const file of acceptedFiles) {
+        // Pre-validate size (50MB)
+        const MAX_SIZE = 50 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+          errors.push(`${file.name}: excede 50MB`);
+          continue;
+        }
+
+        setUploadProgress((prev) => ({ ...prev, [file.name]: "Enviando..." }));
         const formData = new FormData();
         formData.append("file", file);
         formData.append("agentId", "global");
 
-        const res = await fetch("/api/knowledge/upload", {
-          method: "POST",
-          body: formData,
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
-        if (!res.ok) throw new Error("Upload failed");
-        const data = await res.json();
-        const hasContent = data.hasContent;
-        toast({
-          title: `${file.name} enviado com sucesso`,
-          description: hasContent ? "Conteúdo extraído e indexado para RAG." : "Arquivo registrado (sem extração de texto).",
-        });
+        try {
+          const res = await fetch("/api/knowledge/upload", {
+            method: "POST",
+            body: formData,
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
+          if (!res.ok) {
+            let msg = `Erro ${res.status}`;
+            try {
+              const errData = await res.json();
+              msg = errData.error || msg;
+            } catch { /* ignore parse error */ }
+            errors.push(`${file.name}: ${msg}`);
+            setUploadProgress((prev) => ({ ...prev, [file.name]: "Falhou" }));
+            continue;
+          }
+
+          const data = await res.json();
+          setUploadProgress((prev) => ({ ...prev, [file.name]: "Enviado ✓" }));
+          toast({
+            title: `${file.name} enviado`,
+            description: data.document?.status === "pending"
+              ? "Documento recebido. Processamento em andamento."
+              : "Conteúdo extraído e indexado para RAG.",
+          });
+        } catch (fetchErr: any) {
+          clearTimeout(timeoutId);
+          if (fetchErr.name === "AbortError") {
+            errors.push(`${file.name}: timeout (demorou mais de 60s)`);
+          } else {
+            errors.push(`${file.name}: ${fetchErr.message || "Falha na conexão"}`);
+          }
+          setUploadProgress((prev) => ({ ...prev, [file.name]: "Falhou" }));
+        }
       }
       queryClient.invalidateQueries({ queryKey: getListKnowledgeDocumentsQueryKey() });
     } catch (err) {
       console.error("[Knowledge] upload failed:", err);
-      toast({ title: "Erro no upload", description: "Falha ao enviar documento. Tente novamente.", variant: "destructive" });
     } finally {
       setIsUploading(false);
+      if (errors.length > 0) {
+        toast({
+          title: errors.length === 1 ? "Erro no upload" : `${errors.length} arquivos não foram enviados`,
+          description: errors.join("; ").slice(0, 200),
+          variant: "destructive",
+        });
+      }
+      // clear progress after a delay
+      setTimeout(() => setUploadProgress({}), 4000);
     }
   }, [queryClient, toast]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/msword': ['.doc'],
+      'text/plain': ['.txt'],
+      'text/markdown': ['.md'],
+      'text/x-markdown': ['.md'],
+    },
+    maxSize: 50 * 1024 * 1024,
+  });
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
@@ -166,8 +222,27 @@ export default function KnowledgeBase() {
             {isDragActive ? "Solte os arquivos aqui..." : "Arraste e solte ou clique para enviar"}
           </h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Suporta PDF, Word (.docx), Markdown, TXT, imagens e vídeos até 50MB. O conteúdo textual é extraído automaticamente para uso em RAG.
+            Suporta PDF, Word (.docx), Markdown e TXT até 50MB. O conteúdo textual é extraído automaticamente para uso em RAG.
           </p>
+          {fileRejections.length > 0 && (
+            <div className="mt-3 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2 max-w-md mx-auto">
+              {fileRejections.map(({ file, errors }) => (
+                <div key={file.name}>
+                  <strong>{file.name}</strong>: {errors.map(e => e.message).join(", ")}
+                </div>
+              ))}
+            </div>
+          )}
+          {Object.keys(uploadProgress).length > 0 && (
+            <div className="mt-3 space-y-1 max-w-md mx-auto">
+              {Object.entries(uploadProgress).map(([name, status]) => (
+                <div key={name} className="flex items-center justify-between text-xs bg-card rounded px-3 py-1.5 border border-border/50">
+                  <span className="truncate max-w-[200px]" title={name}>{name}</span>
+                  <span className={status === "Falhou" ? "text-destructive font-medium" : "text-primary font-medium"}>{status}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>

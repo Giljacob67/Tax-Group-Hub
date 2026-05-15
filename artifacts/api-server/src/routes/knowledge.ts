@@ -65,9 +65,34 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter,
 });
+
+/**
+ * Wrapper around multer middleware to handle errors gracefully
+ * (e.g. LIMIT_FILE_SIZE, unsupported mime types) and return
+ * structured JSON responses instead of crashing into the global handler.
+ */
+function handleMulterUpload(fieldName: string) {
+  return (req: any, res: any, next: any) => {
+    upload.single(fieldName)(req, res, (err: any) => {
+      if (err) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return apiError(res, 413, "Arquivo excede o limite de 50MB.");
+        }
+        if (err.code === "LIMIT_UNEXPECTED_FILE") {
+          return apiError(res, 400, "Campo de arquivo inesperado. Use o campo 'file'.");
+        }
+        if (err.message?.toLowerCase().includes("file type not allowed")) {
+          return apiError(res, 415, "Tipo de arquivo não permitido. Aceitos: PDF, DOCX, DOC, TXT, MD.");
+        }
+        return apiError(res, 400, err.message || "Erro no upload do arquivo.");
+      }
+      next();
+    });
+  };
+}
 
 export async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
   const lower = (fileType + filename).toLowerCase();
@@ -199,7 +224,7 @@ router.get("/knowledge", async (req, res) => {
 });
 
 // POST /knowledge/upload — Accept file, return immediately, process in background
-router.post("/knowledge/upload", upload.single("file"), async (req, res) => {
+router.post("/knowledge/upload", handleMulterUpload("file"), async (req, res) => {
   try {
     if (!req.file) {
       apiError(res, 400, "No file provided");
