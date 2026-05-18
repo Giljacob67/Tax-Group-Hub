@@ -271,28 +271,23 @@ router.post("/knowledge/upload-token", async (req, res) => {
 // Baixa o arquivo, processa (síncrono se < 2MB) ou enfileira.
 
 async function downloadBlob(url: string): Promise<Buffer> {
-  console.log(`[downloadBlob] token disponível: ${!!BLOB_RW_TOKEN}`);
-
-  // Extrair pathname da URL do Vercel Blob
-  let pathname = "";
-  try {
-    const urlObj = new URL(url);
-    pathname = urlObj.pathname.replace(/^\//, "");
-  } catch {
-    pathname = url;
-  }
-  console.log(`[downloadBlob] pathname extraído: ${pathname}`);
-
-  // Método 1: Usar o SDK @vercel/blob get() (forma recomendada para blobs privados)
-  if (BLOB_RW_TOKEN && pathname) {
+  // Método 1: SDK get() com token (recomendado para blobs privados)
+  // useCache: false evita resposta 304 (stream null) — sempre busca do origin
+  if (BLOB_RW_TOKEN) {
+    let urlOrPathname: string = url;
     try {
-      console.log(`[downloadBlob] tentando get() do SDK...`);
-      const blobResult = await get(pathname, {
+      const urlObj = new URL(url);
+      urlOrPathname = urlObj.pathname.replace(/^\//, "");
+    } catch {
+      urlOrPathname = url;
+    }
+    try {
+      const blobResult = await get(urlOrPathname, {
         access: "private",
         token: BLOB_RW_TOKEN,
+        useCache: false,
       });
-      if (blobResult) {
-        console.log(`[downloadBlob] get() sucesso, contentType: ${blobResult.blob?.contentType}, size: ${blobResult.blob?.size}`);
+      if (blobResult?.statusCode === 200) {
         const chunks: Buffer[] = [];
         const reader = blobResult.stream.getReader();
         while (true) {
@@ -303,18 +298,19 @@ async function downloadBlob(url: string): Promise<Buffer> {
         return Buffer.concat(chunks);
       }
     } catch (sdkErr: any) {
-      console.log(`[downloadBlob] get() falhou: ${sdkErr.message}`);
+      console.warn(`[downloadBlob] SDK get() falhou: ${sdkErr.message}`);
     }
   }
 
-  // Método 2: Fetch direto na URL (funciona para blobs públicos ou URLs pré-assinadas)
-  console.log(`[downloadBlob] tentando fetch direto na URL...`);
-  const response = await fetch(url);
+  // Método 2: Fetch com Authorization header (fallback autenticado para blob privado)
+  const headers: Record<string, string> = BLOB_RW_TOKEN
+    ? { Authorization: `Bearer ${BLOB_RW_TOKEN}` }
+    : {};
+  const response = await fetch(url, { headers });
   if (!response.ok) {
-    throw new Error(`Falha ao baixar do Blob: ${response.status}`);
+    throw new Error(`Falha ao baixar do Blob: ${response.status} ${response.statusText}`);
   }
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  return Buffer.from(await response.arrayBuffer());
 }
 
 router.post("/knowledge/upload", async (req, res) => {

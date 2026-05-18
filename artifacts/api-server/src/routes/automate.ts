@@ -320,33 +320,6 @@ router.post("/automate/trigger/editorial-calendar", async (req, res) => {
   }
 });
 
-// ─── Trigger: Daily Reforma Tributária insight ────────────────────────
-// POST /api/automate/trigger/reforma-tributaria
-// Auto-runs: Reforma Tributária agent
-router.post("/automate/trigger/reforma-tributaria", async (_req, res) => {
-  try {
-    const agent = getAgentById("reformatributaria-insight");
-    if (!agent) {
-      apiError(res, 500, "Reforma Tributária agent not found");
-      return;
-    }
-
-    const input = "Gere um insight executivo sobre as últimas atualizações da Reforma Tributária (Lei Complementar 214/2025). Foque em impacto prático para empresas de médio e grande porte. Inclua prazos, ações recomendadas e oportunidades.";
-
-    const result = await callLLM(agent.systemPrompt, input);
-
-    res.json({
-      success: true,
-      trigger: "reforma-tributaria",
-      output: result.output,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error("Reforma Tributária trigger error:", err);
-    apiError(res, 500, "Trigger failed");
-  }
-});
-
 // ─── Trigger: Follow-up check ─────────────────────────────────────────
 // POST /api/automate/trigger/follow-up-check
 // Body: { leads: [{ name, lastContact, status, notes }] }
