@@ -20,7 +20,7 @@
     },
     {
       "path": "/api/knowledge/process-queue",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 8 * * *"
     }
   ],
   "rewrites": [
