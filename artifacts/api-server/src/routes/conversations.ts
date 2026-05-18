@@ -20,10 +20,6 @@ import { validateIdParam } from "../lib/validation.js";
 
 const router: IRouter = Router();
 
-function buildRAGContextMock(docs: Array<{ filename: string; extractedContent: string | null }>, userMessage: string): string {
-  // kept only for legacy if needed
-  return "";
-}
 
 router.get("/conversations", async (req, res) => {
   try {
