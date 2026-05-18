@@ -132,7 +132,7 @@ export function OrchestrateModal({
         className="bg-card border border-border/50 rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="p-6 border-b border-border/50 bg-gradient-to-r from-primary/10 to-blue-500/10 flex items-center justify-between">
+        <div className="p-6 border-b border-border/50 bg-primary/8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-xl">🚀</div>
             <div>
@@ -322,7 +322,7 @@ export function OrchestrateModal({
             <button
               onClick={handleExecute}
               disabled={status === "running" || status === "reviewing"}
-              className="flex-[2] flex-grow-[2] py-3 rounded-xl bg-gradient-to-r from-primary to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-[2] flex-grow-[2] py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 active:bg-primary/80 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {status === "running" ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Executando agentes...</>

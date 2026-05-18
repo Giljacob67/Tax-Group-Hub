@@ -143,7 +143,7 @@ function FileIcon({ type }: { type: string }) {
   if (type.includes("pdf"))
     return <FileText className="w-4 h-4 text-red-400" />;
   if (type.includes("word") || type.includes("docx") || type.includes("document"))
-    return <FileText className="w-4 h-4 text-blue-400" />;
+    return <FileText className="w-4 h-4 text-primary/70" />;
   return <File className="w-4 h-4 text-muted-foreground" />;
 }
 
@@ -730,10 +730,10 @@ function StatusTab({ docs, health, loadingDocs }: {
 
       {/* Processing notice */}
       {hasProcessing && (
-        <div className="flex items-center gap-3 bg-blue-400/5 border border-blue-400/20 rounded-xl p-4">
-          <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0" />
+        <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl p-4">
+          <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
           <div>
-            <p className="text-sm font-medium text-blue-400">Documentos sendo processados</p>
+            <p className="text-sm font-medium text-primary">Documentos sendo processados</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               A indexação ocorre a cada 5 minutos. Pequenos arquivos processam imediatamente.
             </p>

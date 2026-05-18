@@ -482,7 +482,7 @@ export default function AgentChat() {
                           className="text-sm bg-background border border-primary rounded px-1.5 py-0.5 w-full focus:outline-none"
                           onClick={e => e.stopPropagation()}
                         />
-                        <button onClick={(e) => { e.stopPropagation(); handleRename(conv.id); }} className="p-0.5 text-emerald-400 hover:text-emerald-300">
+                        <button onClick={(e) => { e.stopPropagation(); handleRename(conv.id); }} className="p-0.5 text-primary hover:text-primary/80">
                           <Check className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={(e) => { e.stopPropagation(); setRenamingId(null); }} className="p-0.5 text-muted-foreground hover:text-foreground">

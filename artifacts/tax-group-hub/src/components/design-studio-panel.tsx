@@ -82,9 +82,9 @@ export function DesignStudioPanel({
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
       className="w-full sm:w-96 border-l border-border/50 bg-card/50 backdrop-blur-xl flex flex-col h-full overflow-hidden"
     >
-      <div className="p-4 border-b border-border/50 flex items-center justify-between bg-gradient-to-r from-purple-500/10 to-blue-500/10">
+      <div className="p-4 border-b border-border/50 flex items-center justify-between bg-primary/8">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-purple-400" />
+          <Sparkles className="w-5 h-5 text-primary" />
           <h3 className="font-bold text-sm">Design Studio</h3>
         </div>
         <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors">
@@ -127,7 +127,7 @@ export function DesignStudioPanel({
             <button
               onClick={handleGenerateImage}
               disabled={!imagePrompt.trim() || generateMutation.isPending}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium text-sm disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm disabled:opacity-50 hover:bg-primary/90 active:bg-primary/80 transition-colors flex items-center justify-center gap-2"
             >
               {generateMutation.isPending ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
