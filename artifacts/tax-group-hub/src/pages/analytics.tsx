@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CHART_GREEN, CHART_GOLD, CHART_MUTED } from "./dashboard";
 
 const PERIODS = [
   { id: "24h", label: "24h" },
@@ -20,7 +21,7 @@ const PERIODS = [
   { id: "90d", label: "90 dias" },
 ];
 
-const COLORS = ["#107EC2", "#D6A847", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#06B6D4"];
+const COLORS = [CHART_GREEN, CHART_GOLD, CHART_MUTED, "#B8966A", "#5A8A6A", "#9BA8B8", "#7A9A8A"];
 
 function formatCurrency(cents: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD" }).format(cents / 100);
@@ -131,9 +132,9 @@ export default function AnalyticsPage() {
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KpiCard icon={Activity} label="Total Tokens" value={formatNumber(ov.totalTokens || 0)} color="text-primary" />
-          <KpiCard icon={TrendingUp} label="Requisições" value={formatNumber(ov.messageCount || 0)} color="text-emerald-400" />
-          <KpiCard icon={DollarSign} label="Custo Estimado" value={formatCurrency(ov.totalCostCents || 0)} color="text-amber-400" />
-          <KpiCard icon={Clock} label="Latência Média" value={`${ov.avgLatencyMs || 0}ms`} color="text-sky-400" />
+          <KpiCard icon={TrendingUp} label="Requisições" value={formatNumber(ov.messageCount || 0)} color="text-primary" />
+          <KpiCard icon={DollarSign} label="Custo Estimado" value={formatCurrency(ov.totalCostCents || 0)} color="text-accent" />
+          <KpiCard icon={Clock} label="Latência Média" value={`${ov.avgLatencyMs || 0}ms`} color="text-muted-foreground" />
         </div>
 
         {/* Charts Row 1 */}
@@ -143,15 +144,15 @@ export default function AnalyticsPage() {
               <AreaChart data={dailyData}>
                 <defs>
                   <linearGradient id="gradTokens" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#107EC2" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="#107EC2" stopOpacity={0} />
+                    <stop offset="0%" stopColor={CHART_GREEN} stopOpacity={0.2} />
+                    <stop offset="100%" stopColor={CHART_GREEN} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 28% 17%)" />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(215 16% 65%)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "hsl(215 16% 65%)" }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(218 45% 9%)", border: "1px solid hsl(215 28% 17%)", borderRadius: "0.5rem", fontSize: "12px" }} />
-                <Area type="monotone" dataKey="tokens" stroke="#107EC2" strokeWidth={2} fill="url(#gradTokens)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "12px", color: "hsl(var(--foreground))" }} />
+                <Area type="monotone" dataKey="tokens" stroke={CHART_GREEN} strokeWidth={2} fill="url(#gradTokens)" />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -159,11 +160,11 @@ export default function AnalyticsPage() {
           <ChartCard title="Custo por dia" icon={DollarSign}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={costData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 28% 17%)" />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(215 16% 65%)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "hsl(215 16% 65%)" }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(218 45% 9%)", border: "1px solid hsl(215 28% 17%)", borderRadius: "0.5rem", fontSize: "12px" }} formatter={(v: number) => formatCurrency(v * 100)} />
-                <Bar dataKey="cost" fill="#D6A847" radius={[4, 4, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "12px", color: "hsl(var(--foreground))" }} formatter={(v: number) => formatCurrency(v * 100)} />
+                <Bar dataKey="cost" fill={CHART_GOLD} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -179,7 +180,7 @@ export default function AnalyticsPage() {
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "hsl(218 45% 9%)", border: "1px solid hsl(215 28% 17%)", borderRadius: "0.5rem", fontSize: "12px" }} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "12px", color: "hsl(var(--foreground))" }} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
               </PieChart>
             </ResponsiveContainer>
@@ -190,15 +191,15 @@ export default function AnalyticsPage() {
               <AreaChart data={dailyData}>
                 <defs>
                   <linearGradient id="gradLatency" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10B981" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+                    <stop offset="0%" stopColor={CHART_MUTED} stopOpacity={0.2} />
+                    <stop offset="100%" stopColor={CHART_MUTED} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 28% 17%)" />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(215 16% 65%)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "hsl(215 16% 65%)" }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(218 45% 9%)", border: "1px solid hsl(215 28% 17%)", borderRadius: "0.5rem", fontSize: "12px" }} formatter={(v: number) => `${v}ms`} />
-                <Area type="monotone" dataKey="latency" stroke="#10B981" strokeWidth={2} fill="url(#gradLatency)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "12px", color: "hsl(var(--foreground))" }} formatter={(v: number) => `${v}ms`} />
+                <Area type="monotone" dataKey="latency" stroke={CHART_MUTED} strokeWidth={2} fill="url(#gradLatency)" />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>

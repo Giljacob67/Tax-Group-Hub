@@ -3,7 +3,9 @@ import {
   LayoutDashboard, Users, Zap, BookOpen, Settings,
   MessageCircle, Crown, Briefcase, Megaphone, Settings2,
   ChevronRight, Loader2, Search, X, Bot, BarChart3, ShieldCheck, FileText,
+  Sun, Moon,
 } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useListAgents } from "@workspace/api-client-react";
 import { useState } from "react";
 import {
@@ -31,15 +33,15 @@ const BLOCKS = [
 ];
 
 const NAV_ITEMS = [
-  { path: "/command-center", label: "Command Center",   icon: LayoutDashboard, color: "text-[#107EC2]" },
-  { path: "/crm",          label: "CRM & Pipeline",   icon: Users,           color: "text-[#94A3B8]" },
-  { path: "/agent/coordenador-geral-tax-group", label: "Agentes", icon: Bot, color: "text-[#94A3B8]" },
-  { path: "/automations",  label: "Campanhas",        icon: Zap,             color: "text-[#94A3B8]" },
-  { path: "/knowledge",    label: "Base de Conhecimento", icon: BookOpen,    color: "text-[#94A3B8]" },
-  { path: "/analytics",    label: "Analytics",        icon: BarChart3,       color: "text-[#94A3B8]" },
-  { path: "/ai-quality",   label: "Qualidade IA",     icon: ShieldCheck,     color: "text-[#94A3B8]" },
-  { path: "/deliverables", label: "Entregáveis",      icon: FileText,        color: "text-[#94A3B8]" },
-  { path: "/integrations", label: "Integrações",      icon: Settings2,       color: "text-[#94A3B8]" },
+  { path: "/command-center", label: "Command Center",      icon: LayoutDashboard, color: "text-primary"          },
+  { path: "/crm",            label: "CRM & Pipeline",      icon: Users,           color: "text-muted-foreground" },
+  { path: "/agent/coordenador-geral-tax-group", label: "Agentes", icon: Bot,    color: "text-muted-foreground" },
+  { path: "/automations",    label: "Campanhas",           icon: Zap,             color: "text-muted-foreground" },
+  { path: "/knowledge",      label: "Base de Conhecimento",icon: BookOpen,        color: "text-muted-foreground" },
+  { path: "/analytics",      label: "Analytics",           icon: BarChart3,       color: "text-muted-foreground" },
+  { path: "/ai-quality",     label: "Qualidade IA",        icon: ShieldCheck,     color: "text-muted-foreground" },
+  { path: "/deliverables",   label: "Entregáveis",         icon: FileText,        color: "text-muted-foreground" },
+  { path: "/integrations",   label: "Integrações",         icon: Settings2,       color: "text-muted-foreground" },
 ];
 
 const FOOTER_ITEMS = [
@@ -52,6 +54,7 @@ export function AppSidebar() {
   const { branding } = useBranding();
   const { open } = useSidebar();
   const [search, setSearch] = useState("");
+  const { theme, toggle } = useTheme();
 
   const logoUrl = branding.logoStorageKey
     ? `/uploads/${branding.logoStorageKey}`
@@ -229,6 +232,24 @@ export function AppSidebar() {
               </Tooltip>
             </SidebarMenuItem>
           ))}
+
+          {/* Theme toggle */}
+          <SidebarMenuItem>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarMenuButton onClick={toggle} className="cursor-pointer">
+                  {theme === "dark"
+                    ? <Sun className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                    : <Moon className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                  }
+                  <span className="text-sm">{theme === "dark" ? "Modo claro" : "Modo escuro"}</span>
+                </SidebarMenuButton>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {theme === "dark" ? "Ativar modo claro" : "Ativar modo escuro"}
+              </TooltipContent>
+            </Tooltip>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>

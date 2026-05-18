@@ -29,11 +29,16 @@ const BLOCKS = [
   { id: "gestao", title: "Gestão e Operação Interna", icon: Settings2, desc: "Pipeline, propostas, relatórios e treinamento.", accent: "emerald" },
 ];
 
+/* Chart palette — works on both light and dark backgrounds */
+export const CHART_GREEN  = "#35965C";
+export const CHART_GOLD   = "#D6A847";
+export const CHART_MUTED  = "#8A9AB5";
+
 const ACCENT_COLORS: Record<string, { text: string; bg: string; border: string; chart: string }> = {
-  amber:   { text: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/20",   chart: "#f59e0b" },
-  blue:    { text: "text-blue-400",    bg: "bg-blue-500/10",    border: "border-blue-500/20",    chart: "#3b82f6" },
-  purple:  { text: "text-purple-400",  bg: "bg-purple-500/10",  border: "border-purple-500/20",  chart: "#a855f7" },
-  emerald: { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", chart: "#10b981" },
+  amber:   { text: "text-accent",          bg: "bg-accent/10",         border: "border-accent/20",         chart: CHART_GOLD  },
+  blue:    { text: "text-primary",         bg: "bg-primary/10",        border: "border-primary/20",        chart: CHART_GREEN },
+  purple:  { text: "text-muted-foreground",bg: "bg-muted/60",          border: "border-muted-border",      chart: CHART_MUTED },
+  emerald: { text: "text-primary",         bg: "bg-primary/8",         border: "border-primary/15",        chart: CHART_GREEN },
 };
 
 const ACTIVITY_DATA = [
@@ -47,10 +52,10 @@ const ACTIVITY_DATA = [
 ];
 
 const SEGMENT_META: Record<string, { label: string; icon: any; color: string; bg: string; border: string }> = {
-  agro:      { label: "Agro",      icon: Wheat,        color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-  industria: { label: "Indústria", icon: Factory,      color: "text-blue-400",    bg: "bg-blue-500/10",    border: "border-blue-500/20" },
-  atacado:   { label: "Atacado",   icon: ShoppingCart, color: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/20" },
-  logistica: { label: "Logística", icon: Truck,        color: "text-purple-400",  bg: "bg-purple-500/10",  border: "border-purple-500/20" },
+  agro:      { label: "Agro",      icon: Wheat,        color: "text-primary",         bg: "bg-primary/8",   border: "border-primary/20"  },
+  industria: { label: "Indústria", icon: Factory,      color: "text-primary",         bg: "bg-primary/6",   border: "border-primary/15"  },
+  atacado:   { label: "Atacado",   icon: ShoppingCart, color: "text-accent",          bg: "bg-accent/10",   border: "border-accent/20"   },
+  logistica: { label: "Logística", icon: Truck,        color: "text-muted-foreground",bg: "bg-muted/50",    border: "border-muted-border" },
 };
 
 const JOURNEY_ICONS = [Compass, Crosshair, Target, Handshake];
@@ -162,12 +167,12 @@ export default function Dashboard() {
   const totalConvs = (convData as any)?.conversations?.length ?? 0;
 
   const metrics = [
-    { label: "Empresas no CRM", value: totalContacts, icon: Building2, spark: [2,4,3,5,6,7,8,9,8,10], color: "#107EC2" },
-    { label: "Leads quentes", value: hotLeads, icon: Flame, spark: [0,1,2,3,5,7,8,10,12,15], color: "#D6A847" },
-    { label: "Propostas abertas", value: openDeals, icon: FileText, spark: [1,2,3,5,4,6,8,7,9,10], color: "#107EC2" },
-    { label: "Receita potencial", value: potentialRevenue > 0 ? `R$ ${(potentialRevenue/1_000_000).toFixed(1)}M` : "R$ 0", icon: DollarSign, spark: [10,12,15,14,18,20,22,25,28,30], color: "#107EC2" },
-    { label: "Ações hoje", value: pendingTasks, icon: Clock, spark: [0,2,4,3,5,7,6,8,10,9], color: "#D6A847" },
-    { label: "Campanhas ativas", value: activeSeqs, icon: Zap, spark: [1,1,2,2,3,3,4,4,5,5], color: "#107EC2" },
+    { label: "Empresas no CRM", value: totalContacts, icon: Building2, spark: [2,4,3,5,6,7,8,9,8,10], color: CHART_GREEN },
+    { label: "Leads quentes", value: hotLeads, icon: Flame, spark: [0,1,2,3,5,7,8,10,12,15], color: CHART_GOLD  },
+    { label: "Propostas abertas", value: openDeals, icon: FileText, spark: [1,2,3,5,4,6,8,7,9,10], color: CHART_GREEN },
+    { label: "Receita potencial", value: potentialRevenue > 0 ? `R$ ${(potentialRevenue/1_000_000).toFixed(1)}M` : "R$ 0", icon: DollarSign, spark: [10,12,15,14,18,20,22,25,28,30], color: CHART_GREEN },
+    { label: "Ações hoje", value: pendingTasks, icon: Clock, spark: [0,2,4,3,5,7,6,8,10,9], color: CHART_GOLD  },
+    { label: "Campanhas ativas", value: activeSeqs, icon: Zap, spark: [1,1,2,2,3,3,4,4,5,5], color: CHART_GREEN },
   ];
 
   const isLoading = isLoadingAgents || isLoadingConvs;
@@ -420,27 +425,27 @@ export default function Dashboard() {
                 <AreaChart data={ACTIVITY_DATA} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
                   <defs>
                     <linearGradient id="gradMsgs" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#107EC2" stopOpacity={0.2} />
-                      <stop offset="100%" stopColor="#107EC2" stopOpacity={0} />
+                      <stop offset="0%" stopColor={CHART_GREEN} stopOpacity={0.2} />
+                      <stop offset="100%" stopColor={CHART_GREEN} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradConvs" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#94A3B8" stopOpacity={0.15} />
-                      <stop offset="100%" stopColor="#94A3B8" stopOpacity={0} />
+                      <stop offset="0%" stopColor={CHART_MUTED} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={CHART_MUTED} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(215 16% 65%)" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "hsl(215 16% 65%)" }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "hsl(218 45% 9%)",
-                      border: "1px solid hsl(215 28% 17%)",
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
                       borderRadius: "0.625rem",
                       fontSize: "12px",
-                      color: "hsl(210 40% 98%)",
+                      color: "hsl(var(--foreground))",
                     }}
                   />
-                  <Area type="monotone" dataKey="msgs" stroke="#107EC2" strokeWidth={2} fill="url(#gradMsgs)" />
-                  <Area type="monotone" dataKey="convs" stroke="#94A3B8" strokeWidth={2} fill="url(#gradConvs)" />
+                  <Area type="monotone" dataKey="msgs" stroke={CHART_GREEN} strokeWidth={2} fill="url(#gradMsgs)" />
+                  <Area type="monotone" dataKey="convs" stroke={CHART_MUTED} strokeWidth={2} fill="url(#gradConvs)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
