@@ -263,13 +263,17 @@ export async function callLLM(
 export async function generateEmbeddings(texts: string[], userId?: string): Promise<number[][]> {
   if (texts.length === 0) return [];
 
-  // Use Google as default for embeddings if available, else Ollama
+  // Priority: OpenAI → Google → Ollama
+  const openaiKey = await getApiKey("openai", userId);
   const googleKey = await getApiKey("google", userId);
   const ollamaUrl = (await getEffectiveOllamaUrl()).url;
 
   let embeddingModel: EmbeddingModel;
 
-  if (googleKey) {
+  if (openaiKey) {
+    const openaiProvider = createOpenAI({ apiKey: openaiKey });
+    embeddingModel = openaiProvider.embeddingModel("text-embedding-3-small");
+  } else if (googleKey) {
     const googleProvider = createGoogleGenerativeAI({ apiKey: googleKey });
     embeddingModel = googleProvider.embeddingModel("gemini-embedding-001");
   } else if (ollamaUrl) {
@@ -316,8 +320,11 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
         model: embeddingModel,
         values: missingTexts,
         providerOptions: {
+          openai: {
+            dimensions: 768,
+          },
           google: {
-            outputDimensionality: 768, // manter compatibilidade com schema DB (768 dimensões)
+            outputDimensionality: 768,
             taskType: "RETRIEVAL_DOCUMENT",
           },
         },
