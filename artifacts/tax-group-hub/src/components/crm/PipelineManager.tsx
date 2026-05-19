@@ -377,7 +377,7 @@ export default function PipelineManager({
                     )}
                     <button
                       onClick={e => { e.stopPropagation(); setEditTarget(pl); setMode("edit"); }}
-                      className="p-1 hover:bg-blue-500/10 hover:text-blue-400 text-muted-foreground/50 rounded transition-colors"
+                      className="p-1 hover:bg-primary/10 hover:text-primary text-muted-foreground/50 rounded transition-colors"
                       title="Editar funil"
                     >
                       <Edit2 className="w-3.5 h-3.5" />

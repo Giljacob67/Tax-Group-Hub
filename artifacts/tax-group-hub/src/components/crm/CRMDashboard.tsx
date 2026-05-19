@@ -250,7 +250,7 @@ export default function CRMDashboard() {
           sub={`${kpis?.newLeadsInPeriod || 0} leads no período`}
           growth={kpis?.leadsGrowth}
           icon={Users}
-          color="bg-blue-500/10 text-blue-400"
+          color="bg-primary/10 text-primary"
           delay={0}
         />
         <KpiCard
@@ -258,7 +258,7 @@ export default function CRMDashboard() {
           value={fmt(kpis?.pipelineValue || 0)}
           sub={`Ponderado: ${fmt(kpis?.weightedValue || 0)}`}
           icon={DollarSign}
-          color="bg-amber-500/10 text-amber-400"
+          color="bg-accent/10 text-accent"
           delay={0.05}
         />
         <KpiCard
@@ -266,7 +266,7 @@ export default function CRMDashboard() {
           value={`${kpis?.qualificationRate || 0}%`}
           sub="Leads qualificados / total"
           icon={Target}
-          color="bg-purple-500/10 text-purple-400"
+          color="bg-primary/10 text-primary"
           delay={0.1}
         />
         <KpiCard
