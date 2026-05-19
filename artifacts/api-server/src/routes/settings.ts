@@ -146,12 +146,12 @@ router.get("/settings/integrations", async (req, res) => {
         category: "llm",
       },
       {
-        id: "tavily",
-        name: "Tavily Search",
-        description: "Busca em tempo real otimizada para LLMs (RAG).",
-        envVar: "TAVILY_API_KEY",
-        configured: isConnected("tavily", "TAVILY_API_KEY"),
-        active: isConnected("tavily", "TAVILY_API_KEY"),
+        id: "perplexity",
+        name: "Perplexity Search",
+        description: "Busca em tempo real com IA — modelos Sonar com citações.",
+        envVar: "PERPLEXITY_API_KEY",
+        configured: isConnected("perplexity", "PERPLEXITY_API_KEY"),
+        active: isConnected("perplexity", "PERPLEXITY_API_KEY"),
         category: "tool",
       },
       {

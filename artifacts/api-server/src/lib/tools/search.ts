@@ -1,38 +1,53 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+const PERPLEXITY_URL = "https://api.perplexity.ai/chat/completions";
+
 export const webSearchTool = tool({
   description: "Busca informações recentes na internet para resolver dúvidas, responder perguntas e obter contexto atualizado.",
   inputSchema: z.object({
     query: z.string().describe("A string de busca (em português) otimizada para a web."),
   }),
   execute: async ({ query }: { query: string }, _options) => {
-    const apiKey = process.env.TAVILY_API_KEY;
+    const apiKey = process.env.PERPLEXITY_API_KEY;
     if (!apiKey) {
-      return { 
-        success: false, 
-        result: `Modo Simulação. A ferramenta de busca está sem chave configurada. Resultado simulado recebido para a busca por: "${query}". Para informações reais, configure a TAVILY_API_KEY.` 
+      return {
+        success: false,
+        result: `Modo Simulação. A ferramenta de busca está sem chave configurada. Resultado simulado para: "${query}". Configure PERPLEXITY_API_KEY para buscas reais.`,
       };
     }
 
     try {
-      const response = await fetch("https://api.tavily.com/search", {
+      const response = await fetch(PERPLEXITY_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          api_key: apiKey, 
-          query, 
-          search_depth: "basic", 
-          include_answer: true,
-          include_raw_content: false,
-          max_results: 5
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "sonar",
+          messages: [{ role: "user", content: query }],
+          max_tokens: 1024,
         }),
       });
-      const data = await response.json() as Record<string, any>;
-      return { 
-        success: true, 
-        answer: data.answer || "Nenhuma resposta de IA encontada.", 
-        results: data.results?.map((r: any) => ({ title: r.title, url: r.url, snippet: r.content })) 
+
+      if (!response.ok) {
+        const errText = await response.text();
+        return { success: false, error: `Perplexity ${response.status}: ${errText}` };
+      }
+
+      const data = await response.json() as {
+        choices: Array<{ message: { content: string } }>;
+        citations?: string[];
+      };
+
+      const answer = data.choices?.[0]?.message?.content || "Nenhuma resposta encontrada.";
+      const citations = data.citations || [];
+
+      return {
+        success: true,
+        answer,
+        results: citations.map((url, i) => ({ title: `Fonte ${i + 1}`, url, snippet: url })),
       };
     } catch (e) {
       return { success: false, error: (e as Error).message };
