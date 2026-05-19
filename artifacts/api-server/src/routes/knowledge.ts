@@ -694,10 +694,28 @@ router.delete("/knowledge/:id", async (req, res) => {
 });
 
 // ── POST /knowledge/process-queue (Cron Job) ─────────────────────────────────
-// Roda a cada 5 minutos via Vercel Cron. Processa documentos pendentes
-// um por um para evitar concorrência e estourar o timeout de 60s.
+// Vercel Cron: diário (0 8 * * *) — limitado a 1x/dia no plano Hobby.
+// Processa documentos pendentes um por um para evitar timeout de 60s.
+// Protegido por CRON_SECRET para evitar acesso não autorizado.
 
 router.post("/knowledge/process-queue", async (req, res) => {
+  // Proteger com CRON_SECRET
+  const cronSecret = req.headers["x-cron-secret"];
+  const hasCronSecret = !!process.env.CRON_SECRET;
+  if (hasCronSecret) {
+    if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
+      apiError(res, 403, "Invalid or missing cron secret");
+      return;
+    }
+  } else {
+    // Fallback: exigir autenticação normal quando CRON_SECRET não configurado
+    const userId = req.userId;
+    if (!userId || userId === "system") {
+      apiError(res, 403, "Authentication required for process-queue");
+      return;
+    }
+  }
+
   try {
     // Buscar documentos pendentes ou com erro (retry até 3x)
     const pending = await db
