@@ -1,7 +1,7 @@
 {
   "version": 2,
   "framework": null,
-  "buildCommand": "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/tax-group-hub run build",
+  "buildCommand": "pnpm run build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "artifacts/tax-group-hub/dist",
   "functions": {
@@ -20,7 +20,8 @@
     },
     {
       "path": "/api/knowledge/process-queue",
-      "schedule": "0 8 * * *"
+      "schedule": "0 8 * * *",
+      "comment": "Vercel Hobby: 1x/dia. Processa documentos pendentes da Base de Conhecimento."
     }
   ],
   "rewrites": [
