@@ -60,7 +60,7 @@ export function DesignStudioPanel({
       const res = await canvaMutation.mutateAsync({
         data: { contentType, title: `Tax Group - ${agentName} - ${label}` }
       });
-      if (res.url) window.open(res.url, "_blank");
+      if (res.url) window.open(res.url, "_blank", "noopener,noreferrer");
     } catch (err) {
       console.error("[DesignStudio] Canva link failed:", err);
       toast({ title: "Erro ao gerar link do Canva", variant: "destructive" });

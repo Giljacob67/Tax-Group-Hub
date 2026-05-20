@@ -748,8 +748,9 @@ router.get("/llm/active-profile", async (req, res) => {
   }
 });
 
-// ─── POST /api/llm/health-check — Run health checks on all active connections ─
-router.post("/llm/health-check", async (req, res) => {
+// ─── POST + GET /api/llm/health-check — Run health checks on all active connections ─
+// GET is supported for simpler testing (browser/curl), POST for frontend
+async function handleHealthCheck(req: any, res: any) {
   try {
     const userId = req.userId;
     const conditions = [eq(llmConnectionsTable.isActive, true)];
@@ -781,6 +782,9 @@ router.post("/llm/health-check", async (req, res) => {
     console.error("[LLM] health-check error:", err);
     apiError(res, 500, "Health check failed");
   }
-});
+}
+
+router.post("/llm/health-check", handleHealthCheck);
+router.get("/llm/health-check", handleHealthCheck);
 
 export default router;

@@ -80,9 +80,11 @@ router.post("/automate/execute", async (req, res) => {
 // ... (skipping pipe with // ...) ...
 
 // ─── Trigger: Daily Reforma Tributária insight ────────────────────────
-// POST /api/automate/trigger/reforma-tributaria
+// GET + POST /api/automate/trigger/reforma-tributaria
 // Auto-runs: Reforma Tributária agent (enabled with Web Search tool)
-router.post("/automate/trigger/reforma-tributaria", async (_req, res) => {
+// GET: called by Vercel Cron (sends Authorization: Bearer CRON_SECRET)
+// POST: called by Make.com or manual triggers
+async function handleReformaTributariaTrigger(_req: any, res: any) {
   try {
     const agent = getAgentById("reformatributaria-insight");
     if (!agent) {
@@ -105,7 +107,10 @@ router.post("/automate/trigger/reforma-tributaria", async (_req, res) => {
     console.error("Reforma Tributária trigger error:", err);
     apiError(res, 500, "Trigger failed");
   }
-});
+}
+
+router.get("/automate/trigger/reforma-tributaria", handleReformaTributariaTrigger);
+router.post("/automate/trigger/reforma-tributaria", handleReformaTributariaTrigger);
 
 // ─── Execute a pipeline of agents in sequence ─────────────────────────
 // POST /api/automate/pipeline
@@ -832,17 +837,20 @@ router.post("/automate/sequences/:id/enroll", async (req, res) => {
 });
 
 // ─── Sequences: Process due steps (called by Vercel Cron or Make) ────
-// POST /api/automate/process-sequences
-// Auth: CRON_SECRET header (internal) or regular userId auth
-router.post("/automate/process-sequences", async (req, res) => {
-  const cronSecret = req.headers["x-cron-secret"];
+// GET + POST /api/automate/process-sequences
+// GET: Vercel Cron (Authorization: Bearer CRON_SECRET handled by auth middleware)
+// POST: Make.com or manual trigger (x-cron-secret or regular auth)
+async function handleProcessSequences(req: any, res: any) {
+  // Vercel Cron passes through auth middleware with userId="system" via Bearer CRON_SECRET.
+  // For x-cron-secret callers (Make.com etc), validate manually.
+  const xCronSecret = req.headers["x-cron-secret"];
   const hasCronSecret = !!process.env.CRON_SECRET;
-  if (hasCronSecret) {
-    if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
+  if (hasCronSecret && req.userId !== "system") {
+    if (!xCronSecret || xCronSecret !== process.env.CRON_SECRET) {
       apiError(res, 403, "Invalid or missing cron secret");
       return;
     }
-  } else {
+  } else if (!hasCronSecret) {
     // Fallback to regular auth when CRON_SECRET is not configured
     const userId = req.userId;
     if (!userId || userId === "system") {
@@ -974,7 +982,10 @@ router.post("/automate/process-sequences", async (req, res) => {
     console.error("[Sequences] process-sequences error:", err);
     apiError(res, 500, "Failed to process sequences");
   }
-});
+}
+
+router.get("/automate/process-sequences", handleProcessSequences);
+router.post("/automate/process-sequences", handleProcessSequences);
 
 // ─── Trigger: CNPJ enrichment for a CRM contact ───────────────────────
 // POST /api/automate/trigger/enrich-cnpj

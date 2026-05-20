@@ -230,6 +230,51 @@ router.get("/contacts", async (req: Request, res: Response) => {
   }
 });
 
+// ─── Contacts: Summary ────────────────────────────────────────────────────────
+// GET /api/crm/contacts/summary — Aggregate contact statistics
+// IMPORTANT: must be registered BEFORE /contacts/:id to avoid route conflict
+router.get("/contacts/summary", async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId || "system";
+    const contacts = await db
+      .select()
+      .from(crmContactsTable)
+      .where(eq(crmContactsTable.userId, userId));
+
+    const total = contacts.length;
+    const byStatus: Record<string, number> = {};
+    const bySource: Record<string, number> = {};
+    const byUf: Record<string, number> = {};
+    const byPorte: Record<string, number> = {};
+    let hotLeads = 0;
+    let prospects = 0;
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    let recentContacts = 0;
+
+    for (const c of contacts) {
+      const status = c.status || "unknown";
+      byStatus[status] = (byStatus[status] || 0) + 1;
+
+      const source = c.source || "manual";
+      bySource[source] = (bySource[source] || 0) + 1;
+
+      if (c.uf) byUf[c.uf] = (byUf[c.uf] || 0) + 1;
+      if (c.porte) byPorte[c.porte] = (byPorte[c.porte] || 0) + 1;
+
+      if ((c.aiScore ?? 0) >= 70) hotLeads++;
+      if (c.status === "prospect" || c.status === "new") prospects++;
+      if (new Date(c.createdAt) >= sevenDaysAgo) recentContacts++;
+    }
+
+    res.json({
+      success: true,
+      summary: { total, byStatus, bySource, byUf, byPorte, hotLeads, prospects, recentContacts },
+    });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to get contacts summary");
+  }
+});
+
 // ─── Contacts: Get by ID ──────────────────────────────────────────────────────
 router.get("/contacts/:id", async (req: Request, res: Response) => {
   try {
@@ -672,8 +717,13 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
       .where(and(eq(crmDealsTable.userId, userId), eq(crmDealsTable.pipelineId, pipelineIdParam)))
       .orderBy(desc(crmDealsTable.updatedAt));
 
+    // Normalize stages: handle both string[] and object[] (e.g. [{name: "Novo Lead", order: 1}])
+    const normalizedStages: string[] = stages.map((s: any) =>
+      typeof s === "string" ? s : (s?.name || String(s))
+    );
+
     const pipeline: Record<string, any[]> = {};
-    for (const s of stages) pipeline[s] = deals.filter((d: typeof deals[number]) => d.stage === s);
+    for (const s of normalizedStages) pipeline[s] = deals.filter((d: typeof deals[number]) => d.stage === s);
 
     const totalValue = deals
       .filter((d: typeof deals[number]) => !["lost"].includes(d.stage))

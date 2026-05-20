@@ -693,21 +693,23 @@ router.delete("/knowledge/:id", async (req, res) => {
   }
 });
 
-// ── POST /knowledge/process-queue (Cron Job) ─────────────────────────────────
+// ── GET + POST /knowledge/process-queue (Cron Job) ───────────────────────────
 // Vercel Cron: diário (0 8 * * *) — limitado a 1x/dia no plano Hobby.
+// GET: Vercel Cron (Authorization: Bearer CRON_SECRET handled by auth middleware → userId="system")
+// POST: Make.com or manual trigger (x-cron-secret header)
 // Processa documentos pendentes um por um para evitar timeout de 60s.
-// Protegido por CRON_SECRET para evitar acesso não autorizado.
 
-router.post("/knowledge/process-queue", async (req, res) => {
-  // Proteger com CRON_SECRET
-  const cronSecret = req.headers["x-cron-secret"];
+async function handleProcessQueue(req: any, res: any) {
+  // Vercel Cron passes through auth middleware with userId="system" via Bearer CRON_SECRET.
+  // For x-cron-secret callers (Make.com etc), validate manually.
+  const xCronSecret = req.headers["x-cron-secret"];
   const hasCronSecret = !!process.env.CRON_SECRET;
-  if (hasCronSecret) {
-    if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
+  if (hasCronSecret && req.userId !== "system") {
+    if (!xCronSecret || xCronSecret !== process.env.CRON_SECRET) {
       apiError(res, 403, "Invalid or missing cron secret");
       return;
     }
-  } else {
+  } else if (!hasCronSecret) {
     // Fallback: exigir autenticação normal quando CRON_SECRET não configurado
     const userId = req.userId;
     if (!userId || userId === "system") {
@@ -785,6 +787,9 @@ router.post("/knowledge/process-queue", async (req, res) => {
     console.error("[Cron KB] Erro no process-queue:", err);
     apiError(res, 500, "Falha no processamento da fila");
   }
-});
+}
+
+router.get("/knowledge/process-queue", handleProcessQueue);
+router.post("/knowledge/process-queue", handleProcessQueue);
 
 export default router;

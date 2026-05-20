@@ -68,7 +68,25 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  // 1. Webhook Authentication (Automate/Webhooks routes)
+  // 1. Vercel Cron Authentication — Vercel sends GET with Authorization: Bearer <CRON_SECRET>
+  // These paths are self-protected by the cron secret check inside the handler.
+  const cronSecret = process.env.CRON_SECRET;
+  const cronPaths = [
+    "/automate/process-sequences",
+    "/automate/trigger/reforma-tributaria",
+    "/knowledge/process-queue",
+  ];
+  if (cronPaths.includes(req.path) && cronSecret) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && safeCompare(authHeader, `Bearer ${cronSecret}`)) {
+      req.userId = "system";
+      next();
+      return;
+    }
+    // No valid cron secret — fall through to normal auth (allows human callers with JWT/API_KEY)
+  }
+
+  // 2. Webhook Authentication (Automate/Webhooks routes)
   const webhookProvided = req.headers["x-webhook-secret"];
   if (webhookProvided && webhookSecret && safeCompare(String(webhookProvided), webhookSecret)) {
     req.userId = String(req.headers["x-user-id"] || "system");
