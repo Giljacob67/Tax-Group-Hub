@@ -1,6 +1,6 @@
 import { db, appConfigTable, crmContactsTable, crmDealsTable, crmActivitiesTable, crmTasksTable, hubspotSyncStateTable, hubspotListMappingTable } from "@workspace/db";
 import { eq, and, isNull } from "drizzle-orm";
-import { HubSpotClient } from "@workspace/hubspot";
+import { HubSpotClient, HubSpotCompany, HubSpotDeal, HubSpotNote, HubSpotTask, HubSpotList } from "@workspace/hubspot";
 import {
   mapContactToHubSpotCompany,
   mapContactToHubSpotContactPerson,
@@ -293,7 +293,7 @@ export async function pullCompaniesFromHubSpot(
   const result: PullResult = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
   try {
-    const companies = await pullPaginated(
+    const companies = await pullPaginated<HubSpotCompany>(
       (after) => client.getCompanies(100, after || lastPolledAt.toISOString()),
     );
 
@@ -372,7 +372,7 @@ export async function pullDealsFromHubSpot(
   const result: PullResult = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
   try {
-    const deals = await pullPaginated(
+    const deals = await pullPaginated<HubSpotDeal>(
       (after) => client.getRecentlyModifiedDeals(after || lastPolledAt.toISOString()),
     );
 
@@ -441,7 +441,7 @@ export async function pullNotesFromHubSpot(
   const result: PullResult = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
   try {
-    const notes = await pullPaginated(
+    const notes = await pullPaginated<HubSpotNote>(
       (after) => client.getRecentlyModifiedNotes(after || lastPolledAt.toISOString()),
     );
 
@@ -496,7 +496,7 @@ export async function pullTasksFromHubSpot(
   const result: PullResult = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
   try {
-    const tasks = await pullPaginated(
+    const tasks = await pullPaginated<HubSpotTask>(
       (after) => client.getRecentlyModifiedTasks(after || lastPolledAt.toISOString()),
     );
 
@@ -575,7 +575,7 @@ export async function pushTagListToHubSpot(
 
     // Find or create the list
     const existingLists = await client.getLists();
-    let listId = existingLists.lists.find(l => l.name === `[Tax Group] ${tagName}`)?.listId;
+    let listId = existingLists.lists.find((l: HubSpotList) => l.name === `[Tax Group] ${tagName}`)?.listId;
 
     if (!listId) {
       const newList = await client.createList(`[Tax Group] ${tagName}`, "0-2"); // 0-2 = companies
@@ -617,8 +617,8 @@ export async function syncAllListsToHubSpot(client: HubSpotClient, userId: strin
   let errors = 0;
 
   for (const row of tags) {
-    if (!row.tags) continue;
-    for (const tag of row.tags) {
+    if (!row.tag) continue;
+    for (const tag of row.tag) {
       const result = await pushTagListToHubSpot(client, userId, tag);
       if (result) synced++;
       else errors++;

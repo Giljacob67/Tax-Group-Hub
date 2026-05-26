@@ -19,6 +19,7 @@
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/empresaqui": "workspace:*",
+    "@workspace/hubspot": "workspace:*",
     "ai": "^6.0.154",
     "busboy": "^1.6.0",
     "cors": "^2",

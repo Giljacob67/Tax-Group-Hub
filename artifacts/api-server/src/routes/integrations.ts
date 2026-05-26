@@ -808,7 +808,7 @@ router.post("/integrations/hubspot/test", async (req, res) => {
     try {
       const pipelines = await client.getDealPipelines();
       testResult.pipelineCount = pipelines.results.length;
-      testResult.pipelines = pipelines.results.map(p => ({ id: p.id, label: p.label, stageCount: p.stages.length }));
+      testResult.pipelines = pipelines.results.map((p: { id: string; label: string; stages: Array<{ id: string; label: string }> }) => ({ id: p.id, label: p.label, stageCount: p.stages.length }));
     } catch (err) {
       testResult.pipelineCount = null;
       testResult.pipelineError = err instanceof Error ? err.message : String(err);

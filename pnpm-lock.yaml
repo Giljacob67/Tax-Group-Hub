@@ -98,6 +98,9 @@ importers:
       '@workspace/empresaqui':
         specifier: workspace:*
         version: link:../../lib/integrations/empresaqui
+      '@workspace/hubspot':
+        specifier: workspace:*
+        version: link:../../lib/integrations/hubspot
       ai:
         specifier: ^6.0.154
         version: 6.0.154(zod@3.25.76)
