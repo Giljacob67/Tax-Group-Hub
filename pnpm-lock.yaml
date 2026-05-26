@@ -619,6 +619,12 @@ importers:
         specifier: 'catalog:'
         version: 25.5.0
 
+  lib/integrations/hubspot:
+    dependencies:
+      '@workspace/db':
+        specifier: workspace:*
+        version: link:../../db
+
   scripts:
     devDependencies:
       '@types/node':
