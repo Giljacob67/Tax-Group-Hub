@@ -185,7 +185,7 @@ export function mapDealToHubSpotDeal(deal: CrmDeal): HubSpotDealInput {
       dealname: deal.title,
       dealstage: deal.stage, // will be resolved to stage ID by caller
       amount: safeStr(deal.value) || "0",
-      closedate: toHubSpotDate(deal.expectedCloseDate) ?? undefined,
+      closedate: toHubSpotDate(deal.expectedCloseDate) ?? null,
       deal_probability: deal.probability ?? null,
       produto: safeStr(deal.produto),
     },

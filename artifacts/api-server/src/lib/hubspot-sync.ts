@@ -169,7 +169,7 @@ export async function pushDealToHubSpot(
     }
 
     const result = await client.createDeal(props.properties);
-    await client.createAssociation("deals", result.id, "companies", contact.hubspotId);
+    await client.createAssociation("deals", result.id, "companies", contact.hubspotId!);
     await db.update(crmDealsTable)
       .set({ hubspotId: result.id })
       .where(eq(crmDealsTable.id, deal.id));

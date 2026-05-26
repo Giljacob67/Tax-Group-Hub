@@ -273,7 +273,7 @@ export class HubSpotClient {
 
   // ── Associations ───────────────────────────────────────────────────────────
 
-  async createAssociation(fromType: "companies" | "contacts" | "deals", fromId: string, toType: "companies" | "contacts" | "deals" | "notes" | "tasks", toId: string): Promise<void> {
+  async createAssociation(fromType: "companies" | "contacts" | "deals" | "notes" | "tasks", fromId: string, toType: "companies" | "contacts" | "deals" | "notes" | "tasks", toId: string): Promise<void> {
     await this._request("PUT", `/crm/v4/objects/${fromType}/${fromId}/associations/default/${toType}/${toId}`, null);
   }
 
