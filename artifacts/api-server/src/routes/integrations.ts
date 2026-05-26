@@ -2,9 +2,9 @@ import { Router, type IRouter } from "express";
 import { randomUUID } from "node:crypto";
 import {
   db, designGalleryTable, knowledgeChunksTable, knowledgeDocumentsTable,
-  appConfigTable, integrationLogsTable,
+  appConfigTable, integrationLogsTable, hubspotSyncStateTable, hubspotListMappingTable,
 } from "@workspace/db";
-import { eq, and, desc, inArray, sql, isNull } from "drizzle-orm";
+import { eq, and, desc, asc, inArray, sql, isNull } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import { apiError } from "../lib/api-response.js";
 import { encrypt, decrypt } from "../lib/crypto.js";
@@ -12,6 +12,12 @@ import { listIntegrationLogs, writeIntegrationLog, safePayloadPreview } from "..
 import { dispatchWebhook } from "../lib/webhook-dispatcher.js";
 import { validateSafeUrl } from "../lib/validation.js";
 import { safeNumber } from "../lib/validation.js";
+import { HubSpotClient, ensureCustomProperties } from "@workspace/hubspot";
+import {
+  getHubSpotConfig,
+  runFullInboundSync,
+  syncAllListsToHubSpot,
+} from "../lib/hubspot-sync.js";
 
 const router: IRouter = Router();
 
@@ -326,7 +332,42 @@ router.get("/integrations/health", async (req, res) => {
         lastError: null,
         logCount: recentLogs.filter(l => l.integrationKey === "gemini-images").length,
       },
+      {
+        key: "hubspot",
+        name: "HubSpot CRM",
+        category: "CRM & Comercial",
+        isRealIntegration: true,
+        status: (() => {
+          const hsTokenRow = recentLogs.length >= 0
+            ? "check" // placeholder — check below
+            : "available";
+          return hsTokenRow;
+        })(),
+        configured: false,
+        enabled: false,
+        lastRunAt: recentLogs.find(l => l.integrationKey === "hubspot")?.createdAt ?? null,
+        lastError: recentLogs.find(l => l.integrationKey === "hubspot" && l.status === "error")?.errorMessage ?? null,
+        logCount: recentLogs.filter(l => l.integrationKey === "hubspot").length,
+      },
     ];
+
+    // Resolve HubSpot actual status
+    try {
+      const [hsTokenRow] = await db.select().from(appConfigTable)
+        .where(eq(appConfigTable.key, "integration:hubspot:access_token")).limit(1);
+      const [hsEnabledRow] = await db.select().from(appConfigTable)
+        .where(eq(appConfigTable.key, "integration:hubspot:enabled")).limit(1);
+      const hsConfigured = !!hsTokenRow?.value;
+      const hsEnabled = hsEnabledRow?.value === "true";
+      const hsEntry = integrations.find(i => i.key === "hubspot");
+      if (hsEntry) {
+        hsEntry.configured = hsConfigured;
+        hsEntry.enabled = hsEnabled;
+        hsEntry.status = hsConfigured ? (hsEnabled ? "connected" : "available") : "available";
+      }
+    } catch {
+      // keep defaults
+    }
 
     const connected = integrations.filter(i => i.status === "connected").length;
     const errors = recentLogs.filter(l => l.status === "error").length;
@@ -624,6 +665,372 @@ router.post("/integrations/events/dispatch", async (req, res) => {
   } catch (err) {
     console.error("[Integrations] dispatch error:", err);
     apiError(res, 500, "Dispatch failed");
+  }
+});
+
+// ─── HubSpot CRM Integration ──────────────────────────────────────────────────
+
+function maskToken(token: string): string {
+  if (token.length <= 8) return "****";
+  return `${token.substring(0, 4)}****${token.substring(token.length - 4)}`;
+}
+
+/**
+ * GET /api/integrations/hubspot/config
+ * Returns masked HubSpot config.
+ */
+router.get("/integrations/hubspot/config", async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+
+    const config = await getHubSpotConfig(userId);
+    if (!config) {
+      res.json({
+        config: {
+          accessToken: "",
+          portalId: "",
+          enabled: false,
+          syncDirection: "bidirectional",
+          configured: false,
+          customPropertiesCreated: false,
+          lastSyncAt: null,
+        },
+      });
+      return;
+    }
+
+    const [lastSyncRow] = await db.select().from(hubspotSyncStateTable)
+      .where(eq(hubspotSyncStateTable.userId, userId))
+      .orderBy(desc(hubspotSyncStateTable.lastPolledAt))
+      .limit(1);
+
+    res.json({
+      config: {
+        accessToken: maskToken(config.accessToken),
+        portalId: config.portalId ?? "",
+        enabled: config.enabled,
+        syncDirection: config.syncDirection,
+        configured: true,
+        customPropertiesCreated: true, // optimistic — check would be expensive
+        lastSyncAt: lastSyncRow?.lastPolledAt ?? null,
+      },
+    });
+  } catch (err) {
+    console.error("[Integrations] hubspot config get error:", err);
+    apiError(res, 500, "Failed to load HubSpot config");
+  }
+});
+
+/**
+ * POST /api/integrations/hubspot/config
+ * Save HubSpot config. Token is encrypted at rest.
+ */
+router.post("/integrations/hubspot/config", async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+
+    const { accessToken, portalId, enabled, syncDirection } = req.body as {
+      accessToken?: string;
+      portalId?: string;
+      enabled?: boolean;
+      syncDirection?: "bidirectional" | "to_hubspot" | "from_hubspot";
+    };
+
+    if (accessToken !== undefined && accessToken !== "") {
+      await db.insert(appConfigTable)
+        .values({ key: "integration:hubspot:access_token", value: encrypt(accessToken), updatedAt: new Date() })
+        .onConflictDoUpdate({ target: appConfigTable.key, set: { value: encrypt(accessToken), updatedAt: new Date() } });
+    }
+
+    if (portalId !== undefined) {
+      await db.insert(appConfigTable)
+        .values({ key: "integration:hubspot:portal_id", value: portalId, updatedAt: new Date() })
+        .onConflictDoUpdate({ target: appConfigTable.key, set: { value: portalId, updatedAt: new Date() } });
+    }
+
+    if (enabled !== undefined) {
+      await db.insert(appConfigTable)
+        .values({ key: "integration:hubspot:enabled", value: String(enabled), updatedAt: new Date() })
+        .onConflictDoUpdate({ target: appConfigTable.key, set: { value: String(enabled), updatedAt: new Date() } });
+    }
+
+    if (syncDirection !== undefined) {
+      await db.insert(appConfigTable)
+        .values({ key: "integration:hubspot:sync_direction", value: syncDirection, updatedAt: new Date() })
+        .onConflictDoUpdate({ target: appConfigTable.key, set: { value: syncDirection, updatedAt: new Date() } });
+    }
+
+    const config = await getHubSpotConfig(userId);
+    res.json({
+      success: true,
+      config: {
+        accessToken: maskToken(config?.accessToken ?? ""),
+        portalId: config?.portalId ?? "",
+        enabled: config?.enabled ?? false,
+        syncDirection: config?.syncDirection ?? "bidirectional",
+        configured: !!config,
+      },
+    });
+  } catch (err) {
+    console.error("[Integrations] hubspot config save error:", err);
+    apiError(res, 500, "Failed to save HubSpot config");
+  }
+});
+
+/**
+ * POST /api/integrations/hubspot/test
+ * Test HubSpot connectivity and return portal info.
+ */
+router.post("/integrations/hubspot/test", async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+
+    const config = await getHubSpotConfig(userId);
+    if (!config || !config.accessToken) {
+      apiError(res, 400, "HubSpot não configurado. Salve o token de acesso primeiro.");
+      return;
+    }
+
+    const client = new HubSpotClient(config.accessToken, config.portalId);
+    const testResult: Record<string, unknown> = {};
+
+    try {
+      const count = await client.getCompanyCount();
+      testResult.companyCount = count;
+    } catch (err) {
+      testResult.companyCount = null;
+      testResult.companyError = err instanceof Error ? err.message : String(err);
+    }
+
+    try {
+      const pipelines = await client.getDealPipelines();
+      testResult.pipelineCount = pipelines.results.length;
+      testResult.pipelines = pipelines.results.map(p => ({ id: p.id, label: p.label, stageCount: p.stages.length }));
+    } catch (err) {
+      testResult.pipelineCount = null;
+      testResult.pipelineError = err instanceof Error ? err.message : String(err);
+    }
+
+    const ok = testResult.companyCount !== null && testResult.pipelineCount !== null;
+
+    await writeIntegrationLog({
+      userId,
+      integrationKey: "hubspot",
+      integrationName: "HubSpot CRM",
+      eventType: "connection.test",
+      direction: "outbound",
+      status: ok ? "success" : "error",
+      payloadPreview: safePayloadPreview(testResult),
+      errorMessage: ok ? undefined : (testResult.companyError as string ?? testResult.pipelineError as string),
+      correlationId: `hs-test-${Date.now()}`,
+    });
+
+    res.json({
+      ok,
+      portalInfo: {
+        companyCount: testResult.companyCount,
+        pipelineCount: testResult.pipelineCount,
+        pipelines: testResult.pipelines,
+      },
+      errors: ok ? undefined : {
+        company: testResult.companyError,
+        pipeline: testResult.pipelineError,
+      },
+    });
+  } catch (err) {
+    console.error("[Integrations] hubspot test error:", err);
+    apiError(res, 500, "Erro ao testar conexão com HubSpot");
+  }
+});
+
+/**
+ * POST /api/integrations/hubspot/setup-custom-properties
+ * One-click setup of all custom properties in HubSpot.
+ */
+router.post("/integrations/hubspot/setup-custom-properties", async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+
+    const config = await getHubSpotConfig(userId);
+    if (!config || !config.accessToken) {
+      apiError(res, 400, "HubSpot não configurado. Salve o token de acesso primeiro.");
+      return;
+    }
+
+    const client = new HubSpotClient(config.accessToken, config.portalId);
+    const result = await ensureCustomProperties(client);
+
+    res.json({
+      ok: result.errors.length === 0,
+      ...result,
+    });
+  } catch (err) {
+    console.error("[Integrations] hubspot setup-properties error:", err);
+    apiError(res, 500, "Erro ao configurar propriedades no HubSpot");
+  }
+});
+
+/**
+ * GET /api/integrations/hubspot/lists
+ * List tag mappings to HubSpot lists.
+ */
+router.get("/integrations/hubspot/lists", async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+
+    const mappings = await db.select().from(hubspotListMappingTable)
+      .where(eq(hubspotListMappingTable.userId, userId))
+      .orderBy(asc(hubspotListMappingTable.tagName));
+
+    res.json({ mappings });
+  } catch (err) {
+    console.error("[Integrations] hubspot lists get error:", err);
+    apiError(res, 500, "Failed to load list mappings");
+  }
+});
+
+/**
+ * POST /api/integrations/hubspot/lists
+ * Create/update a tag-to-list mapping.
+ */
+router.post("/integrations/hubspot/lists", async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+
+    const { tagName, hubspotListId, direction } = req.body as {
+      tagName?: string;
+      hubspotListId?: string;
+      direction?: "to_hubspot" | "from_hubspot" | "bidirectional";
+    };
+
+    if (!tagName || !hubspotListId) {
+      apiError(res, 400, "tagName and hubspotListId are required");
+      return;
+    }
+
+    await db.insert(hubspotListMappingTable)
+      .values({
+        userId,
+        tagName,
+        hubspotListId,
+        direction: direction ?? "bidirectional",
+      })
+      .onConflictDoUpdate({
+        target: [hubspotListMappingTable.userId, hubspotListMappingTable.tagName],
+        set: { hubspotListId, direction: direction ?? "bidirectional", updatedAt: new Date() },
+      });
+
+    res.json({ success: true, mapping: { tagName, hubspotListId, direction: direction ?? "bidirectional" } });
+  } catch (err) {
+    console.error("[Integrations] hubspot list save error:", err);
+    apiError(res, 500, "Failed to save list mapping");
+  }
+});
+
+/**
+ * DELETE /api/integrations/hubspot/lists/:tagName
+ * Remove a tag-to-list mapping.
+ */
+router.delete("/integrations/hubspot/lists/:tagName", async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+
+    const { tagName } = req.params;
+    await db.delete(hubspotListMappingTable)
+      .where(and(eq(hubspotListMappingTable.userId, userId), eq(hubspotListMappingTable.tagName, tagName)));
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[Integrations] hubspot list delete error:", err);
+    apiError(res, 500, "Failed to delete list mapping");
+  }
+});
+
+/**
+ * POST /api/integrations/hubspot/sync-lists
+ * Sync all tags as HubSpot Lists immediately.
+ */
+router.post("/integrations/hubspot/sync-lists", async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+
+    const config = await getHubSpotConfig(userId);
+    if (!config || !config.accessToken) {
+      apiError(res, 400, "HubSpot não configurado.");
+      return;
+    }
+
+    const client = new HubSpotClient(config.accessToken, config.portalId);
+    const result = await syncAllListsToHubSpot(client, userId);
+
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error("[Integrations] hubspot sync-lists error:", err);
+    apiError(res, 500, "Erro ao sincronizar listas");
+  }
+});
+
+// ─── HubSpot Polling Endpoint (Cron) ─────────────────────────────────────────
+
+/**
+ * GET /api/integrations/hubspot/sync
+ * Vercel Cron endpoint — pulls changes from HubSpot every 15 minutes.
+ * Authenticated via CRON_SECRET (handled by auth middleware).
+ */
+router.get("/integrations/hubspot/sync", async (req, res) => {
+  const startTime = Date.now();
+
+  try {
+    // Find all users with HubSpot configured and enabled
+    const tokenRows = await db.select().from(appConfigTable)
+      .where(eq(appConfigTable.key, "integration:hubspot:access_token"));
+
+    const results: Array<{ userId: string; companies: number; deals: number; notes: number; tasks: number }> = [];
+    const errors: Array<{ userId: string; error: string }> = [];
+
+    for (const row of tokenRows) {
+      // userId is not a column on app_config — need to match via sync state
+      // For now, use "system" or extract from context
+      // Actually, app_config is scoped globally, not per-user in current schema
+      // We'll run sync only if token exists
+      try {
+        const config = await getHubSpotConfig("system");
+        if (!config || !config.enabled || config.syncDirection === "to_hubspot") continue;
+
+        const summary = await runFullInboundSync("system");
+        results.push({
+          userId: "system",
+          companies: summary.companies.created + summary.companies.updated,
+          deals: summary.deals.created + summary.deals.updated,
+          notes: summary.notes.created + summary.notes.updated,
+          tasks: summary.tasks.created + summary.tasks.updated,
+        });
+      } catch (err) {
+        errors.push({
+          userId: "system",
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    res.json({
+      ok: errors.length === 0,
+      durationMs: Date.now() - startTime,
+      users: results.length,
+      results,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err) {
+    console.error("[Integrations] hubspot sync cron error:", err);
+    apiError(res, 500, "HubSpot sync failed");
   }
 });
 

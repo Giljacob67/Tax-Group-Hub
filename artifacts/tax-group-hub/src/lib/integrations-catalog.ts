@@ -117,10 +117,11 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
     name: "HubSpot",
     description: "Sincronize contatos, deals e atividades bidirecionalmente com o HubSpot CRM.",
     category: "CRM & Comercial",
-    status: "coming_soon",
+    status: "available",
     emoji: "🟠",
     tags: ["crm", "sync", "deals"],
-    ctaLabel: "Em breve",
+    ctaLabel: "Conectar",
+    badge: "Novo",
   },
   {
     id: "pipedrive",

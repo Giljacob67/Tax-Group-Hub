@@ -31,6 +31,7 @@ export const crmContactsTable = pgTable("crm_contacts", {
   aiScoreDetails: jsonb("ai_score_details"),
   aiRecommendedProduct: text("ai_recommended_product"),
   empresaquiId: text("empresaqui_id"),
+  hubspotId: text("hubspot_id"),
   lastEnrichedAt: timestamp("last_enriched_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -70,6 +71,7 @@ export const crmDealsTable = pgTable("crm_deals", {
   wonAt: timestamp("won_at"),
   lostAt: timestamp("lost_at"),
   assignedTo: text("assigned_to"),
+  hubspotId: text("hubspot_id"),
   notes: text("notes"),
   conversationId: integer("conversation_id").references(() => conversationsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -93,6 +95,7 @@ export const crmActivitiesTable = pgTable("crm_activities", {
   completedAt: timestamp("completed_at"),
   agentId: text("agent_id"),
   conversationId: integer("conversation_id").references(() => conversationsTable.id, { onDelete: "set null" }),
+  hubspotId: text("hubspot_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -146,6 +149,7 @@ export const crmTasksTable = pgTable("crm_tasks", {
   assignedTo: text("assigned_to"),
   completedAt: timestamp("completed_at"),
   conversationId: integer("conversation_id").references(() => conversationsTable.id, { onDelete: "set null" }),
+  hubspotId: text("hubspot_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -225,3 +229,29 @@ export const sequenceEnrollmentsTable = pgTable("sequence_enrollments", {
 export const insertSequenceEnrollmentSchema = createInsertSchema(sequenceEnrollmentsTable).omit({ id: true, enrolledAt: true });
 export type SequenceEnrollment = typeof sequenceEnrollmentsTable.$inferSelect;
 export type InsertSequenceEnrollment = z.infer<typeof insertSequenceEnrollmentSchema>;
+
+// ─── HubSpot Sync State ────────────────────────────────────────────────────────
+
+export const hubspotSyncStateTable = pgTable("hubspot_sync_state", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  objectType: text("object_type").notNull(), // 'companies' | 'contacts' | 'deals' | 'notes' | 'tasks'
+  lastPolledAt: timestamp("last_polled_at").notNull().defaultNow(),
+  lastUpdatedId: text("last_updated_id"),
+  cursorData: text("cursor_data"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("hs_sync_state_user_object_idx").on(t.userId, t.objectType),
+]);
+
+export const hubspotListMappingTable = pgTable("hubspot_list_mapping", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  tagName: text("tag_name").notNull(),
+  hubspotListId: text("hubspot_list_id").notNull(),
+  direction: text("direction").notNull().default("bidirectional"), // 'to_hubspot' | 'from_hubspot' | 'bidirectional'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("hs_list_map_user_tag_idx").on(t.userId, t.tagName),
+]);

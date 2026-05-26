@@ -473,6 +473,317 @@ function MakeConfigPanel({ onSuccess }: { onSuccess?: () => void }) {
   );
 }
 
+interface HubSpotConfig {
+  accessToken: string;
+  portalId: string;
+  enabled: boolean;
+  syncDirection: "bidirectional" | "to_hubspot" | "from_hubspot";
+  configured: boolean;
+  customPropertiesCreated: boolean;
+  lastSyncAt: string | null;
+}
+
+interface HubSpotConfigResponse {
+  config: HubSpotConfig;
+}
+
+interface HubSpotTestResponse {
+  ok: boolean;
+  portalInfo: {
+    companyCount: number | null;
+    pipelineCount: number | null;
+    pipelines?: Array<{ id: string; label: string; stageCount: number }>;
+  };
+  errors?: {
+    company?: string;
+    pipeline?: string;
+  };
+}
+
+interface SetupPropertiesResponse {
+  ok: boolean;
+  created: string[];
+  existing: string[];
+  errors: string[];
+}
+
+/** HubSpot CRM configuration panel */
+function HubSpotConfigPanel() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: configData, isLoading } = useQuery<HubSpotConfigResponse>({
+    queryKey: ["hubspot-config"],
+    queryFn: () => apiFetch<HubSpotConfigResponse>("/api/integrations/hubspot/config"),
+  });
+
+  const [accessToken, setAccessToken] = useState("");
+  const [portalId, setPortalId] = useState("");
+  const [enabled, setEnabled] = useState(false);
+  const [syncDirection, setSyncDirection] = useState<"bidirectional" | "to_hubspot" | "from_hubspot">("bidirectional");
+  const [testResult, setTestResult] = useState<HubSpotTestResponse | null>(null);
+  const [setupResult, setSetupResult] = useState<SetupPropertiesResponse | null>(null);
+  const [tokenDirty, setTokenDirty] = useState(false);
+
+  const [synced, setSynced] = useState(false);
+  if (configData && !synced) {
+    setEnabled(configData.config.enabled);
+    setSyncDirection(configData.config.syncDirection);
+    setSynced(true);
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: (body: object) => apiFetch<{ success: boolean; config: HubSpotConfig }>(
+      "/api/integrations/hubspot/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hubspot-config"] });
+      qc.invalidateQueries({ queryKey: ["integration-health"] });
+      toast({ title: "Configuração do HubSpot salva" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const testMutation = useMutation({
+    mutationFn: () => apiFetch<HubSpotTestResponse>("/api/integrations/hubspot/test", { method: "POST" }),
+    onSuccess: (r) => {
+      setTestResult(r);
+      if (r.ok) toast({ title: "Conectado ao HubSpot com sucesso!" });
+      else toast({ title: "Teste falhou", description: r.errors?.company ?? r.errors?.pipeline, variant: "destructive" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const setupMutation = useMutation({
+    mutationFn: () => apiFetch<SetupPropertiesResponse>("/api/integrations/hubspot/setup-custom-properties", { method: "POST" }),
+    onSuccess: (r) => {
+      setSetupResult(r);
+      if (r.ok) {
+        toast({ title: `${r.created.length} propriedades criadas, ${r.existing.length} já existiam` });
+      } else {
+        toast({ title: `${r.errors.length} erros ao criar propriedades`, variant: "destructive" });
+      }
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    const body: Record<string, unknown> = { enabled, syncDirection };
+    if (tokenDirty && accessToken.trim()) body.accessToken = accessToken.trim();
+    if (portalId.trim()) body.portalId = portalId.trim();
+    saveMutation.mutate(body);
+  };
+
+  if (isLoading) return <div className="text-center py-8 text-muted-foreground text-sm"><Loader2 className="w-4 h-4 animate-spin inline mr-2" />Carregando...</div>;
+
+  const configured = configData?.config.configured;
+  const directionLabels: Record<string, string> = {
+    bidirectional: "Bidirecional (push + pull)",
+    to_hubspot: "Somente envio (Tax Group → HubSpot)",
+    from_hubspot: "Somente recebimento (HubSpot → Tax Group)",
+  };
+
+  return (
+    <div className="space-y-4">
+      {configured && (
+        <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-lg p-3 flex items-center gap-2 text-xs text-emerald-400">
+          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+          HubSpot configurado. Token: <code className="font-mono ml-1 opacity-80">{configData?.config.accessToken}</code>
+          {configData?.config.portalId && <span className="ml-2 opacity-60">• Portal {configData?.config.portalId}</span>}
+          {configData?.config.lastSyncAt && (
+            <span className="ml-2 opacity-60">• Último sync: {new Date(configData.config.lastSyncAt).toLocaleString()}</span>
+          )}
+        </div>
+      )}
+
+      <form onSubmit={handleSave} className="space-y-4">
+        <div>
+          <label className="text-xs text-muted-foreground mb-1.5 block">
+            Portal ID {configData?.config.portalId ? <span className="text-emerald-400">(configurado)</span> : ""}
+          </label>
+          <input
+            value={portalId}
+            onChange={e => setPortalId(e.target.value)}
+            placeholder={configData?.config.portalId || "12345678"}
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none font-mono"
+            autoComplete="off"
+          />
+          <p className="text-[10px] text-muted-foreground/60 mt-1">Encontre o ID do seu portal em HubSpot → Configurações → Geral.</p>
+        </div>
+
+        <div>
+          <label className="text-xs text-muted-foreground mb-1.5 block">
+            Access Token {configData?.config.configured ? <span className="text-emerald-400">(configurado)</span> : ""}
+          </label>
+          <input
+            value={accessToken}
+            onChange={e => { setAccessToken(e.target.value); setTokenDirty(true); }}
+            placeholder={configData?.config.configured ? "Deixe em branco para manter o token atual" : "pat-na1-..."}
+            type="password"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none font-mono"
+            autoComplete="new-password"
+          />
+          <p className="text-[10px] text-muted-foreground/60 mt-1">Crie um Private App em HubSpot → Configurações → Apps Privadas. O token é criptografado.</p>
+        </div>
+
+        <div>
+          <label className="text-xs text-muted-foreground mb-1.5 block">Direção da Sincronização</label>
+          <div className="grid grid-cols-3 gap-2">
+            {(["bidirectional", "to_hubspot", "from_hubspot"] as const).map(dir => (
+              <button key={dir} type="button" onClick={() => setSyncDirection(dir)}
+                className={`py-2 rounded-lg border text-xs transition-all ${syncDirection === dir ? "bg-primary/10 border-primary text-primary" : "bg-background border-border text-muted-foreground hover:text-foreground"}`}>
+                {directionLabels[dir]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs font-medium">Sincronização ativa</div>
+            <div className="text-[10px] text-muted-foreground">
+              {enabled ? "Eventos e polling automático ativos" : "Sincronização pausada"}
+            </div>
+          </div>
+          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <button
+            type="submit"
+            disabled={saveMutation.isPending}
+            className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+          >
+            {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            Salvar configuração
+          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => testMutation.mutate()}
+              disabled={testMutation.isPending || !configured}
+              title={!configured ? "Configure o token primeiro" : "Testar conexão com HubSpot"}
+              className="flex-1 py-2.5 border border-border rounded-lg text-sm hover:bg-secondary disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+            >
+              {testMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Testar Conexão
+            </button>
+            <button
+              type="button"
+              onClick={() => setupMutation.mutate()}
+              disabled={setupMutation.isPending || !configured}
+              title={!configured ? "Configure o token primeiro" : "Criar propriedades customizadas no HubSpot"}
+              className="flex-1 py-2.5 border border-border rounded-lg text-sm hover:bg-secondary disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+            >
+              {setupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              Setup Propriedades
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <AnimatePresence>
+        {testResult && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className={`rounded-lg p-3 text-xs ${testResult.ok ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-red-500/8 border border-red-500/20"}`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              {testResult.ok
+                ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                : <AlertCircle className="w-4 h-4 text-red-400" />}
+              <span className={testResult.ok ? "text-emerald-400 font-medium" : "text-red-400 font-medium"}>
+                {testResult.ok ? "Conectado ao HubSpot" : "Falha na conexão"}
+              </span>
+            </div>
+            {testResult.portalInfo.companyCount !== null && (
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="bg-background/50 rounded p-2">
+                  <div className="text-lg font-semibold text-foreground">{testResult.portalInfo.companyCount}</div>
+                  <div className="text-[10px] text-muted-foreground">Empresas</div>
+                </div>
+                <div className="bg-background/50 rounded p-2">
+                  <div className="text-lg font-semibold text-foreground">{testResult.portalInfo.pipelineCount}</div>
+                  <div className="text-[10px] text-muted-foreground">Pipelines</div>
+                </div>
+              </div>
+            )}
+            {testResult.portalInfo.pipelines && testResult.portalInfo.pipelines.length > 0 && (
+              <div className="space-y-1 mb-2">
+                <div className="text-[10px] text-muted-foreground">Pipelines encontrados:</div>
+                {testResult.portalInfo.pipelines.map(p => (
+                  <div key={p.id} className="flex items-center justify-between bg-background/50 rounded px-2 py-1">
+                    <span>{p.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{p.stageCount} estágios</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!testResult.ok && testResult.errors && (
+              <div className="space-y-1">
+                {testResult.errors.company && <p className="text-red-300/80">Empresas: {testResult.errors.company}</p>}
+                {testResult.errors.pipeline && <p className="text-red-300/80">Pipelines: {testResult.errors.pipeline}</p>}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {setupResult && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className={`rounded-lg p-3 text-xs ${setupResult.ok ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-amber-500/8 border border-amber-500/20"}`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              {setupResult.ok
+                ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                : <AlertCircle className="w-4 h-4 text-amber-400" />}
+              <span className={setupResult.ok ? "text-emerald-400 font-medium" : "text-amber-400 font-medium"}>
+                {setupResult.ok ? "Propriedades configuradas" : "Configuração parcial"}
+              </span>
+            </div>
+            {setupResult.created.length > 0 && (
+              <div className="mb-1">
+                <span className="text-emerald-400">Criadas ({setupResult.created.length}):</span>{" "}
+                <span className="opacity-70">{setupResult.created.join(", ")}</span>
+              </div>
+            )}
+            {setupResult.existing.length > 0 && (
+              <div className="mb-1">
+                <span className="text-muted-foreground">Existentes ({setupResult.existing.length}):</span>{" "}
+                <span className="opacity-50">{setupResult.existing.join(", ")}</span>
+              </div>
+            )}
+            {setupResult.errors.length > 0 && (
+              <div>
+                <span className="text-red-400">Erros ({setupResult.errors.length}):</span>{" "}
+                <span className="text-red-300/70">{setupResult.errors.join("; ")}</span>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="p-4 bg-card border border-border rounded-lg">
+        <div className="flex items-center gap-2 mb-2">
+          <Info className="w-4 h-4 text-muted-foreground" />
+          <h3 className="text-sm font-medium">Como configurar</h3>
+        </div>
+        <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+          <li>Acesse HubSpot → Configurações → Apps Privadas → Criar app privada</li>
+          <li>Adicione os escopos: <code className="text-[10px] bg-background px-1 rounded">crm.objects.contacts.*</code>, <code className="text-[10px] bg-background px-1 rounded">crm.objects.companies.*</code>, <code className="text-[10px] bg-background px-1 rounded">crm.objects.deals.*</code>, <code className="text-[10px] bg-background px-1 rounded">crm.schemas.custom.*</code></li>
+          <li>Copie o token de acesso e cole aqui</li>
+          <li>Clique em "Setup Propriedades" para criar os campos customizados</li>
+          <li>Ative a sincronização e escolha a direção desejada</li>
+          <li>A sincronização automática roda a cada 15 minutos (polling)</li>
+        </ol>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function Integrations() {
@@ -561,6 +872,7 @@ export default function Integrations() {
 
   const handleCatalogCta = (id: string) => {
     if (id === "make") { setActiveTab("webhooks"); return; }
+    if (id === "hubspot") { setActiveTab("hubspot"); return; }
     if (id === "google-drive") { toast({ description: "Em breve: integração com Google Drive." }); return; }
     toast({ description: `Configuração de "${id}" disponível em Configurações.` });
   };
@@ -681,12 +993,13 @@ export default function Integrations() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full h-auto p-1 bg-card border border-border">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-7 w-full h-auto p-1 bg-card border border-border">
             {[
               { id: "catalogo", label: "Catálogo", icon: LayoutGrid },
               { id: "conectadas", label: "Conectadas", icon: CheckCircle2 },
               { id: "automacoes", label: "Automações", icon: Zap },
               { id: "webhooks", label: "Webhooks", icon: Webhook },
+              { id: "hubspot", label: "HubSpot", icon: RefreshCw },
               { id: "logs", label: "Logs", icon: FileText },
               { id: "credenciais", label: "Credenciais", icon: Key },
             ].map(tab => (
@@ -1006,6 +1319,11 @@ export default function Integrations() {
                 <p className="text-[10px] opacity-60">* Apenas quando secret configurado.</p>
               </div>
             </div>
+          </TabsContent>
+
+          {/* ── HubSpot CRM ──────────────────────────────────────────── */}
+          <TabsContent value="hubspot" className="mt-6 space-y-4">
+            <HubSpotConfigPanel />
           </TabsContent>
 
           {/* ── Logs ─────────────────────────────────────────────────── */}

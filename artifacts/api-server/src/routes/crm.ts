@@ -16,6 +16,8 @@ import { enrichContact } from "../lib/cnpj-enrichment.js";
 import { pick, safeNumber, validateHttpUrl } from "../lib/validation.js";
 import { dispatchWebhook } from "../lib/webhook-dispatcher.js";
 import { decrypt } from "../lib/crypto.js";
+import { HubSpotClient } from "@workspace/hubspot";
+import { pushContactToHubSpot, pushDealToHubSpot, pushActivityToHubSpot, pushTaskToHubSpot } from "../lib/hubspot-sync.js";
 
 const router = Router();
 
@@ -34,21 +36,114 @@ function fireIntegrationEvent(
       const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
       const makeUrl = map["integration:make:webhook_url"];
       const makeEnabled = map["integration:make:enabled"] === "true";
-      if (!makeUrl || !makeEnabled) return;
-      const secret = map["integration:make:secret"] ? decrypt(map["integration:make:secret"]) : undefined;
-      await dispatchWebhook({
-        targetUrl: makeUrl,
-        eventType,
-        payload,
-        secret,
-        userId,
-        integrationKey: "make",
-        integrationName: "Make.com",
-      });
+      if (makeUrl && makeEnabled) {
+        const secret = map["integration:make:secret"] ? decrypt(map["integration:make:secret"]) : undefined;
+        await dispatchWebhook({
+          targetUrl: makeUrl,
+          eventType,
+          payload,
+          secret,
+          userId,
+          integrationKey: "make",
+          integrationName: "Make.com",
+        });
+      }
     } catch (err) {
       console.error(`[Integration] fireIntegrationEvent(${eventType}) failed:`, err);
     }
+
+    // HubSpot dispatch
+    try {
+      const hsRows = await db.select().from(appConfigTable).where(
+        sql`${appConfigTable.key} LIKE 'integration:hubspot:%'`
+      );
+      const hsMap = Object.fromEntries(hsRows.map(r => [r.key, r.value]));
+      const hsToken = hsMap["integration:hubspot:access_token"];
+      const hsEnabled = hsMap["integration:hubspot:enabled"] === "true";
+      const hsDirection = hsMap["integration:hubspot:sync_direction"] || "bidirectional";
+
+      if (hsToken && hsEnabled && hsDirection !== "from_hubspot") {
+        const token = hsToken.startsWith("enc:") ? decrypt(hsToken) : hsToken;
+        const portalId = hsMap["integration:hubspot:portal_id"];
+        const client = new HubSpotClient(token, portalId);
+        await dispatchToHubSpot(client, eventType, payload, userId);
+      }
+    } catch (err) {
+      console.error(`[Integration] HubSpot dispatch(${eventType}) failed:`, err);
+    }
   });
+}
+
+async function dispatchToHubSpot(
+  client: HubSpotClient,
+  eventType: string,
+  payload: Record<string, unknown>,
+  userId?: string,
+): Promise<void> {
+  try {
+    switch (eventType) {
+      case "lead.created":
+      case "contact.updated":
+      case "lead.qualified": {
+        const contactId = payload.contactId as number;
+        if (!contactId) return;
+        const [contact] = await db.select().from(crmContactsTable)
+          .where(eq(crmContactsTable.id, contactId)).limit(1);
+        if (contact) await pushContactToHubSpot(client, contact, userId ?? "system");
+        break;
+      }
+      case "deal.created":
+      case "deal.stage_changed":
+      case "deal.won":
+      case "deal.lost": {
+        const dealId = payload.dealId as number;
+        if (!dealId) return;
+        const [deal] = await db.select().from(crmDealsTable)
+          .where(eq(crmDealsTable.id, dealId)).limit(1);
+        if (!deal) return;
+        const [dealContact] = await db.select().from(crmContactsTable)
+          .where(eq(crmContactsTable.id, deal.contactId)).limit(1);
+        await pushDealToHubSpot(client, deal, dealContact, userId ?? "system");
+        break;
+      }
+      case "activity.created": {
+        const activityId = payload.activityId as number;
+        const contactId = payload.contactId as number;
+        if (!activityId || !contactId) return;
+        const [contact] = await db.select({ hubspotId: crmContactsTable.hubspotId })
+          .from(crmContactsTable).where(eq(crmContactsTable.id, contactId)).limit(1);
+        if (!contact?.hubspotId) return;
+        const [activity] = await db.select().from(crmActivitiesTable)
+          .where(eq(crmActivitiesTable.id, activityId)).limit(1);
+        if (activity) {
+          await pushActivityToHubSpot(client, activity, contact.hubspotId, activity.dealId
+            ? (await db.select({ hubspotId: crmDealsTable.hubspotId }).from(crmDealsTable).where(eq(crmDealsTable.id, activity.dealId)).limit(1))[0]?.hubspotId
+            : null, userId);
+        }
+        break;
+      }
+      case "task.created":
+      case "task.updated": {
+        const taskId = payload.taskId as number;
+        const contactId = payload.contactId as number;
+        if (!taskId || !contactId) return;
+        const [contact] = await db.select({ hubspotId: crmContactsTable.hubspotId })
+          .from(crmContactsTable).where(eq(crmContactsTable.id, contactId)).limit(1);
+        if (!contact?.hubspotId) return;
+        const [task] = await db.select().from(crmTasksTable)
+          .where(eq(crmTasksTable.id, taskId)).limit(1);
+        if (task) {
+          const dealHubspotId = task.dealId
+            ? (await db.select({ hubspotId: crmDealsTable.hubspotId }).from(crmDealsTable).where(eq(crmDealsTable.id, task.dealId)).limit(1))[0]?.hubspotId
+            : null;
+          await pushTaskToHubSpot(client, task, contact.hubspotId, dealHubspotId, userId);
+        }
+        break;
+      }
+    }
+  } catch (err) {
+    console.error(`[Integration] dispatchToHubSpot(${eventType}) error:`, err);
+  }
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -381,6 +476,12 @@ router.put("/contacts/:id", async (req: Request, res: Response) => {
     }
 
     res.json({ success: true, contact: updated });
+    fireIntegrationEvent("contact.updated", {
+      contactId: updated.id,
+      cnpj: updated.cnpj,
+      razaoSocial: updated.razaoSocial,
+      status: updated.status,
+    }, userId);
   } catch (err: any) {
     apiError(res, 400, "Failed to update contact");
   }
@@ -866,6 +967,12 @@ router.post("/contacts/:id/activities", async (req: Request, res: Response) => {
       .values({ ...pick(req.body, allowedActivityFields), contactId: Number(req.params.id), userId } as any)
       .returning();
     res.status(201).json({ success: true, activity });
+    fireIntegrationEvent("activity.created", {
+      activityId: activity.id,
+      contactId: Number(req.params.id),
+      dealId: activity.dealId,
+      type: activity.type,
+    }, userId);
   } catch (err: any) {
     apiError(res, 400, "Failed to create activity");
   }
@@ -969,6 +1076,14 @@ router.post("/tasks", async (req: Request, res: Response) => {
       .values({ ...pick(req.body, allowedTaskFields), userId } as any)
       .returning();
     res.status(201).json({ success: true, task });
+    if (task.contactId) {
+      fireIntegrationEvent("task.created", {
+        taskId: task.id,
+        contactId: task.contactId,
+        dealId: task.dealId,
+        title: task.title,
+      }, userId);
+    }
   } catch (err: any) {
     apiError(res, 400, "Failed to create task");
   }
@@ -986,6 +1101,15 @@ router.put("/tasks/:id", async (req: Request, res: Response) => {
       .returning();
     if (!task) { apiError(res, 404, "Task not found"); return; }
     res.json({ success: true, task });
+    if (task.contactId) {
+      fireIntegrationEvent("task.updated", {
+        taskId: task.id,
+        contactId: task.contactId,
+        dealId: task.dealId,
+        title: task.title,
+        status: task.status,
+      }, userId);
+    }
   } catch (err: any) {
     apiError(res, 400, "Failed to update task");
   }

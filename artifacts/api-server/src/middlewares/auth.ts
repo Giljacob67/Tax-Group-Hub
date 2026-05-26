@@ -75,6 +75,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     "/automate/process-sequences",
     "/automate/trigger/reforma-tributaria",
     "/knowledge/process-queue",
+    "/integrations/hubspot/sync",
   ];
   if (cronPaths.includes(req.path) && cronSecret) {
     const authHeader = req.headers.authorization;
