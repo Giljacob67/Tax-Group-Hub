@@ -1060,29 +1060,50 @@ router.get("/integrations/hubspot/lists-debug", async (req, res) => {
     if (!config?.accessToken) { apiError(res, 400, "HubSpot not configured"); return; }
 
     const client = new HubSpotClient(config.accessToken, config.portalId);
+    const BASE_URL = "https://api.hubapi.com";
 
-    let v3Lists: unknown[] = [];
-    let v3Error = "";
+    // Test multiple v3 endpoints
+    const results: Record<string, unknown> = {};
+
+    // 1. v3 lists (default)
     try {
       const raw = await client.getLists();
-      v3Lists = raw.lists?.map(l => ({ listId: l.listId, name: l.name, objectTypeId: l.objectTypeId })) ?? [];
+      results.v3_default = { count: raw.lists?.length ?? 0, total: (raw as any).total };
     } catch (err) {
-      v3Error = err instanceof Error ? err.message : String(err);
+      results.v3_default = { error: err instanceof Error ? err.message : String(err) };
     }
 
-    let v1Lists: unknown[] = [];
-    let v1Error = "";
+    // 2. v3 lists filtered by companies
+    try {
+      const rawCompanies = await (client as any)._request("GET", "/crm/v3/lists/?objectTypeId=0-2&limit=100");
+      results.v3_companies = {
+        count: rawCompanies.lists?.length ?? 0,
+        total: rawCompanies.total,
+        sample: rawCompanies.lists?.slice(0, 3).map((l: any) => ({ listId: l.listId, name: l.name, objectTypeId: l.objectTypeId, processingType: l.processingType })),
+      };
+    } catch (err) {
+      results.v3_companies = { error: err instanceof Error ? err.message : String(err) };
+    }
+
+    // 3. v1 contact lists
     try {
       const raw = await client.getContactLists();
-      v1Lists = raw.lists?.map((l: { listId: number; name: string }) => ({ listId: String(l.listId), name: l.name })) ?? [];
+      results.v1_contacts = { count: raw.lists?.length ?? 0, hasMore: raw["has-more"] };
     } catch (err) {
-      v1Error = err instanceof Error ? err.message : String(err);
+      results.v1_contacts = { error: err instanceof Error ? err.message : String(err) };
     }
 
-    res.json({
-      v3: { count: v3Lists.length, lists: v3Lists.slice(0, 10), error: v3Error || undefined },
-      v1: { count: v1Lists.length, lists: v1Lists.slice(0, 10), error: v1Error || undefined },
-    });
+    // 4. Test token scopes by calling a known endpoint
+    try {
+      const tokenInfo = await fetch(`${BASE_URL}/oauth/v1/access-tokens/${config.accessToken}`, {
+        headers: { Authorization: `Bearer ${config.accessToken}` },
+      });
+      results.token_check = { status: tokenInfo.status, ok: tokenInfo.ok };
+    } catch {
+      results.token_check = { error: "fetch failed" };
+    }
+
+    res.json({ portalId: config.portalId, results });
   } catch (err) {
     apiError(res, 500, err instanceof Error ? err.message : "Failed to fetch lists");
   }
