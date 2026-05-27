@@ -294,7 +294,7 @@ export async function pullCompaniesFromHubSpot(
 
   try {
     const companies = await pullPaginated<HubSpotCompany>(
-      (after) => client.getCompanies(100, after || lastPolledAt.toISOString()),
+      (after) => client.searchCompaniesModifiedAfter(lastPolledAt.toISOString(), after),
     );
 
     for (const company of companies) {
@@ -373,7 +373,7 @@ export async function pullDealsFromHubSpot(
 
   try {
     const deals = await pullPaginated<HubSpotDeal>(
-      (after) => client.getRecentlyModifiedDeals(after || lastPolledAt.toISOString()),
+      (after) => client.searchDealsModifiedAfter(lastPolledAt.toISOString(), after),
     );
 
     for (const deal of deals) {
@@ -442,7 +442,7 @@ export async function pullNotesFromHubSpot(
 
   try {
     const notes = await pullPaginated<HubSpotNote>(
-      (after) => client.getRecentlyModifiedNotes(after || lastPolledAt.toISOString()),
+      (after) => client.searchNotesModifiedAfter(lastPolledAt.toISOString(), after),
     );
 
     for (const note of notes) {
@@ -497,7 +497,7 @@ export async function pullTasksFromHubSpot(
 
   try {
     const tasks = await pullPaginated<HubSpotTask>(
-      (after) => client.getRecentlyModifiedTasks(after || lastPolledAt.toISOString()),
+      (after) => client.searchTasksModifiedAfter(lastPolledAt.toISOString(), after),
     );
 
     for (const task of tasks) {
@@ -650,7 +650,7 @@ export async function runFullInboundSync(userId: string): Promise<{
     db.select().from(hubspotSyncStateTable).where(eq(hubspotSyncStateTable.userId, userId)),
   ]);
   const stateMap = Object.fromEntries(stateRows.map(r => [r.objectType, r.lastPolledAt]));
-  const defaultDate = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24h ago as fallback
+  const defaultDate = new Date("2020-01-01"); // pull all records on first sync
 
   const [companies, deals, notes, tasks] = await Promise.all([
     pullCompaniesFromHubSpot(client, userId, stateMap.companies ?? defaultDate),

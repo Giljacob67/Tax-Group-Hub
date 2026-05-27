@@ -197,6 +197,20 @@ export class HubSpotClient {
     });
   }
 
+  // ── Search API helpers ────────────────────────────────────────────────────
+
+  private async _searchModifiedObjects<T>(objectType: string, properties: string[], modifiedAfter: string, after?: string, limit = 100): Promise<{ results: T[]; total?: number; paging?: { next?: { after: string } } }> {
+    return this._request("POST", `/crm/v3/objects/${objectType}/search`, {
+      filterGroups: [{
+        filters: [{ propertyName: "hs_lastmodifieddate", operator: "GT", value: modifiedAfter }],
+      }],
+      sorts: [{ propertyName: "hs_lastmodifieddate", direction: "ASCENDING" }],
+      properties,
+      limit,
+      after,
+    });
+  }
+
   // ── Contacts (person) ──────────────────────────────────────────────────────
 
   async createContact(properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
@@ -205,13 +219,6 @@ export class HubSpotClient {
 
   async updateContact(id: string, properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
     return this._request("PATCH", `/crm/v3/objects/contacts/${id}`, { properties });
-  }
-
-  async getRecentlyModifiedContacts(after: string, limit = 100): Promise<{ results: HubSpotContact[]; paging?: { next?: { after: string } } }> {
-    const props = ["firstname", "lastname", "email", "phone", "jobtitle"].join(",");
-    let path = `/crm/v3/objects/contacts?limit=${limit}&properties=${props}&sort=hs_lastmodifieddate`;
-    if (after) path += `&after=${after}`;
-    return this._request("GET", path);
   }
 
   async searchContacts(email: string): Promise<{ results: HubSpotContact[] }> {
@@ -224,6 +231,15 @@ export class HubSpotClient {
     });
   }
 
+  async searchCompaniesModifiedAfter(modifiedAfter: string, after?: string, limit = 100): Promise<{ results: HubSpotCompany[]; paging?: { next?: { after: string } } }> {
+    return this._searchModifiedObjects<HubSpotCompany>("companies", [
+      "name", "domain", "phone", "address", "city", "state", "zip", "website",
+      "annualrevenue", "hs_lead_status", "createdate",
+      "nome_fantasia", "cnpj", "regime_tributario", "cnae", "porte",
+      "ai_score", "ai_recommended_product", "source",
+    ], modifiedAfter, after, limit);
+  }
+
   // ── Deals ──────────────────────────────────────────────────────────────────
 
   async createDeal(properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
@@ -234,11 +250,8 @@ export class HubSpotClient {
     return this._request("PATCH", `/crm/v3/objects/deals/${id}`, { properties });
   }
 
-  async getRecentlyModifiedDeals(after: string, limit = 100): Promise<{ results: HubSpotDeal[]; paging?: { next?: { after: string } } }> {
-    const props = ["dealname", "dealstage", "amount", "closedate", "deal_probability", "produto"].join(",");
-    let path = `/crm/v3/objects/deals?limit=${limit}&properties=${props}&sort=hs_lastmodifieddate`;
-    if (after) path += `&after=${after}`;
-    return this._request("GET", path);
+  async searchDealsModifiedAfter(modifiedAfter: string, after?: string, limit = 100): Promise<{ results: HubSpotDeal[]; paging?: { next?: { after: string } } }> {
+    return this._searchModifiedObjects<HubSpotDeal>("deals", ["dealname", "dealstage", "amount", "closedate", "hs_lastmodifieddate"], modifiedAfter, after, limit);
   }
 
   // ── Notes ──────────────────────────────────────────────────────────────────
@@ -247,11 +260,8 @@ export class HubSpotClient {
     return this._request("POST", "/crm/v3/objects/notes", { properties });
   }
 
-  async getRecentlyModifiedNotes(after: string, limit = 100): Promise<{ results: HubSpotNote[]; paging?: { next?: { after: string } } }> {
-    const props = ["hs_note_body", "hs_body_preview", "hs_timestamp"].join(",");
-    let path = `/crm/v3/objects/notes?limit=${limit}&properties=${props}&sort=hs_lastmodifieddate`;
-    if (after) path += `&after=${after}`;
-    return this._request("GET", path);
+  async searchNotesModifiedAfter(modifiedAfter: string, after?: string, limit = 100): Promise<{ results: HubSpotNote[]; paging?: { next?: { after: string } } }> {
+    return this._searchModifiedObjects<HubSpotNote>("notes", ["hs_note_body", "hs_body_preview", "hs_timestamp", "hs_lastmodifieddate"], modifiedAfter, after, limit);
   }
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
@@ -264,11 +274,8 @@ export class HubSpotClient {
     return this._request("PATCH", `/crm/v3/objects/tasks/${id}`, { properties });
   }
 
-  async getRecentlyModifiedTasks(after: string, limit = 100): Promise<{ results: HubSpotTask[]; paging?: { next?: { after: string } } }> {
-    const props = ["hs_task_subject", "hs_task_body", "hs_task_status", "hs_task_priority", "hs_task_type", "hs_timestamp"].join(",");
-    let path = `/crm/v3/objects/tasks?limit=${limit}&properties=${props}&sort=hs_lastmodifieddate`;
-    if (after) path += `&after=${after}`;
-    return this._request("GET", path);
+  async searchTasksModifiedAfter(modifiedAfter: string, after?: string, limit = 100): Promise<{ results: HubSpotTask[]; paging?: { next?: { after: string } } }> {
+    return this._searchModifiedObjects<HubSpotTask>("tasks", ["hs_task_subject", "hs_task_body", "hs_task_status", "hs_task_priority", "hs_task_type", "hs_timestamp", "hs_lastmodifieddate"], modifiedAfter, after, limit);
   }
 
   // ── Associations ───────────────────────────────────────────────────────────
