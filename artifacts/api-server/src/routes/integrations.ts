@@ -700,10 +700,16 @@ router.get("/integrations/hubspot/config", async (req, res) => {
       return;
     }
 
-    const [lastSyncRow] = await db.select().from(hubspotSyncStateTable)
-      .where(eq(hubspotSyncStateTable.userId, userId))
-      .orderBy(desc(hubspotSyncStateTable.lastPolledAt))
-      .limit(1);
+    let lastSyncAt: Date | null = null;
+    try {
+      const [lastSyncRow] = await db.select().from(hubspotSyncStateTable)
+        .where(eq(hubspotSyncStateTable.userId, userId))
+        .orderBy(desc(hubspotSyncStateTable.lastPolledAt))
+        .limit(1);
+      lastSyncAt = lastSyncRow?.lastPolledAt ?? null;
+    } catch {
+      // Table may not exist yet — migration pending
+    }
 
     res.json({
       config: {
@@ -713,7 +719,7 @@ router.get("/integrations/hubspot/config", async (req, res) => {
         syncDirection: config.syncDirection,
         configured: true,
         customPropertiesCreated: true, // optimistic — check would be expensive
-        lastSyncAt: lastSyncRow?.lastPolledAt ?? null,
+        lastSyncAt,
       },
     });
   } catch (err) {

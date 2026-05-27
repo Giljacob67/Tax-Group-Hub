@@ -32,9 +32,9 @@ export interface PullResult {
 }
 
 async function getHubSpotConfig(userId: string): Promise<HubSpotConfig | null> {
-  const rows = await db.select().from(appConfigTable).where(
-    and(eq(appConfigTable.key, "integration:hubspot:access_token")),
-  ).limit(1);
+  const rows = await db.select().from(appConfigTable)
+    .where(eq(appConfigTable.key, "integration:hubspot:access_token"))
+    .limit(1);
 
   if (!rows[0]?.value) return null;
 
