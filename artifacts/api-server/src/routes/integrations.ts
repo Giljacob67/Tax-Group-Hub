@@ -1073,9 +1073,9 @@ router.get("/integrations/hubspot/lists-debug", async (req, res) => {
       results.v3_default = { error: err instanceof Error ? err.message : String(err) };
     }
 
-    // 2. v3 lists filtered by companies
+    // 2. v3 lists filtered by companies + DYNAMIC processing type
     try {
-      const rawCompanies = await (client as any)._request("GET", "/crm/v3/lists/?objectTypeId=0-2&limit=100");
+      const rawCompanies = await (client as any)._request("GET", "/crm/v3/lists/?objectTypeId=0-2&processingTypes=DYNAMIC&limit=100");
       results.v3_companies = {
         count: rawCompanies.lists?.length ?? 0,
         total: rawCompanies.total,
@@ -1083,6 +1083,17 @@ router.get("/integrations/hubspot/lists-debug", async (req, res) => {
       };
     } catch (err) {
       results.v3_companies = { error: err instanceof Error ? err.message : String(err) };
+    }
+
+    // 2b. v3 lists with ALL processing types
+    try {
+      const rawAll = await (client as any)._request("GET", "/crm/v3/lists/?objectTypeId=0-2&processingTypes=DYNAMIC&processingTypes=MANUAL&processingTypes=SNAPSHOT&limit=100");
+      results.v3_all = {
+        count: rawAll.lists?.length ?? 0,
+        total: rawAll.total,
+      };
+    } catch (err) {
+      results.v3_all = { error: err instanceof Error ? err.message : String(err) };
     }
 
     // 3. v1 contact lists
