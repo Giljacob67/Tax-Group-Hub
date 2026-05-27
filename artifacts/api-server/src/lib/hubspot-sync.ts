@@ -1,5 +1,5 @@
 import { db, appConfigTable, crmContactsTable, crmDealsTable, crmActivitiesTable, crmTasksTable, hubspotSyncStateTable, hubspotListMappingTable } from "@workspace/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { HubSpotClient, HubSpotCompany, HubSpotDeal, HubSpotNote, HubSpotTask, HubSpotList } from "@workspace/hubspot";
 import {
   mapContactToHubSpotCompany,
@@ -645,6 +645,24 @@ export async function runFullInboundSync(userId: string): Promise<{
   }
 
   const client = new HubSpotClient(config.accessToken, config.portalId);
+
+  // Reassign any contacts previously synced as "system" to the real userId
+  if (userId !== "system") {
+    try {
+      await db.update(crmContactsTable)
+        .set({ userId })
+        .where(and(
+          eq(crmContactsTable.userId, "system"),
+          sql`${crmContactsTable.hubspotId} IS NOT NULL`,
+        ));
+      // Also reassign sync state so incremental polling continues correctly
+      await db.update(hubspotSyncStateTable)
+        .set({ userId })
+        .where(eq(hubspotSyncStateTable.userId, "system"));
+    } catch (err) {
+      console.error("[HubSpot] Failed to reassign system contacts:", err);
+    }
+  }
 
   const [stateRows] = await Promise.all([
     db.select().from(hubspotSyncStateTable).where(eq(hubspotSyncStateTable.userId, userId)),

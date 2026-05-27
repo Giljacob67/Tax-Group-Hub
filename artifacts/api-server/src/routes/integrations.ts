@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { randomUUID } from "node:crypto";
 import {
   db, designGalleryTable, knowledgeChunksTable, knowledgeDocumentsTable,
-  appConfigTable, integrationLogsTable, hubspotSyncStateTable, hubspotListMappingTable,
+  appConfigTable, integrationLogsTable, crmContactsTable, hubspotSyncStateTable, hubspotListMappingTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, inArray, sql, isNull } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
@@ -995,25 +995,26 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
   const startTime = Date.now();
 
   try {
-    // Find all users with HubSpot configured and enabled
-    const tokenRows = await db.select().from(appConfigTable)
-      .where(eq(appConfigTable.key, "integration:hubspot:access_token"));
+    // Find real userId from existing CRM data — app_config is global (no userId column),
+    // but CRM records are per-user. Use the first non-"system" user with contacts.
+    let userId = "system";
+    try {
+      const [realUser] = await db.select({ userId: crmContactsTable.userId })
+        .from(crmContactsTable)
+        .where(sql`${crmContactsTable.userId} != 'system'`)
+        .limit(1);
+      if (realUser?.userId) userId = realUser.userId;
+    } catch { /* fall through to "system" */ }
 
     const results: Array<{ userId: string; companies: number; deals: number; notes: number; tasks: number }> = [];
     const errors: Array<{ userId: string; error: string }> = [];
 
-    for (const row of tokenRows) {
-      // userId is not a column on app_config — need to match via sync state
-      // For now, use "system" or extract from context
-      // Actually, app_config is scoped globally, not per-user in current schema
-      // We'll run sync only if token exists
+    const config = await getHubSpotConfig(userId);
+    if (config?.enabled && config.syncDirection !== "to_hubspot") {
       try {
-        const config = await getHubSpotConfig("system");
-        if (!config || !config.enabled || config.syncDirection === "to_hubspot") continue;
-
-        const summary = await runFullInboundSync("system");
+        const summary = await runFullInboundSync(userId);
         results.push({
-          userId: "system",
+          userId,
           companies: summary.companies.created + summary.companies.updated,
           deals: summary.deals.created + summary.deals.updated,
           notes: summary.notes.created + summary.notes.updated,
@@ -1021,7 +1022,7 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
         });
       } catch (err) {
         errors.push({
-          userId: "system",
+          userId,
           error: err instanceof Error ? err.message : String(err),
         });
       }
