@@ -317,6 +317,10 @@ export class HubSpotClient {
     return this._request("GET", `/crm/v3/properties/${objectType}`);
   }
 
+  async createPropertyGroup(objectType: string, name: string, label: string): Promise<void> {
+    await this._request("POST", `/crm/v3/properties/${objectType}/groups`, { name, label, displayOrder: -1 });
+  }
+
   async createCustomProperty(objectType: string, definition: Record<string, unknown>): Promise<HubSpotProperty> {
     return this._request("POST", `/crm/v3/properties/${objectType}`, definition);
   }

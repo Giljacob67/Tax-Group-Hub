@@ -159,6 +159,12 @@ export async function ensureCustomProperties(client: HubSpotClient): Promise<{ c
   const existing: string[] = [];
   const errors: string[] = [];
 
+  // Ensure property groups exist first
+  try { await client.createPropertyGroup("companies", "tax_group_hub", "Tax Group Hub"); }
+  catch (err) { /* group may already exist */ }
+  try { await client.createPropertyGroup("deals", "tax_group_hub", "Tax Group Hub"); }
+  catch (err) { /* group may already exist */ }
+
   async function ensure(def: CustomPropertyDef): Promise<void> {
     try {
       const existingProps = await client.getCustomProperties(def.objectType);
