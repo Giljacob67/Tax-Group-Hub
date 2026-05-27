@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   db, designGalleryTable, knowledgeChunksTable, knowledgeDocumentsTable,
   appConfigTable, integrationLogsTable, crmContactsTable, hubspotSyncStateTable, hubspotListMappingTable,
+  conversationsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, inArray, sql, isNull } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
@@ -995,15 +996,18 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
   const startTime = Date.now();
 
   try {
-    // Find real userId from existing CRM data — app_config is global (no userId column),
-    // but CRM records are per-user. Use the first non-"system" user with contacts.
+    // Find real userId — app_config is global (no userId column), but CRM records
+    // are per-user. Try conversations first, then contacts (non-system).
     let userId = "system";
     try {
-      const [realUser] = await db.select({ userId: crmContactsTable.userId })
-        .from(crmContactsTable)
-        .where(sql`${crmContactsTable.userId} != 'system'`)
-        .limit(1);
-      if (realUser?.userId) userId = realUser.userId;
+      const tables = [conversationsTable, crmContactsTable];
+      for (const table of tables) {
+        const [row] = await db.select({ userId: table.userId })
+          .from(table)
+          .where(sql`${table.userId} IS NOT NULL AND ${table.userId} != 'system'`)
+          .limit(1);
+        if (row?.userId) { userId = row.userId; break; }
+      }
     } catch { /* fall through to "system" */ }
 
     const results: Array<{ userId: string; companies: number; deals: number; notes: number; tasks: number }> = [];
