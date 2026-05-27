@@ -749,6 +749,58 @@ export async function syncAllListsToHubSpot(client: HubSpotClient, userId: strin
   return { synced, errors };
 }
 
+// ─── Auto-Segment ────────────────────────────────────────────────────────────
+
+const SEGMENT_RULES: Array<{ property: keyof typeof crmContactsTable.$inferSelect; prefix: string }> = [
+  { property: "regimeTributario", prefix: "regime:" },
+  { property: "porte", prefix: "porte:" },
+  { property: "status", prefix: "status:" },
+  { property: "aiRecommendedProduct", prefix: "produto:" },
+  { property: "uf", prefix: "uf:" },
+];
+
+export async function autoSegmentContacts(userId: string): Promise<{
+  contactsProcessed: number;
+  tagsApplied: number;
+  segments: Record<string, number>;
+}> {
+  let contactsProcessed = 0;
+  let tagsApplied = 0;
+  const segments: Record<string, number> = {};
+
+  const contacts = await db.select().from(crmContactsTable)
+    .where(eq(crmContactsTable.userId, userId));
+
+  for (const contact of contacts) {
+    contactsProcessed++;
+    const newTags: string[] = [];
+
+    for (const rule of SEGMENT_RULES) {
+      const value = contact[rule.property];
+      if (value && String(value).trim().length > 0) {
+        const tag = `${rule.prefix}${String(value).toLowerCase().replace(/\s+/g, "_")}`;
+        newTags.push(tag);
+        segments[tag] = (segments[tag] ?? 0) + 1;
+      }
+    }
+
+    if (newTags.length === 0) continue;
+
+    const existingTags = contact.tags ?? [];
+    const merged = [...new Set([...existingTags, ...newTags])];
+
+    // Only update if tags actually changed
+    if (merged.length !== existingTags.length || !merged.every(t => existingTags.includes(t))) {
+      await db.update(crmContactsTable)
+        .set({ tags: merged })
+        .where(eq(crmContactsTable.id, contact.id));
+      tagsApplied += newTags.filter(t => !existingTags.includes(t)).length;
+    }
+  }
+
+  return { contactsProcessed, tagsApplied, segments };
+}
+
 // ─── Full Inbound Sync (called by cron) ───────────────────────────────────────
 
 export async function runFullInboundSync(userId: string): Promise<{

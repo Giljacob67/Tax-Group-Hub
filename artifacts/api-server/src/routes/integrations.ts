@@ -18,6 +18,7 @@ import {
   getHubSpotConfig,
   runFullInboundSync,
   syncAllListsToHubSpot,
+  autoSegmentContacts,
 } from "../lib/hubspot-sync.js";
 
 const router: IRouter = Router();
@@ -1117,6 +1118,34 @@ router.get("/integrations/hubspot/lists-debug", async (req, res) => {
     res.json({ portalId: config.portalId, results });
   } catch (err) {
     apiError(res, 500, err instanceof Error ? err.message : "Failed to fetch lists");
+  }
+});
+
+/**
+ * POST /api/integrations/hubspot/auto-segment
+ * Auto-tags contacts based on properties (regime, porte, status, produto, uf).
+ * Optional ?sync=1 to push tags as lists to HubSpot.
+ */
+router.post("/integrations/hubspot/auto-segment", async (req, res) => {
+  try {
+    const userId = req.userId && req.userId !== "system" ? req.userId : "system";
+    if (userId === "system") { apiError(res, 401, "Login required"); return; }
+
+    const config = await getHubSpotConfig(userId);
+    const result = await autoSegmentContacts(userId);
+
+    let listsSynced: { synced: number; errors: number } | null = null;
+    if (req.query.sync === "1" && config?.accessToken) {
+      const client = new HubSpotClient(config.accessToken, config.portalId);
+      listsSynced = await syncAllListsToHubSpot(client, userId);
+    }
+
+    res.json({
+      ...result,
+      listsSynced,
+    });
+  } catch (err) {
+    apiError(res, 500, err instanceof Error ? err.message : "Auto-segment failed");
   }
 });
 
