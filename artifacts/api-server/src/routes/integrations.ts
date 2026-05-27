@@ -1048,4 +1048,27 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/integrations/hubspot/lists-debug
+ * Debug endpoint — fetches raw HubSpot lists data to diagnose issues.
+ */
+router.get("/integrations/hubspot/lists-debug", async (req, res) => {
+  try {
+    const userId = (req.userId && req.userId !== "system") ? req.userId : "system";
+    const config = await getHubSpotConfig(userId);
+    if (!config?.accessToken) { apiError(res, 400, "HubSpot not configured"); return; }
+
+    const client = new HubSpotClient(config.accessToken, config.portalId);
+    const raw = await client.getLists();
+
+    res.json({
+      listCount: raw.lists?.length ?? 0,
+      lists: raw.lists?.slice(0, 10).map(l => ({ listId: l.listId, name: l.name, objectTypeId: l.objectTypeId })),
+      rawKeys: Object.keys(raw),
+    });
+  } catch (err) {
+    apiError(res, 500, err instanceof Error ? err.message : "Failed to fetch lists");
+  }
+});
+
 export default router;
