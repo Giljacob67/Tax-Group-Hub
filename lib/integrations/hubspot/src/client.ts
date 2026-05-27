@@ -318,6 +318,12 @@ export class HubSpotClient {
     return this._request("GET", "/crm/v3/lists/?limit=100");
   }
 
+  async getListMemberships(listId: string, after?: string, limit = 100): Promise<{ results: Array<{ recordId: string }>; paging?: { next?: { after: string } } }> {
+    let path = `/crm/v3/lists/${listId}/memberships?limit=${limit}`;
+    if (after) path += `&after=${after}`;
+    return this._request("GET", path);
+  }
+
   // ── Custom Properties ──────────────────────────────────────────────────────
 
   async getCustomProperties(objectType: string): Promise<{ results: HubSpotProperty[] }> {

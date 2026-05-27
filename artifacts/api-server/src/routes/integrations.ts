@@ -1011,7 +1011,7 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
       } catch { /* fall through to "system" */ }
     }
 
-    const results: Array<{ userId: string; companies: number; deals: number; notes: number; tasks: number }> = [];
+    const results: Array<{ userId: string; companies: number; deals: number; notes: number; tasks: number; listsFound: number; contactsTagged: number }> = [];
     const errors: Array<{ userId: string; error: string }> = [];
 
     const config = await getHubSpotConfig(userId);
@@ -1024,6 +1024,8 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
           deals: summary.deals.created + summary.deals.updated,
           notes: summary.notes.created + summary.notes.updated,
           tasks: summary.tasks.created + summary.tasks.updated,
+          listsFound: summary.lists.listsFound,
+          contactsTagged: summary.lists.contactsTagged,
         });
       } catch (err) {
         errors.push({

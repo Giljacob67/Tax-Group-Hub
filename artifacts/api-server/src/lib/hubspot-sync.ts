@@ -554,6 +554,88 @@ export async function pullTasksFromHubSpot(
 
 // ─── Lists ────────────────────────────────────────────────────────────────────
 
+export async function pullListsFromHubSpot(
+  client: HubSpotClient,
+  userId: string,
+): Promise<{ listsFound: number; contactsTagged: number; errors: number }> {
+  let listsFound = 0;
+  let contactsTagged = 0;
+  let errors = 0;
+
+  try {
+    const { lists } = await client.getLists();
+
+    for (const list of lists) {
+      listsFound++;
+      const tagName = `hs:${list.name}`;
+
+      try {
+        // Get all memberships for this list (paginated)
+        const memberships = await pullPaginated<{ recordId: string }>(
+          (after) => client.getListMemberships(list.listId, after),
+        );
+
+        for (const member of memberships) {
+          try {
+            // Find Tax Group contact by hubspotId
+            const [contact] = await db.select({ id: crmContactsTable.id, tags: crmContactsTable.tags })
+              .from(crmContactsTable)
+              .where(and(
+                eq(crmContactsTable.hubspotId, member.recordId),
+                eq(crmContactsTable.userId, userId),
+              ))
+              .limit(1);
+
+            if (!contact) continue;
+
+            // Merge tags
+            const existingTags = contact.tags ?? [];
+            if (!existingTags.includes(tagName)) {
+              const newTags = [...existingTags, tagName];
+              await db.update(crmContactsTable)
+                .set({ tags: newTags })
+                .where(eq(crmContactsTable.id, contact.id));
+              contactsTagged++;
+            }
+          } catch {
+            errors++;
+          }
+        }
+
+        // Store list mapping
+        await db.insert(hubspotListMappingTable)
+          .values({
+            userId,
+            tagName,
+            hubspotListId: list.listId,
+            direction: "from_hubspot",
+          })
+          .onConflictDoUpdate({
+            target: [hubspotListMappingTable.userId, hubspotListMappingTable.tagName],
+            set: { hubspotListId: list.listId },
+          });
+      } catch (err) {
+        errors++;
+        console.error(`[HubSpot] pullLists error for list ${list.listId}:`, err);
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await writeIntegrationLog({
+      userId,
+      integrationKey: "hubspot",
+      integrationName: "HubSpot CRM",
+      eventType: "pull.lists",
+      direction: "inbound",
+      status: "error",
+      errorMessage: msg,
+      correlationId: `hs-pull-lists-${userId}`,
+    });
+  }
+
+  return { listsFound, contactsTagged, errors };
+}
+
 export async function pushTagListToHubSpot(
   client: HubSpotClient,
   userId: string,
@@ -635,13 +717,14 @@ export async function runFullInboundSync(userId: string): Promise<{
   deals: PullResult;
   notes: PullResult;
   tasks: PullResult;
+  lists: { listsFound: number; contactsTagged: number; errors: number };
 }> {
   const config = await getHubSpotConfig(userId);
   if (!config || !config.enabled) {
     throw new Error("HubSpot not configured or disabled");
   }
   if (config.syncDirection === "to_hubspot") {
-    return { companies: { created: 0, updated: 0, skipped: 0, errors: 0 }, deals: { created: 0, updated: 0, skipped: 0, errors: 0 }, notes: { created: 0, updated: 0, skipped: 0, errors: 0 }, tasks: { created: 0, updated: 0, skipped: 0, errors: 0 } };
+    return { companies: { created: 0, updated: 0, skipped: 0, errors: 0 }, deals: { created: 0, updated: 0, skipped: 0, errors: 0 }, notes: { created: 0, updated: 0, skipped: 0, errors: 0 }, tasks: { created: 0, updated: 0, skipped: 0, errors: 0 }, lists: { listsFound: 0, contactsTagged: 0, errors: 0 } };
   }
 
   const client = new HubSpotClient(config.accessToken, config.portalId);
@@ -677,7 +760,10 @@ export async function runFullInboundSync(userId: string): Promise<{
     pullTasksFromHubSpot(client, userId, stateMap.tasks ?? defaultDate),
   ]);
 
-  return { companies, deals, notes, tasks };
+  // Lists run after companies sync (needs hubspotId on contacts)
+  const lists = await pullListsFromHubSpot(client, userId);
+
+  return { companies, deals, notes, tasks, lists };
 }
 
 export { getHubSpotConfig };
