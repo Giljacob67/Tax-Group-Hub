@@ -996,19 +996,20 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
   const startTime = Date.now();
 
   try {
-    // Find real userId — app_config is global (no userId column), but CRM records
-    // are per-user. Try conversations first, then contacts (non-system).
-    let userId = "system";
-    try {
-      const tables = [conversationsTable, crmContactsTable];
-      for (const table of tables) {
-        const [row] = await db.select({ userId: table.userId })
-          .from(table)
-          .where(sql`${table.userId} IS NOT NULL AND ${table.userId} != 'system'`)
-          .limit(1);
-        if (row?.userId) { userId = row.userId; break; }
-      }
-    } catch { /* fall through to "system" */ }
+    // Prefer authenticated user's ID (browser call), fall back to DB lookup (cron call)
+    let userId = (req.userId && req.userId !== "system") ? req.userId : "system";
+    if (userId === "system") {
+      try {
+        const tables = [conversationsTable, crmContactsTable];
+        for (const table of tables) {
+          const [row] = await db.select({ userId: table.userId })
+            .from(table)
+            .where(sql`${table.userId} IS NOT NULL AND ${table.userId} != 'system'`)
+            .limit(1);
+          if (row?.userId) { userId = row.userId; break; }
+        }
+      } catch { /* fall through to "system" */ }
+    }
 
     const results: Array<{ userId: string; companies: number; deals: number; notes: number; tasks: number }> = [];
     const errors: Array<{ userId: string; error: string }> = [];
