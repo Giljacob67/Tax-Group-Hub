@@ -63,7 +63,7 @@ function fireIntegrationEvent(
       const hsDirection = hsMap["integration:hubspot:sync_direction"] || "bidirectional";
 
       if (hsToken && hsEnabled && hsDirection !== "from_hubspot") {
-        const token = hsToken.startsWith("enc:") ? decrypt(hsToken) : hsToken;
+        const token = decrypt(hsToken);
         const portalId = hsMap["integration:hubspot:portal_id"];
         const client = new HubSpotClient(token, portalId);
         await dispatchToHubSpot(client, eventType, payload, userId);

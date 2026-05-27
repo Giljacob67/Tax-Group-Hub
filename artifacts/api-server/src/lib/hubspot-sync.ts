@@ -45,7 +45,7 @@ async function getHubSpotConfig(userId: string): Promise<HubSpotConfig | null> {
   ]);
 
   const rawToken = rows[0].value;
-  const token = rawToken.startsWith("enc:") ? decrypt(rawToken) : rawToken;
+  const token = decrypt(rawToken);
 
   return {
     accessToken: token,
