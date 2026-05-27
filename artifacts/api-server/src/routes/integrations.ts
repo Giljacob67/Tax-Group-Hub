@@ -1011,7 +1011,7 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
       } catch { /* fall through to "system" */ }
     }
 
-    const results: Array<{ userId: string; companies: number; deals: number; notes: number; tasks: number; listsFound: number; contactsTagged: number }> = [];
+    const results: Array<{ userId: string; companies: number; deals: number; notes: number; tasks: number; listsFound: number; contactsTagged: number; listSource: string }> = [];
     const errors: Array<{ userId: string; error: string }> = [];
 
     const config = await getHubSpotConfig(userId);
@@ -1026,6 +1026,7 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
           tasks: summary.tasks.created + summary.tasks.updated,
           listsFound: summary.lists.listsFound,
           contactsTagged: summary.lists.contactsTagged,
+          listSource: summary.lists.source,
         });
       } catch (err) {
         errors.push({
@@ -1059,12 +1060,28 @@ router.get("/integrations/hubspot/lists-debug", async (req, res) => {
     if (!config?.accessToken) { apiError(res, 400, "HubSpot not configured"); return; }
 
     const client = new HubSpotClient(config.accessToken, config.portalId);
-    const raw = await client.getLists();
+
+    let v3Lists: unknown[] = [];
+    let v3Error = "";
+    try {
+      const raw = await client.getLists();
+      v3Lists = raw.lists?.map(l => ({ listId: l.listId, name: l.name, objectTypeId: l.objectTypeId })) ?? [];
+    } catch (err) {
+      v3Error = err instanceof Error ? err.message : String(err);
+    }
+
+    let v1Lists: unknown[] = [];
+    let v1Error = "";
+    try {
+      const raw = await client.getContactLists();
+      v1Lists = raw.lists?.map((l: { listId: number; name: string }) => ({ listId: String(l.listId), name: l.name })) ?? [];
+    } catch (err) {
+      v1Error = err instanceof Error ? err.message : String(err);
+    }
 
     res.json({
-      listCount: raw.lists?.length ?? 0,
-      lists: raw.lists?.slice(0, 10).map(l => ({ listId: l.listId, name: l.name, objectTypeId: l.objectTypeId })),
-      rawKeys: Object.keys(raw),
+      v3: { count: v3Lists.length, lists: v3Lists.slice(0, 10), error: v3Error || undefined },
+      v1: { count: v1Lists.length, lists: v1Lists.slice(0, 10), error: v1Error || undefined },
     });
   } catch (err) {
     apiError(res, 500, err instanceof Error ? err.message : "Failed to fetch lists");

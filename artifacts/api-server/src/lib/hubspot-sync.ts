@@ -557,38 +557,77 @@ export async function pullTasksFromHubSpot(
 export async function pullListsFromHubSpot(
   client: HubSpotClient,
   userId: string,
-): Promise<{ listsFound: number; contactsTagged: number; errors: number }> {
+): Promise<{ listsFound: number; contactsTagged: number; errors: number; source: string }> {
   let listsFound = 0;
   let contactsTagged = 0;
   let errors = 0;
+  let source = "none";
 
   try {
-    const { lists } = await client.getLists();
+    // Try v3 ILS Lists API first, fall back to v1 Contact Lists API
+    let listsData: { listId: string; name: string }[] = [];
 
-    for (const list of lists) {
+    try {
+      const { lists } = await client.getLists();
+      if (lists.length > 0) {
+        source = "v3_ils";
+        listsData = lists.map(l => ({ listId: l.listId, name: l.name }));
+      }
+    } catch {
+      // v3 failed, try v1
+    }
+
+    if (listsData.length === 0) {
+      try {
+        const v1Result = await client.getContactLists();
+        if (v1Result.lists?.length > 0) {
+          source = "v1_contacts";
+          listsData = v1Result.lists.map(l => ({ listId: String(l.listId), name: l.name }));
+        }
+      } catch {
+        // v1 also failed
+      }
+    }
+
+    for (const list of listsData) {
       listsFound++;
       const tagName = `hs:${list.name}`;
 
       try {
-        // Get all memberships for this list (paginated)
-        const memberships = await pullPaginated<{ recordId: string }>(
-          (after) => client.getListMemberships(list.listId, after),
-        );
+        // Get memberships — v3 uses after cursor, v1 uses vidOffset
+        const isV1 = source === "v1_contacts";
+        let allRecordIds: string[] = [];
 
-        for (const member of memberships) {
+        if (isV1) {
+          let offset: number | undefined;
+          let hasMore = true;
+          while (hasMore) {
+            const result = await client.getContactListMemberships(Number(list.listId), offset);
+            allRecordIds.push(...result.contacts.map(c => String(c.vid)));
+            hasMore = result["has-more"];
+            offset = result["vid-offset"];
+            if (allRecordIds.length > 5000) break; // safety cap
+          }
+        } else {
+          const memberships = await pullPaginated<{ recordId: string }>(
+            (after) => client.getListMemberships(list.listId, after),
+          );
+          allRecordIds = memberships.map(m => m.recordId);
+        }
+
+        for (const recordId of allRecordIds) {
           try {
-            // Find Tax Group contact by hubspotId
+            // For v1, vid is contact vid — find associated company via hubspotId
             const [contact] = await db.select({ id: crmContactsTable.id, tags: crmContactsTable.tags })
               .from(crmContactsTable)
               .where(and(
-                eq(crmContactsTable.hubspotId, member.recordId),
+                eq(crmContactsTable.hubspotId, recordId),
                 eq(crmContactsTable.userId, userId),
               ))
               .limit(1);
 
             if (!contact) continue;
 
-            // Merge tags
             const existingTags = contact.tags ?? [];
             if (!existingTags.includes(tagName)) {
               const newTags = [...existingTags, tagName];
@@ -633,7 +672,7 @@ export async function pullListsFromHubSpot(
     });
   }
 
-  return { listsFound, contactsTagged, errors };
+  return { listsFound, contactsTagged, errors, source };
 }
 
 export async function pushTagListToHubSpot(
@@ -717,14 +756,14 @@ export async function runFullInboundSync(userId: string): Promise<{
   deals: PullResult;
   notes: PullResult;
   tasks: PullResult;
-  lists: { listsFound: number; contactsTagged: number; errors: number };
+  lists: { listsFound: number; contactsTagged: number; errors: number; source: string };
 }> {
   const config = await getHubSpotConfig(userId);
   if (!config || !config.enabled) {
     throw new Error("HubSpot not configured or disabled");
   }
   if (config.syncDirection === "to_hubspot") {
-    return { companies: { created: 0, updated: 0, skipped: 0, errors: 0 }, deals: { created: 0, updated: 0, skipped: 0, errors: 0 }, notes: { created: 0, updated: 0, skipped: 0, errors: 0 }, tasks: { created: 0, updated: 0, skipped: 0, errors: 0 }, lists: { listsFound: 0, contactsTagged: 0, errors: 0 } };
+    return { companies: { created: 0, updated: 0, skipped: 0, errors: 0 }, deals: { created: 0, updated: 0, skipped: 0, errors: 0 }, notes: { created: 0, updated: 0, skipped: 0, errors: 0 }, tasks: { created: 0, updated: 0, skipped: 0, errors: 0 }, lists: { listsFound: 0, contactsTagged: 0, errors: 0, source: "none" } };
   }
 
   const client = new HubSpotClient(config.accessToken, config.portalId);

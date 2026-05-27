@@ -298,6 +298,7 @@ export class HubSpotClient {
 
   // ── Lists ──────────────────────────────────────────────────────────────────
 
+  // v3 ILS Lists API (marketing/segmentation lists)
   async createList(name: string, objectTypeId: "0-1" | "0-2" | "0-3"): Promise<HubSpotList> {
     return this._request("POST", "/crm/v3/lists/", {
       name,
@@ -321,6 +322,17 @@ export class HubSpotClient {
   async getListMemberships(listId: string, after?: string, limit = 100): Promise<{ results: Array<{ recordId: string }>; paging?: { next?: { after: string } } }> {
     let path = `/crm/v3/lists/${listId}/memberships?limit=${limit}`;
     if (after) path += `&after=${after}`;
+    return this._request("GET", path);
+  }
+
+  // v1 Contact Lists API (classic lists created in the HubSpot UI)
+  async getContactLists(): Promise<{ lists: Array<{ listId: number; name: string; dynamic: boolean; filters?: unknown }>; "has-more": boolean; offset: number }> {
+    return this._request("GET", "/contacts/v1/lists?count=100");
+  }
+
+  async getContactListMemberships(listId: number, offset?: number, count = 100): Promise<{ contacts: Array<{ vid: number; "is-contact": boolean }>; "has-more": boolean; "vid-offset"?: number }> {
+    let path = `/contacts/v1/lists/${listId}/contacts/all?count=${count}`;
+    if (offset) path += `&vidOffset=${offset}`;
     return this._request("GET", path);
   }
 
