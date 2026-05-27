@@ -529,6 +529,7 @@ function HubSpotConfigPanel() {
   if (configData && !synced) {
     setEnabled(configData.config.enabled);
     setSyncDirection(configData.config.syncDirection);
+    if (configData.config.portalId) setPortalId(configData.config.portalId);
     setSynced(true);
   }
 
