@@ -79,6 +79,7 @@ type Contact = {
   aiScore: number | null;
   aiScoreDetails: any | null;
   aiRecommendedProduct: string | null;
+  tags: string[] | null;
   source: string;
   lastEnrichedAt: string | null;
   createdAt: string;
@@ -625,15 +626,15 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
 
           <Dialog open={isSaveViewOpen} onOpenChange={setIsSaveViewOpen}>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="rounded-full px-3 h-8 text-xs text-muted-foreground border border-dashed border-border/50 ml-1">
-                <Plus className="w-3.5 h-3.5 mr-1" /> Salvar Filtro
+              <Button variant="outline" size="sm" className="rounded-full px-3 h-8 text-xs font-medium border-primary/30 text-primary hover:bg-primary/10 ml-1">
+                <Plus className="w-3.5 h-3.5 mr-1" /> Salvar Segmento
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-sm">
               <DialogHeader>
-                <DialogTitle>Salvar Visualização</DialogTitle>
+                <DialogTitle>Salvar Segmento</DialogTitle>
                 <DialogDescription>
-                  Dê um nome para esta combinação de filtros.
+                  Salve os filtros atuais como uma lista. Ficará visível na barra superior para acesso rápido.
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4">
@@ -1014,6 +1015,16 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                                 <><span>·</span><MapPin className="w-3 h-3" />{contact.cidade}/{contact.uf}</>
                               )}
                             </div>
+                            {contact.tags && contact.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {contact.tags.slice(0, 3).map(tag => (
+                                  <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground border border-border/50">{tag}</span>
+                                ))}
+                                {contact.tags.length > 3 && (
+                                  <span className="text-[10px] text-muted-foreground">+{contact.tags.length - 3}</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -1026,8 +1037,25 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                       <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         <ScoreBadge score={contact.aiScore} />
                       </td>
-                      <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
-                        <Badge variant="outline" className={`text-xs border ${s.color}`}>{s.label}</Badge>
+                      <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <Select value={contact.status} onValueChange={(v) => {
+                          fetch(`/api/crm/contacts/${contact.id}`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ status: v }),
+                          }).then(r => { if (r.ok) { queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] }); toast({ title: "Status atualizado!" }); } });
+                        }}>
+                          <SelectTrigger className="h-auto border-0 bg-transparent p-0 shadow-none ring-0 focus:ring-0">
+                            <Badge variant="outline" className={`text-xs border ${s.color} cursor-pointer hover:opacity-80`}>{s.label}</Badge>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                              <SelectItem key={k} value={k}>
+                                <Badge variant="outline" className={`text-xs border ${v.color}`}>{v.label}</Badge>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         {contact.aiRecommendedProduct
