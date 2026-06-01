@@ -95,18 +95,28 @@ async function resolveConnection(
 /**
  * Build a fallback chain: the resolved connection + other active connections
  * of the same usageType, ordered by lastTestStatus = ok first.
+ *
+ * The chain is strictly scoped to the caller's userId: a user-owned connection
+ * is paired with global connections (userId IS NULL), and a global caller sees
+ * only other global connections. This prevents one tenant's failed request from
+ * falling through to another tenant's BYOK connection.
  */
 async function buildFallbackChain(
   primary: typeof llmConnectionsTable.$inferSelect,
   userId?: string
 ): Promise<typeof llmConnectionsTable.$inferSelect[]> {
+  const tenancyClause = userId
+    ? or(eq(llmConnectionsTable.userId, userId), isNull(llmConnectionsTable.userId))
+    : isNull(llmConnectionsTable.userId);
+
   const all: typeof llmConnectionsTable.$inferSelect[] = await db
     .select()
     .from(llmConnectionsTable)
     .where(
       and(
         eq(llmConnectionsTable.usageType, primary.usageType),
-        eq(llmConnectionsTable.isActive, true)
+        eq(llmConnectionsTable.isActive, true),
+        tenancyClause
       )
     );
 
