@@ -201,8 +201,12 @@ function formatCurrencyShort(value: number): string {
 }
 
 // ─── XLSX Export ──────────────────────────────────────────────────────────────
+// SheetJS is bundled via npm (see package.json "xlsx") so the export works
+// offline, behind strict CSP, and without leaking the user's IP/headers to
+// a third-party CDN at runtime.
+import * as XLSX from "xlsx";
+
 async function exportContactsToXlsx(contacts: Contact[]) {
-  const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs" as any);
   const rows = contacts.map(c => ({
     "CNPJ": c.cnpj, "Razão Social": c.razaoSocial || "", "Nome Fantasia": c.nomeFantasia || "",
     "Regime Tributário": c.regimeTributario || "", "CNAE": c.cnae || "", "Porte": c.porte || "",
