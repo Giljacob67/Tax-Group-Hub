@@ -1,14 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
-import { put } from "@vercel/blob/client";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, UploadCloud, Trash2, Search, Loader2, File,
-  CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw,
-  ChevronDown, ChevronRight, Eye, Layers, Cpu, Copy,
-  Zap, Activity, Settings2,
+  FileText, UploadCloud, Trash2, Search, Database, Loader2, File,
+  CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw, ChevronDown,
+  ChevronRight, Eye, Layers, Cpu, HardDrive, FolderOpen,
+  List, Network, Copy, ExternalLink, Settings, Zap,
 } from "lucide-react";
 import {
   useListKnowledgeDocuments,
@@ -66,6 +65,7 @@ interface HealthData {
   errors: number;
   totalChunks: number;
   lastSync: string | null;
+  sources: Array<{ origin: string; count: number }>;
 }
 
 interface Chunk {
@@ -89,6 +89,15 @@ interface SearchResult {
   createdAt: string;
 }
 
+interface Source {
+  id: string;
+  label: string;
+  status: "active" | "planned";
+  total: number;
+  indexed: number;
+  errors: number;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
@@ -101,8 +110,11 @@ const PRODUCTS = ["RTI", "AFD", "REP", "Reforma Tributária", "Comercial", "Jur�
 
 const TABS = [
   { id: "documents", label: "Documentos", icon: FileText },
-  { id: "search",    label: "Busca Semântica", icon: Search },
-  { id: "status",    label: "Status", icon: Activity },
+  { id: "sources", label: "Fontes", icon: Network },
+  { id: "indexing", label: "Indexação", icon: Layers },
+  { id: "search", label: "Busca Semântica", icon: Search },
+  { id: "logs", label: "Logs", icon: List },
+  { id: "settings", label: "Configurações", icon: Settings },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -113,9 +125,9 @@ function statusColor(status: string) {
   switch (status) {
     case "processed": return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20";
     case "processing": return "text-blue-400 bg-blue-400/10 border-blue-400/20";
-    case "pending":   return "text-amber-400 bg-amber-400/10 border-amber-400/20";
-    case "error":     return "text-red-400 bg-red-400/10 border-red-400/20";
-    default:          return "text-muted-foreground bg-muted/10 border-border";
+    case "pending": return "text-amber-400 bg-amber-400/10 border-amber-400/20";
+    case "error": return "text-red-400 bg-red-400/10 border-red-400/20";
+    default: return "text-muted-foreground bg-muted/10 border-border";
   }
 }
 
@@ -123,9 +135,9 @@ function statusLabel(status: string) {
   switch (status) {
     case "processed": return "Indexado";
     case "processing": return "Processando";
-    case "pending":   return "Pendente";
-    case "error":     return "Erro";
-    default:          return status;
+    case "pending": return "Pendente";
+    case "error": return "Erro";
+    default: return status;
   }
 }
 
@@ -133,29 +145,46 @@ function StatusIcon({ status }: { status: string }) {
   switch (status) {
     case "processed": return <CheckCircle2 className="w-3.5 h-3.5" />;
     case "processing": return <Loader2 className="w-3.5 h-3.5 animate-spin" />;
-    case "pending":   return <Clock className="w-3.5 h-3.5" />;
-    case "error":     return <XCircle className="w-3.5 h-3.5" />;
-    default:          return null;
+    case "pending": return <Clock className="w-3.5 h-3.5" />;
+    case "error": return <XCircle className="w-3.5 h-3.5" />;
+    default: return null;
   }
 }
 
 function FileIcon({ type }: { type: string }) {
-  if (type.includes("pdf"))
-    return <FileText className="w-4 h-4 text-red-400" />;
+  if (type.includes("pdf")) return <FileText className="w-4 h-4 text-red-400" />;
   if (type.includes("word") || type.includes("docx") || type.includes("document"))
-    return <FileText className="w-4 h-4 text-primary/70" />;
+    return <FileText className="w-4 h-4 text-blue-400" />;
   return <File className="w-4 h-4 text-muted-foreground" />;
+}
+
+function OriginIcon({ origin }: { origin: string | null }) {
+  switch (origin) {
+    case "drive": return <HardDrive className="w-3.5 h-3.5 text-blue-400" />;
+    case "internal": return <Database className="w-3.5 h-3.5 text-purple-400" />;
+    case "system": return <Cpu className="w-3.5 h-3.5 text-muted-foreground" />;
+    default: return <UploadCloud className="w-3.5 h-3.5 text-primary" />;
+  }
+}
+
+function originLabel(origin: string | null) {
+  switch (origin) {
+    case "drive": return "Google Drive";
+    case "internal": return "Base Interna";
+    case "system": return "Sistema";
+    default: return "Upload";
+  }
 }
 
 function friendlyError(log: string | null): { cause: string; action: string } {
   if (!log) return { cause: "Erro desconhecido.", action: "Tente reindexar." };
   const l = log.toLowerCase();
   if (l.includes("embedding") || l.includes("api key") || l.includes("provider"))
-    return { cause: "Provedor de embeddings não configurado.", action: "Configure uma chave de API em Configurações → Central de Modelos." };
+    return { cause: "Provedor de embeddings não configurado.", action: "Configure uma chave de API na aba Configurações." };
   if (l.includes("pdf") || l.includes("parse") || l.includes("extract"))
-    return { cause: "PDF sem texto extraível ou corrompido.", action: "PDFs escaneados precisam de OCR. Tente exportar como texto." };
+    return { cause: "PDF sem texto extraível ou corrompido.", action: "Verifique o arquivo. PDFs escaneados precisam de OCR." };
   if (l.includes("mammoth") || l.includes("docx"))
-    return { cause: "Falha ao ler arquivo Word.", action: "Converta para PDF ou TXT e faça novo upload." };
+    return { cause: "Falha ao ler arquivo Word.", action: "Converta para PDF ou TXT e tente novamente." };
   if (l.includes("size") || l.includes("limit"))
     return { cause: "Arquivo grande demais.", action: "Limite: 50MB. Divida o documento." };
   if (l.includes("not found") || l.includes("enoent"))
@@ -163,45 +192,66 @@ function friendlyError(log: string | null): { cause: string; action: string } {
   return { cause: log.slice(0, 120), action: "Tente reindexar ou faça novo upload." };
 }
 
-// ─── UploadPanel ─────────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function HealthCard({ label, value, icon: Icon, color = "text-primary" }: {
+  label: string; value: number | string; icon: React.ElementType; color?: string;
+}) {
+  return (
+    <div className="bg-card border border-border/50 rounded-xl p-4 flex items-start gap-3">
+      <div className={`p-2 rounded-lg bg-background border border-border/50 shrink-0 ${color}`}>
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-xl font-bold tabular-nums leading-none">{value}</div>
+        <div className="text-xs text-muted-foreground mt-1 leading-tight">{label}</div>
+      </div>
+    </div>
+  );
+}
 
 function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState<{ name: string; done: number; total: number } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, string>>({});
   const [category, setCategory] = useState("");
   const [product, setProduct] = useState("");
   const [showOptions, setShowOptions] = useState(false);
 
+  const MAX_UPLOAD_BYTES = 6 * 1024 * 1024; // 6MB — aligned with backend limit
+
   const onDrop = useCallback(async (files: File[]) => {
     if (!files.length) return;
     setUploading(true);
+    const errors: string[] = [];
     let success = 0;
+    for (const file of files) {
+      // Pre-validate size before base64 encoding
+      if (file.size > MAX_UPLOAD_BYTES) {
+        errors.push(`${file.name}: excede 6MB`);
+        continue;
+      }
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setProgress({ name: file.name, done: i, total: files.length });
+      setUploadProgress((prev) => ({ ...prev, [file.name]: "Convertendo..." }));
       try {
-        const tokenRes = await fetch("/api/knowledge/upload-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name }),
-        });
-        const tokenData = await tokenRes.json().catch(() => ({}));
-        if (!tokenRes.ok || !tokenData.token || !tokenData.pathname) {
-          throw new Error(tokenData.error || "Falha ao obter token de upload");
-        }
+        // Encode as base64 JSON — multipart streaming is unreliable on Vercel Lambda
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        let binary = "";
+        for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+        const fileData = btoa(binary);
 
-        const blobResult = await put(tokenData.pathname, file, {
-          access: "private",
-          token: tokenData.token,
-        });
+        setUploadProgress((prev) => ({ ...prev, [file.name]: "Enviando..." }));
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
         const r = await fetch("/api/knowledge/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
-            blobUrl: blobResult.url,
+            fileData,
             filename: file.name,
             mimetype: file.type || "application/octet-stream",
             agentId: "global",
@@ -210,28 +260,36 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
             ...(product ? { product } : {}),
           }),
         });
-        const result = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error((result as any).error || `HTTP ${r.status}`);
+        clearTimeout(timeoutId);
+
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error((err as any).error || `HTTP ${r.status}`);
+        }
+        setUploadProgress((prev) => ({ ...prev, [file.name]: "Enviado ✓" }));
         success++;
       } catch (e: any) {
-        toast({ title: `Erro: ${file.name}`, description: e.message ?? "Falha no upload", variant: "destructive" });
+        const msg = e.name === "AbortError" ? "timeout (demorou mais de 60s)" : (e.message ?? "Falha no upload");
+        errors.push(`${file.name}: ${msg}`);
+        setUploadProgress((prev) => ({ ...prev, [file.name]: "Falhou" }));
       }
     }
-
-    setProgress(null);
     setUploading(false);
     if (success) {
-      toast({
-        title: `${success} arquivo(s) enviado(s)`,
-        description: files.length > 1
-          ? "Serão indexados em até 5 minutos."
-          : "Será indexado em instantes.",
-      });
+      toast({ title: `${success} arquivo(s) enviado(s)`, description: "Processamento em andamento." });
       onUploadDone();
     }
+    if (errors.length > 0) {
+      toast({
+        title: errors.length === 1 ? "Erro no upload" : `${errors.length} arquivos não foram enviados`,
+        description: errors.join("; ").slice(0, 200),
+        variant: "destructive",
+      });
+    }
+    setTimeout(() => setUploadProgress({}), 4000);
   }, [category, product, onUploadDone, toast]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     onDrop,
     accept: {
       "application/pdf": [".pdf"],
@@ -240,51 +298,51 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
       "text/plain": [".txt"],
       "text/markdown": [".md"],
     },
-    maxSize: 50 * 1024 * 1024,
-    disabled: uploading,
+    maxSize: MAX_UPLOAD_BYTES,
   });
 
   return (
     <div className="space-y-3">
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-          uploading
-            ? "border-primary/30 bg-primary/5 cursor-wait"
-            : isDragActive
-            ? "border-primary bg-primary/5 cursor-copy"
-            : "border-border/60 hover:border-primary/40 hover:bg-card/50 cursor-pointer"
+        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+          isDragActive ? "border-primary bg-primary/5" : "border-border/60 hover:border-primary/40 hover:bg-card/50"
         }`}
       >
         <input {...getInputProps()} />
         <div className="w-12 h-12 mx-auto bg-card border border-border/50 rounded-full flex items-center justify-center mb-3">
-          {uploading
-            ? <Loader2 className="w-6 h-6 text-primary animate-spin" />
-            : <UploadCloud className={`w-6 h-6 ${isDragActive ? "text-primary" : "text-muted-foreground"}`} />
-          }
+          {uploading ? <Loader2 className="w-6 h-6 text-primary animate-spin" /> : <UploadCloud className={`w-6 h-6 ${isDragActive ? "text-primary" : "text-muted-foreground"}`} />}
         </div>
-        {uploading && progress ? (
-          <div className="space-y-1">
-            <p className="font-semibold text-sm text-primary">Enviando {progress.name}…</p>
-            <p className="text-xs text-muted-foreground">
-              {progress.done + 1} de {progress.total} arquivo(s)
-            </p>
+        <p className="font-semibold text-sm">
+          {isDragActive ? "Solte os arquivos aqui..." : "Arraste arquivos ou clique para selecionar"}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, TXT, MD — até 6MB</p>
+        {fileRejections.length > 0 && (
+          <div className="mt-3 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2 max-w-md mx-auto">
+            {fileRejections.map(({ file, errors }) => (
+              <div key={file.name}>
+                <strong>{file.name}</strong>: {errors.map(e => e.message).join(", ")}
+              </div>
+            ))}
           </div>
-        ) : (
-          <>
-            <p className="font-semibold text-sm">
-              {isDragActive ? "Solte os arquivos aqui" : "Arraste arquivos ou clique para selecionar"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, TXT, MD — até 50MB por arquivo</p>
-          </>
+        )}
+        {Object.keys(uploadProgress).length > 0 && (
+          <div className="mt-3 space-y-1 max-w-md mx-auto">
+            {Object.entries(uploadProgress).map(([name, status]) => (
+              <div key={name} className="flex items-center justify-between text-xs bg-card rounded px-3 py-1.5 border border-border/50">
+                <span className="truncate max-w-[200px]" title={name}>{name}</span>
+                <span className={status === "Falhou" ? "text-destructive font-medium" : "text-primary font-medium"}>{status}</span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
       <button
         onClick={() => setShowOptions(!showOptions)}
-        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+        className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
       >
-        <Settings2 className="w-3.5 h-3.5" />
+        <Settings className="w-3.5 h-3.5" />
         Metadados opcionais
         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showOptions ? "rotate-180" : ""}`} />
       </button>
@@ -328,8 +386,6 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
   );
 }
 
-// ─── DocumentsTable ───────────────────────────────────────────────────────────
-
 function DocumentsTable({
   docs,
   onDelete,
@@ -348,10 +404,10 @@ function DocumentsTable({
   if (!docs.length) {
     return (
       <div className="text-center py-16 bg-card/30 rounded-xl border border-border/50">
-        <UploadCloud className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-        <h3 className="font-medium text-muted-foreground">Nenhum documento ainda</h3>
-        <p className="text-sm text-muted-foreground/70 max-w-sm mx-auto mt-1">
-          Adicione documentos tributários, propostas e materiais comerciais para que os agentes respondam com fontes confiáveis.
+        <Database className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+        <h3 className="font-medium">Base de conhecimento vazia</h3>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1">
+          Adicione documentos tributários, propostas, materiais comerciais ou bases internas para que os agentes respondam com fontes confiáveis.
         </p>
       </div>
     );
@@ -363,7 +419,8 @@ function DocumentsTable({
         <thead>
           <tr className="border-b border-border/50 bg-card/50">
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Documento</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden lg:table-cell">Categoria</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden md:table-cell">Origem</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden lg:table-cell">Categoria / Produto</th>
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Status</th>
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden md:table-cell">Chunks</th>
             <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden lg:table-cell">Data</th>
@@ -387,14 +444,19 @@ function DocumentsTable({
                       <div className="font-medium truncate max-w-[200px]" title={doc.filename}>{doc.filename}</div>
                       <div className="text-xs text-muted-foreground">{formatBytes(doc.fileSize)}</div>
                     </div>
-                    <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground/40 shrink-0 transition-transform ${expandedId === doc.id ? "rotate-90" : ""}`} />
+                    <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground/50 shrink-0 transition-transform ${expandedId === doc.id ? "rotate-90" : ""}`} />
+                  </div>
+                </td>
+                <td className="px-4 py-3 hidden md:table-cell">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <OriginIcon origin={doc.origin} />
+                    {originLabel(doc.origin)}
                   </div>
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <div className="flex flex-wrap gap-1">
                     {doc.category && <Badge variant="outline" className="text-xs">{doc.category}</Badge>}
                     {doc.product && <Badge variant="outline" className="text-xs border-primary/30 text-primary">{doc.product}</Badge>}
-                    {!doc.category && !doc.product && <span className="text-xs text-muted-foreground/50">—</span>}
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -407,16 +469,12 @@ function DocumentsTable({
                   <span className="text-muted-foreground tabular-nums">{doc.chunkCount > 0 ? doc.chunkCount : "—"}</span>
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">
-                  {(() => { try { return format(new Date(doc.createdAt), "dd/MM/yy"); } catch { return "—"; } })()}
+                  {format(new Date(doc.createdAt), "dd/MM/yy")}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                     {doc.chunkCount > 0 && (
-                      <button
-                        onClick={() => onViewChunks(doc)}
-                        className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                        title="Ver chunks indexados"
-                      >
+                      <button onClick={() => onViewChunks(doc)} className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="Ver chunks">
                         <Eye className="w-3.5 h-3.5" />
                       </button>
                     )}
@@ -424,25 +482,20 @@ function DocumentsTable({
                       onClick={() => onReindex(doc.id)}
                       disabled={reindexing.has(doc.id)}
                       className="p-1.5 text-muted-foreground hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-all disabled:opacity-40"
-                      title="Reindexar documento"
+                      title="Reindexar"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${reindexing.has(doc.id) ? "animate-spin" : ""}`} />
                     </button>
-                    <button
-                      onClick={() => onDelete(doc.id)}
-                      className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
-                      title="Excluir documento"
-                    >
+                    <button onClick={() => onDelete(doc.id)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all" title="Excluir">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </td>
               </tr>
-
               <AnimatePresence>
                 {expandedId === doc.id && (
                   <tr key={`${doc.id}-exp`}>
-                    <td colSpan={6} className="bg-card/20 px-6 py-4">
+                    <td colSpan={7} className="bg-card/20 px-6 py-4">
                       <motion.div
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -456,8 +509,8 @@ function DocumentsTable({
                               <div className="flex items-center gap-2 text-red-400 text-sm font-medium">
                                 <XCircle className="w-4 h-4" /> Falha no processamento
                               </div>
-                              <p className="text-sm"><span className="text-muted-foreground">Causa:</span> {cause}</p>
-                              <p className="text-sm"><span className="text-muted-foreground">Ação:</span> {action}</p>
+                              <div className="text-sm"><span className="text-muted-foreground">Causa:</span> {cause}</div>
+                              <div className="text-sm"><span className="text-muted-foreground">Ação:</span> {action}</div>
                               <button
                                 onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(doc.errorLog!); }}
                                 className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
@@ -467,22 +520,17 @@ function DocumentsTable({
                             </div>
                           );
                         })()}
-
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                          <div><p className="text-muted-foreground">Tipo</p><p className="font-medium mt-0.5">{doc.fileType}</p></div>
-                          <div><p className="text-muted-foreground">Tamanho</p><p className="font-medium mt-0.5">{formatBytes(doc.fileSize)}</p></div>
-                          <div><p className="text-muted-foreground">Chunks</p><p className="font-medium mt-0.5">{doc.chunkCount || "0"}</p></div>
-                          <div><p className="text-muted-foreground">Modelo</p><p className="font-medium mt-0.5">{doc.embeddingModel || "—"}</p></div>
-                          {doc.retries > 0 && (
-                            <div><p className="text-muted-foreground">Tentativas</p><p className="font-medium mt-0.5">{doc.retries}</p></div>
-                          )}
+                          <div><div className="text-muted-foreground">Tipo</div><div className="font-medium mt-0.5">{doc.fileType}</div></div>
+                          <div><div className="text-muted-foreground">Tamanho</div><div className="font-medium mt-0.5">{formatBytes(doc.fileSize)}</div></div>
+                          <div><div className="text-muted-foreground">Chunks</div><div className="font-medium mt-0.5">{doc.chunkCount || "0"}</div></div>
+                          <div><div className="text-muted-foreground">Modelo</div><div className="font-medium mt-0.5">{doc.embeddingModel || "—"}</div></div>
+                          {doc.retries > 0 && <div><div className="text-muted-foreground">Tentativas</div><div className="font-medium mt-0.5">{doc.retries}</div></div>}
                           {doc.tags?.length > 0 && (
                             <div className="col-span-2">
-                              <p className="text-muted-foreground">Tags</p>
+                              <div className="text-muted-foreground">Tags</div>
                               <div className="flex flex-wrap gap-1 mt-0.5">
-                                {doc.tags.map((t) => (
-                                  <span key={t} className="bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded">{t}</span>
-                                ))}
+                                {doc.tags.map((t) => <span key={t} className="bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded">{t}</span>)}
                               </div>
                             </div>
                           )}
@@ -500,7 +548,164 @@ function DocumentsTable({
   );
 }
 
-// ─── SemanticSearchTab ────────────────────────────────────────────────────────
+function SourcesTab({ sources, loading }: { sources: Source[]; loading: boolean }) {
+  const uploadSource = sources.find((s) => s.id === "upload");
+
+  if (loading) return <div className="animate-pulse h-40 bg-card/30 rounded-xl" />;
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card border border-border/50 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg"><UploadCloud className="w-5 h-5 text-primary" /></div>
+            <div>
+              <div className="font-semibold">Upload Manual</div>
+              <div className="text-xs text-muted-foreground">PDF, DOCX, TXT, MD — até 50MB</div>
+            </div>
+          </div>
+          <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-400/10 text-emerald-400 border border-emerald-400/20 font-medium">Ativo</span>
+        </div>
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div><div className="text-2xl font-bold tabular-nums">{uploadSource?.total ?? 0}</div><div className="text-xs text-muted-foreground">Total</div></div>
+          <div><div className="text-2xl font-bold tabular-nums text-emerald-400">{uploadSource?.indexed ?? 0}</div><div className="text-xs text-muted-foreground">Indexados</div></div>
+          <div><div className="text-2xl font-bold tabular-nums text-red-400">{uploadSource?.errors ?? 0}</div><div className="text-xs text-muted-foreground">Erros</div></div>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border/50 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-background border border-border/50 rounded-lg"><HardDrive className="w-5 h-5 text-muted-foreground" /></div>
+            <div>
+              <div className="font-semibold">Google Drive</div>
+              <div className="text-xs text-muted-foreground">Docs, Sheets, PDFs — sincronização automática</div>
+            </div>
+          </div>
+          <span className="text-xs px-2.5 py-1 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20 font-medium">Em preparação</span>
+        </div>
+        <div className="bg-amber-400/5 border border-amber-400/20 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-sm space-y-1">
+              <div className="font-medium text-amber-400">Integração em desenvolvimento</div>
+              <div className="text-muted-foreground text-xs">
+                Integração com Google Drive preparada para OAuth server-side seguro.
+                Nenhum token será exposto no frontend. Sincronização via API server com mesma pipeline de embeddings.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-2 text-sm text-muted-foreground mb-4">
+          <div className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/60" /> Arquitetura de sincronização planejada</div>
+          <div className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/60" /> OAuth 2.0 server-side (sem exposição de token)</div>
+          <div className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/60" /> Suporte a Google Docs, Sheets e PDFs</div>
+          <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 text-amber-400/60" /> Sincronização agendada e on-demand (pendente)</div>
+          <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 text-amber-400/60" /> Push notifications de alterações (pendente)</div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button disabled className="flex items-center justify-center gap-2 px-4 py-2 bg-muted/20 text-muted-foreground/50 rounded-lg text-sm cursor-not-allowed border border-border/30">
+            <HardDrive className="w-4 h-4" /> Conectar Google Drive
+          </button>
+          <button disabled className="flex items-center justify-center gap-2 px-4 py-2 bg-muted/20 text-muted-foreground/50 rounded-lg text-sm cursor-not-allowed border border-border/30">
+            <RefreshCw className="w-4 h-4" /> Sincronizar Agora
+          </button>
+        </div>
+      </div>
+
+      {[
+        { label: "Base Interna", desc: "Conteúdo gerado pelo sistema", Icon: Database },
+        { label: "CRM & Propostas", desc: "Documentos vinculados a deals e contatos", Icon: FolderOpen },
+      ].map(({ label, desc, Icon }) => (
+        <div key={label} className="bg-card/50 border border-border/30 rounded-xl p-5 opacity-60">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-background border border-border/50 rounded-lg"><Icon className="w-5 h-5 text-muted-foreground" /></div>
+              <div>
+                <div className="font-semibold text-muted-foreground">{label}</div>
+                <div className="text-xs text-muted-foreground/60">{desc}</div>
+              </div>
+            </div>
+            <span className="text-xs px-2.5 py-1 rounded-full bg-muted/10 text-muted-foreground border border-border/30 font-medium">Planejado</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function IndexingTab({ docs }: { docs: KnowledgeDoc[] }) {
+  const pending = docs.filter((d) => d.status === "pending" || d.status === "processing");
+  const indexed = docs.filter((d) => d.status === "processed");
+  const errors = docs.filter((d) => d.status === "error");
+
+  const STAGES = [
+    "Recebimento", "Extração", "Chunking", "Embeddings", "Indexação", "Agentes",
+];
+
+  function docStage(doc: KnowledgeDoc): number {
+    if (doc.status === "error") return -1;
+    if (doc.status === "pending") return 0;
+    if (doc.status === "processing") return 2;
+    if (doc.chunkCount > 0) return 5;
+    if (doc.status === "processed") return 3;
+    return 1;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-amber-400/5 border border-amber-400/20 rounded-xl p-4 text-center">
+          <div className="text-2xl font-bold text-amber-400 tabular-nums">{pending.length}</div>
+          <div className="text-sm font-medium mt-0.5">Aguardando / Processando</div>
+        </div>
+        <div className="bg-emerald-400/5 border border-emerald-400/20 rounded-xl p-4 text-center">
+          <div className="text-2xl font-bold text-emerald-400 tabular-nums">{indexed.length}</div>
+          <div className="text-sm font-medium mt-0.5">Indexados</div>
+        </div>
+        <div className="bg-red-400/5 border border-red-400/20 rounded-xl p-4 text-center">
+          <div className="text-2xl font-bold text-red-400 tabular-nums">{errors.length}</div>
+          <div className="text-sm font-medium mt-0.5">Com Erro</div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Pipeline por Documento</h3>
+        {!docs.length && <div className="text-center py-10 text-muted-foreground text-sm">Nenhum documento enviado ainda.</div>}
+        {docs.map((doc) => {
+          const stage = docStage(doc);
+          return (
+            <div key={doc.id} className="bg-card border border-border/50 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <FileIcon type={doc.fileType} />
+                  <span className="text-sm font-medium truncate max-w-[200px]">{doc.filename}</span>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full border font-medium flex items-center gap-1 ${statusColor(doc.status)}`}>
+                  <StatusIcon status={doc.status} /> {statusLabel(doc.status)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                {STAGES.map((s, idx) => {
+                  const done = stage >= idx;
+                  return (
+                    <div key={s} className="flex-1 flex flex-col items-center gap-1">
+                      <div className={`w-full h-1.5 rounded-full transition-colors ${
+                        stage === -1 && idx > 0 ? "bg-red-400/30" :
+                        done ? "bg-primary" : "bg-border/50"
+                      }`} />
+                      <span className={`text-[10px] text-center hidden lg:block leading-tight ${done ? "text-primary/70" : "text-muted-foreground/40"}`}>{s}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function SemanticSearchTab() {
   const { toast } = useToast();
@@ -562,19 +767,11 @@ function SemanticSearchTab() {
           </button>
         </div>
         <div className="flex gap-2">
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="bg-card border border-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary text-muted-foreground flex-1"
-          >
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className="bg-card border border-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary text-muted-foreground flex-1">
             <option value="">Todas as categorias</option>
             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <select
-            value={product}
-            onChange={(e) => setProduct(e.target.value)}
-            className="bg-card border border-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary text-muted-foreground flex-1"
-          >
+          <select value={product} onChange={(e) => setProduct(e.target.value)} className="bg-card border border-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary text-muted-foreground flex-1">
             <option value="">Todos os produtos</option>
             {PRODUCTS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
@@ -582,25 +779,21 @@ function SemanticSearchTab() {
       </form>
 
       {fallback && (
-        <div className="flex items-start gap-2 bg-amber-400/5 border border-amber-400/20 rounded-lg p-3">
+        <div className="flex items-start gap-2 bg-amber-400/5 border border-amber-400/20 rounded-lg p-3 text-sm">
           <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-400">
-            Embeddings indisponíveis — busca textual usada como fallback.
-            Configure um provedor de embeddings em Configurações → Central de Modelos.
-          </p>
+          <span className="text-amber-400 text-xs">Embeddings indisponíveis — busca textual usada como fallback. Configure um provedor de embeddings para busca semântica real.</span>
         </div>
       )}
 
       {searched && !loading && !results.length && (
         <div className="text-center py-10 text-muted-foreground text-sm">
-          Nenhum resultado para &quot;{query}&quot;.
-          {!fallback && " Verifique se há documentos indexados."}
+          Nenhum resultado para "{query}".{!fallback && " Verifique se há documentos indexados."}
         </div>
       )}
 
       {results.length > 0 && (
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">{results.length} resultado(s) para &quot;{query}&quot;</p>
+          <div className="text-xs text-muted-foreground">{results.length} resultado(s) para "{query}"</div>
           {results.map((r, i) => (
             <motion.div
               key={r.chunkId ?? `${r.documentId}-${i}`}
@@ -624,9 +817,12 @@ function SemanticSearchTab() {
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{r.content}</p>
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {(() => { try { return format(new Date(r.createdAt), "dd/MM/yy"); } catch { return "—"; } })()}
-                </p>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <OriginIcon origin={r.origin} />
+                  {originLabel(r.origin)}
+                  <span>·</span>
+                  <span>{format(new Date(r.createdAt), "dd/MM/yy")}</span>
+                </div>
                 <button
                   onClick={() => navigator.clipboard.writeText(r.content)}
                   className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
@@ -643,153 +839,159 @@ function SemanticSearchTab() {
         <div className="text-center py-12 text-muted-foreground">
           <Search className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">Teste a busca semântica nos documentos indexados.</p>
-          <p className="text-xs mt-1 opacity-70">Use perguntas naturais como os agentes fariam.</p>
+          <p className="text-xs mt-1">Use perguntas naturais como os agentes fariam.</p>
         </div>
       )}
     </div>
   );
 }
 
-// ─── StatusTab ────────────────────────────────────────────────────────────────
+function LogsTab({ docs }: { docs: KnowledgeDoc[] }) {
+  const events = docs
+    .flatMap((doc) => {
+      const evts: Array<{ doc: KnowledgeDoc; event: string; ts: string; status: string }> = [
+        { doc, event: "document.uploaded", ts: doc.createdAt, status: "ok" },
+      ];
+      if (doc.status === "processed") {
+        if (doc.chunkCount > 0) evts.push({ doc, event: "document.embedded", ts: doc.createdAt, status: "ok" });
+        evts.push({ doc, event: "document.indexed", ts: doc.createdAt, status: "ok" });
+      }
+      if (doc.status === "error") evts.push({ doc, event: "document.failed", ts: doc.createdAt, status: "error" });
+      if (doc.status === "processing") evts.push({ doc, event: "document.processing", ts: doc.createdAt, status: "info" });
+      return evts;
+    })
+    .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+    .slice(0, 100);
 
-const PIPELINE_STAGES = ["Recebido", "Extraído", "Chunks", "Embeddings", "Indexado"];
+  if (!events.length) {
+    return (
+      <div className="text-center py-12 text-muted-foreground text-sm">
+        <List className="w-8 h-8 mx-auto mb-3 opacity-30" />
+        Nenhum evento registrado ainda.
+      </div>
+    );
+  }
 
-function docStageIndex(doc: KnowledgeDoc): number {
-  if (doc.status === "error") return -1;
-  if (doc.status === "pending") return 0;
-  if (doc.status === "processing") return 2;
-  if (doc.chunkCount > 0) return 4;
-  if (doc.status === "processed") return 3;
-  return 1;
-}
+  const eventColor = (status: string) => {
+    switch (status) {
+      case "ok": return "text-emerald-400";
+      case "error": return "text-red-400";
+      case "info": return "text-blue-400";
+      default: return "text-muted-foreground";
+    }
+  };
 
-function StatusTab({ docs, health, loadingDocs }: {
-  docs: KnowledgeDoc[];
-  health: HealthData | null;
-  loadingDocs: boolean;
-}) {
-  const hasProcessing = docs.some((d) => d.status === "pending" || d.status === "processing");
+  const eventLabel: Record<string, string> = {
+    "document.uploaded": "Documento recebido",
+    "document.indexed": "Indexação concluída",
+    "document.embedded": "Embeddings gerados",
+    "document.failed": "Falha no processamento",
+    "document.processing": "Processando",
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Total", value: health?.total ?? docs.length, color: "text-foreground" },
-          { label: "Indexados", value: health?.indexed ?? 0, color: "text-emerald-400" },
-          { label: "Pendentes", value: health?.pending ?? 0, color: "text-amber-400" },
-          { label: "Com erro", value: health?.errors ?? 0, color: "text-red-400" },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-card border border-border/50 rounded-xl p-4">
-            <div className={`text-2xl font-bold tabular-nums ${color}`}>{value}</div>
-            <div className="text-xs text-muted-foreground mt-1">{label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Chunk count + last sync */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-card border border-border/50 rounded-xl p-4 flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-            <Layers className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <div className="text-xl font-bold tabular-nums">{health?.totalChunks ?? 0}</div>
-            <div className="text-xs text-muted-foreground">Chunks indexados</div>
-          </div>
-        </div>
-        <div className="bg-card border border-border/50 rounded-xl p-4 flex items-center gap-3">
-          <div className="p-2 bg-background border border-border/50 rounded-lg shrink-0">
-            <RefreshCw className="w-4 h-4 text-muted-foreground" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold">
-              {health?.lastSync
-                ? formatDistanceToNow(new Date(health.lastSync), { locale: ptBR, addSuffix: true })
-                : "—"}
-            </div>
-            <div className="text-xs text-muted-foreground">Última sincronização</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Embedding model */}
-      <div className="bg-card border border-border/50 rounded-xl p-4 flex items-center gap-3">
-        <div className="p-2 bg-background border border-border/50 rounded-lg shrink-0">
-          <Cpu className="w-4 h-4 text-muted-foreground" />
-        </div>
-        <div className="flex-1">
-          <div className="text-sm font-medium">Modelo de embeddings</div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            {docs.find((d) => d.embeddingModel)?.embeddingModel ?? "Google text-embedding / gemini-embedding-001"}
-            {" · "}
-            Chunk 800 palavras · Overlap 200 · Similaridade ≥ 0.25
-          </div>
-        </div>
-      </div>
-
-      {/* Processing notice */}
-      {hasProcessing && (
-        <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl p-4">
-          <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-primary">Documentos sendo processados</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              A indexação ocorre a cada 5 minutos. Pequenos arquivos processam imediatamente.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Pipeline by document */}
-      {docs.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Pipeline por documento</h3>
-          {loadingDocs ? (
-            <div className="space-y-2">
-              {[1, 2].map((i) => <div key={i} className="h-16 bg-card/50 rounded-xl animate-pulse" />)}
-            </div>
-          ) : (
-            docs.map((doc) => {
-              const stage = docStageIndex(doc);
-              return (
-                <div key={doc.id} className="bg-card border border-border/50 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileIcon type={doc.fileType} />
-                      <span className="text-sm font-medium truncate max-w-[200px]">{doc.filename}</span>
-                    </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium flex items-center gap-1 shrink-0 ${statusColor(doc.status)}`}>
-                      <StatusIcon status={doc.status} />
-                      {statusLabel(doc.status)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {PIPELINE_STAGES.map((s, idx) => {
-                      const done = stage >= idx;
-                      return (
-                        <div key={s} className="flex-1 flex flex-col items-center gap-1">
-                          <div className={`w-full h-1.5 rounded-full transition-colors ${
-                            stage === -1 && idx > 0 ? "bg-red-400/30" : done ? "bg-primary" : "bg-border/50"
-                          }`} />
-                          <span className={`text-[10px] text-center hidden lg:block leading-tight ${done ? "text-primary/70" : "text-muted-foreground/40"}`}>
-                            {s}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
+    <div className="rounded-xl border border-border/50 overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border/50 bg-card/50">
+            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Data/Hora</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Evento</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden md:table-cell">Documento</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden lg:table-cell">Detalhe</th>
+          </tr>
+        </thead>
+        <tbody>
+          {events.map((e, i) => (
+            <tr key={i} className="border-b border-border/30 hover:bg-card/30 transition-colors">
+              <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                {format(new Date(e.ts), "dd/MM HH:mm")}
+              </td>
+              <td className="px-4 py-2.5">
+                <span className={`text-xs font-mono ${eventColor(e.status)}`}>{e.event}</span>
+                <div className="text-xs text-muted-foreground">{eventLabel[e.event] ?? e.event}</div>
+              </td>
+              <td className="px-4 py-2.5 hidden md:table-cell">
+                <span className="text-xs truncate max-w-[180px] block">{e.doc.filename}</span>
+              </td>
+              <td className="px-4 py-2.5 hidden lg:table-cell text-xs text-muted-foreground">
+                {e.doc.status === "processed" && e.event === "document.indexed" && `${e.doc.chunkCount} chunks`}
+                {e.doc.status === "error" && e.event === "document.failed" && (
+                  <span className="text-red-400/80 truncate block max-w-[200px]">{e.doc.errorLog?.slice(0, 80)}</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-// ─── ChunksModal ──────────────────────────────────────────────────────────────
+function SettingsTab() {
+  return (
+    <div className="space-y-5">
+      <div className="bg-card border border-border/50 rounded-xl p-5">
+        <h3 className="font-semibold mb-1">Provedor de Embeddings</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          A Base de Conhecimento usa o mesmo provedor configurado na Central de Modelos IA.
+        </p>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center gap-2 p-3 bg-background rounded-lg border border-border/50">
+            <Cpu className="w-4 h-4 text-primary shrink-0" />
+            <div>
+              <div className="font-medium">Google text-embedding-004</div>
+              <div className="text-xs text-muted-foreground">Dimensões: 768 · Recomendado para produção</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-3 bg-background rounded-lg border border-border/50">
+            <Database className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div>
+              <div className="font-medium text-muted-foreground">Ollama (nomic-embed-text)</div>
+              <div className="text-xs text-muted-foreground">Fallback local · Configure URL do servidor Ollama</div>
+            </div>
+          </div>
+        </div>
+        <a href="/settings" className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-3">
+          <ExternalLink className="w-3 h-3" /> Gerenciar chaves de API
+        </a>
+      </div>
+
+      <div className="bg-card border border-border/50 rounded-xl p-5">
+        <h3 className="font-semibold mb-3">Parâmetros de Indexação</h3>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          {[
+            ["Tamanho do chunk", "800 palavras"],
+            ["Sobreposição (overlap)", "200 palavras"],
+            ["Similaridade mínima", "0.25 (cosine)"],
+            ["Resultados por busca", "8 chunks"],
+          ].map(([k, v]) => (
+            <div key={k} className="p-3 bg-background rounded-lg border border-border/50">
+              <div className="text-xs text-muted-foreground">{k}</div>
+              <div className="font-semibold tabular-nums mt-0.5">{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-card border border-border/50 rounded-xl p-5">
+        <h3 className="font-semibold mb-3">Segurança</h3>
+        <div className="space-y-2 text-sm text-muted-foreground">
+          {[
+            "Uploads validados por tipo e extensão",
+            "Limite de 50MB por arquivo",
+            "Chaves de API não expostas no frontend",
+            "Documentos escopados por usuário",
+            "Logs sem exposição de conteúdo sensível",
+          ].map((item) => (
+            <div key={item} className="flex items-center gap-2">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> {item}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ChunksModal({ doc, onClose }: { doc: KnowledgeDoc; onClose: () => void }) {
   const [chunks, setChunks] = useState<Chunk[]>([]);
@@ -818,11 +1020,9 @@ function ChunksModal({ doc, onClose }: { doc: KnowledgeDoc; onClose: () => void 
             Chunks — {doc.filename}
           </DialogTitle>
         </DialogHeader>
-        <p className="text-xs text-muted-foreground mb-3">{total} chunk(s) indexados</p>
+        <div className="text-xs text-muted-foreground mb-3">{total} chunk(s) indexados</div>
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-card/50 rounded-xl animate-pulse" />)}
-          </div>
+          <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-20 bg-card/50 rounded-xl animate-pulse" />)}</div>
         ) : (
           <div className="space-y-3">
             {chunks.map((c) => (
@@ -831,11 +1031,7 @@ function ChunksModal({ doc, onClose }: { doc: KnowledgeDoc; onClose: () => void 
                   <span className="font-mono">#{c.index}</span>
                   <div className="flex items-center gap-3">
                     <span>~{c.tokens} tokens</span>
-                    {c.hasEmbedding && (
-                      <span className="text-emerald-400 flex items-center gap-1">
-                        <Zap className="w-3 h-3" /> embedding
-                      </span>
-                    )}
+                    {c.hasEmbedding && <span className="text-emerald-400 flex items-center gap-1"><Zap className="w-3 h-3" /> embedding</span>}
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed line-clamp-5">{c.content}</p>
@@ -843,21 +1039,9 @@ function ChunksModal({ doc, onClose }: { doc: KnowledgeDoc; onClose: () => void 
             ))}
             {pages > 1 && (
               <div className="flex items-center justify-between pt-2">
-                <button
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                  className="text-xs px-3 py-1.5 bg-card border border-border rounded-lg disabled:opacity-40 hover:border-primary transition-colors"
-                >
-                  Anterior
-                </button>
+                <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="text-xs px-3 py-1.5 bg-card border border-border rounded-lg disabled:opacity-40 hover:border-primary transition-colors">Anterior</button>
                 <span className="text-xs text-muted-foreground">{page} / {pages}</span>
-                <button
-                  disabled={page >= pages}
-                  onClick={() => setPage((p) => p + 1)}
-                  className="text-xs px-3 py-1.5 bg-card border border-border rounded-lg disabled:opacity-40 hover:border-primary transition-colors"
-                >
-                  Próximo
-                </button>
+                <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="text-xs px-3 py-1.5 bg-card border border-border rounded-lg disabled:opacity-40 hover:border-primary transition-colors">Próximo</button>
               </div>
             )}
           </div>
@@ -879,14 +1063,14 @@ export default function KnowledgeBase() {
   const [chunksDoc, setChunksDoc] = useState<KnowledgeDoc | null>(null);
   const [reindexing, setReindexing] = useState<Set<string>>(new Set());
   const [health, setHealth] = useState<HealthData | null>(null);
+  const [sources, setSources] = useState<Source[]>([]);
+  const [sourcesLoading, setSourcesLoading] = useState(true);
 
   const { data: docsData, isLoading: isLoadingDocs } = useListKnowledgeDocuments(undefined, {
     query: {
       refetchInterval: (data: any) => {
-        const hasPending = data?.documents?.some(
-          (d: any) => d.status === "pending" || d.status === "processing",
-        );
-        return hasPending ? 5000 : false;
+        const hasPending = data?.documents?.some((d: any) => d.status === "pending" || d.status === "processing");
+        return hasPending ? 8000 : false;
       },
     } as any,
   });
@@ -894,6 +1078,7 @@ export default function KnowledgeBase() {
   const docs: KnowledgeDoc[] = (docsData?.documents ?? []) as unknown as KnowledgeDoc[];
   const deleteMutation = useDeleteKnowledgeDocument();
 
+  // Stable key: only refetch health when count or status distribution changes
   const docsSummaryKey = docs.map((d) => `${d.id}:${d.status}`).join(",");
 
   useEffect(() => {
@@ -903,6 +1088,20 @@ export default function KnowledgeBase() {
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docsSummaryKey]);
+
+  // Stable key for sources: only re-fetch when count changes
+  const docsCountKey = docs.length;
+
+  useEffect(() => {
+    if (activeTab !== "sources") return;
+    setSourcesLoading(true);
+    fetch("/api/knowledge/sources")
+      .then((r) => r.json())
+      .then((d: any) => setSources(d.sources ?? []))
+      .catch(() => {})
+      .finally(() => setSourcesLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, docsCountKey]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -922,7 +1121,7 @@ export default function KnowledgeBase() {
       const r = await fetch(`/api/knowledge/${id}/reindex`, { method: "POST" });
       const d = await r.json();
       if (!r.ok) throw new Error((d as any).error ?? "Falha ao reindexar");
-      toast({ title: "Reindexação iniciada", description: "Será processado em até 5 minutos." });
+      toast({ title: "Reindexação iniciada", description: (d as any).message });
       setTimeout(() => queryClient.invalidateQueries({ queryKey: getListKnowledgeDocumentsQueryKey() }), 1500);
     } catch (e: any) {
       toast({ title: "Erro ao reindexar", description: e.message, variant: "destructive" });
@@ -930,24 +1129,31 @@ export default function KnowledgeBase() {
     setReindexing((prev) => { const s = new Set(prev); s.delete(id); return s; });
   };
 
-  const invalidateDocs = () =>
-    queryClient.invalidateQueries({ queryKey: getListKnowledgeDocumentsQueryKey() });
+  const lastSyncDisplay = health?.lastSync
+    ? formatDistanceToNow(new Date(health.lastSync), { locale: ptBR, addSuffix: true })
+    : "—";
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background h-full">
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-
-        {/* Header */}
+    <div className="flex-1 overflow-y-auto bg-background">
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Base de Conhecimento</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Documentos tributários, propostas e materiais que orientam as respostas dos agentes.
+          <h1 className="text-3xl font-bold tracking-tight">Base de Conhecimento</h1>
+          <p className="text-muted-foreground mt-1 text-sm max-w-2xl">
+            Centralize documentos, propostas, materiais tributários e fontes internas para orientar os agentes da Tax Group.
           </p>
         </div>
 
-        {/* Tabs */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <HealthCard label="Total" value={health?.total ?? (isLoadingDocs ? "…" : docs.length)} icon={FileText} />
+          <HealthCard label="Indexados" value={health?.indexed ?? 0} icon={CheckCircle2} color="text-emerald-400" />
+          <HealthCard label="Pendentes" value={health?.pending ?? 0} icon={Clock} color="text-amber-400" />
+          <HealthCard label="Erros" value={health?.errors ?? 0} icon={XCircle} color="text-red-400" />
+          <HealthCard label="Chunks" value={health?.totalChunks ?? 0} icon={Layers} />
+          <HealthCard label="Última Sync" value={lastSyncDisplay} icon={RefreshCw} color="text-muted-foreground" />
+        </div>
+
         <div className="border-b border-border/50">
-          <div className="flex gap-1 -mb-px">
+          <div className="flex gap-1 -mb-px overflow-x-auto">
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -965,22 +1171,19 @@ export default function KnowledgeBase() {
           </div>
         </div>
 
-        {/* Tab content */}
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.12 }}
+            transition={{ duration: 0.15 }}
           >
             {activeTab === "documents" && (
               <div className="space-y-5">
-                <UploadPanel onUploadDone={invalidateDocs} />
+                <UploadPanel onUploadDone={() => queryClient.invalidateQueries({ queryKey: getListKnowledgeDocumentsQueryKey() })} />
                 {isLoadingDocs ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map((i) => <div key={i} className="h-14 bg-card/50 rounded-xl animate-pulse" />)}
-                  </div>
+                  <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-14 bg-card/50 rounded-xl animate-pulse" />)}</div>
                 ) : (
                   <DocumentsTable
                     docs={docs}
@@ -992,31 +1195,26 @@ export default function KnowledgeBase() {
                 )}
               </div>
             )}
-
+            {activeTab === "sources" && <SourcesTab sources={sources} loading={sourcesLoading} />}
+            {activeTab === "indexing" && <IndexingTab docs={docs} />}
             {activeTab === "search" && <SemanticSearchTab />}
-
-            {activeTab === "status" && (
-              <StatusTab docs={docs} health={health} loadingDocs={isLoadingDocs} />
-            )}
+            {activeTab === "logs" && <LogsTab docs={docs} />}
+            {activeTab === "settings" && <SettingsTab />}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir documento?</AlertDialogTitle>
             <AlertDialogDescription>
-              O documento e todos os seus chunks serão removidos permanentemente da base de conhecimento.
+              O documento e todos os seus chunks serão removidos da base de conhecimento. Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
