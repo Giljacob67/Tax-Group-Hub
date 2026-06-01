@@ -15,6 +15,13 @@
       "when": 1748851200000,
       "tag": "0001_pgvector_and_rag",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1748937600000,
+      "tag": "0002_hubspot_and_blob",
+      "breakpoints": true
     }
   ]
 }
