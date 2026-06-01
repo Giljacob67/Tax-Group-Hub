@@ -7,8 +7,14 @@ import { isRealUser } from "../middlewares/auth.js";
 import { discoverModels } from "../lib/model-discovery.js";
 import { callLLM } from "../lib/llm-client.js";
 import { healthCheckConnections } from "../lib/llm-router.js";
-import { validateIdParam } from "../lib/validation.js";
+import { validateIdParam, validateSafeUrl, validateWhitelist } from "../lib/validation.js";
 import { runDiagnostics, validateCredentials, testCapability } from "../lib/llm-diagnostics.js";
+
+const PROVIDER_IDS = [
+  "openai", "anthropic", "google", "openrouter",
+  "ollama", "ollama_cloud", "custom_openai",
+] as const;
+type ProviderId = typeof PROVIDER_IDS[number];
 
 const router: IRouter = Router();
 
@@ -119,19 +125,63 @@ router.get("/llm/providers", (_req, res) => {
   });
 });
 
+// ─── POST /api/llm/validate — Test credentials without saving ─────────────────
+// Used by the Model Hub wizard (ConnectionWizardV2) to give instant feedback
+// before the user commits the connection to the database.
+router.post("/llm/validate", async (req, res) => {
+  try {
+    const body = req.body as { provider?: string; apiKey?: string; baseUrl?: string; modelId?: string };
+    const provider = validateWhitelist(body.provider, PROVIDER_IDS);
+    if (!provider) {
+      apiError(res, 400, "provider inválido.");
+      return;
+    }
+    if (!body.apiKey || typeof body.apiKey !== "string") {
+      apiError(res, 400, "apiKey é obrigatório.");
+      return;
+    }
+
+    let baseUrl: string | undefined;
+    if (body.baseUrl) {
+      const safe = await validateSafeUrl(body.baseUrl.trim());
+      if (!safe) {
+        apiError(res, 400, "baseUrl inválida ou aponta para rede privada/metadata (SSRF protection).");
+        return;
+      }
+      baseUrl = safe;
+    } else if (provider === "ollama" || provider === "ollama_cloud" || provider === "custom_openai") {
+      apiError(res, 400, "baseUrl é obrigatório para este provedor.");
+      return;
+    }
+
+    const results = await validateCredentials(provider, body.apiKey, baseUrl);
+    const ok = results.every((r) => r.ok);
+    res.json({ success: true, ok, provider, results });
+  } catch (err: any) {
+    console.error("[LLM] validate error:", err);
+    apiError(res, 500, err?.message || "Falha ao validar credenciais.");
+  }
+});
+
 // ─── POST /api/llm/discover — Fetch available models from a provider ──────────
 router.post("/llm/discover", async (req, res) => {
   try {
-    const { provider, apiKey, baseUrl } = req.body as {
-      provider: string;
-      apiKey: string;
-      baseUrl?: string;
-    };
-    if (!provider || !apiKey) {
+    const body = req.body as { provider?: string; apiKey?: string; baseUrl?: string };
+    const provider = validateWhitelist(body.provider, PROVIDER_IDS);
+    if (!provider || !body.apiKey) {
       apiError(res, 400, "provider and apiKey are required");
       return;
     }
-    const result = await discoverModels(provider, apiKey, baseUrl);
+    let baseUrl: string | undefined;
+    if (body.baseUrl) {
+      const safe = await validateSafeUrl(body.baseUrl);
+      if (!safe) {
+        apiError(res, 400, "baseUrl inválida ou aponta para rede privada/metadata.");
+        return;
+      }
+      baseUrl = safe;
+    }
+    const result = await discoverModels(provider, body.apiKey, baseUrl);
     res.json(result);
   } catch (err: any) {
     console.error("[LLM] discover error:", err);
@@ -189,6 +239,23 @@ router.post("/llm/connections", async (req, res) => {
       apiError(res, 400, "provider, apiKey and modelId are required");
       return;
     }
+    const provider = validateWhitelist(body.provider, PROVIDER_IDS);
+    if (!provider) {
+      apiError(res, 400, "provider inválido.");
+      return;
+    }
+    let baseUrl: string | undefined;
+    if (body.baseUrl) {
+      const safe = await validateSafeUrl(body.baseUrl);
+      if (!safe) {
+        apiError(res, 400, "baseUrl inválida ou aponta para rede privada/metadata.");
+        return;
+      }
+      baseUrl = safe;
+    } else if (provider === "ollama" || provider === "ollama_cloud" || provider === "custom_openai") {
+      apiError(res, 400, "baseUrl é obrigatório para este provedor.");
+      return;
+    }
 
     const encryptedKey = encrypt(body.apiKey.trim());
     const effectiveUsageType = body.usageType || "chat";
@@ -209,8 +276,8 @@ router.post("/llm/connections", async (req, res) => {
       .values({
         userId: isRealUser(userId) ? userId : null,
         name: body.name || `${body.provider} — ${body.modelId}`,
-        provider: body.provider,
-        baseUrl: body.baseUrl || null,
+        provider,
+        baseUrl: baseUrl || null,
         apiKey: encryptedKey,
         modelId: body.modelId,
         modelName: body.modelName || body.modelId,
@@ -245,6 +312,7 @@ router.put("/llm/connections/:id", async (req, res) => {
 
     const body = req.body as Partial<{
       name: string;
+      provider: string;
       baseUrl: string;
       apiKey: string;
       modelId: string;
@@ -262,8 +330,21 @@ router.put("/llm/connections/:id", async (req, res) => {
     }>;
 
     const updateData: Record<string, any> = { updatedAt: new Date() };
+    if (body.provider !== undefined) {
+      const wp = validateWhitelist(body.provider, PROVIDER_IDS);
+      if (!wp) { apiError(res, 400, "provider inválido."); return; }
+      updateData.provider = wp;
+    }
     if (body.name !== undefined) updateData.name = body.name;
-    if (body.baseUrl !== undefined) updateData.baseUrl = body.baseUrl || null;
+    if (body.baseUrl !== undefined) {
+      if (!body.baseUrl) {
+        updateData.baseUrl = null;
+      } else {
+        const safe = await validateSafeUrl(body.baseUrl);
+        if (!safe) { apiError(res, 400, "baseUrl inválida ou privada."); return; }
+        updateData.baseUrl = safe;
+      }
+    }
     if (body.apiKey !== undefined) updateData.apiKey = encrypt(body.apiKey.trim());
     if (body.modelId !== undefined) updateData.modelId = body.modelId;
     if (body.modelName !== undefined) updateData.modelName = body.modelName;
