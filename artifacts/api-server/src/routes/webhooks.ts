@@ -474,12 +474,28 @@ router.post("/webhooks/whatsapp/:channelId", async (req, res) => {
 });
 
 /**
- * POST /api/webhooks/crm/inbound/:tenantId
+ * POST /api/webhooks/crm/inbound
  * Generic inbound webhook to receive leads from external systems (RD Station, Meta Ads, Typeform).
+ *
+ * Auth: `x-crm-webhook-secret` shared secret (CRON-style). The tenant id is
+ * read from `x-tenant-id` header — never from the URL — so the secret cannot
+ * be used to write into an arbitrary tenant without a matching secret + id.
  */
-router.post("/webhooks/crm/inbound/:tenantId", async (req, res) => {
-  const { tenantId } = req.params;
+router.post("/webhooks/crm/inbound", async (req, res) => {
   const reqId = req.id;
+
+  const expectedSecret = process.env.CRM_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET;
+  const providedSecret = req.headers["x-crm-webhook-secret"] || req.headers["x-webhook-secret"];
+  if (!expectedSecret || typeof providedSecret !== "string" || !safeCompare(providedSecret, expectedSecret)) {
+    res.status(401).json({ error: "Invalid or missing webhook secret" });
+    return;
+  }
+
+  const tenantId = req.headers["x-tenant-id"];
+  if (typeof tenantId !== "string" || tenantId.trim() === "" || ["system", "default", "demo-user"].includes(tenantId)) {
+    res.status(400).json({ error: "Invalid or missing x-tenant-id header" });
+    return;
+  }
 
   const parsed = CrmInboundPayload.safeParse(req.body);
   if (!parsed.success) {
