@@ -50,6 +50,9 @@ Thumbs.db
 .cache/
 .local/
 
+# Vercel project metadata
+.vercel/
+
 # Environment variables
 .env
 .env.local
