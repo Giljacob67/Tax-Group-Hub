@@ -77,6 +77,9 @@ import GlobalTimeline from "@/components/crm/GlobalTimeline";
 import AutomationsPanel from "@/components/crm/AutomationsPanel";
 import TodayView from "@/components/crm/TodayView";
 import PipelineManager from "@/components/crm/PipelineManager";
+import AlertsPanel from "@/components/crm/AlertsPanel";
+import NextStepCard from "@/components/crm/NextStepCard";
+import BriefingChecklist from "@/components/crm/BriefingChecklist";
 import { CompanyAvatar } from "@/components/crm/CompanyAvatar";
 import {
   CONTACT_STATUSES, CONTACT_STATUS_LABELS, CONTACT_STATUS_COLORS,
@@ -365,6 +368,7 @@ export default function CRMPage() {
                 <TabsTrigger value="pipeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Pipeline</TabsTrigger>
                 <TabsTrigger value="contacts" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Empresas</TabsTrigger>
                 <TabsTrigger value="timeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Atividades</TabsTrigger>
+                <TabsTrigger value="alerts" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Alertas</TabsTrigger>
                 <TabsTrigger value="automations" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Automações</TabsTrigger>
                 <TabsTrigger value="dashboard" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Resumo</TabsTrigger>
               </TabsList>
@@ -392,6 +396,9 @@ export default function CRMPage() {
           </TabsContent>
           <TabsContent value="timeline" className="h-full m-0 p-6 overflow-y-auto max-w-4xl mx-auto">
             <GlobalTimeline />
+          </TabsContent>
+          <TabsContent value="alerts" className="h-full m-0 p-6 overflow-hidden">
+            <AlertsPanel />
           </TabsContent>
           <TabsContent value="automations" className="h-full m-0 p-6 overflow-y-auto max-w-4xl mx-auto">
             <AutomationsPanel />
@@ -1752,6 +1759,8 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           {/* ── Info Tab ── */}
           <TabsContent value="info" className="m-0">
             <div className="p-4 space-y-4">
+              <NextStepCard contactId={contact.id} />
+              <BriefingChecklist contactId={contact.id} />
               {scoreDetails?.reasoning && (
                 <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
                   <div className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-2">

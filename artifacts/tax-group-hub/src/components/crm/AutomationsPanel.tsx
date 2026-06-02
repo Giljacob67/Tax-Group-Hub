@@ -17,6 +17,14 @@ import {
   useListAutomationSequences,
   getListCrmAutomationsQueryKey,
 } from "@workspace/api-client-react";
+import {
+  CONTACT_STATUSES, CONTACT_STATUS_LABELS,
+  DEAL_STAGES, DEAL_STAGE_LABELS,
+  AUTOMATION_TRIGGER_LABELS, AUTOMATION_ACTION_LABELS,
+  ALERT_TYPES, ALERT_LABELS,
+  type AutomationTriggerType, type AutomationActionType,
+  PRIORIDADE_COMERCIAL_NIVEIS,
+} from "@workspace/db/crm-constants";
 
 type Automation = {
   id: number;
@@ -30,36 +38,36 @@ type Automation = {
 
 type Sequence = { id: number; name: string; isActive?: boolean };
 
-const TRIGGER_TYPES = [
-  { value: "status_changed",    label: "Status do contato mudar para..." },
-  { value: "score_above",       label: "Score de IA maior ou igual a..." },
-  { value: "score_below",       label: "Score de IA menor ou igual a..." },
-  { value: "deal_stage_changed", label: "Etapa do deal mudar para..." },
+const TRIGGER_TYPES: { value: AutomationTriggerType; label: string }[] = [
+  { value: "status_changed",            label: AUTOMATION_TRIGGER_LABELS.status_changed },
+  { value: "score_above",               label: AUTOMATION_TRIGGER_LABELS.score_above },
+  { value: "score_below",               label: AUTOMATION_TRIGGER_LABELS.score_below },
+  { value: "deal_stage_changed",        label: AUTOMATION_TRIGGER_LABELS.deal_stage_changed },
+  { value: "followup_vencido",          label: AUTOMATION_TRIGGER_LABELS.followup_vencido },
+  { value: "sem_atividade_7d",          label: AUTOMATION_TRIGGER_LABELS.sem_atividade_7d },
+  { value: "sem_atividade_14d",         label: AUTOMATION_TRIGGER_LABELS.sem_atividade_14d },
+  { value: "matriz_enviado",            label: AUTOMATION_TRIGGER_LABELS.matriz_enviado },
+  { value: "matriz_aguardando",         label: AUTOMATION_TRIGGER_LABELS.matriz_aguardando },
+  { value: "matriz_pendencia",          label: AUTOMATION_TRIGGER_LABELS.matriz_pendencia },
+  { value: "proposta_pronta",           label: AUTOMATION_TRIGGER_LABELS.proposta_pronta },
+  { value: "proposta_enviada",          label: AUTOMATION_TRIGGER_LABELS.proposta_enviada },
+  { value: "proposta_sem_retorno_7d",   label: AUTOMATION_TRIGGER_LABELS.proposta_sem_retorno_7d },
 ];
 
-const ACTION_TYPES = [
-  { value: "create_task",      label: "Criar Tarefa" },
-  { value: "log_activity",     label: "Registrar Atividade" },
-  { value: "enroll_sequence",  label: "Enrolar em Sequência WhatsApp" },
+const ACTION_TYPES: { value: AutomationActionType; label: string }[] = [
+  { value: "create_task",      label: AUTOMATION_ACTION_LABELS.create_task },
+  { value: "log_activity",     label: AUTOMATION_ACTION_LABELS.log_activity },
+  { value: "enroll_sequence",  label: AUTOMATION_ACTION_LABELS.enroll_sequence },
+  { value: "send_whatsapp",    label: AUTOMATION_ACTION_LABELS.send_whatsapp },
+  { value: "add_tag",          label: AUTOMATION_ACTION_LABELS.add_tag },
+  { value: "set_priority",     label: AUTOMATION_ACTION_LABELS.set_priority },
+  { value: "set_assignee",     label: AUTOMATION_ACTION_LABELS.set_assignee },
+  { value: "create_alert",     label: AUTOMATION_ACTION_LABELS.create_alert },
 ];
 
-const STATUS_OPTIONS = [
-  { value: "prospect",    label: "Prospect" },
-  { value: "qualified",   label: "Qualificado" },
-  { value: "opportunity", label: "Oportunidade" },
-  { value: "client",      label: "Cliente" },
-  { value: "lost",        label: "Perdido" },
-];
-
-const STAGE_OPTIONS = [
-  { value: "prospecting",  label: "Prospecção" },
-  { value: "discovery",    label: "Descoberta" },
-  { value: "proposal",     label: "Proposta" },
-  { value: "negotiation",  label: "Negociação" },
-  { value: "closing",      label: "Fechamento" },
-  { value: "won",          label: "Ganho" },
-  { value: "lost",         label: "Perdido" },
-];
+const STATUS_OPTIONS = CONTACT_STATUSES.map(s => ({ value: s, label: CONTACT_STATUS_LABELS[s] }));
+const STAGE_OPTIONS = DEAL_STAGES.map(s => ({ value: s, label: DEAL_STAGE_LABELS[s] }));
+const PRIORITY_OPTIONS = PRIORIDADE_COMERCIAL_NIVEIS.map(p => ({ value: p, label: p }));
 
 function triggerLabel(auto: Automation) {
   const t = TRIGGER_TYPES.find(t => t.value === auto.triggerType);
@@ -88,6 +96,11 @@ export default function AutomationsPanel() {
   const [taskTitle, setTaskTitle] = useState("");
   const [taskPriority, setTaskPriority] = useState("high");
   const [seqId, setSeqId] = useState("");
+  const [tagName, setTagName] = useState("");
+  const [assigneeName, setAssigneeName] = useState("");
+  const [alertType, setAlertType] = useState<string>(ALERT_TYPES[0]);
+  const [alertSeverity, setAlertSeverity] = useState<string>("warning");
+  const [alertTitle, setAlertTitle] = useState("");
 
   const { data, isLoading } = useListCrmAutomations();
 
@@ -96,12 +109,18 @@ export default function AutomationsPanel() {
   const sequences: Sequence[] = (seqData as any)?.sequences ?? [];
 
   function buildPayload() {
-    if (actionType === "create_task") return { title: taskTitle, type: "call", priority: taskPriority };
-    if (actionType === "enroll_sequence") {
-      const seq = sequences.find(s => String(s.id) === seqId);
-      return { sequenceId: Number(seqId), sequenceName: seq?.name ?? "" };
+    switch (actionType) {
+      case "create_task": return { title: taskTitle, type: "call", priority: taskPriority };
+      case "enroll_sequence": {
+        const seq = sequences.find(s => String(s.id) === seqId);
+        return { sequenceId: Number(seqId), sequenceName: seq?.name ?? "" };
+      }
+      case "add_tag": return { tag: tagName };
+      case "set_priority": return { priority: taskPriority === "high" ? "alta" : taskPriority === "urgent" ? "critica" : taskPriority };
+      case "set_assignee": return { responsavelUnidade: assigneeName };
+      case "create_alert": return { type: alertType, severity: alertSeverity, title: alertTitle };
+      default: return { note: "Ação gerada por automação" };
     }
-    return { note: "Ação gerada por automação" };
   }
 
   const createAutomation = useCreateCrmAutomation({
@@ -145,9 +164,17 @@ export default function AutomationsPanel() {
   const saveDisabled =
     createAutomation.isPending ||
     !name.trim() ||
-    !triggerValue ||
+    (
+      // For event-based triggers, triggerValue is not required
+      !["followup_vencido", "sem_atividade_7d", "sem_atividade_14d",
+        "matriz_enviado", "matriz_aguardando", "matriz_pendencia",
+        "proposta_pronta", "proposta_enviada", "proposta_sem_retorno_7d"
+      ].includes(triggerType) && !triggerValue
+    ) ||
     (actionType === "create_task" && !taskTitle.trim()) ||
-    (actionType === "enroll_sequence" && !seqId);
+    (actionType === "enroll_sequence" && !seqId) ||
+    (actionType === "add_tag" && !tagName.trim()) ||
+    (actionType === "create_alert" && !alertTitle.trim());
 
   const automations: Automation[] = (data as any)?.automations ?? [];
 
@@ -216,8 +243,12 @@ export default function AutomationsPanel() {
                           {STAGE_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                         </SelectContent>
                       </Select>
-                    ) : (
+                    ) : (triggerType === "score_above" || triggerType === "score_below") ? (
                       <Input type="number" placeholder="Ex: 70" value={triggerValue} onChange={e => setTriggerValue(e.target.value)} />
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic px-2 py-1.5 bg-muted/30 rounded">
+                        ⏱ Dispara automaticamente quando o evento ocorre (sem valor adicional).
+                      </p>
                     )}
                   </div>
 
@@ -262,6 +293,49 @@ export default function AutomationsPanel() {
                           )}
                         </SelectContent>
                       </Select>
+                    )}
+
+                    {actionType === "add_tag" && (
+                      <Input placeholder="Nome da tag (ex: lead-quente)" value={tagName}
+                        onChange={e => setTagName(e.target.value)} />
+                    )}
+
+                    {actionType === "set_assignee" && (
+                      <Input placeholder="Nome do responsável" value={assigneeName}
+                        onChange={e => setAssigneeName(e.target.value)} />
+                    )}
+
+                    {actionType === "set_priority" && (
+                      <Select value={taskPriority} onValueChange={setTaskPriority}>
+                        <SelectTrigger><SelectValue placeholder="Prioridade..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="baixa">Baixa</SelectItem>
+                          <SelectItem value="media">Média</SelectItem>
+                          <SelectItem value="alta">Alta</SelectItem>
+                          <SelectItem value="critica">Crítica</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+
+                    {actionType === "create_alert" && (
+                      <div className="space-y-2">
+                        <Input placeholder="Título do alerta..." value={alertTitle}
+                          onChange={e => setAlertTitle(e.target.value)} />
+                        <Select value={alertType} onValueChange={setAlertType}>
+                          <SelectTrigger><SelectValue placeholder="Tipo de alerta..." /></SelectTrigger>
+                          <SelectContent>
+                            {ALERT_TYPES.map(t => <SelectItem key={t} value={t}>{ALERT_LABELS[t]}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Select value={alertSeverity} onValueChange={setAlertSeverity}>
+                          <SelectTrigger><SelectValue placeholder="Severidade..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="info">Info</SelectItem>
+                            <SelectItem value="warning">Atenção</SelectItem>
+                            <SelectItem value="critical">Crítico</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     )}
                   </div>
                 </div>
