@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   BarChart3, TrendingUp, DollarSign, Activity, Clock,
@@ -13,6 +12,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CHART_GREEN, CHART_GOLD, CHART_MUTED } from "./dashboard";
+import {
+  useGetAnalyticsOverview,
+  useGetAnalyticsDailyUsage,
+  useGetAnalyticsProviders,
+  useGetAnalyticsModels,
+  useGetAnalyticsCostTrend,
+  useGetAnalyticsRecentLogs,
+} from "@workspace/api-client-react";
 
 const PERIODS = [
   { id: "24h", label: "24h" },
@@ -35,55 +42,15 @@ export default function AnalyticsPage() {
   usePageTitle("Analytics");
   const [period, setPeriod] = useState("30d");
 
-  const { data: overview } = useQuery({
-    queryKey: ["/api/analytics/overview", period],
-    queryFn: async () => {
-      const r = await fetch(`/api/analytics/overview?period=${period}`);
-      return r.json();
-    },
-  });
+  const { data: overview } = useGetAnalyticsOverview({ period });
+  const { data: daily } = useGetAnalyticsDailyUsage({ period });
+  const { data: providers } = useGetAnalyticsProviders({ period });
+  const { data: models } = useGetAnalyticsModels({ period });
+  const { data: costTrend } = useGetAnalyticsCostTrend({ period });
+  const { data: recentLogs } = useGetAnalyticsRecentLogs({ limit: 50 });
 
-  const { data: daily } = useQuery({
-    queryKey: ["/api/analytics/daily-usage", period],
-    queryFn: async () => {
-      const r = await fetch(`/api/analytics/daily-usage?period=${period}`);
-      return r.json();
-    },
-  });
-
-  const { data: providers } = useQuery({
-    queryKey: ["/api/analytics/providers", period],
-    queryFn: async () => {
-      const r = await fetch(`/api/analytics/providers?period=${period}`);
-      return r.json();
-    },
-  });
-
-  const { data: models } = useQuery({
-    queryKey: ["/api/analytics/models", period],
-    queryFn: async () => {
-      const r = await fetch(`/api/analytics/models?period=${period}`);
-      return r.json();
-    },
-  });
-
-  const { data: costTrend } = useQuery({
-    queryKey: ["/api/analytics/cost-trend", period],
-    queryFn: async () => {
-      const r = await fetch(`/api/analytics/cost-trend?period=${period}`);
-      return r.json();
-    },
-  });
-
-  const { data: recentLogs } = useQuery({
-    queryKey: ["/api/analytics/recent-logs"],
-    queryFn: async () => {
-      const r = await fetch(`/api/analytics/recent-logs?limit=50`);
-      return r.json();
-    },
-  });
-
-  const ov = overview || {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ov: any = overview || {};
   const dailyData = (daily?.usageByDay || []).map((d: any) => ({
     day: new Date(d.day).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
     tokens: Number(d.tokens),
