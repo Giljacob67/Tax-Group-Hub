@@ -13,20 +13,22 @@ import {
   Sparkles, Target, MessageSquare, CalendarDays, FileCheck2,
   RefreshCw, ExternalLink, Bot,
 } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useListDeliverables,
+  useGetDeliverable,
+  useGenerateDeliverable,
+  useUpdateDeliverable,
+  useDeleteDeliverable,
+  useUpdateDeliverableSection,
+  useRegenerateDeliverableSection,
+  useApproveDeliverable,
+  useGetCrmContact,
+  useListCrmContacts,
+  exportDeliverable,
+} from "@workspace/api-client-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Contact {
-  id: number;
-  razaoSocial: string | null;
-  nomeFantasia: string | null;
-  cnpj: string;
-  regimeTributario: string | null;
-  aiScore: number | null;
-  aiRecommendedProduct: string | null;
-  status: string;
-}
 
 interface DeliverableRow {
   id: number;
@@ -162,72 +164,60 @@ interface WizardProps {
 function DeliverableWizard({ onClose, onCreated, prefillContactId }: WizardProps) {
   const { toast } = useToast();
   const [step, setStep] = useState(prefillContactId ? 2 : 1);
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [selectedContact, setSelectedContact] = useState<DeliverableRow["contactId"] extends infer T ? any : any>(null);
   const [selectedType, setSelectedType] = useState("");
   const [selectedProduct, setSelectedProduct] = useState("comercial");
   const [customTitle, setCustomTitle] = useState("");
-  const [generating, setGenerating] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  // Load contact if prefilled
+  // Debounce contact search
   useEffect(() => {
-    if (prefillContactId) {
-      fetch(`/api/crm/contacts/${prefillContactId}`)
-        .then(r => r.json())
-        .then(d => { if (d?.contact) setSelectedContact(d.contact); })
-        .catch(() => {});
-    }
-  }, [prefillContactId]);
-
-  // Search contacts
-  useEffect(() => {
-    if (!contactSearch.trim() && step === 1) {
-      setLoadingContacts(true);
-      fetch("/api/crm/contacts?limit=20")
-        .then(r => r.json())
-        .then(d => setContacts(d.contacts || []))
-        .catch(() => {})
-        .finally(() => setLoadingContacts(false));
-      return;
-    }
-    if (contactSearch.length < 2) return;
-    const t = setTimeout(() => {
-      setLoadingContacts(true);
-      fetch(`/api/crm/contacts?search=${encodeURIComponent(contactSearch)}&limit=20`)
-        .then(r => r.json())
-        .then(d => setContacts(d.contacts || []))
-        .catch(() => {})
-        .finally(() => setLoadingContacts(false));
-    }, 300);
+    const t = setTimeout(() => setDebouncedSearch(contactSearch), 300);
     return () => clearTimeout(t);
-  }, [contactSearch, step]);
+  }, [contactSearch]);
 
-  const handleGenerate = async () => {
-    if (!selectedType) { toast({ title: "Selecione o tipo", variant: "destructive" }); return; }
-    setGenerating(true);
-    try {
-      const r = await fetch("/api/deliverables/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contactId: selectedContact?.id || undefined,
-          type: selectedType,
-          product: selectedProduct,
-          title: customTitle.trim() || undefined,
-        }),
-      });
-      if (!r.ok) { const e = await r.json(); throw new Error(e.error || "Erro ao gerar"); }
-      const d = await r.json();
-      toast({ title: "Entregável gerado com sucesso!" });
-      onCreated(d.deliverable.id);
-    } catch (err: any) {
-      toast({ title: err.message || "Erro ao gerar", variant: "destructive" });
-    } finally {
-      setGenerating(false);
+  const { data: contactsData, isLoading: loadingContacts } = useListCrmContacts(
+    { search: debouncedSearch || undefined, limit: 20 },
+    { query: { enabled: step === 1 } } as any,
+  );
+  const contacts = contactsData?.contacts ?? [];
+
+  const { data: prefilledData } = useGetCrmContact(prefillContactId!, {
+    query: { enabled: !!prefillContactId },
+  } as any);
+
+  useEffect(() => {
+    if (prefillContactId && prefilledData?.contact) {
+      setSelectedContact(prefilledData.contact);
     }
+  }, [prefillContactId, prefilledData]);
+
+  const generateMutation = useGenerateDeliverable({
+    mutation: {
+      onSuccess: (d: any) => {
+        toast({ title: "Entregável gerado com sucesso!" });
+        onCreated(d.deliverable.id);
+      },
+      onError: (err: any) => {
+        toast({ title: err?.message || "Erro ao gerar", variant: "destructive" });
+      },
+    },
+  });
+
+  const handleGenerate = () => {
+    if (!selectedType) { toast({ title: "Selecione o tipo", variant: "destructive" }); return; }
+    generateMutation.mutate({
+      data: {
+        contactId: selectedContact?.id || undefined,
+        type: selectedType as any,
+        product: selectedProduct,
+        title: customTitle.trim() || undefined,
+      },
+    });
   };
+
+  const generating = generateMutation.isPending;
 
   const stepTitles = ["Escolher Empresa", "Tipo de Entregável", "Produto & Contexto", "Gerar"];
   const canProceed = [
@@ -281,7 +271,7 @@ function DeliverableWizard({ onClose, onCreated, prefillContactId }: WizardProps
                   <div className="flex items-center justify-center h-24"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
                 ) : (
                   <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                    {contacts.map(c => (
+                    {contacts.map((c: any) => (
                       <button
                         key={c.id}
                         onClick={() => setSelectedContact(selectedContact?.id === c.id ? null : c)}
@@ -433,122 +423,116 @@ function DeliverableWizard({ onClose, onCreated, prefillContactId }: WizardProps
 
 function DeliverableEditor({ id, onClose }: { id: number; onClose: () => void }) {
   const { toast } = useToast();
-  const [data, setData] = useState<DeliverableDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState<Section | null>(null);
   const [editingContent, setEditingContent] = useState("");
-  const [savingSection, setSavingSection] = useState(false);
-  const [regeneratingSection, setRegeneratingSection] = useState<number | null>(null);
   const [showSources, setShowSources] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
-  const [approving, setApproving] = useState(false);
-  const [exporting, setExporting] = useState(false);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await fetch(`/api/deliverables/${id}`);
-      if (!r.ok) throw new Error("Not found");
-      const d = await r.json();
-      setData(d);
-      if (!activeSection && d.sections.length > 0) {
-        setActiveSection(d.sections[0]);
-        setEditingContent(d.sections[0].content);
-      }
-    } catch {
-      toast({ title: "Erro ao carregar entregável", variant: "destructive" });
-    } finally {
-      setLoading(false);
+  const { data: rawData, isLoading: loading } = useGetDeliverable(id);
+  const data = rawData as unknown as DeliverableDetail | undefined;
+
+  useEffect(() => {
+    if (data?.sections?.length && !activeSection) {
+      setActiveSection(data.sections[0]);
+      setEditingContent(data.sections[0].content);
     }
-  }, [id]);
-
-  useEffect(() => { loadData(); }, [loadData]);
+  }, [data]);
 
   useEffect(() => {
     if (activeSection) setEditingContent(activeSection.content);
   }, [activeSection?.id]);
 
-  const handleSaveSection = async () => {
+  const saveSectionMutation = useUpdateDeliverableSection({
+    mutation: {
+      onSuccess: (resp: any) => {
+        const updated = resp.section;
+        setData(prev => prev ? {
+          ...prev,
+          sections: prev.sections.map(s => s.id === updated.id ? { ...s, content: editingContent } : s),
+        } : prev);
+        setActiveSection(prev => prev ? { ...prev, content: editingContent } : prev);
+        toast({ title: "Seção salva" });
+      },
+      onError: () => {
+        toast({ title: "Erro ao salvar", variant: "destructive" });
+      },
+    },
+  });
+
+  const regenerateMutation = useRegenerateDeliverableSection({
+    mutation: {
+      onSuccess: (resp: any) => {
+        const updated = resp.section;
+        setData(prev => prev ? {
+          ...prev,
+          sections: prev.sections.map(s => s.id === updated.id ? updated : s),
+        } : prev);
+        if (activeSection?.id === updated.id) {
+          setActiveSection(updated);
+          setEditingContent(updated.content);
+        }
+        toast({ title: "Seção regenerada!" });
+      },
+      onError: () => {
+        toast({ title: "Erro ao regenerar", variant: "destructive" });
+      },
+    },
+  });
+
+  const approveMutation = useApproveDeliverable({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/deliverables", id] });
+        toast({ title: "Entregável aprovado! Versão salva." });
+      },
+      onError: () => {
+        toast({ title: "Erro ao aprovar", variant: "destructive" });
+      },
+    },
+  });
+
+  const setData = useCallback((updater: (prev: DeliverableDetail | undefined) => DeliverableDetail | undefined) => {
+    queryClient.setQueryData(
+      [`/api/deliverables/${id}`],
+      (old: any) => updater(old as DeliverableDetail | undefined),
+    );
+  }, [queryClient, id]);
+
+  const handleSaveSection = () => {
     if (!activeSection) return;
-    setSavingSection(true);
-    try {
-      const r = await fetch(`/api/deliverables/${id}/sections/${activeSection.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: editingContent }),
-      });
-      if (!r.ok) throw new Error("Save failed");
-      setData(prev => prev ? {
-        ...prev,
-        sections: prev.sections.map(s => s.id === activeSection.id ? { ...s, content: editingContent } : s),
-      } : prev);
-      setActiveSection(prev => prev ? { ...prev, content: editingContent } : prev);
-      toast({ title: "Seção salva" });
-    } catch {
-      toast({ title: "Erro ao salvar", variant: "destructive" });
-    } finally {
-      setSavingSection(false);
-    }
+    saveSectionMutation.mutate({
+      id,
+      sectionId: activeSection.id,
+      data: { content: editingContent },
+    });
   };
 
-  const handleRegenerateSection = async (section: Section) => {
-    setRegeneratingSection(section.id);
-    try {
-      const r = await fetch(`/api/deliverables/${id}/sections/${section.id}/regenerate`, { method: "POST" });
-      if (!r.ok) throw new Error("Regenerate failed");
-      const { section: updated } = await r.json();
-      setData(prev => prev ? {
-        ...prev,
-        sections: prev.sections.map(s => s.id === section.id ? updated : s),
-      } : prev);
-      if (activeSection?.id === section.id) {
-        setActiveSection(updated);
-        setEditingContent(updated.content);
-      }
-      toast({ title: "Seção regenerada!" });
-    } catch {
-      toast({ title: "Erro ao regenerar", variant: "destructive" });
-    } finally {
-      setRegeneratingSection(null);
-    }
+  const handleRegenerateSection = (section: Section) => {
+    regenerateMutation.mutate({ id, sectionId: section.id });
   };
 
-  const handleApprove = async () => {
-    setApproving(true);
-    try {
-      const r = await fetch(`/api/deliverables/${id}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ changeSummary: "Revisado e aprovado para envio" }),
-      });
-      if (!r.ok) throw new Error();
-      await loadData();
-      toast({ title: "Entregável aprovado! Versão salva." });
-    } catch {
-      toast({ title: "Erro ao aprovar", variant: "destructive" });
-    } finally {
-      setApproving(false);
-    }
+  const handleApprove = () => {
+    approveMutation.mutate({
+      id,
+      data: { changeSummary: "Revisado e aprovado para envio" },
+    });
   };
 
   const handleExport = async () => {
-    setExporting(true);
     try {
-      const r = await fetch(`/api/deliverables/${id}/export`);
-      if (!r.ok) throw new Error();
-      const blob = await r.blob();
+      const html = await exportDeliverable(id);
+      const blob = new Blob([html], { type: "text/html" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `entregavel-${id}.html`;
       a.click();
       URL.revokeObjectURL(url);
-      await loadData();
+      queryClient.invalidateQueries({ queryKey: ["/api/deliverables", id] });
       toast({ title: "HTML exportado! Abra no navegador para imprimir como PDF." });
     } catch {
       toast({ title: "Erro ao exportar", variant: "destructive" });
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -573,7 +557,7 @@ function DeliverableEditor({ id, onClose }: { id: number; onClose: () => void })
             <h2 className="text-sm font-bold text-foreground truncate">{deliverable.title}</h2>
             <div className="flex items-center gap-2 mt-0.5">
               <StatusBadge status={deliverable.status} />
-              <ConfBadge level={deliverable.confidenceLevel} />
+              <ConfBadge level={deliverable.confidenceLevel || "none"} />
               {deliverable.companyName && (
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <Building2 className="w-3 h-3" /> {deliverable.companyName}
@@ -600,19 +584,18 @@ function DeliverableEditor({ id, onClose }: { id: number; onClose: () => void })
           {deliverable.status !== "approved" && deliverable.status !== "exported" && (
             <button
               onClick={handleApprove}
-              disabled={approving}
+              disabled={approveMutation.isPending}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-medium hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
             >
-              {approving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileCheck2 className="w-3.5 h-3.5" />}
+              {approveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileCheck2 className="w-3.5 h-3.5" />}
               Aprovar
             </button>
           )}
           <button
             onClick={handleExport}
-            disabled={exporting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors"
           >
-            {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            <Download className="w-3.5 h-3.5" />
             Exportar HTML
           </button>
         </div>
@@ -630,7 +613,7 @@ function DeliverableEditor({ id, onClose }: { id: number; onClose: () => void })
               >
                 <div className="flex items-center justify-between gap-1">
                   <span className="truncate">{s.title}</span>
-                  <span className={`flex-shrink-0 ${CONF_COLORS[s.confidenceLevel]}`}>
+                  <span className={`flex-shrink-0 ${CONF_COLORS[s.confidenceLevel || "none"]}`}>
                     <Shield className="w-2.5 h-2.5" />
                   </span>
                 </div>
@@ -646,24 +629,24 @@ function DeliverableEditor({ id, onClose }: { id: number; onClose: () => void })
               <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-background flex-shrink-0">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">{activeSection.title}</h3>
-                  <ConfBadge level={activeSection.confidenceLevel} />
+                  <ConfBadge level={activeSection.confidenceLevel || "none"} />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => handleRegenerateSection(activeSection)}
-                    disabled={regeneratingSection === activeSection.id}
+                    disabled={regenerateMutation.isPending}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-xs hover:bg-muted transition-colors disabled:opacity-50"
                     title="Regenerar esta seção com IA"
                   >
-                    {regeneratingSection === activeSection.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCw className="w-3.5 h-3.5" />}
+                    {regenerateMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCw className="w-3.5 h-3.5" />}
                     Regenerar
                   </button>
                   <button
                     onClick={handleSaveSection}
-                    disabled={savingSection || editingContent === activeSection.content}
+                    disabled={saveSectionMutation.isPending || editingContent === activeSection.content}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
-                    {savingSection ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    {saveSectionMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                     Salvar
                   </button>
                 </div>
@@ -733,7 +716,7 @@ function DeliverableEditor({ id, onClose }: { id: number; onClose: () => void })
                 </h4>
                 {deliverable.guardrailWarnings && deliverable.guardrailWarnings.length > 0 && (
                   <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2.5 mb-3">
-                    {deliverable.guardrailWarnings.map((w, i) => (
+                    {deliverable.guardrailWarnings.map((w: string, i: number) => (
                       <p key={i} className="text-[10px] text-amber-400">{w}</p>
                     ))}
                   </div>
@@ -798,20 +781,13 @@ export default function DeliverablesPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterType, setFilterType] = useState("");
 
-  // Load list
-  const { data, isLoading, refetch } = useQuery<{ deliverables: DeliverableRow[]; total: number }>({
-    queryKey: ["deliverables", filterStatus, filterType],
-    queryFn: async () => {
-      const params = new URLSearchParams({ limit: "100" });
-      if (filterStatus) params.set("status", filterStatus);
-      if (filterType) params.set("type", filterType);
-      const r = await fetch(`/api/deliverables?${params}`);
-      if (!r.ok) throw new Error();
-      return r.json();
-    },
+  const { data: listData, isLoading, refetch } = useListDeliverables({
+    limit: 100,
+    status: filterStatus || undefined,
+    type: filterType || undefined,
   });
 
-  const deliverables = data?.deliverables || [];
+  const deliverables = (listData?.deliverables ?? []) as unknown as DeliverableRow[];
   const filtered = deliverables.filter(d =>
     !search || d.title.toLowerCase().includes(search.toLowerCase()) ||
     (d.companyName || "").toLowerCase().includes(search.toLowerCase())
@@ -823,27 +799,51 @@ export default function DeliverablesPage() {
   const approved = deliverables.filter(d => d.status === "approved" || d.status === "exported").length;
   const lowConf = deliverables.filter(d => d.confidenceLevel === "low" || d.confidenceLevel === "none").length;
 
-  const handleDelete = async (id: number) => {
+  const deleteMutation = useDeleteDeliverable({
+    mutation: {
+      onSuccess: () => {
+        refetch();
+        toast({ title: "Entregável excluído" });
+      },
+      onError: () => {
+        toast({ title: "Erro ao excluir", variant: "destructive" });
+      },
+    },
+  });
+
+  const updateMutation = useUpdateDeliverable({
+    mutation: {
+      onSuccess: () => {
+        refetch();
+      },
+      onError: () => {
+        toast({ title: "Erro ao atualizar status", variant: "destructive" });
+      },
+    },
+  });
+
+  const handleDelete = (id: number) => {
     if (!confirm("Excluir este entregável?")) return;
-    try {
-      await fetch(`/api/deliverables/${id}`, { method: "DELETE" });
-      refetch();
-      toast({ title: "Entregável excluído" });
-    } catch {
-      toast({ title: "Erro ao excluir", variant: "destructive" });
-    }
+    deleteMutation.mutate({ id });
   };
 
-  const handleStatusChange = async (id: number, status: string) => {
+  const handleStatusChange = (id: number, status: string) => {
+    updateMutation.mutate({ id, data: { status } });
+  };
+
+  const handleInlineExport = async (id: number) => {
     try {
-      await fetch(`/api/deliverables/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+      const html = await exportDeliverable(id);
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `entregavel-${id}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
       refetch();
     } catch {
-      toast({ title: "Erro ao atualizar status", variant: "destructive" });
+      toast({ title: "Erro ao exportar", variant: "destructive" });
     }
   };
 
@@ -991,15 +991,7 @@ export default function DeliverablesPage() {
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={async () => {
-                              const r = await fetch(`/api/deliverables/${d.id}/export`);
-                              const blob = await r.blob();
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement("a");
-                              a.href = url; a.download = `entregavel-${d.id}.html`; a.click();
-                              URL.revokeObjectURL(url);
-                              refetch();
-                            }}
+                            onClick={() => handleInlineExport(d.id)}
                             className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                             title="Exportar HTML"
                           >
