@@ -11,8 +11,7 @@ import {
   Plus, FileText, Wheat, Factory, ShoppingCart, Truck,
   CheckCircle2, Route, Compass, Crosshair, Handshake
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { useListAgents, useListConversations } from "@workspace/api-client-react";
+import { useListAgents, useListConversations, useListCrmContacts, useGetCrmPipeline, useListCrmSegments, useListCrmTasks, useListAutomationSequences } from "@workspace/api-client-react";
 import { SkeletonMetricsGrid, SkeletonAgentBlocks } from "@/components/skeletons";
 import { EmptyState } from "@/components/empty-state";
 import { useDemoMode } from "@/hooks/use-demo-mode";
@@ -95,54 +94,42 @@ export default function Dashboard() {
   const { data: agentsData, isLoading: isLoadingAgents } = useListAgents();
   const { data: convData, isLoading: isLoadingConvs } = useListConversations();
 
-  const { data: contactsData } = useQuery<{ total: number; enriched: number; qualified: number; hot: number; deals: number }>({
-    queryKey: ["/api/crm/contacts/summary"],
-    queryFn: async () => {
-      const r = await fetch("/api/crm/contacts?limit=1000");
-      if (!r.ok) throw new Error(`contacts fetch failed: ${r.status}`);
-      const d = await r.json();
-      const contacts = d.contacts ?? [];
-      return {
-        total: contacts.length,
-        enriched: contacts.filter((c: any) => c.aiScore != null).length,
-        qualified: contacts.filter((c: any) => c.status === "qualified" || c.status === "opportunity" || c.status === "client").length,
-        hot: contacts.filter((c: any) => (c.aiScore ?? 0) >= 70).length,
-        deals: contacts.filter((c: any) => c.status === "opportunity").length,
-      };
+  const { data: contactsApiResponse } = useListCrmContacts(
+    { limit: 1000 },
+    { query: { staleTime: 60_000 } } as any,
+  );
+  const contactsData = (() => {
+    const contacts = contactsApiResponse?.contacts ?? [];
+    return {
+      total: contacts.length,
+      enriched: contacts.filter((c: any) => c.aiScore != null).length,
+      qualified: contacts.filter((c: any) => c.status === "qualified" || c.status === "opportunity" || c.status === "client").length,
+      hot: contacts.filter((c: any) => (c.aiScore ?? 0) >= 70).length,
+      deals: contacts.filter((c: any) => c.status === "opportunity").length,
+    };
+  })();
+
+  const { data: pipelineApiResponse } = useGetCrmPipeline(
+    undefined,
+    { query: { staleTime: 60_000 } } as any,
+  );
+  const pipelineData = {
+    meta: {
+      totalValue: pipelineApiResponse?.stats?.totalValue ?? 0,
+      totalDeals: pipelineApiResponse?.stats?.total ?? 0,
     },
-    staleTime: 60_000,
-  });
+  };
 
-  const { data: pipelineData } = useQuery<{ meta: { totalValue: number; totalDeals: number } }>({
-    queryKey: ["/api/crm/deals/pipeline"],
-    queryFn: async () => {
-      const r = await fetch("/api/crm/deals/pipeline");
-      if (!r.ok) throw new Error(`pipeline fetch failed: ${r.status}`);
-      return r.json();
-    },
-    staleTime: 60_000,
-  });
+  const { data: segmentsData } = useListCrmSegments(
+    { query: { staleTime: 60_000 } } as any,
+  );
 
-  const { data: segmentsData } = useQuery<{ segments: Array<{ id: string; label: string; contacts: number; deals: number; potentialValue: number; hotLeads: number }> }>({
-    queryKey: ["/api/crm/segments"],
-    queryFn: async () => {
-      const r = await fetch("/api/crm/segments");
-      if (!r.ok) throw new Error(`segments fetch failed: ${r.status}`);
-      return r.json();
-    },
-    staleTime: 60_000,
-  });
+  const { data: tasksData } = useListCrmTasks(
+    { status: "pending" },
+    { query: { staleTime: 30_000 } } as any,
+  );
 
-  const { data: tasksData } = useQuery<{ tasks: any[] }>({
-    queryKey: ["/api/crm/tasks?status=pending"],
-    queryFn: async () => { const r = await fetch("/api/crm/tasks?status=pending"); if (!r.ok) throw new Error(`tasks fetch failed: ${r.status}`); return r.json(); },
-    staleTime: 30_000,
-  });
-
-  const { data: seqData } = useQuery<{ sequences: any[] }>({
-    queryKey: ["/api/automate/sequences"],
-    queryFn: () => fetch("/api/automate/sequences").then(r => r.json()),
-  });
+  const { data: seqData } = useListAutomationSequences();
 
   // Demo fallbacks
   const demoContacts = isDemo && (contactsData?.total ?? 0) === 0 ? DEMO_CONTACTS : [];
