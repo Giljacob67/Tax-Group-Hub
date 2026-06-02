@@ -28,6 +28,9 @@ import {
   useRenameConversation,
   useDeleteMessage,
   useHealthCheck,
+  useListLlmConnections,
+  useExportConversation,
+  useSubmitAiFeedback,
   // useGetAvailableModels, // replaced by ModelSelector from Model Hub
   getListConversationsQueryKey,
   getGetConversationQueryKey,
@@ -118,6 +121,7 @@ export default function AgentChat() {
   const deleteMutation = useDeleteConversation();
   const renameMutation = useRenameConversation();
   const deleteMsgMutation = useDeleteMessage();
+  const feedbackMutation = useSubmitAiFeedback();
   const { data: healthData, isError: healthError } = useHealthCheck({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     query: { refetchInterval: 30000 } as any
@@ -137,20 +141,8 @@ export default function AgentChat() {
   }, [activeConv?.messages, scrollToBottom]);
 
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false);
-  const [availableConnections, setAvailableConnections] = useState<LlmConnection[]>([]);
-
-  useEffect(() => {
-    if (!activeConvId && conversations?.conversations?.length && !isCreatingNewChat) {
-      setActiveConvId(conversations.conversations[0].id);
-    }
-  }, [conversations, activeConvId, isCreatingNewChat]);
-
-  useEffect(() => {
-    fetch("/api/llm/connections")
-      .then(r => r.json())
-      .then(d => setAvailableConnections(d.connections || []))
-      .catch(() => setAvailableConnections([]));
-  }, []);
+  const { data: llmConnectionsData } = useListLlmConnections();
+  const availableConnections: LlmConnection[] = (llmConnectionsData?.connections ?? []) as unknown as LlmConnection[];
 
   useEffect(() => {
     if (activeConv?.connectionId && availableConnections.length) {
@@ -288,12 +280,13 @@ export default function AgentChat() {
     setRenamingId(null);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: exportedData } = useExportConversation(activeConvId || "", { query: { enabled: !!activeConvId } } as any);
+
   const handleExport = async () => {
-    if (!activeConvId) return;
+    if (!activeConvId || !exportedData) return;
     try {
-      const res = await fetch(`/api/conversations/${activeConvId}/export`);
-      if (!res.ok) throw new Error("Export failed");
-      const text = await res.text();
+      const text = typeof exportedData === "string" ? exportedData : JSON.stringify(exportedData);
       const blob = new Blob([text], { type: "text/markdown" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -363,16 +356,14 @@ export default function AgentChat() {
   ) => {
     if (feedbackSent[messageId]) return;
     try {
-      await fetch("/api/ai-quality/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await feedbackMutation.mutateAsync({
+        data: {
           messageId: Number(messageId),
           conversationId: Number(convId),
           agentId: agentId || "",
           rating,
           reason,
-        }),
+        },
       });
       setFeedbackSent(prev => ({ ...prev, [messageId]: rating }));
       toast({ title: rating === 1 ? "Obrigado pelo feedback positivo!" : "Feedback registrado", duration: 2000 });
