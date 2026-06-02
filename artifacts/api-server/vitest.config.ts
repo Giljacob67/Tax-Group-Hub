@@ -15,8 +15,9 @@ export default defineConfig({
   },
   resolve: {
     // Map workspace packages to their source so vitest doesn't need a built dist
-    alias: {
-      "@workspace/db": new URL("../../lib/db/src/index.ts", import.meta.url).pathname,
-    },
+    alias: [
+      { find: "@workspace/db/crm-constants", replacement: new URL("../../lib/db/src/crm-constants.ts", import.meta.url).pathname },
+      { find: "@workspace/db", replacement: new URL("../../lib/db/src/index.ts", import.meta.url).pathname },
+    ],
   },
 });

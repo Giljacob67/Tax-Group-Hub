@@ -19,6 +19,7 @@ import { requireUserId } from "../middlewares/auth.js";
 import { decrypt } from "../lib/crypto.js";
 import { HubSpotClient } from "@workspace/hubspot";
 import { pushContactToHubSpot, pushDealToHubSpot, pushActivityToHubSpot, pushTaskToHubSpot } from "../lib/hubspot-sync.js";
+import { DEFAULT_PIPELINE_ID, DEFAULT_PIPELINE_NAME, PIPELINE_TAX_GROUP_STAGES, LEGACY_CONTACT_STATUS_MAP, LEGACY_DEAL_STAGE_MAP, DEAL_STAGE_TO_CONTACT_STATUS } from "@workspace/db/crm-constants";
 
 const router = Router();
 
@@ -274,11 +275,11 @@ async function evaluateAutomations(
 }
 
 // ─── Contacts: List ───────────────────────────────────────────────────────────
-// GET /api/crm/contacts?search=&status=&regime=&porte=&uf=&scoreMin=&scoreMax=&sort=&sortDir=&tag=
+// GET /api/crm/contacts?search=&status=&regime=&porte=&uf=&scoreMin=&scoreMax=&sort=&sortDir=&tag=&temperatura=&setor=&statusMatriz=
 router.get("/contacts", async (req: Request, res: Response) => {
   try {
     const userId = requireUserId(req);
-    const { search, status, regime, porte, uf, scoreMin, scoreMax, sort, sortDir, tag } =
+    const { search, status, regime, porte, uf, scoreMin, scoreMax, sort, sortDir, tag, temperatura, setor, statusMatriz } =
       req.query as Record<string, string>;
 
     const conditions: any[] = [eq(crmContactsTable.userId, userId)];
@@ -305,6 +306,14 @@ router.get("/contacts", async (req: Request, res: Response) => {
     if (tag) {
       const sqlFrag = sql`${crmContactsTable.tags} @> ${JSON.stringify([tag])}::jsonb`;
       conditions.push(sqlFrag);
+    }
+    if (temperatura) conditions.push(eq(crmContactsTable.temperatura, temperatura));
+    if (setor)       conditions.push(eq(crmContactsTable.setor, setor));
+    if (statusMatriz) {
+      // Filter contacts that have at least one deal with the given statusMatriz
+      conditions.push(sql`${crmContactsTable.id} IN (
+        SELECT contact_id FROM ${crmDealsTable} WHERE status_matriz = ${statusMatriz}
+      )`);
     }
 
     const isAsc = sortDir !== "desc";
@@ -419,7 +428,13 @@ router.post("/contacts", async (req: Request, res: Response) => {
       }
     }
 
-    const allowedContactFields = ["razaoSocial","nomeFantasia","regimeTributario","cnae","faturamentoEstimado","porte","uf","cidade","endereco","cep","telefone","email","website","nomeDecissor","cargoDecissor","socios","tags","customFields","status","aiScore","aiScoreDetails","aiRecommendedProduct"] as const;
+    const allowedContactFields = [
+      "razaoSocial","nomeFantasia","regimeTributario","cnae","faturamentoEstimado","porte","uf","cidade","endereco","cep","telefone","email","website","nomeDecissor","cargoDecissor","socios","tags","customFields","status","aiScore","aiScoreDetails","aiRecommendedProduct",
+      "origemLead","setor","segmento","temperatura","produtoInteresse","valorPotencial",
+      "decisor","contatoDecissor","influenciadores",
+      "loteProspeccao","responsavelUnidade",
+      "observacoes",
+    ] as const;
     const sanitizedData = pick(data, allowedContactFields);
     const [newContact] = await db
       .insert(crmContactsTable)
@@ -462,7 +477,13 @@ router.put("/contacts/:id", async (req: Request, res: Response) => {
     const [oldContact] = await db.select({ status: crmContactsTable.status }).from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
 
-    const allowedContactFields = ["razaoSocial","nomeFantasia","regimeTributario","cnae","faturamentoEstimado","porte","uf","cidade","endereco","cep","telefone","email","website","nomeDecissor","cargoDecissor","socios","tags","customFields","status","aiScore","aiScoreDetails","aiRecommendedProduct"] as const;
+    const allowedContactFields = [
+      "razaoSocial","nomeFantasia","regimeTributario","cnae","faturamentoEstimado","porte","uf","cidade","endereco","cep","telefone","email","website","nomeDecissor","cargoDecissor","socios","tags","customFields","status","aiScore","aiScoreDetails","aiRecommendedProduct",
+      "origemLead","setor","segmento","temperatura","produtoInteresse","valorPotencial",
+      "decisor","contatoDecissor","influenciadores",
+      "loteProspeccao","responsavelUnidade",
+      "observacoes",
+    ] as const;
     const [updated] = await db
       .update(crmContactsTable)
       .set({ ...pick(req.body, allowedContactFields), updatedAt: new Date() })
@@ -786,12 +807,12 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
     if (!pipelineMeta && pipelineIdParam === "default") {
       pipelineMeta = {
         id: 0,
-        name: "Funil Comercial (Padrão)",
-        stages: ["prospecting", "discovery", "proposal", "negotiation", "closing", "won", "lost"],
+        name: DEFAULT_PIPELINE_NAME,
+        stages: [...PIPELINE_TAX_GROUP_STAGES],
       };
     }
 
-    const stages = pipelineMeta?.stages || ["prospecting", "discovery", "won", "lost"];
+    const stages = pipelineMeta?.stages || [...PIPELINE_TAX_GROUP_STAGES];
 
     // LEFT JOIN com contacts para ter razaoSocial e cnpj em cada deal
     const deals = await db
@@ -855,7 +876,13 @@ router.get("/deals", async (req: Request, res: Response) => {
 router.post("/deals", async (req: Request, res: Response) => {
   try {
     const userId = requireUserId(req);
-    const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId"] as const;
+    const allowedDealFields = [
+      "contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId",
+      "origem","resumoDiagnosticoComercial",
+      "briefingMatriz","dataEnvioMatriz","responsavelEnvioMatriz","prazoRetornoMatriz",
+      "statusMatriz","documentosEnviados",
+      "statusProposta","observacoesNegociacao",
+    ] as const;
     const [deal] = await db.insert(crmDealsTable).values({ ...pick(req.body, allowedDealFields), userId } as any).returning();
     res.status(201).json({ success: true, deal });
     fireIntegrationEvent("deal.created", {
@@ -884,11 +911,40 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
       if (body.stage === "lost" && !body.lostAt) body.lostAt = new Date();
     }
 
-    const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId"] as const;
+    const allowedDealFields = [
+      "contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId",
+      "origem","resumoDiagnosticoComercial",
+      "briefingMatriz","dataEnvioMatriz","responsavelEnvioMatriz","prazoRetornoMatriz",
+      "statusMatriz","documentosEnviados",
+      "statusProposta","observacoesNegociacao",
+    ] as const;
     const [deal] = await db.update(crmDealsTable)
       .set({ ...pick(body, allowedDealFields), updatedAt: new Date() })
       .where(eq(crmDealsTable.id, oldDeal.id))
       .returning();
+
+    // ── Status sync: deal stage → contact status ────────────────────────────────
+    if (deal && body.stage && body.stage !== oldDeal.stage) {
+      const newContactStatus = DEAL_STAGE_TO_CONTACT_STATUS[body.stage as keyof typeof DEAL_STAGE_TO_CONTACT_STATUS];
+      if (newContactStatus) {
+        const [currentContact] = await db.select({ status: crmContactsTable.status })
+          .from(crmContactsTable)
+          .where(eq(crmContactsTable.id, deal.contactId))
+          .limit(1);
+
+        // When "fechado_ganho" → always set to "cliente"
+        // When "perdido" → set to "perdido" only if not already "cliente"
+        const shouldUpdate =
+          (body.stage === "fechado_ganho") ||
+          (body.stage === "perdido" && currentContact?.status !== "cliente");
+
+        if (shouldUpdate) {
+          await db.update(crmContactsTable)
+            .set({ status: newContactStatus, updatedAt: new Date() })
+            .where(eq(crmContactsTable.id, deal.contactId));
+        }
+      }
+    }
 
     if (body.stage && body.stage !== oldDeal.stage) {
       try {
@@ -1353,7 +1409,7 @@ router.get("/analytics/funnel", async (req: Request, res: Response) => {
       });
     }
 
-    const stageOrder = ["prospecting", "discovery", "proposal", "negotiation", "closing", "won", "lost"];
+    const stageOrder = [...PIPELINE_TAX_GROUP_STAGES];
     const funnel = stageOrder.map(stage => {
       const stageDeals = deals.filter(d => d.stage === stage);
       const value = stageDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
