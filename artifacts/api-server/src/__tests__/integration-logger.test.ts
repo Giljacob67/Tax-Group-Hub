@@ -288,7 +288,7 @@ describe("writeIntegrationLog", () => {
       requestUrl: "https://example.com/v1/nfe",
       requestMethod: "POST",
       payloadPreview: "{ ... }",
-      errorMessage: null,
+      errorMessage: undefined,
       technicalDetails: "resolved in 200ms",
     });
 

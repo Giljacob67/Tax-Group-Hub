@@ -30,7 +30,7 @@ describe("pick", () => {
   });
 
   it("returns empty object for empty input object", () => {
-    expect(pick({}, ["a"])).toEqual({});
+    expect(pick({}, ["a"] as any)).toEqual({});
   });
 
   it("picks non-string keys from a record", () => {
