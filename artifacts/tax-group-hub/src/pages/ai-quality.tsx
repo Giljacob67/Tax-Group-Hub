@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
   ShieldCheck, ThumbsUp, ThumbsDown, Activity, Zap,
@@ -9,7 +9,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useListAgents } from "@workspace/api-client-react";
+import {
+  useListAgents,
+  useGetAiQualitySummary,
+  useListAiQualityRuns,
+  useListAiTestCases,
+  useListAiTestCaseRuns,
+  useCreateAiTestCase,
+  useRunAiTestCase,
+  useDeleteAiTestCase,
+} from "@workspace/api-client-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -117,63 +126,27 @@ export default function AiQualityPage() {
   const { data: agentsData } = useListAgents();
 
   const [activeTab, setActiveTab] = useState<"overview" | "runs" | "tests">("overview");
-  const [summary, setSummary] = useState<QualitySummary | null>(null);
-  const [runs, setRuns] = useState<ExecutionRun[]>([]);
-  const [testCases, setTestCases] = useState<TestCase[]>([]);
-  const [testRuns, setTestRuns] = useState<Record<number, TestRun[]>>({});
   const [expandedTest, setExpandedTest] = useState<number | null>(null);
-  const [loadingSummary, setLoadingSummary] = useState(true);
-  const [loadingRuns, setLoadingRuns] = useState(false);
-  const [loadingTests, setLoadingTests] = useState(false);
   const [runningTest, setRunningTest] = useState<number | null>(null);
 
   // New test case form
   const [showNewTestForm, setShowNewTestForm] = useState(false);
   const [newTest, setNewTest] = useState({ name: "", agentId: "", question: "", expectedAnswer: "", criteria: "" });
 
-  // Fetch summary on mount
-  useEffect(() => {
-    fetchSummary();
-  }, []);
+  const { data: summary, isLoading: loadingSummary, refetch: refetchSummary } = useGetAiQualitySummary();
+  const { data: runsData, isLoading: loadingRuns, refetch: refetchRuns } = useListAiQualityRuns({ limit: 50 });
+  const { data: testsData, isLoading: loadingTests } = useListAiTestCases();
+  const { data: testRunsData, refetch: refetchTestRuns } = useListAiTestCaseRuns(expandedTest!, {
+    query: { enabled: !!expandedTest },
+  } as any);
 
-  useEffect(() => {
-    if (activeTab === "runs") fetchRuns();
-    if (activeTab === "tests") fetchTests();
-  }, [activeTab]);
+  const runs = (runsData?.runs ?? []) as unknown as ExecutionRun[];
+  const testCases = (testsData?.testCases ?? []) as unknown as TestCase[];
+  const testRuns = expandedTest ? ((testRunsData?.runs ?? []) as unknown as TestRun[]) : [];
 
-  const fetchSummary = async () => {
-    setLoadingSummary(true);
-    try {
-      const r = await fetch("/api/ai-quality/summary");
-      if (r.ok) setSummary(await r.json());
-    } catch { /* silent */ }
-    finally { setLoadingSummary(false); }
-  };
-
-  const fetchRuns = async () => {
-    setLoadingRuns(true);
-    try {
-      const r = await fetch("/api/ai-quality/runs?limit=50");
-      if (r.ok) { const d = await r.json(); setRuns(d.runs || []); }
-    } catch { /* silent */ }
-    finally { setLoadingRuns(false); }
-  };
-
-  const fetchTests = async () => {
-    setLoadingTests(true);
-    try {
-      const r = await fetch("/api/ai-quality/test-cases");
-      if (r.ok) { const d = await r.json(); setTestCases(d.testCases || []); }
-    } catch { /* silent */ }
-    finally { setLoadingTests(false); }
-  };
-
-  const fetchTestRuns = async (testCaseId: number) => {
-    try {
-      const r = await fetch(`/api/ai-quality/test-cases/${testCaseId}/runs`);
-      if (r.ok) { const d = await r.json(); setTestRuns(prev => ({ ...prev, [testCaseId]: d.runs || [] })); }
-    } catch { /* silent */ }
-  };
+  const createMutation = useCreateAiTestCase();
+  const runMutation = useRunAiTestCase();
+  const deleteMutation = useDeleteAiTestCase();
 
   const handleCreateTest = async () => {
     if (!newTest.name.trim() || !newTest.agentId || !newTest.question.trim()) {
@@ -181,22 +154,18 @@ export default function AiQualityPage() {
       return;
     }
     try {
-      const r = await fetch("/api/ai-quality/test-cases", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await createMutation.mutateAsync({
+        data: {
           name: newTest.name.trim(),
           agentId: newTest.agentId,
           question: newTest.question.trim(),
           expectedAnswer: newTest.expectedAnswer.trim() || undefined,
           criteria: newTest.criteria.trim() || undefined,
-        }),
+        },
       });
-      if (!r.ok) throw new Error("Create failed");
       toast({ title: "Caso de teste criado!" });
       setNewTest({ name: "", agentId: "", question: "", expectedAnswer: "", criteria: "" });
       setShowNewTestForm(false);
-      fetchTests();
     } catch {
       toast({ title: "Erro ao criar caso de teste", variant: "destructive" });
     }
@@ -205,11 +174,8 @@ export default function AiQualityPage() {
   const handleRunTest = async (testCaseId: number) => {
     setRunningTest(testCaseId);
     try {
-      const r = await fetch(`/api/ai-quality/test-cases/${testCaseId}/run`, { method: "POST" });
-      if (!r.ok) throw new Error("Run failed");
-      const d = await r.json();
-      toast({ title: `Execução: ${d.run?.status || "concluída"}` });
-      fetchTestRuns(testCaseId);
+      const d = await runMutation.mutateAsync({ id: testCaseId });
+      toast({ title: `Execução: ${(d as any).run?.status || "concluída"}` });
       if (expandedTest !== testCaseId) setExpandedTest(testCaseId);
     } catch {
       toast({ title: "Erro ao executar teste", variant: "destructive" });
@@ -220,8 +186,7 @@ export default function AiQualityPage() {
 
   const handleDeleteTest = async (id: number) => {
     try {
-      await fetch(`/api/ai-quality/test-cases/${id}`, { method: "DELETE" });
-      setTestCases(prev => prev.filter(t => t.id !== id));
+      await deleteMutation.mutateAsync({ id });
       toast({ title: "Caso de teste excluído" });
     } catch {
       toast({ title: "Erro ao excluir", variant: "destructive" });
@@ -251,7 +216,7 @@ export default function AiQualityPage() {
             </div>
           </div>
           <button
-            onClick={fetchSummary}
+            onClick={() => refetchSummary()}
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             title="Atualizar"
           >
@@ -306,7 +271,7 @@ export default function AiQualityPage() {
                   <MetricCard
                     icon={Clock}
                     label="Latência Média"
-                    value={summary.avgLatencyMs !== null ? `${(summary.avgLatencyMs / 1000).toFixed(1)}s` : "—"}
+                    value={summary.avgLatencyMs != null ? `${(summary.avgLatencyMs / 1000).toFixed(1)}s` : "—"}
                     sub="tempo de resposta"
                   />
                   <MetricCard
@@ -389,7 +354,7 @@ export default function AiQualityPage() {
           <div className="max-w-5xl space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-foreground">Histórico de Execuções</h2>
-              <button onClick={fetchRuns} className="text-xs text-primary hover:text-primary/80 flex items-center gap-1">
+              <button onClick={() => refetchRuns()} className="text-xs text-primary hover:text-primary/80 flex items-center gap-1">
                 <RefreshCw className="w-3 h-3" /> Atualizar
               </button>
             </div>
@@ -547,7 +512,7 @@ export default function AiQualityPage() {
             ) : (
               <div className="space-y-3">
                 {testCases.map(tc => {
-                  const runs = testRuns[tc.id] || [];
+                  const runs = expandedTest === tc.id ? testRuns : [];
                   const isExpanded = expandedTest === tc.id;
                   const isRunning = runningTest === tc.id;
                   const latestRun = runs[0];
@@ -571,7 +536,7 @@ export default function AiQualityPage() {
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <button
                             onClick={async () => {
-                              if (!isExpanded) await fetchTestRuns(tc.id);
+                              if (!isExpanded) { setExpandedTest(tc.id); }
                               setExpandedTest(isExpanded ? null : tc.id);
                             }}
                             className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
