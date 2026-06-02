@@ -111,6 +111,7 @@ export interface SendMessageRequest {
   customSystemPrompt?: string;
   model?: string;
   stream?: boolean;
+  connectionId?: number | null;
 }
 
 export interface MessageResponse {
@@ -126,6 +127,7 @@ export type KnowledgeDocumentStatus =
 
 export const KnowledgeDocumentStatus = {
   pending: "pending",
+  processing: "processing",
   processed: "processed",
   error: "error",
 } as const;
@@ -139,7 +141,57 @@ export interface KnowledgeDocument {
   storageKey: string;
   status: KnowledgeDocumentStatus;
   hasContent?: boolean;
+  category?: string | null;
+  product?: string | null;
+  origin?: string | null;
+  tags?: string[];
+  chunkCount?: number;
+  retries?: number;
+  errorLog?: string | null;
+  embeddingModel?: string | null;
   createdAt: string;
+}
+
+export type KnowledgeHealthResponseSourcesItem = {
+  origin?: string;
+  count?: number;
+};
+
+export interface KnowledgeHealthResponse {
+  total: number;
+  indexed: number;
+  pending: number;
+  errors: number;
+  totalChunks: number;
+  lastSync?: string | null;
+  sources?: KnowledgeHealthResponseSourcesItem[];
+}
+
+export interface KnowledgeSource {
+  id: string;
+  label: string;
+  status: string;
+  total: number;
+  indexed: number;
+  errors: number;
+}
+
+export type DocumentChunksResponseChunksItem = {
+  id?: string;
+  index?: number;
+  content?: string;
+  tokens?: number;
+  hasEmbedding?: boolean;
+  createdAt?: string;
+};
+
+export interface DocumentChunksResponse {
+  documentId: string;
+  filename: string;
+  total: number;
+  page: number;
+  pageSize: number;
+  chunks: DocumentChunksResponseChunksItem[];
 }
 
 export interface UploadUrlRequest {
@@ -246,6 +298,688 @@ export interface SetCustomKeyRequest {
   key: string;
 }
 
+export type ChannelConfigConfig = { [key: string]: unknown };
+
+export interface ChannelConfig {
+  id: number;
+  platform: string;
+  externalId: string;
+  agentId: string;
+  config?: ChannelConfigConfig;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export type CreateChannelRequestConfig = { [key: string]: unknown };
+
+export interface CreateChannelRequest {
+  platform: string;
+  externalId: string;
+  agentId: string;
+  config?: CreateChannelRequestConfig;
+}
+
+export interface LlmProvider {
+  id: string;
+  name: string;
+  label: string;
+  icon: string;
+  color: string;
+  ring: string;
+  dot: string;
+  supportsDiscovery: boolean;
+  needsBaseUrl: boolean;
+  baseUrlPlaceholder?: string;
+  keyLabel: string;
+  keyPlaceholder: string;
+}
+
+export interface LlmConnection {
+  id: number;
+  userId?: string | null;
+  name: string;
+  provider: string;
+  baseUrl?: string | null;
+  modelId: string;
+  modelName: string;
+  contextWindow?: number | null;
+  maxTokens?: number | null;
+  supportsVision: boolean;
+  supportsTools: boolean;
+  supportsJson: boolean;
+  priceInput?: string | null;
+  priceOutput?: string | null;
+  usageType: string;
+  isDefault: boolean;
+  isActive: boolean;
+  lastTestStatus?: string | null;
+  hasKey: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLlmConnectionRequest {
+  name?: string;
+  provider: string;
+  baseUrl?: string;
+  apiKey: string;
+  modelId: string;
+  modelName?: string;
+  contextWindow?: number;
+  maxTokens?: number;
+  supportsVision?: boolean;
+  supportsTools?: boolean;
+  supportsJson?: boolean;
+  usageType?: string;
+}
+
+export interface UpdateLlmConnectionRequest {
+  name?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  modelId?: string;
+  modelName?: string;
+  contextWindow?: number;
+  maxTokens?: number;
+  supportsVision?: boolean;
+  supportsTools?: boolean;
+  supportsJson?: boolean;
+  usageType?: string;
+  isActive?: boolean;
+}
+
+export interface LlmTestResult {
+  success: boolean;
+  ok: boolean;
+  response?: string;
+  provider?: string;
+  model?: string;
+  tokensUsed?: number;
+  executionTimeMs: number;
+  error?: string;
+}
+
+export interface ValidateLlmRequest {
+  provider: string;
+  apiKey: string;
+  baseUrl?: string;
+}
+
+export interface LlmProfile {
+  id: number;
+  userId: string;
+  name: string;
+  description?: string | null;
+  chatConnectionId?: number | null;
+  fastConnectionId?: number | null;
+  reasoningConnectionId?: number | null;
+  visionConnectionId?: number | null;
+  embeddingConnectionId?: number | null;
+  imageConnectionId?: number | null;
+  transcriptionConnectionId?: number | null;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLlmProfileRequest {
+  name: string;
+  description?: string;
+  chatConnectionId?: number;
+  fastConnectionId?: number;
+  reasoningConnectionId?: number;
+  visionConnectionId?: number;
+  embeddingConnectionId?: number;
+  imageConnectionId?: number;
+  transcriptionConnectionId?: number;
+}
+
+export interface UpdateLlmProfileRequest {
+  name?: string;
+  description?: string;
+  chatConnectionId?: number | null;
+  fastConnectionId?: number | null;
+  reasoningConnectionId?: number | null;
+  visionConnectionId?: number | null;
+  embeddingConnectionId?: number | null;
+  imageConnectionId?: number | null;
+  transcriptionConnectionId?: number | null;
+  isDefault?: boolean;
+}
+
+export interface CrmContact {
+  id: number;
+  cnpj: string;
+  razaoSocial?: string | null;
+  nomeFantasia?: string | null;
+  regimeTributario?: string | null;
+  cnae?: string | null;
+  faturamentoEstimado?: string | null;
+  porte?: string | null;
+  uf?: string | null;
+  cidade?: string | null;
+  telefone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  nomeDecissor?: string | null;
+  cargoDecissor?: string | null;
+  tags?: string[];
+  status?: string;
+  aiScore?: number | null;
+  aiRecommendedProduct?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateCrmContactRequest {
+  cnpj: string;
+  razaoSocial?: string;
+  nomeFantasia?: string;
+  regimeTributario?: string;
+  cnae?: string;
+  faturamentoEstimado?: string;
+  porte?: string;
+  uf?: string;
+  cidade?: string;
+  telefone?: string;
+  email?: string;
+  website?: string;
+  nomeDecissor?: string;
+  cargoDecissor?: string;
+  tags?: string[];
+  status?: string;
+  aiScore?: number;
+}
+
+export interface UpdateCrmContactRequest {
+  razaoSocial?: string;
+  nomeFantasia?: string;
+  regimeTributario?: string;
+  cnae?: string;
+  faturamentoEstimado?: string;
+  porte?: string;
+  uf?: string;
+  cidade?: string;
+  telefone?: string;
+  email?: string;
+  website?: string;
+  nomeDecissor?: string;
+  cargoDecissor?: string;
+  tags?: string[];
+  status?: string;
+  aiScore?: number;
+}
+
+export interface CrmDeal {
+  id: number;
+  contactId?: number | null;
+  pipelineId: string;
+  title: string;
+  produto?: string | null;
+  stage: string;
+  value?: string | null;
+  probability?: number | null;
+  expectedCloseDate?: string | null;
+  status?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateCrmDealRequest {
+  contactId?: number;
+  pipelineId?: string;
+  title?: string;
+  produto?: string;
+  stage?: string;
+  value?: string;
+  probability?: number;
+  expectedCloseDate?: string;
+  notes?: string;
+}
+
+export interface UpdateCrmDealRequest {
+  title?: string;
+  produto?: string;
+  stage?: string;
+  value?: string;
+  probability?: number;
+  expectedCloseDate?: string;
+  notes?: string;
+  lostReason?: string;
+}
+
+export interface CrmTask {
+  id: number;
+  contactId?: number | null;
+  dealId?: number | null;
+  title: string;
+  description?: string | null;
+  type: string;
+  priority: string;
+  status: string;
+  dueDate?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+}
+
+export interface CreateCrmTaskRequest {
+  contactId?: number;
+  dealId?: number;
+  title?: string;
+  description?: string;
+  type?: string;
+  priority?: string;
+  status?: string;
+  dueDate?: string;
+  assignedTo?: string;
+}
+
+export interface UpdateCrmTaskRequest {
+  title?: string;
+  description?: string;
+  type?: string;
+  priority?: string;
+  status?: string;
+  dueDate?: string;
+  completedAt?: string;
+}
+
+export type CrmSavedViewFilters = { [key: string]: unknown };
+
+export interface CrmSavedView {
+  id: number;
+  name: string;
+  emoji?: string | null;
+  filters?: CrmSavedViewFilters;
+  isDefault: boolean;
+  sortField?: string | null;
+  sortDir?: string | null;
+  createdAt: string;
+}
+
+export type CreateCrmViewRequestFilters = { [key: string]: unknown };
+
+export interface CreateCrmViewRequest {
+  name?: string;
+  emoji?: string;
+  filters?: CreateCrmViewRequestFilters;
+  isDefault?: boolean;
+  sortField?: string;
+  sortDir?: string;
+}
+
+export interface CrmPipeline {
+  id: number;
+  name: string;
+  stages: string[];
+  isDefault: boolean;
+  createdAt?: string;
+}
+
+export interface CreateCrmPipelineRequest {
+  name: string;
+  stages: string[];
+  isDefault?: boolean;
+}
+
+export interface UpdateCrmPipelineRequest {
+  name?: string;
+  stages?: string[];
+  isDefault?: boolean;
+}
+
+export type CrmAutomationActionPayload = { [key: string]: unknown };
+
+export interface CrmAutomation {
+  id: number;
+  name: string;
+  triggerType: string;
+  triggerValue?: string | null;
+  actionType: string;
+  actionPayload?: CrmAutomationActionPayload;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type CreateCrmAutomationRequestActionPayload = {
+  [key: string]: unknown;
+};
+
+export interface CreateCrmAutomationRequest {
+  name?: string;
+  triggerType?: string;
+  triggerValue?: string;
+  actionType?: string;
+  actionPayload?: CreateCrmAutomationRequestActionPayload;
+  isActive?: boolean;
+}
+
+export type UpdateCrmAutomationRequestActionPayload = {
+  [key: string]: unknown;
+};
+
+export interface UpdateCrmAutomationRequest {
+  name?: string;
+  triggerType?: string;
+  triggerValue?: string;
+  actionType?: string;
+  actionPayload?: UpdateCrmAutomationRequestActionPayload;
+  isActive?: boolean;
+}
+
+export interface CrmActivity {
+  id: number;
+  contactId?: number | null;
+  dealId?: number | null;
+  type: string;
+  direction?: string | null;
+  subject?: string | null;
+  content?: string | null;
+  agentId?: string | null;
+  createdAt: string;
+}
+
+export interface CreateCrmActivityRequest {
+  dealId?: number;
+  type?: string;
+  direction?: string;
+  subject?: string;
+  content?: string;
+  scheduledAt?: string;
+  agentId?: string;
+  conversationId?: string;
+}
+
+export interface CrmAttachment {
+  id: number;
+  contactId: number;
+  fileName: string;
+  fileSize?: number | null;
+  mimeType: string;
+  url: string;
+  createdAt: string;
+}
+
+export interface CreateCrmAttachmentRequest {
+  fileName: string;
+  fileSize?: number;
+  mimeType: string;
+  url: string;
+  dealId?: number;
+}
+
+export interface CrmSegment {
+  id: string;
+  label: string;
+  contacts: number;
+  deals: number;
+  potentialValue: number;
+  hotLeads: number;
+}
+
+export interface Deliverable {
+  id: number;
+  title: string;
+  type: string;
+  product: string;
+  status: string;
+  confidenceLevel?: string;
+  contactId?: number | null;
+  ragSourceCount?: number;
+  guardrailWarnings?: string[] | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface DeliverableSection {
+  id: number;
+  deliverableId: number;
+  sectionKey: string;
+  title: string;
+  content: string;
+  order: number;
+  confidenceLevel?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type GenerateDeliverableRequestType =
+  (typeof GenerateDeliverableRequestType)[keyof typeof GenerateDeliverableRequestType];
+
+export const GenerateDeliverableRequestType = {
+  diagnostico: "diagnostico",
+  proposta: "proposta",
+  resumo_oportunidade: "resumo_oportunidade",
+  followup: "followup",
+  roteiro_reuniao: "roteiro_reuniao",
+} as const;
+
+export interface GenerateDeliverableRequest {
+  contactId?: number;
+  dealId?: number;
+  type: GenerateDeliverableRequestType;
+  product?: string;
+  title?: string;
+}
+
+export interface AnalyticsOverview {
+  totalTokens: number;
+  messageCount: number;
+  activeAgents: number;
+  totalCostCents: number;
+  avgLatencyMs?: number | null;
+  period: string;
+}
+
+export interface DailyUsage {
+  day: string;
+  tokens: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  messages: number;
+  cost: number;
+  avgLatency?: number;
+}
+
+export interface ProviderStats {
+  provider: string;
+  totalTokens: number;
+  calls: number;
+  cost: number;
+  avgLatency?: number;
+}
+
+export interface ModelStats {
+  model: string;
+  provider: string;
+  totalTokens: number;
+  calls: number;
+  cost: number;
+  avgLatency?: number;
+}
+
+export interface UsageLog {
+  id: number;
+  agentId?: string | null;
+  model: string;
+  provider: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens: number;
+  costCents?: number;
+  latencyMs?: number;
+  status?: string;
+  createdAt: string;
+}
+
+export type AutomationSequenceStepsItem = { [key: string]: unknown };
+
+export interface AutomationSequence {
+  id: number;
+  name: string;
+  trigger: string;
+  triggerValue?: string | null;
+  steps: AutomationSequenceStepsItem[];
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type CreateAutomationSequenceRequestStepsItem = {
+  [key: string]: unknown;
+};
+
+export interface CreateAutomationSequenceRequest {
+  name: string;
+  trigger: string;
+  triggerValue?: string;
+  steps: CreateAutomationSequenceRequestStepsItem[];
+  isActive?: boolean;
+}
+
+export type UpdateAutomationSequenceRequestStepsItem = {
+  [key: string]: unknown;
+};
+
+export interface UpdateAutomationSequenceRequest {
+  name?: string;
+  trigger?: string;
+  triggerValue?: string;
+  steps?: UpdateAutomationSequenceRequestStepsItem[];
+  isActive?: boolean;
+}
+
+export interface SequenceEnrollment {
+  id: number;
+  sequenceId: number;
+  contactId: number;
+  currentStep: number;
+  nextSendAt?: string | null;
+  status: string;
+  enrolledAt: string;
+  completedAt?: string | null;
+  sequenceName?: string;
+  sequenceTrigger?: string;
+}
+
+export type BroadcastWhatsAppRequestFilters = {
+  minScore?: number;
+  maxScore?: number;
+  status?: string[];
+  tags?: string[];
+};
+
+export interface BroadcastWhatsAppRequest {
+  channelId: number;
+  filters?: BroadcastWhatsAppRequestFilters;
+  agentId: string;
+  inputTemplate: string;
+}
+
+export interface AiQualitySummary {
+  totalRequests: number;
+  totalTokens: number;
+  avgLatencyMs?: number | null;
+  successRate: number;
+  totalFeedback: number;
+  satisfactionRate?: number | null;
+  positiveFeedback: number;
+  negativeFeedback: number;
+}
+
+export interface AiTestCase {
+  id: number;
+  name: string;
+  agentId: string;
+  question: string;
+  expectedAnswer?: string | null;
+  criteria?: string | null;
+  createdAt: string;
+}
+
+export interface CreateAiTestCaseRequest {
+  name: string;
+  agentId: string;
+  question: string;
+  expectedAnswer?: string;
+  criteria?: string;
+}
+
+export interface AiTestRun {
+  id: number;
+  testCaseId: number;
+  answer: string;
+  passed: boolean;
+  score?: number | null;
+  executionTimeMs?: number;
+  createdAt: string;
+}
+
+export type AiFeedbackRequestRating =
+  (typeof AiFeedbackRequestRating)[keyof typeof AiFeedbackRequestRating];
+
+export const AiFeedbackRequestRating = {
+  NUMBER_1: 1,
+  NUMBER_MINUS_1: -1,
+} as const;
+
+export interface AiFeedbackRequest {
+  messageId: number;
+  conversationId: number;
+  agentId: string;
+  rating: AiFeedbackRequestRating;
+  reason?: string;
+  comment?: string;
+}
+
+export interface BrandingConfig {
+  companyName?: string;
+  primaryColor?: string;
+  logoUrl?: string | null;
+  customDomain?: string | null;
+}
+
+export interface UpdateBrandingRequest {
+  companyName?: string;
+  primaryColor?: string;
+  customDomain?: string;
+}
+
+export type OrchestrateRequestTasksItem = {
+  agentId: string;
+  task: string;
+};
+
+export interface OrchestrateRequest {
+  /**
+   * @minItems 1
+   * @maxItems 8
+   */
+  tasks: OrchestrateRequestTasksItem[];
+  context?: string;
+}
+
+export type OrchestrateResponseResultsItem = {
+  agentId: string;
+  agentName: string;
+  icon?: string;
+  response: string;
+  conversationId: string;
+  success: boolean;
+  error?: string;
+};
+
+export type OrchestrateResponseCoordinatorReview = {
+  response: string;
+  conversationId: string;
+};
+
+export interface OrchestrateResponse {
+  results: OrchestrateResponseResultsItem[];
+  coordinatorReview: OrchestrateResponseCoordinatorReview;
+}
+
 /**
  * Bad request
  */
@@ -281,6 +1015,566 @@ export type UploadKnowledgeDocumentBody = {
   agentId: string;
 };
 
+export type GetKnowledgeSources200 = {
+  sources: KnowledgeSource[];
+};
+
+export type GetDocumentChunksParams = {
+  page?: number;
+  pageSize?: number;
+};
+
 export type GetCustomKeys200 = {
   keys: CustomKey[];
+};
+
+export type ListChannels200 = {
+  channels: ChannelConfig[];
+};
+
+export type CreateChannel201 = {
+  success: boolean;
+  channel: ChannelConfig;
+};
+
+export type ListLlmProviders200 = {
+  providers: LlmProvider[];
+};
+
+export type ListLlmConnections200 = {
+  success: boolean;
+  connections: LlmConnection[];
+};
+
+export type CreateLlmConnection201 = {
+  success: boolean;
+  connection: LlmConnection;
+};
+
+export type UpdateLlmConnection200 = {
+  success: boolean;
+  connection: LlmConnection;
+};
+
+export type ActivateLlmConnection200 = {
+  success: boolean;
+  connectionId: number;
+  usageType: string;
+};
+
+export type DiscoverLlmModelsBody = {
+  provider: string;
+  apiKey: string;
+  baseUrl?: string;
+};
+
+export type DiscoverLlmModels200 = { [key: string]: unknown };
+
+export type LlmHealthCheck200ResultsItem = { [key: string]: unknown };
+
+export type LlmHealthCheck200 = {
+  success: boolean;
+  results: LlmHealthCheck200ResultsItem[];
+};
+
+export type ListLlmProfiles200 = {
+  success: boolean;
+  profiles: LlmProfile[];
+};
+
+export type CreateLlmProfile201 = {
+  success: boolean;
+  profile: LlmProfile;
+};
+
+export type UpdateLlmProfile200 = {
+  success: boolean;
+  profile: LlmProfile;
+};
+
+export type ActivateLlmProfile200 = {
+  success: boolean;
+  profileId: number;
+};
+
+export type ListCrmContactsParams = {
+  search?: string;
+  status?: string;
+  tag?: string;
+  sort?: ListCrmContactsSort;
+  sortDir?: ListCrmContactsSortDir;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListCrmContactsSort =
+  (typeof ListCrmContactsSort)[keyof typeof ListCrmContactsSort];
+
+export const ListCrmContactsSort = {
+  razaoSocial: "razaoSocial",
+  aiScore: "aiScore",
+  status: "status",
+  createdAt: "createdAt",
+} as const;
+
+export type ListCrmContactsSortDir =
+  (typeof ListCrmContactsSortDir)[keyof typeof ListCrmContactsSortDir];
+
+export const ListCrmContactsSortDir = {
+  asc: "asc",
+  desc: "desc",
+} as const;
+
+export type ListCrmContacts200 = {
+  success: boolean;
+  contacts: CrmContact[];
+  total: number;
+};
+
+export type CreateCrmContact201 = {
+  success: boolean;
+  contact: CrmContact;
+};
+
+export type GetCrmContact200 = {
+  success: boolean;
+  contact: CrmContact;
+};
+
+export type UpdateCrmContact200 = {
+  success: boolean;
+  contact: CrmContact;
+};
+
+export type BulkDeleteCrmContactsBody = {
+  ids: number[];
+};
+
+export type BulkDeleteCrmContacts200 = {
+  success: boolean;
+  deleted: number;
+};
+
+export type BulkUpdateStatusCrmContactsBody = {
+  ids: number[];
+  status: string;
+};
+
+export type BulkUpdateStatusCrmContacts200 = {
+  success: boolean;
+  updated: number;
+};
+
+export type BulkTagCrmContactsBodyAction =
+  (typeof BulkTagCrmContactsBodyAction)[keyof typeof BulkTagCrmContactsBodyAction];
+
+export const BulkTagCrmContactsBodyAction = {
+  add: "add",
+  remove: "remove",
+} as const;
+
+export type BulkTagCrmContactsBody = {
+  ids: number[];
+  tag: string;
+  action: BulkTagCrmContactsBodyAction;
+};
+
+export type EnrichCrmContact200 = {
+  success: boolean;
+  contact: CrmContact;
+  fieldsUpdated: string[];
+};
+
+export type QualifyCrmContact200QualificationTier =
+  (typeof QualifyCrmContact200QualificationTier)[keyof typeof QualifyCrmContact200QualificationTier];
+
+export const QualifyCrmContact200QualificationTier = {
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+} as const;
+
+export type QualifyCrmContact200Qualification = {
+  score?: number;
+  tier?: QualifyCrmContact200QualificationTier;
+  products?: string[];
+  reasoning?: string;
+  nextAction?: string;
+};
+
+export type QualifyCrmContact200 = {
+  success: boolean;
+  contact: CrmContact;
+  qualification: QualifyCrmContact200Qualification;
+};
+
+export type ListCrmContactActivities200 = {
+  success: boolean;
+  activities: CrmActivity[];
+};
+
+export type CreateCrmContactActivity201 = {
+  success: boolean;
+  activity: CrmActivity;
+};
+
+export type ListCrmContactAttachments200 = {
+  success: boolean;
+  attachments: CrmAttachment[];
+};
+
+export type CreateCrmContactAttachment201 = {
+  success: boolean;
+  attachment: CrmAttachment;
+};
+
+export type ListCrmTags200 = {
+  success: boolean;
+  tags: string[];
+};
+
+export type ListCrmDealsParams = {
+  stage?: string;
+  contactId?: number;
+};
+
+export type ListCrmDeals200 = {
+  success: boolean;
+  deals: CrmDeal[];
+};
+
+export type CreateCrmDeal201 = {
+  success: boolean;
+  deal: CrmDeal;
+};
+
+export type GetCrmPipelineParams = {
+  pipelineId?: string;
+};
+
+export type GetCrmPipeline200Pipeline = { [key: string]: CrmDeal[] };
+
+export type GetCrmPipeline200Stats = {
+  total?: number;
+  totalValue?: number;
+};
+
+export type GetCrmPipeline200 = {
+  success: boolean;
+  pipeline: GetCrmPipeline200Pipeline;
+  stages: string[];
+  stats: GetCrmPipeline200Stats;
+};
+
+export type UpdateCrmDeal200 = {
+  success: boolean;
+  deal: CrmDeal;
+};
+
+export type ListCrmTasksParams = {
+  contactId?: number;
+  status?: string;
+  priority?: string;
+};
+
+export type ListCrmTasks200 = {
+  success: boolean;
+  tasks: CrmTask[];
+};
+
+export type CreateCrmTask201 = {
+  success: boolean;
+  task: CrmTask;
+};
+
+export type UpdateCrmTask200 = {
+  success: boolean;
+  task: CrmTask;
+};
+
+export type ListCrmViews200 = {
+  success: boolean;
+  views: CrmSavedView[];
+};
+
+export type CreateCrmView201 = {
+  success: boolean;
+  view: CrmSavedView;
+};
+
+export type ListCrmPipelines200 = {
+  success: boolean;
+  pipelines: CrmPipeline[];
+};
+
+export type CreateCrmPipeline201 = {
+  success: boolean;
+  pipeline: CrmPipeline;
+};
+
+export type UpdateCrmPipeline200 = {
+  success: boolean;
+  pipeline: CrmPipeline;
+};
+
+export type ListCrmAutomations200 = {
+  success: boolean;
+  automations: CrmAutomation[];
+};
+
+export type CreateCrmAutomation201 = {
+  success: boolean;
+  automation: CrmAutomation;
+};
+
+export type UpdateCrmAutomation200 = {
+  success: boolean;
+  automation: CrmAutomation;
+};
+
+export type ListCrmActivities200 = {
+  success: boolean;
+  activities: CrmActivity[];
+};
+
+export type ListCrmSegments200 = {
+  segments: CrmSegment[];
+};
+
+export type GetCrmAnalyticsOverviewParams = {
+  period?: string;
+};
+
+export type GetCrmAnalyticsOverview200Kpis = { [key: string]: unknown };
+
+export type GetCrmAnalyticsOverview200ActivitiesByType = {
+  [key: string]: unknown;
+};
+
+export type GetCrmAnalyticsOverview200StatusDist = { [key: string]: unknown };
+
+export type GetCrmAnalyticsOverview200 = {
+  success: boolean;
+  kpis: GetCrmAnalyticsOverview200Kpis;
+  activitiesByType?: GetCrmAnalyticsOverview200ActivitiesByType;
+  statusDist?: GetCrmAnalyticsOverview200StatusDist;
+};
+
+export type GetCrmAnalyticsFunnelParams = {
+  period?: string;
+};
+
+export type GetCrmAnalyticsFunnel200FunnelItem = {
+  stage?: string;
+  count?: number;
+  value?: number;
+};
+
+export type GetCrmAnalyticsFunnel200AvgDaysPerStage = { [key: string]: number };
+
+export type GetCrmAnalyticsFunnel200 = {
+  success: boolean;
+  funnel: GetCrmAnalyticsFunnel200FunnelItem[];
+  avgDaysPerStage?: GetCrmAnalyticsFunnel200AvgDaysPerStage;
+};
+
+export type ListDeliverablesParams = {
+  status?: string;
+  type?: string;
+  contactId?: number;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListDeliverables200 = {
+  deliverables: Deliverable[];
+  total: number;
+};
+
+export type GenerateDeliverable201 = {
+  deliverable: Deliverable;
+  sections: DeliverableSection[];
+};
+
+export type GetDeliverable200 = {
+  deliverable: Deliverable;
+  sections: DeliverableSection[];
+};
+
+export type UpdateDeliverableBody = {
+  status?: string;
+  title?: string;
+  notes?: string;
+  product?: string;
+};
+
+export type UpdateDeliverable200 = {
+  deliverable: Deliverable;
+};
+
+export type DeleteDeliverable200 = {
+  ok: boolean;
+};
+
+export type UpdateDeliverableSectionBody = {
+  content: string;
+};
+
+export type UpdateDeliverableSection200 = {
+  section: DeliverableSection;
+};
+
+export type RegenerateDeliverableSection200 = {
+  section: DeliverableSection;
+  ragSources: string[];
+};
+
+export type ApproveDeliverableBody = {
+  changeSummary?: string;
+};
+
+export type ApproveDeliverable200 = {
+  deliverable: Deliverable;
+  version: number;
+};
+
+export type GetAnalyticsOverviewParams = {
+  period?: string;
+};
+
+export type GetAnalyticsDailyUsageParams = {
+  period?: string;
+};
+
+export type GetAnalyticsDailyUsage200 = {
+  usageByDay: DailyUsage[];
+};
+
+export type GetAnalyticsProvidersParams = {
+  period?: string;
+};
+
+export type GetAnalyticsProviders200 = {
+  providerStats: ProviderStats[];
+};
+
+export type GetAnalyticsModelsParams = {
+  period?: string;
+};
+
+export type GetAnalyticsModels200 = {
+  modelStats: ModelStats[];
+};
+
+export type GetAnalyticsCostTrendParams = {
+  period?: string;
+};
+
+export type GetAnalyticsCostTrend200CostByDayItem = {
+  day?: string;
+  cost?: number;
+};
+
+export type GetAnalyticsCostTrend200 = {
+  costByDay: GetAnalyticsCostTrend200CostByDayItem[];
+};
+
+export type GetAnalyticsRecentLogsParams = {
+  limit?: number;
+};
+
+export type GetAnalyticsRecentLogs200 = {
+  logs: UsageLog[];
+};
+
+export type ListAutomationSequences200 = {
+  success: boolean;
+  sequences: AutomationSequence[];
+};
+
+export type CreateAutomationSequence201 = {
+  success: boolean;
+  sequence: AutomationSequence;
+};
+
+export type UpdateAutomationSequence200 = {
+  success: boolean;
+  sequence: AutomationSequence;
+};
+
+export type EnrollInSequenceBody = {
+  contactId: number;
+};
+
+export type EnrollInSequence201 = {
+  success: boolean;
+  enrollment: SequenceEnrollment;
+};
+
+export type ListSequenceEnrollmentsParams = {
+  contactId?: number;
+  status?: string;
+};
+
+export type ListSequenceEnrollments200 = {
+  success: boolean;
+  enrollments: SequenceEnrollment[];
+};
+
+export type BroadcastWhatsApp200 = {
+  success: boolean;
+  sent?: number;
+  queued?: number;
+  skipped?: number;
+  failed?: number;
+  message?: string;
+};
+
+export type ListAiQualityRunsParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type ListAiQualityRuns200 = {
+  runs: UsageLog[];
+  total: number;
+};
+
+export type ListAiTestCasesParams = {
+  agentId?: string;
+};
+
+export type ListAiTestCases200 = {
+  testCases: AiTestCase[];
+};
+
+export type CreateAiTestCase201 = {
+  testCase: AiTestCase;
+};
+
+export type DeleteAiTestCase200 = {
+  ok: boolean;
+};
+
+export type RunAiTestCase200 = {
+  run: AiTestRun;
+};
+
+export type ListAiTestCaseRuns200 = {
+  runs: AiTestRun[];
+};
+
+export type SubmitAiFeedback200 = {
+  ok: boolean;
+  id: number;
+};
+
+export type UploadBrandingLogoBody = {
+  logo: Blob;
+};
+
+export type UploadBrandingLogo200 = {
+  success: boolean;
+  logoUrl: string;
 };

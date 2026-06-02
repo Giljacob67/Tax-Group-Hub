@@ -175,8 +175,8 @@ export const SendMessageBody = zod.object({
   useKnowledgeBase: zod.boolean().optional(),
   customSystemPrompt: zod.string().optional(),
   model: zod.string().optional(),
-  connectionId: zod.number().optional(),
   stream: zod.boolean().optional(),
+  connectionId: zod.number().nullish(),
 });
 
 export const SendMessageResponse = zod.object({
@@ -224,8 +224,16 @@ export const ListKnowledgeDocumentsResponse = zod.object({
       fileType: zod.string(),
       fileSize: zod.number(),
       storageKey: zod.string(),
-      status: zod.enum(["pending", "processed", "error"]),
+      status: zod.enum(["pending", "processing", "processed", "error"]),
       hasContent: zod.boolean().optional(),
+      category: zod.string().nullish(),
+      product: zod.string().nullish(),
+      origin: zod.string().nullish(),
+      tags: zod.array(zod.string()).optional(),
+      chunkCount: zod.number().optional(),
+      retries: zod.number().optional(),
+      errorLog: zod.string().nullish(),
+      embeddingModel: zod.string().nullish(),
       createdAt: zod.date(),
     }),
   ),
@@ -263,6 +271,105 @@ export const DeleteKnowledgeDocumentParams = zod.object({
 });
 
 export const DeleteKnowledgeDocumentResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Knowledge base health stats
+ */
+export const GetKnowledgeHealthResponse = zod.object({
+  total: zod.number(),
+  indexed: zod.number(),
+  pending: zod.number(),
+  errors: zod.number(),
+  totalChunks: zod.number(),
+  lastSync: zod.string().nullish(),
+  sources: zod
+    .array(
+      zod.object({
+        origin: zod.string().optional(),
+        count: zod.number().optional(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary List knowledge sources with stats
+ */
+export const GetKnowledgeSourcesResponse = zod.object({
+  sources: zod.array(
+    zod.object({
+      id: zod.string(),
+      label: zod.string(),
+      status: zod.string(),
+      total: zod.number(),
+      indexed: zod.number(),
+      errors: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Semantic search in knowledge base
+ */
+export const SearchKnowledgeDedicatedBody = zod.object({
+  query: zod.string(),
+  agentId: zod.string().optional(),
+  limit: zod.number().optional(),
+});
+
+export const SearchKnowledgeDedicatedResponse = zod.object({
+  results: zod.array(
+    zod.object({
+      documentId: zod.string(),
+      filename: zod.string(),
+      content: zod.string(),
+      score: zod.number(),
+    }),
+  ),
+  query: zod.string(),
+});
+
+/**
+ * @summary Get chunks for a knowledge document
+ */
+export const GetDocumentChunksParams = zod.object({
+  documentId: zod.coerce.string(),
+});
+
+export const GetDocumentChunksQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+  pageSize: zod.coerce.number().optional(),
+});
+
+export const GetDocumentChunksResponse = zod.object({
+  documentId: zod.string(),
+  filename: zod.string(),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+  chunks: zod.array(
+    zod.object({
+      id: zod.string().optional(),
+      index: zod.number().optional(),
+      content: zod.string().optional(),
+      tokens: zod.number().optional(),
+      hasEmbedding: zod.boolean().optional(),
+      createdAt: zod.string().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Reindex a knowledge document
+ */
+export const ReindexDocumentParams = zod.object({
+  documentId: zod.coerce.string(),
+});
+
+export const ReindexDocumentResponse = zod.object({
   success: zod.boolean(),
   message: zod.string().optional(),
 });
@@ -413,4 +520,1872 @@ export const DeleteCustomKeyParams = zod.object({
 export const DeleteCustomKeyResponse = zod.object({
   success: zod.boolean(),
   message: zod.string().optional(),
+});
+
+/**
+ * @summary List omnichannel channels
+ */
+export const ListChannelsResponse = zod.object({
+  channels: zod.array(
+    zod.object({
+      id: zod.number(),
+      platform: zod.string(),
+      externalId: zod.string(),
+      agentId: zod.string(),
+      config: zod.record(zod.string(), zod.unknown()).optional(),
+      isActive: zod.boolean(),
+      createdAt: zod.date().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create an omnichannel channel
+ */
+export const CreateChannelBody = zod.object({
+  platform: zod.string(),
+  externalId: zod.string(),
+  agentId: zod.string(),
+  config: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+/**
+ * @summary Delete an omnichannel channel
+ */
+export const DeleteChannelParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteChannelResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary List available LLM providers
+ */
+export const ListLlmProvidersResponse = zod.object({
+  providers: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      label: zod.string(),
+      icon: zod.string(),
+      color: zod.string(),
+      ring: zod.string(),
+      dot: zod.string(),
+      supportsDiscovery: zod.boolean(),
+      needsBaseUrl: zod.boolean(),
+      baseUrlPlaceholder: zod.string().optional(),
+      keyLabel: zod.string(),
+      keyPlaceholder: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary List LLM connections
+ */
+export const ListLlmConnectionsResponse = zod.object({
+  success: zod.boolean(),
+  connections: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.string().nullish(),
+      name: zod.string(),
+      provider: zod.string(),
+      baseUrl: zod.string().nullish(),
+      modelId: zod.string(),
+      modelName: zod.string(),
+      contextWindow: zod.number().nullish(),
+      maxTokens: zod.number().nullish(),
+      supportsVision: zod.boolean(),
+      supportsTools: zod.boolean(),
+      supportsJson: zod.boolean(),
+      priceInput: zod.string().nullish(),
+      priceOutput: zod.string().nullish(),
+      usageType: zod.string(),
+      isDefault: zod.boolean(),
+      isActive: zod.boolean(),
+      lastTestStatus: zod.string().nullish(),
+      hasKey: zod.boolean(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create an LLM connection
+ */
+export const CreateLlmConnectionBody = zod.object({
+  name: zod.string().optional(),
+  provider: zod.string(),
+  baseUrl: zod.string().optional(),
+  apiKey: zod.string(),
+  modelId: zod.string(),
+  modelName: zod.string().optional(),
+  contextWindow: zod.number().optional(),
+  maxTokens: zod.number().optional(),
+  supportsVision: zod.boolean().optional(),
+  supportsTools: zod.boolean().optional(),
+  supportsJson: zod.boolean().optional(),
+  usageType: zod.string().optional(),
+});
+
+/**
+ * @summary Update an LLM connection
+ */
+export const UpdateLlmConnectionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateLlmConnectionBody = zod.object({
+  name: zod.string().optional(),
+  baseUrl: zod.string().optional(),
+  apiKey: zod.string().optional(),
+  modelId: zod.string().optional(),
+  modelName: zod.string().optional(),
+  contextWindow: zod.number().optional(),
+  maxTokens: zod.number().optional(),
+  supportsVision: zod.boolean().optional(),
+  supportsTools: zod.boolean().optional(),
+  supportsJson: zod.boolean().optional(),
+  usageType: zod.string().optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateLlmConnectionResponse = zod.object({
+  success: zod.boolean(),
+  connection: zod.object({
+    id: zod.number(),
+    userId: zod.string().nullish(),
+    name: zod.string(),
+    provider: zod.string(),
+    baseUrl: zod.string().nullish(),
+    modelId: zod.string(),
+    modelName: zod.string(),
+    contextWindow: zod.number().nullish(),
+    maxTokens: zod.number().nullish(),
+    supportsVision: zod.boolean(),
+    supportsTools: zod.boolean(),
+    supportsJson: zod.boolean(),
+    priceInput: zod.string().nullish(),
+    priceOutput: zod.string().nullish(),
+    usageType: zod.string(),
+    isDefault: zod.boolean(),
+    isActive: zod.boolean(),
+    lastTestStatus: zod.string().nullish(),
+    hasKey: zod.boolean(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  }),
+});
+
+/**
+ * @summary Delete an LLM connection
+ */
+export const DeleteLlmConnectionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteLlmConnectionResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Test an LLM connection
+ */
+export const TestLlmConnectionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const TestLlmConnectionResponse = zod.object({
+  success: zod.boolean(),
+  ok: zod.boolean(),
+  response: zod.string().optional(),
+  provider: zod.string().optional(),
+  model: zod.string().optional(),
+  tokensUsed: zod.number().optional(),
+  executionTimeMs: zod.number(),
+  error: zod.string().optional(),
+});
+
+/**
+ * @summary Activate an LLM connection as default
+ */
+export const ActivateLlmConnectionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ActivateLlmConnectionResponse = zod.object({
+  success: zod.boolean(),
+  connectionId: zod.number(),
+  usageType: zod.string(),
+});
+
+/**
+ * @summary Validate LLM API credentials
+ */
+export const ValidateLlmCredentialsBody = zod.object({
+  provider: zod.string(),
+  apiKey: zod.string(),
+  baseUrl: zod.string().optional(),
+});
+
+export const ValidateLlmCredentialsResponse = zod.object({
+  success: zod.boolean(),
+  ok: zod.boolean(),
+  response: zod.string().optional(),
+  provider: zod.string().optional(),
+  model: zod.string().optional(),
+  tokensUsed: zod.number().optional(),
+  executionTimeMs: zod.number(),
+  error: zod.string().optional(),
+});
+
+/**
+ * @summary Discover available models for a provider
+ */
+export const DiscoverLlmModelsBody = zod.object({
+  provider: zod.string(),
+  apiKey: zod.string(),
+  baseUrl: zod.string().optional(),
+});
+
+export const DiscoverLlmModelsResponse = zod.record(
+  zod.string(),
+  zod.unknown(),
+);
+
+/**
+ * @summary Run health check on all connections
+ */
+export const LlmHealthCheckResponse = zod.object({
+  success: zod.boolean(),
+  results: zod.array(zod.record(zod.string(), zod.unknown())),
+});
+
+/**
+ * @summary List LLM profiles
+ */
+export const ListLlmProfilesResponse = zod.object({
+  success: zod.boolean(),
+  profiles: zod.array(
+    zod.object({
+      id: zod.number(),
+      userId: zod.string(),
+      name: zod.string(),
+      description: zod.string().nullish(),
+      chatConnectionId: zod.number().nullish(),
+      fastConnectionId: zod.number().nullish(),
+      reasoningConnectionId: zod.number().nullish(),
+      visionConnectionId: zod.number().nullish(),
+      embeddingConnectionId: zod.number().nullish(),
+      imageConnectionId: zod.number().nullish(),
+      transcriptionConnectionId: zod.number().nullish(),
+      isDefault: zod.boolean(),
+      isActive: zod.boolean(),
+      createdAt: zod.date(),
+      updatedAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create an LLM profile
+ */
+export const CreateLlmProfileBody = zod.object({
+  name: zod.string(),
+  description: zod.string().optional(),
+  chatConnectionId: zod.number().optional(),
+  fastConnectionId: zod.number().optional(),
+  reasoningConnectionId: zod.number().optional(),
+  visionConnectionId: zod.number().optional(),
+  embeddingConnectionId: zod.number().optional(),
+  imageConnectionId: zod.number().optional(),
+  transcriptionConnectionId: zod.number().optional(),
+});
+
+/**
+ * @summary Update an LLM profile
+ */
+export const UpdateLlmProfileParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateLlmProfileBody = zod.object({
+  name: zod.string().optional(),
+  description: zod.string().optional(),
+  chatConnectionId: zod.number().nullish(),
+  fastConnectionId: zod.number().nullish(),
+  reasoningConnectionId: zod.number().nullish(),
+  visionConnectionId: zod.number().nullish(),
+  embeddingConnectionId: zod.number().nullish(),
+  imageConnectionId: zod.number().nullish(),
+  transcriptionConnectionId: zod.number().nullish(),
+  isDefault: zod.boolean().optional(),
+});
+
+export const UpdateLlmProfileResponse = zod.object({
+  success: zod.boolean(),
+  profile: zod.object({
+    id: zod.number(),
+    userId: zod.string(),
+    name: zod.string(),
+    description: zod.string().nullish(),
+    chatConnectionId: zod.number().nullish(),
+    fastConnectionId: zod.number().nullish(),
+    reasoningConnectionId: zod.number().nullish(),
+    visionConnectionId: zod.number().nullish(),
+    embeddingConnectionId: zod.number().nullish(),
+    imageConnectionId: zod.number().nullish(),
+    transcriptionConnectionId: zod.number().nullish(),
+    isDefault: zod.boolean(),
+    isActive: zod.boolean(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+  }),
+});
+
+/**
+ * @summary Delete an LLM profile
+ */
+export const DeleteLlmProfileParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteLlmProfileResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Activate an LLM profile
+ */
+export const ActivateLlmProfileParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ActivateLlmProfileResponse = zod.object({
+  success: zod.boolean(),
+  profileId: zod.number(),
+});
+
+/**
+ * @summary List CRM contacts
+ */
+export const ListCrmContactsQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  status: zod.coerce.string().optional(),
+  tag: zod.coerce.string().optional(),
+  sort: zod.enum(["razaoSocial", "aiScore", "status", "createdAt"]).optional(),
+  sortDir: zod.enum(["asc", "desc"]).optional(),
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListCrmContactsResponse = zod.object({
+  success: zod.boolean(),
+  contacts: zod.array(
+    zod.object({
+      id: zod.number(),
+      cnpj: zod.string(),
+      razaoSocial: zod.string().nullish(),
+      nomeFantasia: zod.string().nullish(),
+      regimeTributario: zod.string().nullish(),
+      cnae: zod.string().nullish(),
+      faturamentoEstimado: zod.string().nullish(),
+      porte: zod.string().nullish(),
+      uf: zod.string().nullish(),
+      cidade: zod.string().nullish(),
+      telefone: zod.string().nullish(),
+      email: zod.string().nullish(),
+      website: zod.string().nullish(),
+      nomeDecissor: zod.string().nullish(),
+      cargoDecissor: zod.string().nullish(),
+      tags: zod.array(zod.string()).optional(),
+      status: zod.string().optional(),
+      aiScore: zod.number().nullish(),
+      aiRecommendedProduct: zod.string().nullish(),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Create a CRM contact
+ */
+export const CreateCrmContactBody = zod.object({
+  cnpj: zod.string(),
+  razaoSocial: zod.string().optional(),
+  nomeFantasia: zod.string().optional(),
+  regimeTributario: zod.string().optional(),
+  cnae: zod.string().optional(),
+  faturamentoEstimado: zod.string().optional(),
+  porte: zod.string().optional(),
+  uf: zod.string().optional(),
+  cidade: zod.string().optional(),
+  telefone: zod.string().optional(),
+  email: zod.string().optional(),
+  website: zod.string().optional(),
+  nomeDecissor: zod.string().optional(),
+  cargoDecissor: zod.string().optional(),
+  tags: zod.array(zod.string()).optional(),
+  status: zod.string().optional(),
+  aiScore: zod.number().optional(),
+});
+
+/**
+ * @summary Get a CRM contact
+ */
+export const GetCrmContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCrmContactResponse = zod.object({
+  success: zod.boolean(),
+  contact: zod.object({
+    id: zod.number(),
+    cnpj: zod.string(),
+    razaoSocial: zod.string().nullish(),
+    nomeFantasia: zod.string().nullish(),
+    regimeTributario: zod.string().nullish(),
+    cnae: zod.string().nullish(),
+    faturamentoEstimado: zod.string().nullish(),
+    porte: zod.string().nullish(),
+    uf: zod.string().nullish(),
+    cidade: zod.string().nullish(),
+    telefone: zod.string().nullish(),
+    email: zod.string().nullish(),
+    website: zod.string().nullish(),
+    nomeDecissor: zod.string().nullish(),
+    cargoDecissor: zod.string().nullish(),
+    tags: zod.array(zod.string()).optional(),
+    status: zod.string().optional(),
+    aiScore: zod.number().nullish(),
+    aiRecommendedProduct: zod.string().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date().optional(),
+  }),
+});
+
+/**
+ * @summary Update a CRM contact
+ */
+export const UpdateCrmContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCrmContactBody = zod.object({
+  razaoSocial: zod.string().optional(),
+  nomeFantasia: zod.string().optional(),
+  regimeTributario: zod.string().optional(),
+  cnae: zod.string().optional(),
+  faturamentoEstimado: zod.string().optional(),
+  porte: zod.string().optional(),
+  uf: zod.string().optional(),
+  cidade: zod.string().optional(),
+  telefone: zod.string().optional(),
+  email: zod.string().optional(),
+  website: zod.string().optional(),
+  nomeDecissor: zod.string().optional(),
+  cargoDecissor: zod.string().optional(),
+  tags: zod.array(zod.string()).optional(),
+  status: zod.string().optional(),
+  aiScore: zod.number().optional(),
+});
+
+export const UpdateCrmContactResponse = zod.object({
+  success: zod.boolean(),
+  contact: zod.object({
+    id: zod.number(),
+    cnpj: zod.string(),
+    razaoSocial: zod.string().nullish(),
+    nomeFantasia: zod.string().nullish(),
+    regimeTributario: zod.string().nullish(),
+    cnae: zod.string().nullish(),
+    faturamentoEstimado: zod.string().nullish(),
+    porte: zod.string().nullish(),
+    uf: zod.string().nullish(),
+    cidade: zod.string().nullish(),
+    telefone: zod.string().nullish(),
+    email: zod.string().nullish(),
+    website: zod.string().nullish(),
+    nomeDecissor: zod.string().nullish(),
+    cargoDecissor: zod.string().nullish(),
+    tags: zod.array(zod.string()).optional(),
+    status: zod.string().optional(),
+    aiScore: zod.number().nullish(),
+    aiRecommendedProduct: zod.string().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date().optional(),
+  }),
+});
+
+/**
+ * @summary Delete a CRM contact
+ */
+export const DeleteCrmContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCrmContactResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Bulk delete CRM contacts
+ */
+export const BulkDeleteCrmContactsBody = zod.object({
+  ids: zod.array(zod.number()),
+});
+
+export const BulkDeleteCrmContactsResponse = zod.object({
+  success: zod.boolean(),
+  deleted: zod.number(),
+});
+
+/**
+ * @summary Bulk update status of CRM contacts
+ */
+export const BulkUpdateStatusCrmContactsBody = zod.object({
+  ids: zod.array(zod.number()),
+  status: zod.string(),
+});
+
+export const BulkUpdateStatusCrmContactsResponse = zod.object({
+  success: zod.boolean(),
+  updated: zod.number(),
+});
+
+/**
+ * @summary Bulk add/remove tags on CRM contacts
+ */
+export const BulkTagCrmContactsBody = zod.object({
+  ids: zod.array(zod.number()),
+  tag: zod.string(),
+  action: zod.enum(["add", "remove"]),
+});
+
+export const BulkTagCrmContactsResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Enrich a CRM contact with AI
+ */
+export const EnrichCrmContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const EnrichCrmContactResponse = zod.object({
+  success: zod.boolean(),
+  contact: zod.object({
+    id: zod.number(),
+    cnpj: zod.string(),
+    razaoSocial: zod.string().nullish(),
+    nomeFantasia: zod.string().nullish(),
+    regimeTributario: zod.string().nullish(),
+    cnae: zod.string().nullish(),
+    faturamentoEstimado: zod.string().nullish(),
+    porte: zod.string().nullish(),
+    uf: zod.string().nullish(),
+    cidade: zod.string().nullish(),
+    telefone: zod.string().nullish(),
+    email: zod.string().nullish(),
+    website: zod.string().nullish(),
+    nomeDecissor: zod.string().nullish(),
+    cargoDecissor: zod.string().nullish(),
+    tags: zod.array(zod.string()).optional(),
+    status: zod.string().optional(),
+    aiScore: zod.number().nullish(),
+    aiRecommendedProduct: zod.string().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date().optional(),
+  }),
+  fieldsUpdated: zod.array(zod.string()),
+});
+
+/**
+ * @summary Qualify a CRM contact with AI scoring
+ */
+export const QualifyCrmContactParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const QualifyCrmContactResponse = zod.object({
+  success: zod.boolean(),
+  contact: zod.object({
+    id: zod.number(),
+    cnpj: zod.string(),
+    razaoSocial: zod.string().nullish(),
+    nomeFantasia: zod.string().nullish(),
+    regimeTributario: zod.string().nullish(),
+    cnae: zod.string().nullish(),
+    faturamentoEstimado: zod.string().nullish(),
+    porte: zod.string().nullish(),
+    uf: zod.string().nullish(),
+    cidade: zod.string().nullish(),
+    telefone: zod.string().nullish(),
+    email: zod.string().nullish(),
+    website: zod.string().nullish(),
+    nomeDecissor: zod.string().nullish(),
+    cargoDecissor: zod.string().nullish(),
+    tags: zod.array(zod.string()).optional(),
+    status: zod.string().optional(),
+    aiScore: zod.number().nullish(),
+    aiRecommendedProduct: zod.string().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date().optional(),
+  }),
+  qualification: zod.object({
+    score: zod.number().optional(),
+    tier: zod.enum(["A", "B", "C", "D"]).optional(),
+    products: zod.array(zod.string()).optional(),
+    reasoning: zod.string().optional(),
+    nextAction: zod.string().optional(),
+  }),
+});
+
+/**
+ * @summary List activities for a contact
+ */
+export const ListCrmContactActivitiesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListCrmContactActivitiesResponse = zod.object({
+  success: zod.boolean(),
+  activities: zod.array(
+    zod.object({
+      id: zod.number(),
+      contactId: zod.number().nullish(),
+      dealId: zod.number().nullish(),
+      type: zod.string(),
+      direction: zod.string().nullish(),
+      subject: zod.string().nullish(),
+      content: zod.string().nullish(),
+      agentId: zod.string().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create an activity for a contact
+ */
+export const CreateCrmContactActivityParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateCrmContactActivityBody = zod.object({
+  dealId: zod.number().optional(),
+  type: zod.string().optional(),
+  direction: zod.string().optional(),
+  subject: zod.string().optional(),
+  content: zod.string().optional(),
+  scheduledAt: zod.string().optional(),
+  agentId: zod.string().optional(),
+  conversationId: zod.string().optional(),
+});
+
+/**
+ * @summary List attachments for a contact
+ */
+export const ListCrmContactAttachmentsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListCrmContactAttachmentsResponse = zod.object({
+  success: zod.boolean(),
+  attachments: zod.array(
+    zod.object({
+      id: zod.number(),
+      contactId: zod.number(),
+      fileName: zod.string(),
+      fileSize: zod.number().nullish(),
+      mimeType: zod.string(),
+      url: zod.string(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create an attachment for a contact
+ */
+export const CreateCrmContactAttachmentParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateCrmContactAttachmentBody = zod.object({
+  fileName: zod.string(),
+  fileSize: zod.number().optional(),
+  mimeType: zod.string(),
+  url: zod.string(),
+  dealId: zod.number().optional(),
+});
+
+/**
+ * @summary Delete a contact attachment
+ */
+export const DeleteCrmContactAttachmentParams = zod.object({
+  contactId: zod.coerce.number(),
+  attachmentId: zod.coerce.number(),
+});
+
+export const DeleteCrmContactAttachmentResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary List all CRM tags
+ */
+export const ListCrmTagsResponse = zod.object({
+  success: zod.boolean(),
+  tags: zod.array(zod.string()),
+});
+
+/**
+ * @summary List CRM deals
+ */
+export const ListCrmDealsQueryParams = zod.object({
+  stage: zod.coerce.string().optional(),
+  contactId: zod.coerce.number().optional(),
+});
+
+export const ListCrmDealsResponse = zod.object({
+  success: zod.boolean(),
+  deals: zod.array(
+    zod.object({
+      id: zod.number(),
+      contactId: zod.number().nullish(),
+      pipelineId: zod.string(),
+      title: zod.string(),
+      produto: zod.string().nullish(),
+      stage: zod.string(),
+      value: zod.string().nullish(),
+      probability: zod.number().nullish(),
+      expectedCloseDate: zod.string().nullish(),
+      status: zod.string().optional(),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a CRM deal
+ */
+export const CreateCrmDealBody = zod.object({
+  contactId: zod.number().optional(),
+  pipelineId: zod.string().optional(),
+  title: zod.string().optional(),
+  produto: zod.string().optional(),
+  stage: zod.string().optional(),
+  value: zod.string().optional(),
+  probability: zod.number().optional(),
+  expectedCloseDate: zod.string().optional(),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get CRM pipeline view
+ */
+export const GetCrmPipelineQueryParams = zod.object({
+  pipelineId: zod.coerce.string().optional(),
+});
+
+export const GetCrmPipelineResponse = zod.object({
+  success: zod.boolean(),
+  pipeline: zod.record(
+    zod.string(),
+    zod.array(
+      zod.object({
+        id: zod.number(),
+        contactId: zod.number().nullish(),
+        pipelineId: zod.string(),
+        title: zod.string(),
+        produto: zod.string().nullish(),
+        stage: zod.string(),
+        value: zod.string().nullish(),
+        probability: zod.number().nullish(),
+        expectedCloseDate: zod.string().nullish(),
+        status: zod.string().optional(),
+        createdAt: zod.date(),
+        updatedAt: zod.date().optional(),
+      }),
+    ),
+  ),
+  stages: zod.array(zod.string()),
+  stats: zod.object({
+    total: zod.number().optional(),
+    totalValue: zod.number().optional(),
+  }),
+});
+
+/**
+ * @summary Update a CRM deal
+ */
+export const UpdateCrmDealParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCrmDealBody = zod.object({
+  title: zod.string().optional(),
+  produto: zod.string().optional(),
+  stage: zod.string().optional(),
+  value: zod.string().optional(),
+  probability: zod.number().optional(),
+  expectedCloseDate: zod.string().optional(),
+  notes: zod.string().optional(),
+  lostReason: zod.string().optional(),
+});
+
+export const UpdateCrmDealResponse = zod.object({
+  success: zod.boolean(),
+  deal: zod.object({
+    id: zod.number(),
+    contactId: zod.number().nullish(),
+    pipelineId: zod.string(),
+    title: zod.string(),
+    produto: zod.string().nullish(),
+    stage: zod.string(),
+    value: zod.string().nullish(),
+    probability: zod.number().nullish(),
+    expectedCloseDate: zod.string().nullish(),
+    status: zod.string().optional(),
+    createdAt: zod.date(),
+    updatedAt: zod.date().optional(),
+  }),
+});
+
+/**
+ * @summary Delete a CRM deal
+ */
+export const DeleteCrmDealParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCrmDealResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary List CRM tasks
+ */
+export const ListCrmTasksQueryParams = zod.object({
+  contactId: zod.coerce.number().optional(),
+  status: zod.coerce.string().optional(),
+  priority: zod.coerce.string().optional(),
+});
+
+export const ListCrmTasksResponse = zod.object({
+  success: zod.boolean(),
+  tasks: zod.array(
+    zod.object({
+      id: zod.number(),
+      contactId: zod.number().nullish(),
+      dealId: zod.number().nullish(),
+      title: zod.string(),
+      description: zod.string().nullish(),
+      type: zod.string(),
+      priority: zod.string(),
+      status: zod.string(),
+      dueDate: zod.string().nullish(),
+      completedAt: zod.string().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a CRM task
+ */
+export const CreateCrmTaskBody = zod.object({
+  contactId: zod.number().optional(),
+  dealId: zod.number().optional(),
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  type: zod.string().optional(),
+  priority: zod.string().optional(),
+  status: zod.string().optional(),
+  dueDate: zod.string().optional(),
+  assignedTo: zod.string().optional(),
+});
+
+/**
+ * @summary Update a CRM task
+ */
+export const UpdateCrmTaskParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCrmTaskBody = zod.object({
+  title: zod.string().optional(),
+  description: zod.string().optional(),
+  type: zod.string().optional(),
+  priority: zod.string().optional(),
+  status: zod.string().optional(),
+  dueDate: zod.string().optional(),
+  completedAt: zod.string().optional(),
+});
+
+export const UpdateCrmTaskResponse = zod.object({
+  success: zod.boolean(),
+  task: zod.object({
+    id: zod.number(),
+    contactId: zod.number().nullish(),
+    dealId: zod.number().nullish(),
+    title: zod.string(),
+    description: zod.string().nullish(),
+    type: zod.string(),
+    priority: zod.string(),
+    status: zod.string(),
+    dueDate: zod.string().nullish(),
+    completedAt: zod.string().nullish(),
+    createdAt: zod.date(),
+  }),
+});
+
+/**
+ * @summary Delete a CRM task
+ */
+export const DeleteCrmTaskParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCrmTaskResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary List saved CRM views
+ */
+export const ListCrmViewsResponse = zod.object({
+  success: zod.boolean(),
+  views: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      emoji: zod.string().nullish(),
+      filters: zod.record(zod.string(), zod.unknown()).optional(),
+      isDefault: zod.boolean(),
+      sortField: zod.string().nullish(),
+      sortDir: zod.string().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a saved CRM view
+ */
+export const CreateCrmViewBody = zod.object({
+  name: zod.string().optional(),
+  emoji: zod.string().optional(),
+  filters: zod.record(zod.string(), zod.unknown()).optional(),
+  isDefault: zod.boolean().optional(),
+  sortField: zod.string().optional(),
+  sortDir: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a saved CRM view
+ */
+export const DeleteCrmViewParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCrmViewResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary List CRM pipelines
+ */
+export const ListCrmPipelinesResponse = zod.object({
+  success: zod.boolean(),
+  pipelines: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      stages: zod.array(zod.string()),
+      isDefault: zod.boolean(),
+      createdAt: zod.date().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a CRM pipeline
+ */
+export const CreateCrmPipelineBody = zod.object({
+  name: zod.string(),
+  stages: zod.array(zod.string()),
+  isDefault: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a CRM pipeline
+ */
+export const UpdateCrmPipelineParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCrmPipelineBody = zod.object({
+  name: zod.string().optional(),
+  stages: zod.array(zod.string()).optional(),
+  isDefault: zod.boolean().optional(),
+});
+
+export const UpdateCrmPipelineResponse = zod.object({
+  success: zod.boolean(),
+  pipeline: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    stages: zod.array(zod.string()),
+    isDefault: zod.boolean(),
+    createdAt: zod.date().optional(),
+  }),
+});
+
+/**
+ * @summary Delete a CRM pipeline
+ */
+export const DeleteCrmPipelineParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCrmPipelineResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary List CRM automations
+ */
+export const ListCrmAutomationsResponse = zod.object({
+  success: zod.boolean(),
+  automations: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      triggerType: zod.string(),
+      triggerValue: zod.string().nullish(),
+      actionType: zod.string(),
+      actionPayload: zod.record(zod.string(), zod.unknown()).optional(),
+      isActive: zod.boolean(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create a CRM automation
+ */
+export const CreateCrmAutomationBody = zod.object({
+  name: zod.string().optional(),
+  triggerType: zod.string().optional(),
+  triggerValue: zod.string().optional(),
+  actionType: zod.string().optional(),
+  actionPayload: zod.record(zod.string(), zod.unknown()).optional(),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a CRM automation
+ */
+export const UpdateCrmAutomationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateCrmAutomationBody = zod.object({
+  name: zod.string().optional(),
+  triggerType: zod.string().optional(),
+  triggerValue: zod.string().optional(),
+  actionType: zod.string().optional(),
+  actionPayload: zod.record(zod.string(), zod.unknown()).optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateCrmAutomationResponse = zod.object({
+  success: zod.boolean(),
+  automation: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    triggerType: zod.string(),
+    triggerValue: zod.string().nullish(),
+    actionType: zod.string(),
+    actionPayload: zod.record(zod.string(), zod.unknown()).optional(),
+    isActive: zod.boolean(),
+    createdAt: zod.date(),
+  }),
+});
+
+/**
+ * @summary Delete a CRM automation
+ */
+export const DeleteCrmAutomationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteCrmAutomationResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary List all CRM activities
+ */
+export const ListCrmActivitiesResponse = zod.object({
+  success: zod.boolean(),
+  activities: zod.array(
+    zod.object({
+      id: zod.number(),
+      contactId: zod.number().nullish(),
+      dealId: zod.number().nullish(),
+      type: zod.string(),
+      direction: zod.string().nullish(),
+      subject: zod.string().nullish(),
+      content: zod.string().nullish(),
+      agentId: zod.string().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary List CRM segments
+ */
+export const ListCrmSegmentsResponse = zod.object({
+  segments: zod.array(
+    zod.object({
+      id: zod.string(),
+      label: zod.string(),
+      contacts: zod.number(),
+      deals: zod.number(),
+      potentialValue: zod.number(),
+      hotLeads: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get CRM analytics overview
+ */
+export const GetCrmAnalyticsOverviewQueryParams = zod.object({
+  period: zod.coerce.string().optional(),
+});
+
+export const GetCrmAnalyticsOverviewResponse = zod.object({
+  success: zod.boolean(),
+  kpis: zod.record(zod.string(), zod.unknown()),
+  activitiesByType: zod.record(zod.string(), zod.unknown()).optional(),
+  statusDist: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+/**
+ * @summary Get CRM funnel analytics
+ */
+export const GetCrmAnalyticsFunnelQueryParams = zod.object({
+  period: zod.coerce.string().optional(),
+});
+
+export const GetCrmAnalyticsFunnelResponse = zod.object({
+  success: zod.boolean(),
+  funnel: zod.array(
+    zod.object({
+      stage: zod.string().optional(),
+      count: zod.number().optional(),
+      value: zod.number().optional(),
+    }),
+  ),
+  avgDaysPerStage: zod.record(zod.string(), zod.number()).optional(),
+});
+
+/**
+ * @summary List deliverables
+ */
+export const ListDeliverablesQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  type: zod.coerce.string().optional(),
+  contactId: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListDeliverablesResponse = zod.object({
+  deliverables: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      type: zod.string(),
+      product: zod.string(),
+      status: zod.string(),
+      confidenceLevel: zod.string().optional(),
+      contactId: zod.number().nullish(),
+      ragSourceCount: zod.number().optional(),
+      guardrailWarnings: zod.array(zod.string()).nullish(),
+      notes: zod.string().nullish(),
+      createdAt: zod.date(),
+      updatedAt: zod.date().optional(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Generate a new deliverable with AI
+ */
+export const GenerateDeliverableBody = zod.object({
+  contactId: zod.number().optional(),
+  dealId: zod.number().optional(),
+  type: zod.enum([
+    "diagnostico",
+    "proposta",
+    "resumo_oportunidade",
+    "followup",
+    "roteiro_reuniao",
+  ]),
+  product: zod.string().optional(),
+  title: zod.string().optional(),
+});
+
+/**
+ * @summary Get a deliverable with sections
+ */
+export const GetDeliverableParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetDeliverableResponse = zod.object({
+  deliverable: zod.object({
+    id: zod.number(),
+    title: zod.string(),
+    type: zod.string(),
+    product: zod.string(),
+    status: zod.string(),
+    confidenceLevel: zod.string().optional(),
+    contactId: zod.number().nullish(),
+    ragSourceCount: zod.number().optional(),
+    guardrailWarnings: zod.array(zod.string()).nullish(),
+    notes: zod.string().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date().optional(),
+  }),
+  sections: zod.array(
+    zod.object({
+      id: zod.number(),
+      deliverableId: zod.number(),
+      sectionKey: zod.string(),
+      title: zod.string(),
+      content: zod.string(),
+      order: zod.number(),
+      confidenceLevel: zod.string().optional(),
+      createdAt: zod.date().optional(),
+      updatedAt: zod.date().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Update a deliverable
+ */
+export const UpdateDeliverableParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateDeliverableBody = zod.object({
+  status: zod.string().optional(),
+  title: zod.string().optional(),
+  notes: zod.string().optional(),
+  product: zod.string().optional(),
+});
+
+export const UpdateDeliverableResponse = zod.object({
+  deliverable: zod.object({
+    id: zod.number(),
+    title: zod.string(),
+    type: zod.string(),
+    product: zod.string(),
+    status: zod.string(),
+    confidenceLevel: zod.string().optional(),
+    contactId: zod.number().nullish(),
+    ragSourceCount: zod.number().optional(),
+    guardrailWarnings: zod.array(zod.string()).nullish(),
+    notes: zod.string().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date().optional(),
+  }),
+});
+
+/**
+ * @summary Delete a deliverable
+ */
+export const DeleteDeliverableParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteDeliverableResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Update a deliverable section
+ */
+export const UpdateDeliverableSectionParams = zod.object({
+  id: zod.coerce.number(),
+  sectionId: zod.coerce.number(),
+});
+
+export const UpdateDeliverableSectionBody = zod.object({
+  content: zod.string(),
+});
+
+export const UpdateDeliverableSectionResponse = zod.object({
+  section: zod.object({
+    id: zod.number(),
+    deliverableId: zod.number(),
+    sectionKey: zod.string(),
+    title: zod.string(),
+    content: zod.string(),
+    order: zod.number(),
+    confidenceLevel: zod.string().optional(),
+    createdAt: zod.date().optional(),
+    updatedAt: zod.date().optional(),
+  }),
+});
+
+/**
+ * @summary Regenerate a deliverable section
+ */
+export const RegenerateDeliverableSectionParams = zod.object({
+  id: zod.coerce.number(),
+  sectionId: zod.coerce.number(),
+});
+
+export const RegenerateDeliverableSectionResponse = zod.object({
+  section: zod.object({
+    id: zod.number(),
+    deliverableId: zod.number(),
+    sectionKey: zod.string(),
+    title: zod.string(),
+    content: zod.string(),
+    order: zod.number(),
+    confidenceLevel: zod.string().optional(),
+    createdAt: zod.date().optional(),
+    updatedAt: zod.date().optional(),
+  }),
+  ragSources: zod.array(zod.string()),
+});
+
+/**
+ * @summary Approve a deliverable
+ */
+export const ApproveDeliverableParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ApproveDeliverableBody = zod.object({
+  changeSummary: zod.string().optional(),
+});
+
+export const ApproveDeliverableResponse = zod.object({
+  deliverable: zod.object({
+    id: zod.number(),
+    title: zod.string(),
+    type: zod.string(),
+    product: zod.string(),
+    status: zod.string(),
+    confidenceLevel: zod.string().optional(),
+    contactId: zod.number().nullish(),
+    ragSourceCount: zod.number().optional(),
+    guardrailWarnings: zod.array(zod.string()).nullish(),
+    notes: zod.string().nullish(),
+    createdAt: zod.date(),
+    updatedAt: zod.date().optional(),
+  }),
+  version: zod.number(),
+});
+
+/**
+ * @summary Export deliverable as HTML
+ */
+export const ExportDeliverableParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get usage analytics overview
+ */
+export const GetAnalyticsOverviewQueryParams = zod.object({
+  period: zod.coerce.string().optional(),
+});
+
+export const GetAnalyticsOverviewResponse = zod.object({
+  totalTokens: zod.number(),
+  messageCount: zod.number(),
+  activeAgents: zod.number(),
+  totalCostCents: zod.number(),
+  avgLatencyMs: zod.number().nullish(),
+  period: zod.string(),
+});
+
+/**
+ * @summary Get daily usage breakdown
+ */
+export const GetAnalyticsDailyUsageQueryParams = zod.object({
+  period: zod.coerce.string().optional(),
+});
+
+export const GetAnalyticsDailyUsageResponse = zod.object({
+  usageByDay: zod.array(
+    zod.object({
+      day: zod.string(),
+      tokens: zod.number(),
+      promptTokens: zod.number().optional(),
+      completionTokens: zod.number().optional(),
+      messages: zod.number(),
+      cost: zod.number(),
+      avgLatency: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get provider usage stats
+ */
+export const GetAnalyticsProvidersQueryParams = zod.object({
+  period: zod.coerce.string().optional(),
+});
+
+export const GetAnalyticsProvidersResponse = zod.object({
+  providerStats: zod.array(
+    zod.object({
+      provider: zod.string(),
+      totalTokens: zod.number(),
+      calls: zod.number(),
+      cost: zod.number(),
+      avgLatency: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get model usage stats
+ */
+export const GetAnalyticsModelsQueryParams = zod.object({
+  period: zod.coerce.string().optional(),
+});
+
+export const GetAnalyticsModelsResponse = zod.object({
+  modelStats: zod.array(
+    zod.object({
+      model: zod.string(),
+      provider: zod.string(),
+      totalTokens: zod.number(),
+      calls: zod.number(),
+      cost: zod.number(),
+      avgLatency: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get cost trend over time
+ */
+export const GetAnalyticsCostTrendQueryParams = zod.object({
+  period: zod.coerce.string().optional(),
+});
+
+export const GetAnalyticsCostTrendResponse = zod.object({
+  costByDay: zod.array(
+    zod.object({
+      day: zod.string().optional(),
+      cost: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get recent usage logs
+ */
+export const GetAnalyticsRecentLogsQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+});
+
+export const GetAnalyticsRecentLogsResponse = zod.object({
+  logs: zod.array(
+    zod.object({
+      id: zod.number(),
+      agentId: zod.string().nullish(),
+      model: zod.string(),
+      provider: zod.string(),
+      promptTokens: zod.number().optional(),
+      completionTokens: zod.number().optional(),
+      totalTokens: zod.number(),
+      costCents: zod.number().optional(),
+      latencyMs: zod.number().optional(),
+      status: zod.string().optional(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary List automation sequences
+ */
+export const ListAutomationSequencesResponse = zod.object({
+  success: zod.boolean(),
+  sequences: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      trigger: zod.string(),
+      triggerValue: zod.string().nullish(),
+      steps: zod.array(zod.record(zod.string(), zod.unknown())),
+      isActive: zod.boolean(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create an automation sequence
+ */
+export const CreateAutomationSequenceBody = zod.object({
+  name: zod.string(),
+  trigger: zod.string(),
+  triggerValue: zod.string().optional(),
+  steps: zod.array(zod.record(zod.string(), zod.unknown())),
+  isActive: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update an automation sequence
+ */
+export const UpdateAutomationSequenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateAutomationSequenceBody = zod.object({
+  name: zod.string().optional(),
+  trigger: zod.string().optional(),
+  triggerValue: zod.string().optional(),
+  steps: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateAutomationSequenceResponse = zod.object({
+  success: zod.boolean(),
+  sequence: zod.object({
+    id: zod.number(),
+    name: zod.string(),
+    trigger: zod.string(),
+    triggerValue: zod.string().nullish(),
+    steps: zod.array(zod.record(zod.string(), zod.unknown())),
+    isActive: zod.boolean(),
+    createdAt: zod.date(),
+  }),
+});
+
+/**
+ * @summary Delete an automation sequence
+ */
+export const DeleteAutomationSequenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAutomationSequenceResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Enroll a contact in a sequence
+ */
+export const EnrollInSequenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const EnrollInSequenceBody = zod.object({
+  contactId: zod.number(),
+});
+
+/**
+ * @summary List sequence enrollments
+ */
+export const ListSequenceEnrollmentsQueryParams = zod.object({
+  contactId: zod.coerce.number().optional(),
+  status: zod.coerce.string().optional(),
+});
+
+export const ListSequenceEnrollmentsResponse = zod.object({
+  success: zod.boolean(),
+  enrollments: zod.array(
+    zod.object({
+      id: zod.number(),
+      sequenceId: zod.number(),
+      contactId: zod.number(),
+      currentStep: zod.number(),
+      nextSendAt: zod.string().nullish(),
+      status: zod.string(),
+      enrolledAt: zod.date(),
+      completedAt: zod.string().nullish(),
+      sequenceName: zod.string().optional(),
+      sequenceTrigger: zod.string().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Broadcast a WhatsApp message to contacts
+ */
+export const BroadcastWhatsAppBody = zod.object({
+  channelId: zod.number(),
+  filters: zod
+    .object({
+      minScore: zod.number().optional(),
+      maxScore: zod.number().optional(),
+      status: zod.array(zod.string()).optional(),
+      tags: zod.array(zod.string()).optional(),
+    })
+    .optional(),
+  agentId: zod.string(),
+  inputTemplate: zod.string(),
+});
+
+export const BroadcastWhatsAppResponse = zod.object({
+  success: zod.boolean(),
+  sent: zod.number().optional(),
+  queued: zod.number().optional(),
+  skipped: zod.number().optional(),
+  failed: zod.number().optional(),
+  message: zod.string().optional(),
+});
+
+/**
+ * @summary Get AI quality summary stats
+ */
+export const GetAiQualitySummaryResponse = zod.object({
+  totalRequests: zod.number(),
+  totalTokens: zod.number(),
+  avgLatencyMs: zod.number().nullish(),
+  successRate: zod.number(),
+  totalFeedback: zod.number(),
+  satisfactionRate: zod.number().nullish(),
+  positiveFeedback: zod.number(),
+  negativeFeedback: zod.number(),
+});
+
+/**
+ * @summary List AI quality runs
+ */
+export const ListAiQualityRunsQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+  offset: zod.coerce.number().optional(),
+});
+
+export const ListAiQualityRunsResponse = zod.object({
+  runs: zod.array(
+    zod.object({
+      id: zod.number(),
+      agentId: zod.string().nullish(),
+      model: zod.string(),
+      provider: zod.string(),
+      promptTokens: zod.number().optional(),
+      completionTokens: zod.number().optional(),
+      totalTokens: zod.number(),
+      costCents: zod.number().optional(),
+      latencyMs: zod.number().optional(),
+      status: zod.string().optional(),
+      createdAt: zod.date(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary List AI test cases
+ */
+export const ListAiTestCasesQueryParams = zod.object({
+  agentId: zod.coerce.string().optional(),
+});
+
+export const ListAiTestCasesResponse = zod.object({
+  testCases: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      agentId: zod.string(),
+      question: zod.string(),
+      expectedAnswer: zod.string().nullish(),
+      criteria: zod.string().nullish(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Create an AI test case
+ */
+export const CreateAiTestCaseBody = zod.object({
+  name: zod.string(),
+  agentId: zod.string(),
+  question: zod.string(),
+  expectedAnswer: zod.string().optional(),
+  criteria: zod.string().optional(),
+});
+
+/**
+ * @summary Delete an AI test case
+ */
+export const DeleteAiTestCaseParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteAiTestCaseResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Run an AI test case
+ */
+export const RunAiTestCaseParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RunAiTestCaseResponse = zod.object({
+  run: zod.object({
+    id: zod.number(),
+    testCaseId: zod.number(),
+    answer: zod.string(),
+    passed: zod.boolean(),
+    score: zod.number().nullish(),
+    executionTimeMs: zod.number().optional(),
+    createdAt: zod.date(),
+  }),
+});
+
+/**
+ * @summary List runs for a test case
+ */
+export const ListAiTestCaseRunsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListAiTestCaseRunsResponse = zod.object({
+  runs: zod.array(
+    zod.object({
+      id: zod.number(),
+      testCaseId: zod.number(),
+      answer: zod.string(),
+      passed: zod.boolean(),
+      score: zod.number().nullish(),
+      executionTimeMs: zod.number().optional(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Submit feedback on an AI response
+ */
+export const SubmitAiFeedbackBody = zod.object({
+  messageId: zod.number(),
+  conversationId: zod.number(),
+  agentId: zod.string(),
+  rating: zod.union([zod.literal(1), zod.literal(-1)]),
+  reason: zod.string().optional(),
+  comment: zod.string().optional(),
+});
+
+export const SubmitAiFeedbackResponse = zod.object({
+  ok: zod.boolean(),
+  id: zod.number(),
+});
+
+/**
+ * @summary Get tenant branding config
+ */
+export const GetBrandingConfigResponse = zod.object({
+  companyName: zod.string().optional(),
+  primaryColor: zod.string().optional(),
+  logoUrl: zod.string().nullish(),
+  customDomain: zod.string().nullish(),
+});
+
+/**
+ * @summary Update tenant branding config
+ */
+export const UpdateBrandingConfigBody = zod.object({
+  companyName: zod.string().optional(),
+  primaryColor: zod.string().optional(),
+  customDomain: zod.string().optional(),
+});
+
+export const UpdateBrandingConfigResponse = zod.object({
+  companyName: zod.string().optional(),
+  primaryColor: zod.string().optional(),
+  logoUrl: zod.string().nullish(),
+  customDomain: zod.string().nullish(),
+});
+
+/**
+ * @summary Upload tenant logo
+ */
+export const UploadBrandingLogoBody = zod.object({
+  logo: zod.instanceof(File),
+});
+
+export const UploadBrandingLogoResponse = zod.object({
+  success: zod.boolean(),
+  logoUrl: zod.string(),
+});
+
+/**
+ * @summary Orchestrate tasks across multiple agents
+ */
+export const orchestrateAgentsBodyTasksMax = 8;
+
+export const OrchestrateAgentsBody = zod.object({
+  tasks: zod
+    .array(
+      zod.object({
+        agentId: zod.string(),
+        task: zod.string(),
+      }),
+    )
+    .min(1)
+    .max(orchestrateAgentsBodyTasksMax),
+  context: zod.string().optional(),
+});
+
+export const OrchestrateAgentsResponse = zod.object({
+  results: zod.array(
+    zod.object({
+      agentId: zod.string(),
+      agentName: zod.string(),
+      icon: zod.string().optional(),
+      response: zod.string(),
+      conversationId: zod.string(),
+      success: zod.boolean(),
+      error: zod.string().optional(),
+    }),
+  ),
+  coordinatorReview: zod.object({
+    response: zod.string(),
+    conversationId: zod.string(),
+  }),
 });

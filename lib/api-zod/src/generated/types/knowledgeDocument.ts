@@ -16,5 +16,13 @@ export interface KnowledgeDocument {
   storageKey: string;
   status: KnowledgeDocumentStatus;
   hasContent?: boolean;
+  category?: string | null;
+  product?: string | null;
+  origin?: string | null;
+  tags?: string[];
+  chunkCount?: number;
+  retries?: number;
+  errorLog?: string | null;
+  embeddingModel?: string | null;
   createdAt: Date;
 }

@@ -12,4 +12,5 @@ export interface SendMessageRequest {
   customSystemPrompt?: string;
   model?: string;
   stream?: boolean;
+  connectionId?: number | null;
 }

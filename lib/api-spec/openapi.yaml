@@ -19,6 +19,22 @@ tags:
     description: External integrations (image generation, Canva, embeddings)
   - name: settings
     description: Platform settings and integration status
+  - name: llm
+    description: LLM connections, providers and profiles
+  - name: crm
+    description: CRM contacts, deals, tasks, views, pipelines, automations
+  - name: deliverables
+    description: AI-generated deliverables (proposals, diagnostics, summaries)
+  - name: analytics
+    description: Usage analytics and cost tracking
+  - name: automate
+    description: Automation sequences, enrollments and broadcasts
+  - name: ai-quality
+    description: AI quality testing, runs and feedback
+  - name: branding
+    description: Tenant branding and customization
+  - name: orchestrate
+    description: Multi-agent orchestration
 
 paths:
   /healthz:
@@ -613,6 +629,2352 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /settings/channels:
+    get:
+      operationId: listChannels
+      tags: [settings]
+      summary: List omnichannel channels
+      responses:
+        "200":
+          description: Channel list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  channels:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ChannelConfig"
+                required: [channels]
+    post:
+      operationId: createChannel
+      tags: [settings]
+      summary: Create an omnichannel channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChannelRequest"
+      responses:
+        "201":
+          description: Channel created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  channel:
+                    $ref: "#/components/schemas/ChannelConfig"
+                required: [success, channel]
+
+  /settings/channels/{id}:
+    delete:
+      operationId: deleteChannel
+      tags: [settings]
+      summary: Delete an omnichannel channel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /llm/providers:
+    get:
+      operationId: listLlmProviders
+      tags: [llm]
+      summary: List available LLM providers
+      responses:
+        "200":
+          description: Provider list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LlmProvider"
+                required: [providers]
+
+  /llm/connections:
+    get:
+      operationId: listLlmConnections
+      tags: [llm]
+      summary: List LLM connections
+      responses:
+        "200":
+          description: Connection list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  connections:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LlmConnection"
+                required: [success, connections]
+    post:
+      operationId: createLlmConnection
+      tags: [llm]
+      summary: Create an LLM connection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLlmConnectionRequest"
+      responses:
+        "201":
+          description: Connection created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  connection:
+                    $ref: "#/components/schemas/LlmConnection"
+                required: [success, connection]
+
+  /llm/connections/{id}:
+    put:
+      operationId: updateLlmConnection
+      tags: [llm]
+      summary: Update an LLM connection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLlmConnectionRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  connection:
+                    $ref: "#/components/schemas/LlmConnection"
+                required: [success, connection]
+    delete:
+      operationId: deleteLlmConnection
+      tags: [llm]
+      summary: Delete an LLM connection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /llm/connections/{id}/test:
+    post:
+      operationId: testLlmConnection
+      tags: [llm]
+      summary: Test an LLM connection
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LlmTestResult"
+
+  /llm/connections/{id}/activate:
+    post:
+      operationId: activateLlmConnection
+      tags: [llm]
+      summary: Activate an LLM connection as default
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  connectionId:
+                    type: integer
+                  usageType:
+                    type: string
+                required: [success, connectionId, usageType]
+
+  /llm/validate:
+    post:
+      operationId: validateLlmCredentials
+      tags: [llm]
+      summary: Validate LLM API credentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateLlmRequest"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LlmTestResult"
+
+  /llm/discover:
+    post:
+      operationId: discoverLlmModels
+      tags: [llm]
+      summary: Discover available models for a provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                apiKey:
+                  type: string
+                baseUrl:
+                  type: string
+              required: [provider, apiKey]
+      responses:
+        "200":
+          description: Discovered models
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /llm/health-check:
+    post:
+      operationId: llmHealthCheck
+      tags: [llm]
+      summary: Run health check on all connections
+      responses:
+        "200":
+          description: Health check results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                required: [success, results]
+
+  /llm/profiles:
+    get:
+      operationId: listLlmProfiles
+      tags: [llm]
+      summary: List LLM profiles
+      responses:
+        "200":
+          description: Profile list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  profiles:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LlmProfile"
+                required: [success, profiles]
+    post:
+      operationId: createLlmProfile
+      tags: [llm]
+      summary: Create an LLM profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLlmProfileRequest"
+      responses:
+        "201":
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  profile:
+                    $ref: "#/components/schemas/LlmProfile"
+                required: [success, profile]
+
+  /llm/profiles/{id}:
+    put:
+      operationId: updateLlmProfile
+      tags: [llm]
+      summary: Update an LLM profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLlmProfileRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  profile:
+                    $ref: "#/components/schemas/LlmProfile"
+                required: [success, profile]
+    delete:
+      operationId: deleteLlmProfile
+      tags: [llm]
+      summary: Delete an LLM profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /llm/profiles/{id}/activate:
+    post:
+      operationId: activateLlmProfile
+      tags: [llm]
+      summary: Activate an LLM profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  profileId:
+                    type: integer
+                required: [success, profileId]
+
+  /crm/contacts:
+    get:
+      operationId: listCrmContacts
+      tags: [crm]
+      summary: List CRM contacts
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: tag
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [razaoSocial, aiScore, status, createdAt]
+        - name: sortDir
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contact list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  contacts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmContact"
+                  total:
+                    type: integer
+                required: [success, contacts, total]
+    post:
+      operationId: createCrmContact
+      tags: [crm]
+      summary: Create a CRM contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCrmContactRequest"
+      responses:
+        "201":
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  contact:
+                    $ref: "#/components/schemas/CrmContact"
+                required: [success, contact]
+
+  /crm/contacts/{id}:
+    get:
+      operationId: getCrmContact
+      tags: [crm]
+      summary: Get a CRM contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contact details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  contact:
+                    $ref: "#/components/schemas/CrmContact"
+                required: [success, contact]
+    put:
+      operationId: updateCrmContact
+      tags: [crm]
+      summary: Update a CRM contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCrmContactRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  contact:
+                    $ref: "#/components/schemas/CrmContact"
+                required: [success, contact]
+    delete:
+      operationId: deleteCrmContact
+      tags: [crm]
+      summary: Delete a CRM contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/contacts/bulk-delete:
+    post:
+      operationId: bulkDeleteCrmContacts
+      tags: [crm]
+      summary: Bulk delete CRM contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+              required: [ids]
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  deleted:
+                    type: integer
+                required: [success, deleted]
+
+  /crm/contacts/bulk-update-status:
+    post:
+      operationId: bulkUpdateStatusCrmContacts
+      tags: [crm]
+      summary: Bulk update status of CRM contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+                status:
+                  type: string
+              required: [ids, status]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  updated:
+                    type: integer
+                required: [success, updated]
+
+  /crm/contacts/bulk-tags:
+    post:
+      operationId: bulkTagCrmContacts
+      tags: [crm]
+      summary: Bulk add/remove tags on CRM contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+                tag:
+                  type: string
+                action:
+                  type: string
+                  enum: [add, remove]
+              required: [ids, tag, action]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/contacts/{id}/enrich:
+    post:
+      operationId: enrichCrmContact
+      tags: [crm]
+      summary: Enrich a CRM contact with AI
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Enriched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  contact:
+                    $ref: "#/components/schemas/CrmContact"
+                  fieldsUpdated:
+                    type: array
+                    items:
+                      type: string
+                required: [success, contact, fieldsUpdated]
+
+  /crm/contacts/{id}/qualify:
+    post:
+      operationId: qualifyCrmContact
+      tags: [crm]
+      summary: Qualify a CRM contact with AI scoring
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Qualified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  contact:
+                    $ref: "#/components/schemas/CrmContact"
+                  qualification:
+                    type: object
+                    properties:
+                      score:
+                        type: number
+                      tier:
+                        type: string
+                        enum: [A, B, C, D]
+                      products:
+                        type: array
+                        items:
+                          type: string
+                      reasoning:
+                        type: string
+                      nextAction:
+                        type: string
+                required: [success, contact, qualification]
+
+  /crm/contacts/{id}/activities:
+    get:
+      operationId: listCrmContactActivities
+      tags: [crm]
+      summary: List activities for a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activity list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  activities:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmActivity"
+                required: [success, activities]
+    post:
+      operationId: createCrmContactActivity
+      tags: [crm]
+      summary: Create an activity for a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCrmActivityRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  activity:
+                    $ref: "#/components/schemas/CrmActivity"
+                required: [success, activity]
+
+  /crm/contacts/{id}/attachments:
+    get:
+      operationId: listCrmContactAttachments
+      tags: [crm]
+      summary: List attachments for a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Attachment list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  attachments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmAttachment"
+                required: [success, attachments]
+    post:
+      operationId: createCrmContactAttachment
+      tags: [crm]
+      summary: Create an attachment for a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCrmAttachmentRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  attachment:
+                    $ref: "#/components/schemas/CrmAttachment"
+                required: [success, attachment]
+
+  /crm/contacts/{contactId}/attachments/{attachmentId}:
+    delete:
+      operationId: deleteCrmContactAttachment
+      tags: [crm]
+      summary: Delete a contact attachment
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/tags:
+    get:
+      operationId: listCrmTags
+      tags: [crm]
+      summary: List all CRM tags
+      responses:
+        "200":
+          description: Tag list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  tags:
+                    type: array
+                    items:
+                      type: string
+                required: [success, tags]
+
+  /crm/deals:
+    get:
+      operationId: listCrmDeals
+      tags: [crm]
+      summary: List CRM deals
+      parameters:
+        - name: stage
+          in: query
+          schema:
+            type: string
+        - name: contactId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deal list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  deals:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmDeal"
+                required: [success, deals]
+    post:
+      operationId: createCrmDeal
+      tags: [crm]
+      summary: Create a CRM deal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCrmDealRequest"
+      responses:
+        "201":
+          description: Deal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  deal:
+                    $ref: "#/components/schemas/CrmDeal"
+                required: [success, deal]
+
+  /crm/deals/pipeline:
+    get:
+      operationId: getCrmPipeline
+      tags: [crm]
+      summary: Get CRM pipeline view
+      parameters:
+        - name: pipelineId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pipeline data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  pipeline:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/CrmDeal"
+                  stages:
+                    type: array
+                    items:
+                      type: string
+                  stats:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      totalValue:
+                        type: number
+                required: [success, pipeline, stages, stats]
+
+  /crm/deals/{id}:
+    put:
+      operationId: updateCrmDeal
+      tags: [crm]
+      summary: Update a CRM deal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCrmDealRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  deal:
+                    $ref: "#/components/schemas/CrmDeal"
+                required: [success, deal]
+    delete:
+      operationId: deleteCrmDeal
+      tags: [crm]
+      summary: Delete a CRM deal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/tasks:
+    get:
+      operationId: listCrmTasks
+      tags: [crm]
+      summary: List CRM tasks
+      parameters:
+        - name: contactId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  tasks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmTask"
+                required: [success, tasks]
+    post:
+      operationId: createCrmTask
+      tags: [crm]
+      summary: Create a CRM task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCrmTaskRequest"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  task:
+                    $ref: "#/components/schemas/CrmTask"
+                required: [success, task]
+
+  /crm/tasks/{id}:
+    put:
+      operationId: updateCrmTask
+      tags: [crm]
+      summary: Update a CRM task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCrmTaskRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  task:
+                    $ref: "#/components/schemas/CrmTask"
+                required: [success, task]
+    delete:
+      operationId: deleteCrmTask
+      tags: [crm]
+      summary: Delete a CRM task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/views:
+    get:
+      operationId: listCrmViews
+      tags: [crm]
+      summary: List saved CRM views
+      responses:
+        "200":
+          description: View list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  views:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmSavedView"
+                required: [success, views]
+    post:
+      operationId: createCrmView
+      tags: [crm]
+      summary: Create a saved CRM view
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCrmViewRequest"
+      responses:
+        "201":
+          description: View created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  view:
+                    $ref: "#/components/schemas/CrmSavedView"
+                required: [success, view]
+
+  /crm/views/{id}:
+    delete:
+      operationId: deleteCrmView
+      tags: [crm]
+      summary: Delete a saved CRM view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/pipelines:
+    get:
+      operationId: listCrmPipelines
+      tags: [crm]
+      summary: List CRM pipelines
+      responses:
+        "200":
+          description: Pipeline list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  pipelines:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmPipeline"
+                required: [success, pipelines]
+    post:
+      operationId: createCrmPipeline
+      tags: [crm]
+      summary: Create a CRM pipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCrmPipelineRequest"
+      responses:
+        "201":
+          description: Pipeline created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  pipeline:
+                    $ref: "#/components/schemas/CrmPipeline"
+                required: [success, pipeline]
+
+  /crm/pipelines/{id}:
+    put:
+      operationId: updateCrmPipeline
+      tags: [crm]
+      summary: Update a CRM pipeline
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCrmPipelineRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  pipeline:
+                    $ref: "#/components/schemas/CrmPipeline"
+                required: [success, pipeline]
+    delete:
+      operationId: deleteCrmPipeline
+      tags: [crm]
+      summary: Delete a CRM pipeline
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/automations:
+    get:
+      operationId: listCrmAutomations
+      tags: [crm]
+      summary: List CRM automations
+      responses:
+        "200":
+          description: Automation list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  automations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmAutomation"
+                required: [success, automations]
+    post:
+      operationId: createCrmAutomation
+      tags: [crm]
+      summary: Create a CRM automation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCrmAutomationRequest"
+      responses:
+        "201":
+          description: Automation created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  automation:
+                    $ref: "#/components/schemas/CrmAutomation"
+                required: [success, automation]
+
+  /crm/automations/{id}:
+    put:
+      operationId: updateCrmAutomation
+      tags: [crm]
+      summary: Update a CRM automation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCrmAutomationRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  automation:
+                    $ref: "#/components/schemas/CrmAutomation"
+                required: [success, automation]
+    delete:
+      operationId: deleteCrmAutomation
+      tags: [crm]
+      summary: Delete a CRM automation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/activities:
+    get:
+      operationId: listCrmActivities
+      tags: [crm]
+      summary: List all CRM activities
+      responses:
+        "200":
+          description: Activity list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  activities:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmActivity"
+                required: [success, activities]
+
+  /crm/segments:
+    get:
+      operationId: listCrmSegments
+      tags: [crm]
+      summary: List CRM segments
+      responses:
+        "200":
+          description: Segment list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  segments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmSegment"
+                required: [segments]
+
+  /crm/analytics/overview:
+    get:
+      operationId: getCrmAnalyticsOverview
+      tags: [crm]
+      summary: Get CRM analytics overview
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  kpis:
+                    type: object
+                    additionalProperties: true
+                  activitiesByType:
+                    type: object
+                    additionalProperties: true
+                  statusDist:
+                    type: object
+                    additionalProperties: true
+                required: [success, kpis]
+
+  /crm/analytics/funnel:
+    get:
+      operationId: getCrmAnalyticsFunnel
+      tags: [crm]
+      summary: Get CRM funnel analytics
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Funnel data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  funnel:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        stage:
+                          type: string
+                        count:
+                          type: integer
+                        value:
+                          type: number
+                  avgDaysPerStage:
+                    type: object
+                    additionalProperties:
+                      type: number
+                required: [success, funnel]
+
+  /deliverables:
+    get:
+      operationId: listDeliverables
+      tags: [deliverables]
+      summary: List deliverables
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: contactId
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deliverable list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliverables:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Deliverable"
+                  total:
+                    type: integer
+                required: [deliverables, total]
+
+  /deliverables/generate:
+    post:
+      operationId: generateDeliverable
+      tags: [deliverables]
+      summary: Generate a new deliverable with AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateDeliverableRequest"
+      responses:
+        "201":
+          description: Deliverable generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliverable:
+                    $ref: "#/components/schemas/Deliverable"
+                  sections:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DeliverableSection"
+                required: [deliverable, sections]
+
+  /deliverables/{id}:
+    get:
+      operationId: getDeliverable
+      tags: [deliverables]
+      summary: Get a deliverable with sections
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deliverable details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliverable:
+                    $ref: "#/components/schemas/Deliverable"
+                  sections:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DeliverableSection"
+                required: [deliverable, sections]
+    patch:
+      operationId: updateDeliverable
+      tags: [deliverables]
+      summary: Update a deliverable
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                title:
+                  type: string
+                notes:
+                  type: string
+                product:
+                  type: string
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliverable:
+                    $ref: "#/components/schemas/Deliverable"
+                required: [deliverable]
+    delete:
+      operationId: deleteDeliverable
+      tags: [deliverables]
+      summary: Delete a deliverable
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /deliverables/{id}/sections/{sectionId}:
+    patch:
+      operationId: updateDeliverableSection
+      tags: [deliverables]
+      summary: Update a deliverable section
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+              required: [content]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  section:
+                    $ref: "#/components/schemas/DeliverableSection"
+                required: [section]
+
+  /deliverables/{id}/sections/{sectionId}/regenerate:
+    post:
+      operationId: regenerateDeliverableSection
+      tags: [deliverables]
+      summary: Regenerate a deliverable section
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Regenerated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  section:
+                    $ref: "#/components/schemas/DeliverableSection"
+                  ragSources:
+                    type: array
+                    items:
+                      type: string
+                required: [section, ragSources]
+
+  /deliverables/{id}/approve:
+    post:
+      operationId: approveDeliverable
+      tags: [deliverables]
+      summary: Approve a deliverable
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                changeSummary:
+                  type: string
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliverable:
+                    $ref: "#/components/schemas/Deliverable"
+                  version:
+                    type: integer
+                required: [deliverable, version]
+
+  /deliverables/{id}/export:
+    get:
+      operationId: exportDeliverable
+      tags: [deliverables]
+      summary: Export deliverable as HTML
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: HTML file
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /analytics/overview:
+    get:
+      operationId: getAnalyticsOverview
+      tags: [analytics]
+      summary: Get usage analytics overview
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsOverview"
+
+  /analytics/daily-usage:
+    get:
+      operationId: getAnalyticsDailyUsage
+      tags: [analytics]
+      summary: Get daily usage breakdown
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Daily usage
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  usageByDay:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DailyUsage"
+                required: [usageByDay]
+
+  /analytics/providers:
+    get:
+      operationId: getAnalyticsProviders
+      tags: [analytics]
+      summary: Get provider usage stats
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Provider stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providerStats:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProviderStats"
+                required: [providerStats]
+
+  /analytics/models:
+    get:
+      operationId: getAnalyticsModels
+      tags: [analytics]
+      summary: Get model usage stats
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Model stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  modelStats:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ModelStats"
+                required: [modelStats]
+
+  /analytics/cost-trend:
+    get:
+      operationId: getAnalyticsCostTrend
+      tags: [analytics]
+      summary: Get cost trend over time
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cost trend
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  costByDay:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        day:
+                          type: string
+                        cost:
+                          type: number
+                required: [costByDay]
+
+  /analytics/recent-logs:
+    get:
+      operationId: getAnalyticsRecentLogs
+      tags: [analytics]
+      summary: Get recent usage logs
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recent logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UsageLog"
+                required: [logs]
+
+  /automate/sequences:
+    get:
+      operationId: listAutomationSequences
+      tags: [automate]
+      summary: List automation sequences
+      responses:
+        "200":
+          description: Sequence list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sequences:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AutomationSequence"
+                required: [success, sequences]
+    post:
+      operationId: createAutomationSequence
+      tags: [automate]
+      summary: Create an automation sequence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAutomationSequenceRequest"
+      responses:
+        "201":
+          description: Sequence created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sequence:
+                    $ref: "#/components/schemas/AutomationSequence"
+                required: [success, sequence]
+
+  /automate/sequences/{id}:
+    put:
+      operationId: updateAutomationSequence
+      tags: [automate]
+      summary: Update an automation sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAutomationSequenceRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sequence:
+                    $ref: "#/components/schemas/AutomationSequence"
+                required: [success, sequence]
+    delete:
+      operationId: deleteAutomationSequence
+      tags: [automate]
+      summary: Delete an automation sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /automate/sequences/{id}/enroll:
+    post:
+      operationId: enrollInSequence
+      tags: [automate]
+      summary: Enroll a contact in a sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contactId:
+                  type: integer
+              required: [contactId]
+      responses:
+        "201":
+          description: Enrolled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  enrollment:
+                    $ref: "#/components/schemas/SequenceEnrollment"
+                required: [success, enrollment]
+
+  /automate/enrollments:
+    get:
+      operationId: listSequenceEnrollments
+      tags: [automate]
+      summary: List sequence enrollments
+      parameters:
+        - name: contactId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Enrollment list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  enrollments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SequenceEnrollment"
+                required: [success, enrollments]
+
+  /automate/broadcast-whatsapp:
+    post:
+      operationId: broadcastWhatsApp
+      tags: [automate]
+      summary: Broadcast a WhatsApp message to contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastWhatsAppRequest"
+      responses:
+        "200":
+          description: Broadcast result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sent:
+                    type: integer
+                  queued:
+                    type: integer
+                  skipped:
+                    type: integer
+                  failed:
+                    type: integer
+                  message:
+                    type: string
+                required: [success]
+
+  /ai-quality/summary:
+    get:
+      operationId: getAiQualitySummary
+      tags: [ai-quality]
+      summary: Get AI quality summary stats
+      responses:
+        "200":
+          description: Quality summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiQualitySummary"
+
+  /ai-quality/runs:
+    get:
+      operationId: listAiQualityRuns
+      tags: [ai-quality]
+      summary: List AI quality runs
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Run list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UsageLog"
+                  total:
+                    type: integer
+                required: [runs, total]
+
+  /ai-quality/test-cases:
+    get:
+      operationId: listAiTestCases
+      tags: [ai-quality]
+      summary: List AI test cases
+      parameters:
+        - name: agentId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Test case list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  testCases:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AiTestCase"
+                required: [testCases]
+    post:
+      operationId: createAiTestCase
+      tags: [ai-quality]
+      summary: Create an AI test case
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAiTestCaseRequest"
+      responses:
+        "201":
+          description: Test case created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  testCase:
+                    $ref: "#/components/schemas/AiTestCase"
+                required: [testCase]
+
+  /ai-quality/test-cases/{id}:
+    delete:
+      operationId: deleteAiTestCase
+      tags: [ai-quality]
+      summary: Delete an AI test case
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /ai-quality/test-cases/{id}/run:
+    post:
+      operationId: runAiTestCase
+      tags: [ai-quality]
+      summary: Run an AI test case
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Test run result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run:
+                    $ref: "#/components/schemas/AiTestRun"
+                required: [run]
+
+  /ai-quality/test-cases/{id}/runs:
+    get:
+      operationId: listAiTestCaseRuns
+      tags: [ai-quality]
+      summary: List runs for a test case
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Run list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AiTestRun"
+                required: [runs]
+
+  /ai-quality/feedback:
+    post:
+      operationId: submitAiFeedback
+      tags: [ai-quality]
+      summary: Submit feedback on an AI response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiFeedbackRequest"
+      responses:
+        "200":
+          description: Feedback submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  id:
+                    type: integer
+                required: [ok, id]
+
+  /branding/config:
+    get:
+      operationId: getBrandingConfig
+      tags: [branding]
+      summary: Get tenant branding config
+      responses:
+        "200":
+          description: Branding config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrandingConfig"
+
+  /branding/update:
+    post:
+      operationId: updateBrandingConfig
+      tags: [branding]
+      summary: Update tenant branding config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBrandingRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrandingConfig"
+
+  /branding/logo:
+    post:
+      operationId: uploadBrandingLogo
+      tags: [branding]
+      summary: Upload tenant logo
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                logo:
+                  type: string
+                  format: binary
+              required: [logo]
+      responses:
+        "200":
+          description: Logo uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  logoUrl:
+                    type: string
+                required: [success, logoUrl]
+
+  /orchestrate:
+    post:
+      operationId: orchestrateAgents
+      tags: [orchestrate]
+      summary: Orchestrate tasks across multiple agents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrchestrateRequest"
+      responses:
+        "200":
+          description: Orchestration results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrchestrateResponse"
+
 components:
   responses:
     BadRequest:
@@ -812,6 +3174,9 @@ components:
           type: string
         stream:
           type: boolean
+        connectionId:
+          type: integer
+          nullable: true
       required: [content]
 
     MessageResponse:
@@ -1154,3 +3519,1317 @@ components:
         key:
           type: string
       required: [provider, key]
+
+    ChannelConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+        platform:
+          type: string
+        externalId:
+          type: string
+        agentId:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, platform, externalId, agentId, isActive]
+
+    CreateChannelRequest:
+      type: object
+      properties:
+        platform:
+          type: string
+        externalId:
+          type: string
+        agentId:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+      required: [platform, externalId, agentId]
+
+    LlmProvider:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        label:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+        ring:
+          type: string
+        dot:
+          type: string
+        supportsDiscovery:
+          type: boolean
+        needsBaseUrl:
+          type: boolean
+        baseUrlPlaceholder:
+          type: string
+        keyLabel:
+          type: string
+        keyPlaceholder:
+          type: string
+      required: [id, name, label, icon, color, ring, dot, supportsDiscovery, needsBaseUrl, keyLabel, keyPlaceholder]
+
+    LlmConnection:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+          nullable: true
+        name:
+          type: string
+        provider:
+          type: string
+        baseUrl:
+          type: string
+          nullable: true
+        modelId:
+          type: string
+        modelName:
+          type: string
+        contextWindow:
+          type: integer
+          nullable: true
+        maxTokens:
+          type: integer
+          nullable: true
+        supportsVision:
+          type: boolean
+        supportsTools:
+          type: boolean
+        supportsJson:
+          type: boolean
+        priceInput:
+          type: string
+          nullable: true
+        priceOutput:
+          type: string
+          nullable: true
+        usageType:
+          type: string
+        isDefault:
+          type: boolean
+        isActive:
+          type: boolean
+        lastTestStatus:
+          type: string
+          nullable: true
+        hasKey:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, provider, modelId, modelName, supportsVision, supportsTools, supportsJson, usageType, isDefault, isActive, hasKey, createdAt, updatedAt]
+
+    CreateLlmConnectionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        provider:
+          type: string
+        baseUrl:
+          type: string
+        apiKey:
+          type: string
+        modelId:
+          type: string
+        modelName:
+          type: string
+        contextWindow:
+          type: integer
+        maxTokens:
+          type: integer
+        supportsVision:
+          type: boolean
+        supportsTools:
+          type: boolean
+        supportsJson:
+          type: boolean
+        usageType:
+          type: string
+      required: [provider, apiKey, modelId]
+
+    UpdateLlmConnectionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        baseUrl:
+          type: string
+        apiKey:
+          type: string
+        modelId:
+          type: string
+        modelName:
+          type: string
+        contextWindow:
+          type: integer
+        maxTokens:
+          type: integer
+        supportsVision:
+          type: boolean
+        supportsTools:
+          type: boolean
+        supportsJson:
+          type: boolean
+        usageType:
+          type: string
+        isActive:
+          type: boolean
+
+    LlmTestResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        ok:
+          type: boolean
+        response:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+        tokensUsed:
+          type: integer
+        executionTimeMs:
+          type: integer
+        error:
+          type: string
+      required: [success, ok, executionTimeMs]
+
+    ValidateLlmRequest:
+      type: object
+      properties:
+        provider:
+          type: string
+        apiKey:
+          type: string
+        baseUrl:
+          type: string
+      required: [provider, apiKey]
+
+    LlmProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        chatConnectionId:
+          type: integer
+          nullable: true
+        fastConnectionId:
+          type: integer
+          nullable: true
+        reasoningConnectionId:
+          type: integer
+          nullable: true
+        visionConnectionId:
+          type: integer
+          nullable: true
+        embeddingConnectionId:
+          type: integer
+          nullable: true
+        imageConnectionId:
+          type: integer
+          nullable: true
+        transcriptionConnectionId:
+          type: integer
+          nullable: true
+        isDefault:
+          type: boolean
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, userId, name, isDefault, isActive, createdAt, updatedAt]
+
+    CreateLlmProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        chatConnectionId:
+          type: integer
+        fastConnectionId:
+          type: integer
+        reasoningConnectionId:
+          type: integer
+        visionConnectionId:
+          type: integer
+        embeddingConnectionId:
+          type: integer
+        imageConnectionId:
+          type: integer
+        transcriptionConnectionId:
+          type: integer
+      required: [name]
+
+    UpdateLlmProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        chatConnectionId:
+          type: integer
+          nullable: true
+        fastConnectionId:
+          type: integer
+          nullable: true
+        reasoningConnectionId:
+          type: integer
+          nullable: true
+        visionConnectionId:
+          type: integer
+          nullable: true
+        embeddingConnectionId:
+          type: integer
+          nullable: true
+        imageConnectionId:
+          type: integer
+          nullable: true
+        transcriptionConnectionId:
+          type: integer
+          nullable: true
+        isDefault:
+          type: boolean
+
+    CrmContact:
+      type: object
+      properties:
+        id:
+          type: integer
+        cnpj:
+          type: string
+        razaoSocial:
+          type: string
+          nullable: true
+        nomeFantasia:
+          type: string
+          nullable: true
+        regimeTributario:
+          type: string
+          nullable: true
+        cnae:
+          type: string
+          nullable: true
+        faturamentoEstimado:
+          type: string
+          nullable: true
+        porte:
+          type: string
+          nullable: true
+        uf:
+          type: string
+          nullable: true
+        cidade:
+          type: string
+          nullable: true
+        telefone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        nomeDecissor:
+          type: string
+          nullable: true
+        cargoDecissor:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        aiScore:
+          type: number
+          nullable: true
+        aiRecommendedProduct:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, cnpj, createdAt]
+
+    CreateCrmContactRequest:
+      type: object
+      properties:
+        cnpj:
+          type: string
+        razaoSocial:
+          type: string
+        nomeFantasia:
+          type: string
+        regimeTributario:
+          type: string
+        cnae:
+          type: string
+        faturamentoEstimado:
+          type: string
+        porte:
+          type: string
+        uf:
+          type: string
+        cidade:
+          type: string
+        telefone:
+          type: string
+        email:
+          type: string
+        website:
+          type: string
+        nomeDecissor:
+          type: string
+        cargoDecissor:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        aiScore:
+          type: number
+      required: [cnpj]
+
+    UpdateCrmContactRequest:
+      type: object
+      properties:
+        razaoSocial:
+          type: string
+        nomeFantasia:
+          type: string
+        regimeTributario:
+          type: string
+        cnae:
+          type: string
+        faturamentoEstimado:
+          type: string
+        porte:
+          type: string
+        uf:
+          type: string
+        cidade:
+          type: string
+        telefone:
+          type: string
+        email:
+          type: string
+        website:
+          type: string
+        nomeDecissor:
+          type: string
+        cargoDecissor:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        aiScore:
+          type: number
+
+    CrmDeal:
+      type: object
+      properties:
+        id:
+          type: integer
+        contactId:
+          type: integer
+          nullable: true
+        pipelineId:
+          type: string
+        title:
+          type: string
+        produto:
+          type: string
+          nullable: true
+        stage:
+          type: string
+        value:
+          type: string
+          nullable: true
+        probability:
+          type: integer
+          nullable: true
+        expectedCloseDate:
+          type: string
+          nullable: true
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, pipelineId, title, stage, createdAt]
+
+    CreateCrmDealRequest:
+      type: object
+      properties:
+        contactId:
+          type: integer
+        pipelineId:
+          type: string
+        title:
+          type: string
+        produto:
+          type: string
+        stage:
+          type: string
+        value:
+          type: string
+        probability:
+          type: integer
+        expectedCloseDate:
+          type: string
+        notes:
+          type: string
+
+    UpdateCrmDealRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        produto:
+          type: string
+        stage:
+          type: string
+        value:
+          type: string
+        probability:
+          type: integer
+        expectedCloseDate:
+          type: string
+        notes:
+          type: string
+        lostReason:
+          type: string
+
+    CrmTask:
+      type: object
+      properties:
+        id:
+          type: integer
+        contactId:
+          type: integer
+          nullable: true
+        dealId:
+          type: integer
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        type:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        dueDate:
+          type: string
+          nullable: true
+        completedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, title, type, priority, status, createdAt]
+
+    CreateCrmTaskRequest:
+      type: object
+      properties:
+        contactId:
+          type: integer
+        dealId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        dueDate:
+          type: string
+        assignedTo:
+          type: string
+
+    UpdateCrmTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        dueDate:
+          type: string
+        completedAt:
+          type: string
+
+    CrmSavedView:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        emoji:
+          type: string
+          nullable: true
+        filters:
+          type: object
+          additionalProperties: true
+        isDefault:
+          type: boolean
+        sortField:
+          type: string
+          nullable: true
+        sortDir:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, isDefault, createdAt]
+
+    CreateCrmViewRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        emoji:
+          type: string
+        filters:
+          type: object
+          additionalProperties: true
+        isDefault:
+          type: boolean
+        sortField:
+          type: string
+        sortDir:
+          type: string
+
+    CrmPipeline:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        stages:
+          type: array
+          items:
+            type: string
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, stages, isDefault]
+
+    CreateCrmPipelineRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        stages:
+          type: array
+          items:
+            type: string
+        isDefault:
+          type: boolean
+      required: [name, stages]
+
+    UpdateCrmPipelineRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        stages:
+          type: array
+          items:
+            type: string
+        isDefault:
+          type: boolean
+
+    CrmAutomation:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        triggerType:
+          type: string
+        triggerValue:
+          type: string
+          nullable: true
+        actionType:
+          type: string
+        actionPayload:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, triggerType, actionType, isActive, createdAt]
+
+    CreateCrmAutomationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        triggerType:
+          type: string
+        triggerValue:
+          type: string
+        actionType:
+          type: string
+        actionPayload:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+
+    UpdateCrmAutomationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        triggerType:
+          type: string
+        triggerValue:
+          type: string
+        actionType:
+          type: string
+        actionPayload:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+
+    CrmActivity:
+      type: object
+      properties:
+        id:
+          type: integer
+        contactId:
+          type: integer
+          nullable: true
+        dealId:
+          type: integer
+          nullable: true
+        type:
+          type: string
+        direction:
+          type: string
+          nullable: true
+        subject:
+          type: string
+          nullable: true
+        content:
+          type: string
+          nullable: true
+        agentId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, type, createdAt]
+
+    CreateCrmActivityRequest:
+      type: object
+      properties:
+        dealId:
+          type: integer
+        type:
+          type: string
+        direction:
+          type: string
+        subject:
+          type: string
+        content:
+          type: string
+        scheduledAt:
+          type: string
+        agentId:
+          type: string
+        conversationId:
+          type: string
+
+    CrmAttachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        contactId:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+          nullable: true
+        mimeType:
+          type: string
+        url:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, contactId, fileName, mimeType, url, createdAt]
+
+    CreateCrmAttachmentRequest:
+      type: object
+      properties:
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        mimeType:
+          type: string
+        url:
+          type: string
+        dealId:
+          type: integer
+      required: [fileName, mimeType, url]
+
+    CrmSegment:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        contacts:
+          type: integer
+        deals:
+          type: integer
+        potentialValue:
+          type: number
+        hotLeads:
+          type: integer
+      required: [id, label, contacts, deals, potentialValue, hotLeads]
+
+    Deliverable:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        type:
+          type: string
+        product:
+          type: string
+        status:
+          type: string
+        confidenceLevel:
+          type: string
+        contactId:
+          type: integer
+          nullable: true
+        ragSourceCount:
+          type: integer
+        guardrailWarnings:
+          type: array
+          items:
+            type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, title, type, product, status, createdAt]
+
+    DeliverableSection:
+      type: object
+      properties:
+        id:
+          type: integer
+        deliverableId:
+          type: integer
+        sectionKey:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        order:
+          type: integer
+        confidenceLevel:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, deliverableId, sectionKey, title, content, order]
+
+    GenerateDeliverableRequest:
+      type: object
+      properties:
+        contactId:
+          type: integer
+        dealId:
+          type: integer
+        type:
+          type: string
+          enum: [diagnostico, proposta, resumo_oportunidade, followup, roteiro_reuniao]
+        product:
+          type: string
+        title:
+          type: string
+      required: [type]
+
+    AnalyticsOverview:
+      type: object
+      properties:
+        totalTokens:
+          type: integer
+        messageCount:
+          type: integer
+        activeAgents:
+          type: integer
+        totalCostCents:
+          type: number
+        avgLatencyMs:
+          type: number
+          nullable: true
+        period:
+          type: string
+      required: [totalTokens, messageCount, activeAgents, totalCostCents, period]
+
+    DailyUsage:
+      type: object
+      properties:
+        day:
+          type: string
+        tokens:
+          type: integer
+        promptTokens:
+          type: integer
+        completionTokens:
+          type: integer
+        messages:
+          type: integer
+        cost:
+          type: number
+        avgLatency:
+          type: number
+      required: [day, tokens, messages, cost]
+
+    ProviderStats:
+      type: object
+      properties:
+        provider:
+          type: string
+        totalTokens:
+          type: integer
+        calls:
+          type: integer
+        cost:
+          type: number
+        avgLatency:
+          type: number
+      required: [provider, totalTokens, calls, cost]
+
+    ModelStats:
+      type: object
+      properties:
+        model:
+          type: string
+        provider:
+          type: string
+        totalTokens:
+          type: integer
+        calls:
+          type: integer
+        cost:
+          type: number
+        avgLatency:
+          type: number
+      required: [model, provider, totalTokens, calls, cost]
+
+    UsageLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        agentId:
+          type: string
+          nullable: true
+        model:
+          type: string
+        provider:
+          type: string
+        promptTokens:
+          type: integer
+        completionTokens:
+          type: integer
+        totalTokens:
+          type: integer
+        costCents:
+          type: number
+        latencyMs:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, model, provider, totalTokens, createdAt]
+
+    AutomationSequence:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        trigger:
+          type: string
+        triggerValue:
+          type: string
+          nullable: true
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, trigger, steps, isActive, createdAt]
+
+    CreateAutomationSequenceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        trigger:
+          type: string
+        triggerValue:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        isActive:
+          type: boolean
+      required: [name, trigger, steps]
+
+    UpdateAutomationSequenceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        trigger:
+          type: string
+        triggerValue:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        isActive:
+          type: boolean
+
+    SequenceEnrollment:
+      type: object
+      properties:
+        id:
+          type: integer
+        sequenceId:
+          type: integer
+        contactId:
+          type: integer
+        currentStep:
+          type: integer
+        nextSendAt:
+          type: string
+          nullable: true
+        status:
+          type: string
+        enrolledAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          nullable: true
+        sequenceName:
+          type: string
+        sequenceTrigger:
+          type: string
+      required: [id, sequenceId, contactId, currentStep, status, enrolledAt]
+
+    BroadcastWhatsAppRequest:
+      type: object
+      properties:
+        channelId:
+          type: integer
+        filters:
+          type: object
+          properties:
+            minScore:
+              type: number
+            maxScore:
+              type: number
+            status:
+              type: array
+              items:
+                type: string
+            tags:
+              type: array
+              items:
+                type: string
+        agentId:
+          type: string
+        inputTemplate:
+          type: string
+      required: [channelId, agentId, inputTemplate]
+
+    AiQualitySummary:
+      type: object
+      properties:
+        totalRequests:
+          type: integer
+        totalTokens:
+          type: integer
+        avgLatencyMs:
+          type: number
+          nullable: true
+        successRate:
+          type: number
+        totalFeedback:
+          type: integer
+        satisfactionRate:
+          type: number
+          nullable: true
+        positiveFeedback:
+          type: integer
+        negativeFeedback:
+          type: integer
+      required: [totalRequests, totalTokens, successRate, totalFeedback, positiveFeedback, negativeFeedback]
+
+    AiTestCase:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        agentId:
+          type: string
+        question:
+          type: string
+        expectedAnswer:
+          type: string
+          nullable: true
+        criteria:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, agentId, question, createdAt]
+
+    CreateAiTestCaseRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        agentId:
+          type: string
+        question:
+          type: string
+        expectedAnswer:
+          type: string
+        criteria:
+          type: string
+      required: [name, agentId, question]
+
+    AiTestRun:
+      type: object
+      properties:
+        id:
+          type: integer
+        testCaseId:
+          type: integer
+        answer:
+          type: string
+        passed:
+          type: boolean
+        score:
+          type: number
+          nullable: true
+        executionTimeMs:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, testCaseId, answer, passed, createdAt]
+
+    AiFeedbackRequest:
+      type: object
+      properties:
+        messageId:
+          type: integer
+        conversationId:
+          type: integer
+        agentId:
+          type: string
+        rating:
+          type: integer
+          enum: [1, -1]
+        reason:
+          type: string
+        comment:
+          type: string
+      required: [messageId, conversationId, agentId, rating]
+
+    BrandingConfig:
+      type: object
+      properties:
+        companyName:
+          type: string
+        primaryColor:
+          type: string
+        logoUrl:
+          type: string
+          nullable: true
+        customDomain:
+          type: string
+          nullable: true
+
+    UpdateBrandingRequest:
+      type: object
+      properties:
+        companyName:
+          type: string
+        primaryColor:
+          type: string
+        customDomain:
+          type: string
+
+    OrchestrateRequest:
+      type: object
+      properties:
+        tasks:
+          type: array
+          items:
+            type: object
+            properties:
+              agentId:
+                type: string
+              task:
+                type: string
+            required: [agentId, task]
+          minItems: 1
+          maxItems: 8
+        context:
+          type: string
+      required: [tasks]
+
+    OrchestrateResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              agentId:
+                type: string
+              agentName:
+                type: string
+              icon:
+                type: string
+              response:
+                type: string
+              conversationId:
+                type: string
+              success:
+                type: boolean
+              error:
+                type: string
+            required: [agentId, agentName, response, conversationId, success]
+        coordinatorReview:
+          type: object
+          properties:
+            response:
+              type: string
+            conversationId:
+              type: string
+          required: [response, conversationId]
+      required: [results, coordinatorReview]
