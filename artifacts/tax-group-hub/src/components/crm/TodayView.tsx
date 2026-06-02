@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2, Clock, AlertCircle, Calendar, Loader2,
@@ -11,19 +11,24 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { useDemoMode } from "@/hooks/use-demo-mode";
 import { DEMO_TASKS } from "@/lib/demo-data";
+import {
+  useListCrmTasks,
+  useUpdateCrmTask,
+  getListCrmTasksQueryKey,
+} from "@workspace/api-client-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type Task = {
   id: number;
-  contactId: number | null;
+  contactId?: number | null;
   title: string;
   type: string;
   priority: string;
   status: string;
-  dueDate: string | null;
-  description: string | null;
+  dueDate?: string | null;
+  description?: string | null;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -155,39 +160,24 @@ export default function TodayView() {
   const [showDone, setShowDone] = useState(false);
 
   // Fetch all pending tasks (and upcoming)
-  const { data: pendingData, isLoading: loadingPending, refetch } = useQuery<{ tasks: Task[] }>({
-    queryKey: ["/api/crm/tasks?status=pending"],
-    queryFn: async () => {
-      const r = await fetch("/api/crm/tasks?status=pending");
-      return r.json();
-    },
-    refetchInterval: 60_000,
-  });
+  const { data: pendingData, isLoading: loadingPending, refetch } = useListCrmTasks(
+    { status: "pending" } as any,
+    { query: { refetchInterval: 60_000 } } as any,
+  );
 
-  const { data: doneData, isLoading: loadingDone } = useQuery<{ tasks: Task[] }>({
-    queryKey: ["/api/crm/tasks?status=done&today=true"],
-    queryFn: async () => {
-      const r = await fetch("/api/crm/tasks?status=done");
-      return r.json();
-    },
-    enabled: showDone,
-  });
+  const { data: doneData, isLoading: loadingDone } = useListCrmTasks(
+    { status: "done" } as any,
+    { query: { enabled: showDone } } as any,
+  );
 
-  const completeMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await fetch(`/api/crm/tasks/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "done", completedAt: new Date().toISOString() }),
-      });
-      if (!res.ok) throw new Error("Erro");
-      return res.json();
+  const completeMutation = useUpdateCrmTask({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCrmTasksQueryKey() });
+        toast({ title: "✅ Tarefa concluída!" });
+      },
+      onError: () => toast({ title: "Erro ao concluir tarefa", variant: "destructive" }),
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/tasks?status=pending"] });
-      toast({ title: "✅ Tarefa concluída!" });
-    },
-    onError: () => toast({ title: "Erro ao concluir tarefa", variant: "destructive" }),
   });
 
   let allTasks = pendingData?.tasks || [];
@@ -283,7 +273,7 @@ export default function TodayView() {
                   <span className="text-xs font-mono bg-red-500/10 text-red-400 rounded-full px-2 py-0.5">{overdueTasks.length}</span>
                 </div>
                 {overdueTasks.map(t => (
-                  <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate(id)} />
+                  <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate({ id, data: { status: "done", completedAt: new Date().toISOString() } })} />
                 ))}
               </div>
             )}
@@ -297,7 +287,7 @@ export default function TodayView() {
                   <span className="text-xs font-mono bg-amber-500/10 text-amber-400 rounded-full px-2 py-0.5">{todayTasks.length}</span>
                 </div>
                 {todayTasks.map(t => (
-                  <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate(id)} />
+                  <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate({ id, data: { status: "done", completedAt: new Date().toISOString() } })} />
                 ))}
               </div>
             )}
@@ -311,7 +301,7 @@ export default function TodayView() {
                   <span className="text-xs font-mono bg-primary/10 text-primary rounded-full px-2 py-0.5">{tomorrowTasks.length}</span>
                 </div>
                 {tomorrowTasks.map(t => (
-                  <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate(id)} />
+                  <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate({ id, data: { status: "done", completedAt: new Date().toISOString() } })} />
                 ))}
               </div>
             )}
@@ -325,7 +315,7 @@ export default function TodayView() {
                   <span className="text-xs font-mono bg-muted rounded-full px-2 py-0.5 text-muted-foreground">{upcomingTasks.length}</span>
                 </div>
                 {upcomingTasks.map(t => (
-                  <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate(id)} />
+                  <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate({ id, data: { status: "done", completedAt: new Date().toISOString() } })} />
                 ))}
               </div>
             )}
@@ -339,7 +329,7 @@ export default function TodayView() {
                   <span className="text-xs font-mono bg-muted/50 rounded-full px-2 py-0.5 text-muted-foreground/50">{nodateTasks.length}</span>
                 </div>
                 {nodateTasks.map(t => (
-                  <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate(id)} />
+                  <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate({ id, data: { status: "done", completedAt: new Date().toISOString() } })} />
                 ))}
               </div>
             )}
@@ -362,7 +352,7 @@ export default function TodayView() {
           </button>
           {showDone && loadingDone && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mt-2" />}
           {showDone && !loadingDone && doneTodayTasks.map(t => (
-            <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate(id)} />
+            <TodayTaskRow key={t.id} task={t} onDone={id => completeMutation.mutate({ id, data: { status: "done", completedAt: new Date().toISOString() } })} />
           ))}
         </div>
       </div>

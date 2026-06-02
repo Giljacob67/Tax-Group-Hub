@@ -15,23 +15,28 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  useListCrmTasks,
+  useCreateCrmTask,
+  getListCrmTasksQueryKey,
+} from "@workspace/api-client-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 export type Task = {
   id: number;
-  userId: string;
-  contactId: number | null;
-  dealId: number | null;
+  userId?: string;
+  contactId?: number | null;
+  dealId?: number | null;
   title: string;
-  description: string | null;
+  description?: string | null;
   type: string;
   priority: string;
   status: string;
-  dueDate: string | null;
-  reminderAt: string | null;
-  completedAt: string | null;
+  dueDate?: string | null;
+  reminderAt?: string | null;
+  completedAt?: string | null;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 };
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -87,48 +92,48 @@ function TaskForm({
   const [reminder, setReminder]   = useState(false);
   const [description, setDesc]    = useState("");
 
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const dueDateISO = dueDate
-        ? new Date(`${dueDate}T${dueTime || "09:00"}:00`).toISOString()
-        : null;
-      const reminderAt = reminder && dueDateISO
-        ? new Date(new Date(dueDateISO).getTime() - 30 * 60 * 1000).toISOString()
-        : null;
+  const createTask = useCreateCrmTask({
+    mutation: {
+      onSuccess: async (data) => {
+        queryClient.invalidateQueries({ queryKey: getListCrmTasksQueryKey() });
+        toast({ title: "✅ Tarefa criada!" });
 
-      const res = await fetch("/api/crm/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title, type, priority, description: description || null,
-          dueDate: dueDateISO, reminderAt,
-          contactId: contactId || null, status: "pending",
-        }),
-      });
-      if (!res.ok) throw new Error("Erro ao criar task");
-      return res.json();
-    },
-    onSuccess: async (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/tasks"] });
-      toast({ title: "✅ Tarefa criada!" });
-
-      // Schedule push notification if reminder set
-      if (data.task?.reminderAt) {
-        const granted = await requestNotificationPermission();
-        if (granted) {
-          scheduleNotification(
-            data.task.title,
-            `Lembrete: ${data.task.type} — ${new Date(data.task.dueDate).toLocaleString("pt-BR")}`,
-            new Date(data.task.reminderAt)
-          );
-          toast({ title: "🔔 Lembrete agendado para 30 min antes." });
+        // Schedule push notification if reminder set
+        const task = (data as any)?.task;
+        if (task?.reminderAt) {
+          const granted = await requestNotificationPermission();
+          if (granted) {
+            scheduleNotification(
+              task.title,
+              `Lembrete: ${task.type} — ${new Date(task.dueDate).toLocaleString("pt-BR")}`,
+              new Date(task.reminderAt)
+            );
+            toast({ title: "🔔 Lembrete agendado para 30 min antes." });
+          }
         }
-      }
 
-      onDone();
+        onDone();
+      },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
+
+  function handleCreate() {
+    const dueDateISO = dueDate
+      ? new Date(`${dueDate}T${dueTime || "09:00"}:00`).toISOString()
+      : undefined;
+    const reminderAt = reminder && dueDateISO
+      ? new Date(new Date(dueDateISO).getTime() - 30 * 60 * 1000).toISOString()
+      : undefined;
+
+    createTask.mutate({
+      data: {
+        title, type, priority, description: description || undefined,
+        dueDate: dueDateISO,
+        contactId: contactId || undefined, status: "pending",
+      } as any,
+    });
+  }
 
   return (
     <div className="border border-border/60 rounded-xl p-3.5 space-y-3 bg-muted/10">
@@ -229,10 +234,10 @@ function TaskForm({
 
       <Button
         size="sm" className="w-full text-xs h-7"
-        onClick={() => createMutation.mutate()}
-        disabled={createMutation.isPending || !title.trim()}
+        onClick={handleCreate}
+        disabled={createTask.isPending || !title.trim()}
       >
-        {createMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Plus className="w-3 h-3 mr-1.5" />}
+        {createTask.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Plus className="w-3 h-3 mr-1.5" />}
         Criar Tarefa
       </Button>
     </div>
@@ -326,16 +331,9 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState<"all" | "pending" | "done">("pending");
 
-  const queryKey = [`/api/crm/tasks?contactId=${contactId}`];
+  const queryKey = getListCrmTasksQueryKey({ contactId });
 
-  const { data, isLoading } = useQuery<{ tasks: Task[] }>({
-    queryKey,
-    queryFn: async () => {
-      const r = await fetch(`/api/crm/tasks?contactId=${contactId}`);
-      return r.json();
-    },
-    refetchInterval: 30_000,
-  });
+  const { data, isLoading } = useListCrmTasks({ contactId } as any, { query: { refetchInterval: 30_000 } } as any);
 
   const updateMutation = useMutation({
     mutationFn: async (task: Task) => {

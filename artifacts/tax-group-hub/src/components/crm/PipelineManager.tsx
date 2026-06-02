@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Edit2, Save, X, GripVertical,
@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  useListCrmPipelines,
+  useCreateCrmPipeline,
+  useUpdateCrmPipeline,
+  useDeleteCrmPipeline,
+  getListCrmPipelinesQueryKey,
+} from "@workspace/api-client-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export type Pipeline = {
@@ -16,7 +23,7 @@ export type Pipeline = {
   name: string;
   stages: string[];
   isDefault: boolean | null;
-  createdAt: string;
+  createdAt?: string;
 };
 
 // ─── Default stages palette ──────────────────────────────────────────────────
@@ -177,25 +184,29 @@ function PipelineForm({
     initial?.stages || ["Prospecção", "Qualificação", "Proposta", "Negociação", "Fechamento", "Ganhos", "Perdidos"]
   );
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const url = isEditing ? `/api/crm/pipelines/${initial!.id}` : "/api/crm/pipelines";
-      const method = isEditing ? "PUT" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), stages }),
-      });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Erro"); }
-      return res.json();
+  const createPipeline = useCreateCrmPipeline({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCrmPipelinesQueryKey() });
+        toast({ title: "✅ Funil criado!" });
+        onDone();
+      },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/pipelines"] });
-      toast({ title: isEditing ? "✅ Funil atualizado!" : "✅ Funil criado!" });
-      onDone();
-    },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
+
+  const updatePipeline = useUpdateCrmPipeline({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCrmPipelinesQueryKey() });
+        toast({ title: "✅ Funil atualizado!" });
+        onDone();
+      },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    },
+  });
+
+  const saveMutation = isEditing ? updatePipeline : createPipeline;
 
   return (
     <div className="space-y-4">
@@ -220,10 +231,16 @@ function PipelineForm({
         </Button>
         <Button
           size="sm" className="flex-1 text-xs"
-          onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending || !name.trim() || stages.length === 0}
+          onClick={() => {
+            if (isEditing) {
+              updatePipeline.mutate({ id: initial!.id, data: { name: name.trim(), stages } });
+            } else {
+              createPipeline.mutate({ data: { name: name.trim(), stages } });
+            }
+          }}
+          disabled={(isEditing ? updatePipeline : createPipeline).isPending || !name.trim() || stages.length === 0}
         >
-          {saveMutation.isPending ? (
+          {(isEditing ? updatePipeline : createPipeline).isPending ? (
             <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
           ) : (
             <Save className="w-3 h-3 mr-1.5" />
@@ -248,41 +265,30 @@ export default function PipelineManager({
   const [mode, setMode] = useState<"list" | "create" | "edit">("list");
   const [editTarget, setEditTarget] = useState<Pipeline | null>(null);
 
-  const { data, isLoading } = useQuery<{ pipelines: Pipeline[] }>({
-    queryKey: ["/api/crm/pipelines"],
-    queryFn: async () => { const r = await fetch("/api/crm/pipelines"); return r.json(); },
+  const { data, isLoading } = useListCrmPipelines();
+
+  const deletePipeline = useDeleteCrmPipeline({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCrmPipelinesQueryKey() });
+        toast({ title: "Funil removido." });
+        if (activePipelineId !== "default") onSelect("default");
+      },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+    },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await fetch(`/api/crm/pipelines/${id}`, { method: "DELETE" });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+  const updateDefaultPipeline = useUpdateCrmPipeline({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCrmPipelinesQueryKey() });
+        toast({ title: "Funil padrão atualizado." });
+      },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/pipelines"] });
-      toast({ title: "Funil removido." });
-      if (activePipelineId !== "default") onSelect("default");
-    },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
-  const setDefaultMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await fetch(`/api/crm/pipelines/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isDefault: true }),
-      });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/pipelines"] });
-      toast({ title: "Funil padrão atualizado." });
-    },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
-  });
-
-  const pipelines = data?.pipelines || [];
+  const pipelines = (data as any)?.pipelines || [];
   const DEFAULT_PIPELINE = {
     id: 0, name: "Funil Comercial (Padrão)", isDefault: true,
     stages: ["prospecting", "discovery", "proposal", "negotiation", "closing", "won", "lost"],
@@ -368,7 +374,7 @@ export default function PipelineManager({
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {!pl.isDefault && (
                       <button
-                        onClick={e => { e.stopPropagation(); setDefaultMutation.mutate(pl.id); }}
+                        onClick={e => { e.stopPropagation(); updateDefaultPipeline.mutate({ id: pl.id, data: { isDefault: true } }); }}
                         className="p-1 hover:bg-amber-500/10 hover:text-amber-400 text-muted-foreground/50 rounded transition-colors"
                         title="Definir como padrão"
                       >
@@ -383,7 +389,7 @@ export default function PipelineManager({
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={e => { e.stopPropagation(); deleteMutation.mutate(pl.id); }}
+                      onClick={e => { e.stopPropagation(); deletePipeline.mutate({ id: pl.id }); }}
                       className="p-1 hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50 rounded transition-colors"
                       title="Excluir funil"
                     >

@@ -10,18 +10,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
+import {
+  useListCrmAutomations,
+  useCreateCrmAutomation,
+  useDeleteCrmAutomation,
+  useListAutomationSequences,
+  getListCrmAutomationsQueryKey,
+} from "@workspace/api-client-react";
 
 type Automation = {
   id: number;
   name: string;
   triggerType: string;
-  triggerValue: string;
+  triggerValue?: string | null;
   actionType: string;
   actionPayload: any;
   isActive: boolean;
 };
 
-type Sequence = { id: number; name: string };
+type Sequence = { id: number; name: string; isActive?: boolean };
 
 const TRIGGER_TYPES = [
   { value: "status_changed",    label: "Status do contato mudar para..." },
@@ -82,17 +89,11 @@ export default function AutomationsPanel() {
   const [taskPriority, setTaskPriority] = useState("high");
   const [seqId, setSeqId] = useState("");
 
-  const { data, isLoading } = useQuery<{ automations: Automation[] }>({
-    queryKey: ["/api/crm/automations"],
-    queryFn: () => fetch("/api/crm/automations").then(r => r.json()),
-  });
+  const { data, isLoading } = useListCrmAutomations();
 
-  const { data: seqData } = useQuery<{ sequences: Sequence[] }>({
-    queryKey: ["/api/automate/sequences"],
-    queryFn: () => fetch("/api/automate/sequences").then(r => r.json()),
-  });
+  const { data: seqData } = useListAutomationSequences();
 
-  const sequences = seqData?.sequences ?? [];
+  const sequences: Sequence[] = (seqData as any)?.sequences ?? [];
 
   function buildPayload() {
     if (actionType === "create_task") return { title: taskTitle, type: "call", priority: taskPriority };
@@ -103,24 +104,23 @@ export default function AutomationsPanel() {
     return { note: "Ação gerada por automação" };
   }
 
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const r = await fetch("/api/crm/automations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, triggerType, triggerValue, actionType, actionPayload: buildPayload() }),
-      });
-      if (!r.ok) throw new Error("Erro ao criar");
-      return r.json();
+  const createAutomation = useCreateCrmAutomation({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListCrmAutomationsQueryKey() });
+        setShowForm(false);
+        toast({ title: "✅ Automação criada!" });
+        setName(""); setTriggerValue(""); setTaskTitle(""); setSeqId("");
+      },
+      onError: () => toast({ title: "Erro ao criar", variant: "destructive" }),
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/crm/automations"] });
-      setShowForm(false);
-      toast({ title: "✅ Automação criada!" });
-      setName(""); setTriggerValue(""); setTaskTitle(""); setSeqId("");
-    },
-    onError: () => toast({ title: "Erro ao criar", variant: "destructive" }),
   });
+
+  function handleCreate() {
+    createAutomation.mutate({
+      data: { name, triggerType, triggerValue, actionType, actionPayload: buildPayload() },
+    });
+  }
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
@@ -133,24 +133,23 @@ export default function AutomationsPanel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/crm/automations"] }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await fetch(`/api/crm/automations/${id}`, { method: "DELETE" });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/crm/automations"] });
-      toast({ title: "Automação removida" });
+  const deleteAutomation = useDeleteCrmAutomation({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListCrmAutomationsQueryKey() });
+        toast({ title: "Automação removida" });
+      },
     },
   });
 
   const saveDisabled =
-    createMutation.isPending ||
+    createAutomation.isPending ||
     !name.trim() ||
     !triggerValue ||
     (actionType === "create_task" && !taskTitle.trim()) ||
     (actionType === "enroll_sequence" && !seqId);
 
-  const automations = data?.automations ?? [];
+  const automations: Automation[] = (data as any)?.automations ?? [];
 
   return (
     <Card className="border-border/50 bg-card/50 h-full flex flex-col">
@@ -268,8 +267,8 @@ export default function AutomationsPanel() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={() => createMutation.mutate()} disabled={saveDisabled}>
-                    {createMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                  <Button onClick={handleCreate} disabled={saveDisabled}>
+                    {createAutomation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                     Salvar Regra
                   </Button>
                 </div>
@@ -330,7 +329,7 @@ export default function AutomationsPanel() {
                     onClick={() => {
                       showConfirm(
                         { title: `Remover "${auto.name}"?`, variant: "destructive", confirmLabel: "Remover" },
-                        () => deleteMutation.mutate(auto.id)
+                        () => deleteAutomation.mutate({ id: auto.id })
                       );
                     }}
                   >

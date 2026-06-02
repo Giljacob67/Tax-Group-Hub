@@ -1,8 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Clock, PhoneCall, AtSign, MessageSquare, Calendar, StickyNote, Activity, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CompanyAvatar } from "./CompanyAvatar";
+import { useListCrmActivities } from "@workspace/api-client-react";
 
 const ACTIVITY_ICONS: Record<string, any> = {
   call: PhoneCall,
@@ -25,16 +25,9 @@ type GlobalActivity = {
 };
 
 export default function GlobalTimeline() {
-  const { data, isLoading } = useQuery<{ activities: GlobalActivity[] }>({
-    queryKey: ["/api/crm/activities"],
-    queryFn: async () => {
-      const r = await fetch("/api/crm/activities");
-      return r.json();
-    },
-    refetchInterval: 30_000,
-  });
+  const { data, isLoading } = useListCrmActivities({ query: { refetchInterval: 30_000 } } as any);
 
-  const activities = data?.activities || [];
+  const activities = (data?.activities as any as GlobalActivity[]) || [];
 
   return (
     <Card className="border-border/50 bg-card/50 h-full flex flex-col">
