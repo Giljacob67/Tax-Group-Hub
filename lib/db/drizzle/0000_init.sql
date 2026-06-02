@@ -75,18 +75,24 @@ CREATE TABLE IF NOT EXISTS app_config (
 );
 
 CREATE TABLE IF NOT EXISTS knowledge_chunks (
-  id          SERIAL PRIMARY KEY,
-  document_id INTEGER NOT NULL REFERENCES knowledge_documents(id) ON DELETE CASCADE,
-  content     TEXT NOT NULL,
-  embedding   VECTOR(768),
-  created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+  id              SERIAL PRIMARY KEY,
+  document_id     INTEGER NOT NULL REFERENCES knowledge_documents(id) ON DELETE CASCADE,
+  content         TEXT NOT NULL,
+  -- Dim-agnostic vector; the application layer validates the dimension of the
+  -- provider (Google 768, OpenAI 1536, Ollama 768/1024). See 0003.
+  embedding       VECTOR,
+  embedding_model TEXT,
+  embedding_dim   INTEGER,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS knowledge_chunks_doc_idx ON knowledge_chunks (document_id);
 
 CREATE TABLE IF NOT EXISTS embedding_cache (
   id         SERIAL PRIMARY KEY,
-  text_hash  TEXT NOT NULL UNIQUE,
-  embedding  VECTOR(768) NOT NULL,
+  text_hash  TEXT NOT NULL,
+  model      TEXT NOT NULL DEFAULT 'google/text-embedding-004',
+  embedding  VECTOR NOT NULL,
+  dim        INTEGER NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS embedding_cache_created_idx ON embedding_cache (created_at);

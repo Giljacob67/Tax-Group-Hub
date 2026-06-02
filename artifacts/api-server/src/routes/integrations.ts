@@ -197,7 +197,7 @@ router.post("/integrations/search-knowledge", async (req, res) => {
     }
 
     try {
-      const [queryEmbedding] = await generateEmbeddings([query]);
+      const { embeddings: [queryEmbedding] } = await generateEmbeddings([query]);
       const userId = req.userId;
       
       const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;

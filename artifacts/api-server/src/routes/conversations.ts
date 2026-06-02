@@ -349,7 +349,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
 
     if (useKnowledgeBase !== false) {
       try {
-        const [queryEmbedding] = await generateEmbeddings([content.trim()]);
+        const { embeddings: [queryEmbedding] } = await generateEmbeddings([content.trim()]);
 
         const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
         const results = await db

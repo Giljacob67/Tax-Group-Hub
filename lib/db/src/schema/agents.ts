@@ -1,4 +1,5 @@
-import { pgTable, text, serial, timestamp, integer, jsonb, boolean, bigint, vector } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb, boolean, bigint, uniqueIndex } from "drizzle-orm/pg-core";
+import { dimAgnosticVector } from "../vector.js";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -87,7 +88,14 @@ export const knowledgeChunksTable = pgTable("knowledge_chunks", {
   id: serial("id").primaryKey(),
   documentId: integer("document_id").notNull().references(() => knowledgeDocumentsTable.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
-  embedding: vector("embedding", { dimensions: 768 }),
+  // Dim-agnostic vector via customType. See lib/db/src/vector.ts. Drizzle
+  // type is `number[]`; the DB column has no dim pin so the same row can
+  // hold 768 (Google), 1536 (OpenAI), 1024 (Ollama mxbai), etc.
+  embedding: dimAgnosticVector("embedding"),
+  // Track which model produced the embedding so we can validate or rebuild
+  // a chunk when the user changes their embedding provider.
+  embeddingModel: text("embedding_model"),
+  embeddingDim: integer("embedding_dim"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -97,14 +105,26 @@ export type InsertKnowledgeChunk = z.infer<typeof insertKnowledgeChunkSchema>;
 
 /**
  * Embedding cache: avoids calling the embedding API for identical text chunks.
- * Key: MD5 hash of the text. Value: the embedding vector.
+ * Key: MD5 hash of the text + the model that produced the vector. Value: the
+ * embedding vector. We must include `model` in the key because two providers
+ * with the same text produce different-shaped vectors.
  */
-export const embeddingCacheTable = pgTable("embedding_cache", {
-  id: serial("id").primaryKey(),
-  textHash: text("text_hash").notNull().unique(),
-  embedding: vector("embedding", { dimensions: 768 }).notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const embeddingCacheTable = pgTable(
+  "embedding_cache",
+  {
+    id: serial("id").primaryKey(),
+    textHash: text("text_hash").notNull(),
+    model: text("model").notNull().default("google/text-embedding-004"),
+    // Same dim-agnostic column as knowledge_chunks.embedding — see comment there.
+    embedding: dimAgnosticVector("embedding").notNull(),
+    dim: integer("dim").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    // Composite uniqueness: one cached vector per (text, model) pair.
+    uniqueIndex("embedding_cache_hash_model_idx").on(t.textHash, t.model),
+  ],
+);
 
 export type EmbeddingCache = typeof embeddingCacheTable.$inferSelect;
 

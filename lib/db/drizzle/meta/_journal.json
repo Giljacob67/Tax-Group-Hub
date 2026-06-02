@@ -22,6 +22,13 @@
       "when": 1748937600000,
       "tag": "0002_hubspot_and_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1749024000000,
+      "tag": "0003_embedding_dim_validation",
+      "breakpoints": true
     }
   ]
 }
