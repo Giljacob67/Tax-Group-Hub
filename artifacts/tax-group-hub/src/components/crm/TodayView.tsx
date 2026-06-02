@@ -5,6 +5,8 @@ import {
   CheckCircle2, Clock, AlertCircle, Calendar, Loader2,
   PhoneCall, AtSign, MessageSquare, StickyNote, FileText,
   RefreshCw, ChevronRight, User2, CheckCheck,
+  Flame, Target, Briefcase, Building2, TrendingUp,
+  Send, Clock3, FileWarning, Handshake,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +17,7 @@ import {
   useListCrmTasks,
   useUpdateCrmTask,
   getListCrmTasksQueryKey,
+  useGetCrmOperationalSummary,
 } from "@workspace/api-client-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -29,6 +32,23 @@ type Task = {
   description?: string | null;
   createdAt: string;
   updatedAt?: string;
+};
+
+type OperationalSummary = {
+  followupVencidos: number;
+  followupHoje: number;
+  reunioesHoje: number;
+  tarefasVencidas: number;
+  semAtividade7d: number;
+  semAtividade14d: number;
+  aguardandoMatriz: number;
+  pendenciaDocumental: number;
+  propostasAbertas: number;
+  emNegociacao: number;
+  leadsNovos24h: number;
+  leadsQuentes: number;
+  totalContatos: number;
+  totalDeals: number;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -94,7 +114,6 @@ function TodayTaskRow({ task, onDone }: { task: Task; onDone: (id: number) => vo
         overdue ? "bg-red-500/5" : ""
       }`}
     >
-      {/* Complete button */}
       <button
         onClick={() => onDone(task.id)}
         className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
@@ -108,14 +127,12 @@ function TodayTaskRow({ task, onDone }: { task: Task; onDone: (id: number) => vo
         {done && <CheckCheck className="w-3 h-3 text-white" strokeWidth={3} />}
       </button>
 
-      {/* Icon */}
       <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
         overdue ? "bg-red-500/10" : done ? "bg-muted" : "bg-primary/10"
       }`}>
         <Icon className={`w-3.5 h-3.5 ${overdue ? "text-red-400" : done ? "text-muted-foreground" : "text-primary"}`} />
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium truncate ${done ? "line-through text-muted-foreground" : overdue ? "text-red-300" : "text-foreground"}`}>
           {task.title}
@@ -125,7 +142,6 @@ function TodayTaskRow({ task, onDone }: { task: Task; onDone: (id: number) => vo
         )}
       </div>
 
-      {/* Metadata */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <span className={`w-2 h-2 rounded-full ${PRIORITY_DOT[task.priority] || PRIORITY_DOT.medium}`} />
         {task.dueDate && (
@@ -141,13 +157,22 @@ function TodayTaskRow({ task, onDone }: { task: Task; onDone: (id: number) => vo
   );
 }
 
-// ─── Section Header ─────────────────────────────────────────────────────────
-function SectionHeader({ label, count, color }: { label: string; count: number; color: string }) {
+// ─── Stat Card ──────────────────────────────────────────────────────────────
+function StatCard({ icon: Icon, label, count, color, urgent }: {
+  icon: any; label: string; count: number; color: string; urgent?: boolean;
+}) {
   if (count === 0) return null;
   return (
-    <div className={`flex items-center gap-2 px-4 py-2 border-b border-border/30 ${color} bg-current/5`}>
-      <span className={`text-xs font-bold uppercase tracking-wider`}>{label}</span>
-      <span className="text-xs font-mono bg-current/10 rounded-full px-2 py-0.5">{count}</span>
+    <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border ${
+      urgent ? "border-red-500/30 bg-red-500/5" : "border-border/50 bg-muted/20"
+    }`}>
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] text-muted-foreground truncate">{label}</p>
+        <p className={`text-lg font-bold leading-none ${urgent ? "text-red-400" : "text-foreground"}`}>{count}</p>
+      </div>
     </div>
   );
 }
@@ -159,7 +184,13 @@ export default function TodayView() {
   const queryClient = useQueryClient();
   const [showDone, setShowDone] = useState(false);
 
-  // Fetch all pending tasks (and upcoming)
+  // Fetch operational summary
+  const { data: summaryData, isLoading: loadingSummary, refetch: refetchSummary } = useGetCrmOperationalSummary(
+    { query: { refetchInterval: 120_000 } } as any,
+  );
+  const summary: OperationalSummary | undefined = summaryData?.summary as any;
+
+  // Fetch all pending tasks
   const { data: pendingData, isLoading: loadingPending, refetch } = useListCrmTasks(
     { status: "pending" } as any,
     { query: { refetchInterval: 60_000 } } as any,
@@ -174,7 +205,8 @@ export default function TodayView() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListCrmTasksQueryKey() });
-        toast({ title: "✅ Tarefa concluída!" });
+        refetchSummary();
+        toast({ title: "Tarefa concluida!" });
       },
       onError: () => toast({ title: "Erro ao concluir tarefa", variant: "destructive" }),
     },
@@ -196,7 +228,9 @@ export default function TodayView() {
   const totalActionable = overdueTasks.length + todayTasks.length;
   const doneTodayTasks  = (doneData?.tasks || []).filter(t => isToday(t));
 
-  if (loadingPending) {
+  const isLoading = loadingPending && loadingSummary;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="w-6 h-6 animate-spin text-primary/40" />
@@ -214,44 +248,35 @@ export default function TodayView() {
               {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {totalActionable === 0
-                ? "Nenhuma tarefa urgente — todas as ações estão em dia."
-                : `${totalActionable} tarefa${totalActionable !== 1 ? "s" : ""} para hoje${overdueTasks.length > 0 ? ` · ${overdueTasks.length} atrasada${overdueTasks.length !== 1 ? "s" : ""}` : ""}`}
+              {totalActionable === 0 && (!summary || summary.followupVencidos === 0)
+                ? "Nenhuma acao urgente — todas as atividades estao em dia."
+                : `${totalActionable} tarefa${totalActionable !== 1 ? "s" : ""} para hoje`}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={() => refetch()}>
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={() => { refetch(); refetchSummary(); }}>
               <RefreshCw className="w-3 h-3" /> Atualizar
             </Button>
           </div>
         </div>
 
-        {/* Summary pills */}
-        <div className="flex gap-2 mt-3 flex-wrap">
-          {overdueTasks.length > 0 && (
-            <Badge variant="outline" className="text-xs border-red-500/40 text-red-400 bg-red-500/5">
-              <AlertCircle className="w-2.5 h-2.5 mr-1" />
-              {overdueTasks.length} atrasada{overdueTasks.length !== 1 ? "s" : ""}
-            </Badge>
-          )}
-          {todayTasks.length > 0 && (
-            <Badge variant="outline" className="text-xs border-amber-500/40 text-amber-400 bg-amber-500/5">
-              <Calendar className="w-2.5 h-2.5 mr-1" />
-              {todayTasks.length} para hoje
-            </Badge>
-          )}
-          {tomorrowTasks.length > 0 && (
-            <Badge variant="outline" className="text-xs border-primary/40 text-primary bg-primary/5">
-              <Clock className="w-2.5 h-2.5 mr-1" />
-              {tomorrowTasks.length} amanhã
-            </Badge>
-          )}
-          {nodateTasks.length > 0 && (
-            <Badge variant="outline" className="text-xs border-border text-muted-foreground">
-              {nodateTasks.length} sem data
-            </Badge>
-          )}
-        </div>
+        {/* Operational Stats Grid */}
+        {summary && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mt-3">
+            <StatCard icon={AlertCircle} label="Follow-ups vencidos" count={summary.followupVencidos} color="bg-red-500/10 text-red-400" urgent />
+            <StatCard icon={Calendar} label="Follow-ups hoje" count={summary.followupHoje} color="bg-amber-500/10 text-amber-400" />
+            <StatCard icon={Handshake} label="Reunioes hoje" count={summary.reunioesHoje} color="bg-purple-500/10 text-purple-400" />
+            <StatCard icon={Clock3} label="Tarefas vencidas" count={summary.tarefasVencidas} color="bg-red-500/10 text-red-400" urgent />
+            <StatCard icon={Flame} label="Leads quentes" count={summary.leadsQuentes} color="bg-orange-500/10 text-orange-400" />
+            <StatCard icon={Target} label="Propostas abertas" count={summary.propostasAbertas} color="bg-cyan-500/10 text-cyan-400" />
+            <StatCard icon={Send} label="Aguardando Matriz" count={summary.aguardandoMatriz} color="bg-pink-500/10 text-pink-400" />
+            <StatCard icon={FileWarning} label="Pendencia documental" count={summary.pendenciaDocumental} color="bg-red-500/10 text-red-400" />
+            <StatCard icon={TrendingUp} label="Em negociacao" count={summary.emNegociacao} color="bg-indigo-500/10 text-indigo-400" />
+            <StatCard icon={Building2} label="Sem atividade 7d" count={summary.semAtividade7d} color="bg-gray-500/10 text-gray-400" />
+            <StatCard icon={Building2} label="Sem atividade 14d" count={summary.semAtividade14d} color="bg-gray-500/10 text-gray-400" />
+            <StatCard icon={CheckCircle2} label="Leads novos 24h" count={summary.leadsNovos24h} color="bg-green-500/10 text-green-400" />
+          </div>
+        )}
       </div>
 
       {/* Task list */}
@@ -297,7 +322,7 @@ export default function TodayView() {
               <div>
                 <div className="flex items-center gap-2 px-4 py-2 border-b border-primary/20 bg-primary/5">
                   <ChevronRight className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-primary">Amanhã</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary">Amanha</span>
                   <span className="text-xs font-mono bg-primary/10 text-primary rounded-full px-2 py-0.5">{tomorrowTasks.length}</span>
                 </div>
                 {tomorrowTasks.map(t => (
@@ -311,7 +336,7 @@ export default function TodayView() {
               <div>
                 <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-muted/10">
                   <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Próximas</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Proximas</span>
                   <span className="text-xs font-mono bg-muted rounded-full px-2 py-0.5 text-muted-foreground">{upcomingTasks.length}</span>
                 </div>
                 {upcomingTasks.map(t => (
@@ -343,7 +368,7 @@ export default function TodayView() {
             className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
           >
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/60" />
-            {showDone ? "Ocultar" : "Ver"} tarefas concluídas hoje
+            {showDone ? "Ocultar" : "Ver"} tarefas concluidas hoje
             {doneTodayTasks.length > 0 && (
               <span className="text-xs bg-emerald-500/10 text-emerald-400 rounded-full px-1.5 py-0.5 font-bold">
                 {doneTodayTasks.length}

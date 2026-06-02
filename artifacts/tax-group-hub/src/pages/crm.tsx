@@ -33,6 +33,9 @@ import {
   useBulkDeleteCrmContacts,
   useBulkUpdateStatusCrmContacts,
   useBulkTagCrmContacts,
+  useBulkUpdateTemperatureCrmContacts,
+  useBulkAssignCrmContacts,
+  useBulkUpdateFollowupCrmContacts,
   useEnrichCrmContact,
   useQualifyCrmContact,
   useCreateCrmContactActivity,
@@ -42,7 +45,9 @@ import {
   useUpdateCrmDeal,
   useDeleteCrmDeal,
   useCreateCrmView,
+  useUpdateCrmView,
   useDeleteCrmView,
+  useSeedSystemCrmViews,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -80,6 +85,7 @@ import {
   MATRIX_STATUSES, MATRIX_STATUS_LABELS, MATRIX_STATUS_COLORS,
   ORIGEM_LEAD_OPTIONS, TEMPERATURA_OPTIONS, PRODUTO_INTERESSE_OPTIONS,
   DEFAULT_PIPELINE_ID,
+  SYSTEM_VIEWS, SYSTEM_VIEW_CATEGORIES,
 } from "@workspace/db/crm-constants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -176,8 +182,19 @@ type Filters = {
   regime: string;
   porte: string;
   uf: string;
+  cidade: string;
   scoreMin: string;
   scoreMax: string;
+  setor: string;
+  segmento: string;
+  origemLead: string;
+  loteProspeccao: string;
+  produtoInteresse: string;
+  responsavelUnidade: string;
+  temperatura: string;
+  statusMatriz: string;
+  followupVencido: string;
+  semAtividadeDias: string;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -443,9 +460,19 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
   const [listFilter, setListFilter]     = useState("");
   const [sort, setSort]               = useState<{ field: string; dir: "asc" | "desc" } | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters]         = useState<Filters>({ regime: "", porte: "", uf: "", scoreMin: "", scoreMax: "" });
+  const [filters, setFilters]         = useState<Filters>({
+    regime: "", porte: "", uf: "", cidade: "", scoreMin: "", scoreMax: "",
+    setor: "", segmento: "", origemLead: "", loteProspeccao: "",
+    produtoInteresse: "", responsavelUnidade: "", temperatura: "",
+    statusMatriz: "", followupVencido: "", semAtividadeDias: "",
+  });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const [bulkTempOpen, setBulkTempOpen] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkFollowupOpen, setBulkFollowupOpen] = useState(false);
+  const [bulkFollowupDate, setBulkFollowupDate] = useState("");
+  const [bulkAssignValue, setBulkAssignValue] = useState("");
 
   const activeFilterCount = Object.values(filters).filter(v => v !== "").length + (statusFilter ? 1 : 0);
 
@@ -456,8 +483,19 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
   if (filters.regime)      contactsParams.regime = filters.regime;
   if (filters.porte)       contactsParams.porte = filters.porte;
   if (filters.uf)          contactsParams.uf = filters.uf;
+  if (filters.cidade)      contactsParams.cidade = filters.cidade;
   if (filters.scoreMin)    contactsParams.scoreMin = filters.scoreMin;
   if (filters.scoreMax)    contactsParams.scoreMax = filters.scoreMax;
+  if (filters.setor)       contactsParams.setor = filters.setor;
+  if (filters.segmento)    contactsParams.segmento = filters.segmento;
+  if (filters.origemLead)  contactsParams.origemLead = filters.origemLead;
+  if (filters.loteProspeccao) contactsParams.loteProspeccao = filters.loteProspeccao;
+  if (filters.produtoInteresse) contactsParams.produtoInteresse = filters.produtoInteresse;
+  if (filters.responsavelUnidade) contactsParams.responsavelUnidade = filters.responsavelUnidade;
+  if (filters.temperatura) contactsParams.temperatura = filters.temperatura;
+  if (filters.statusMatriz) contactsParams.statusMatriz = filters.statusMatriz;
+  if (filters.followupVencido) contactsParams.followupVencido = filters.followupVencido;
+  if (filters.semAtividadeDias) contactsParams.semAtividadeDias = filters.semAtividadeDias;
   if (sort)                { contactsParams.sort = sort.field; contactsParams.sortDir = sort.dir; }
 
   const { data, isLoading } = useListCrmContacts(contactsParams);
@@ -531,6 +569,44 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
     },
   });
 
+  const bulkTempMutation = useBulkUpdateTemperatureCrmContacts({
+    mutation: {
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        setSelectedIds(new Set());
+        setBulkTempOpen(false);
+        toast({ title: `${variables.data.ids.length} contato(s) atualizados.` });
+      },
+      onError: () => toast({ title: "Erro ao atualizar temperatura", variant: "destructive" }),
+    },
+  });
+
+  const bulkAssignMutation = useBulkAssignCrmContacts({
+    mutation: {
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        setSelectedIds(new Set());
+        setBulkAssignOpen(false);
+        setBulkAssignValue("");
+        toast({ title: `${variables.data.ids.length} contato(s) atribuído(s).` });
+      },
+      onError: () => toast({ title: "Erro ao atribuir", variant: "destructive" }),
+    },
+  });
+
+  const bulkFollowupMutation = useBulkUpdateFollowupCrmContacts({
+    mutation: {
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        setSelectedIds(new Set());
+        setBulkFollowupOpen(false);
+        setBulkFollowupDate("");
+        toast({ title: `${variables.data.ids.length} contato(s) atualizados.` });
+      },
+      onError: () => toast({ title: "Erro ao atualizar follow-up", variant: "destructive" }),
+    },
+  });
+
   const updateContactStatusMutation = useUpdateCrmContact({
     mutation: {
       onSuccess: () => {
@@ -548,29 +624,35 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
   const someSelected  = selectedIds.size > 0 && !allSelected;
   const allTags       = tagsData?.tags || [];
 
+  const [activeViewId, setActiveViewId] = useState("all");
+  const [isSaveViewOpen, setIsSaveViewOpen] = useState(false);
+  const [newViewName, setNewViewName] = useState("");
+
   function clearFilters() {
-    setFilters({ regime: "", porte: "", uf: "", scoreMin: "", scoreMax: "" });
+    setFilters({
+      regime: "", porte: "", uf: "", cidade: "", scoreMin: "", scoreMax: "",
+      setor: "", segmento: "", origemLead: "", loteProspeccao: "",
+      produtoInteresse: "", responsavelUnidade: "", temperatura: "",
+      statusMatriz: "", followupVencido: "", semAtividadeDias: "",
+    });
     setStatusFilter("");
     setListFilter("");
     setSearch("");
   }
 
-  const PRESET_VIEWS: { id: string; name: string; icon: any; filters: Record<string, string> }[] = [
-    { id: "all", name: "Todos", icon: List, filters: {} },
-    { id: "hot", name: "Leads quentes", icon: Flame, filters: { scoreMin: "70" } },
-    { id: "agro", name: "Agro prioritário", icon: Compass, filters: { tag: "agro" } },
-    { id: "lucro_real", name: "Indústrias Lucro Real", icon: Building2, filters: { regime: "lucro_real" } },
-    { id: "atacado", name: "Atacado", icon: ShoppingCart, filters: { tag: "atacado" } },
-    { id: "opps", name: "Oportunidades RTI", icon: DollarSign, filters: { status: "em_negociacao" } },
-    { id: "proposals", name: "Propostas", icon: FileText, filters: { status: "proposta_enviada" } },
-    { id: "lost", name: "Perdidos", icon: AlertCircle, filters: { status: "perdido" } },
-  ];
-
-  const [activeViewId, setActiveViewId] = useState("all");
-  const [isSaveViewOpen, setIsSaveViewOpen] = useState(false);
-  const [newViewName, setNewViewName] = useState("");
-
   const { data: savedViewsData } = useListCrmViews();
+  const seedSystemViewsMutation = useSeedSystemCrmViews({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/views"] });
+      },
+    },
+  });
+
+  // Seed system views on first load
+  React.useEffect(() => {
+    seedSystemViewsMutation.mutate(undefined as any);
+  }, []);
 
   const saveViewMutation = useCreateCrmView({
     mutation: {
@@ -603,12 +685,24 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
       regime: viewFilters.regime || "",
       porte: viewFilters.porte || "",
       uf: viewFilters.uf || "",
+      cidade: viewFilters.cidade || "",
       scoreMin: viewFilters.scoreMin || "",
       scoreMax: viewFilters.scoreMax || "",
+      setor: viewFilters.setor || "",
+      segmento: viewFilters.segmento || "",
+      origemLead: viewFilters.origemLead || "",
+      loteProspeccao: viewFilters.loteProspeccao || "",
+      produtoInteresse: viewFilters.produtoInteresse || "",
+      responsavelUnidade: viewFilters.responsavelUnidade || "",
+      temperatura: viewFilters.temperatura || "",
+      statusMatriz: viewFilters.statusMatriz || "",
+      followupVencido: viewFilters.followupVencido || "",
+      semAtividadeDias: viewFilters.semAtividadeDias || "",
     });
   }
 
-  const userViews = savedViewsData?.views || [];
+  const userViews = (savedViewsData?.views || []).filter((v: any) => v.type !== "system");
+  const systemViews = (savedViewsData?.views || []).filter((v: any) => v.type === "system");
 
 
   return (
@@ -616,23 +710,33 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
       <div className="flex-none px-6 pt-3 pb-2 border-b border-border/50 bg-card/50 space-y-3">
         {/* Smart Views Row */}
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-2 px-2 items-center">
-          {PRESET_VIEWS.map(v => (
-            <button
-              key={v.id}
-              onClick={() => applyView(v.id, v.filters)}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-colors ${
-                activeViewId === v.id
-                  ? "bg-primary/10 border-primary/30 text-primary font-medium"
-                  : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-              }`}
-            >
-              <v.icon className="w-3 h-3" /> {v.name}
-            </button>
-          ))}
-          
+          {/* System views grouped by category */}
+          {SYSTEM_VIEW_CATEGORIES.map(cat => {
+            const catViews = systemViews.filter((v: any) => v.category === cat.id);
+            if (catViews.length === 0) return null;
+            return (
+              <React.Fragment key={cat.id}>
+                {catViews.map((v: any) => (
+                  <button
+                    key={`sys-${v.id}`}
+                    onClick={() => applyView(`sys-${v.id}`, (v.filters || {}) as Record<string, string>)}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-colors ${
+                      activeViewId === `sys-${v.id}`
+                        ? "bg-primary/10 border-primary/30 text-primary font-medium"
+                        : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    }`}
+                  >
+                    <span>{v.emoji || "📋"}</span> {v.name}
+                  </button>
+                ))}
+                <div className="w-px h-5 bg-border mx-1" />
+              </React.Fragment>
+            );
+          })}
+
           {userViews.length > 0 && <div className="w-px h-5 bg-border mx-1" />}
 
-          {userViews.map(v => (
+          {userViews.map((v: any) => (
             <button
               key={`user-${v.id}`}
               onClick={() => applyView(`user-${v.id}`, (v.filters || {}) as Record<string, string>)}
@@ -756,9 +860,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               <div className="space-y-1">
                 <Label className="text-xs uppercase text-muted-foreground tracking-wider">Regime</Label>
                 <Select value={filters.regime} onValueChange={(v) => setFilters(f => ({ ...f, regime: v === "_all" ? "" : v }))}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Qualquer" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_all">Qualquer</SelectItem>
                     {REGIMES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
@@ -769,9 +871,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               <div className="space-y-1">
                 <Label className="text-xs uppercase text-muted-foreground tracking-wider">Porte</Label>
                 <Select value={filters.porte} onValueChange={(v) => setFilters(f => ({ ...f, porte: v === "_all" ? "" : v }))}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Qualquer" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_all">Qualquer</SelectItem>
                     {PORTES.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
@@ -781,45 +881,133 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
 
               <div className="space-y-1">
                 <Label className="text-xs uppercase text-muted-foreground tracking-wider">UF</Label>
-                <Input
-                  placeholder="Ex: SP"
-                  value={filters.uf}
+                <Input placeholder="Ex: SP" value={filters.uf}
                   onChange={(e) => setFilters(f => ({ ...f, uf: e.target.value.toUpperCase().slice(0, 2) }))}
-                  className="h-8 text-xs"
-                  maxLength={2}
-                />
+                  className="h-8 text-xs" maxLength={2} />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Cidade</Label>
+                <Input placeholder="Ex: São Paulo" value={filters.cidade}
+                  onChange={(e) => setFilters(f => ({ ...f, cidade: e.target.value }))}
+                  className="h-8 text-xs" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Temperatura</Label>
+                <Select value={filters.temperatura} onValueChange={(v) => setFilters(f => ({ ...f, temperatura: v === "_all" ? "" : v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Qualquer</SelectItem>
+                    {TEMPERATURA_OPTIONS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Setor</Label>
+                <Input placeholder="Ex: Agronegócio" value={filters.setor}
+                  onChange={(e) => setFilters(f => ({ ...f, setor: e.target.value }))}
+                  className="h-8 text-xs" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Segmento</Label>
+                <Input placeholder="Ex: Cooperativas" value={filters.segmento}
+                  onChange={(e) => setFilters(f => ({ ...f, segmento: e.target.value }))}
+                  className="h-8 text-xs" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Origem</Label>
+                <Select value={filters.origemLead} onValueChange={(v) => setFilters(f => ({ ...f, origemLead: v === "_all" ? "" : v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Qualquer</SelectItem>
+                    {ORIGEM_LEAD_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Produto</Label>
+                <Select value={filters.produtoInteresse} onValueChange={(v) => setFilters(f => ({ ...f, produtoInteresse: v === "_all" ? "" : v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Qualquer</SelectItem>
+                    {PRODUTO_INTERESSE_OPTIONS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Lote</Label>
+                <Input placeholder="Ex: Lote 1" value={filters.loteProspeccao}
+                  onChange={(e) => setFilters(f => ({ ...f, loteProspeccao: e.target.value }))}
+                  className="h-8 text-xs" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Responsável</Label>
+                <Input placeholder="Ex: João" value={filters.responsavelUnidade}
+                  onChange={(e) => setFilters(f => ({ ...f, responsavelUnidade: e.target.value }))}
+                  className="h-8 text-xs" />
               </div>
 
               <div className="space-y-1">
                 <Label className="text-xs uppercase text-muted-foreground tracking-wider">Score mín.</Label>
-                <Input
-                  type="number" min={0} max={100} placeholder="0"
-                  value={filters.scoreMin}
+                <Input type="number" min={0} max={100} placeholder="0" value={filters.scoreMin}
                   onChange={(e) => setFilters(f => ({ ...f, scoreMin: e.target.value }))}
-                  className="h-8 text-xs"
-                />
+                  className="h-8 text-xs" />
               </div>
 
               <div className="space-y-1">
                 <Label className="text-xs uppercase text-muted-foreground tracking-wider">Score máx.</Label>
-                <Input
-                  type="number" min={0} max={100} placeholder="100"
-                  value={filters.scoreMax}
+                <Input type="number" min={0} max={100} placeholder="100" value={filters.scoreMax}
                   onChange={(e) => setFilters(f => ({ ...f, scoreMax: e.target.value }))}
-                  className="h-8 text-xs"
-                />
+                  className="h-8 text-xs" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Status Matriz</Label>
+                <Select value={filters.statusMatriz} onValueChange={(v) => setFilters(f => ({ ...f, statusMatriz: v === "_all" ? "" : v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Qualquer</SelectItem>
+                    {MATRIX_STATUSES.map(s => <SelectItem key={s} value={s}>{MATRIX_STATUS_LABELS[s]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Follow-up</Label>
+                <Select value={filters.followupVencido} onValueChange={(v) => setFilters(f => ({ ...f, followupVencido: v === "_all" ? "" : v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Qualquer</SelectItem>
+                    <SelectItem value="true">Vencidos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider">Sem Atividade</Label>
+                <Select value={filters.semAtividadeDias} onValueChange={(v) => setFilters(f => ({ ...f, semAtividadeDias: v === "_all" ? "" : v }))}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Qualquer" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all">Qualquer</SelectItem>
+                    <SelectItem value="7">7+ dias</SelectItem>
+                    <SelectItem value="14">14+ dias</SelectItem>
+                    <SelectItem value="30">30+ dias</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             {activeFilterCount > 0 && (
               <div className="flex items-center gap-2 pt-1 border-t border-border/40">
                 <span className="text-xs text-muted-foreground">{activeFilterCount} filtro(s) ativo(s)</span>
-                <button
-                  onClick={clearFilters}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Limpar todos
-                </button>
+                <button onClick={clearFilters} className="text-xs text-primary hover:underline">Limpar todos</button>
               </div>
             )}
           </div>
@@ -860,7 +1048,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               <Dialog open={bulkListOpen} onOpenChange={setBulkListOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
-                    <List className="w-3.5 h-3.5" /> Adicionar à Lista
+                    <List className="w-3.5 h-3.5" /> Lista
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[320px]">
@@ -872,18 +1060,11 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                     <div className="space-y-2">
                       <Label className="text-xs">Nova Lista</Label>
                       <div className="flex gap-2">
-                        <Input
-                          placeholder="Ex: Campanha SP"
-                          value={newListName}
-                          onChange={e => setNewListName(e.target.value)}
-                          className="h-8 text-xs"
-                        />
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs"
+                        <Input placeholder="Ex: Campanha SP" value={newListName}
+                          onChange={e => setNewListName(e.target.value)} className="h-8 text-xs" />
+                        <Button size="sm" className="h-8 text-xs"
                           disabled={!newListName.trim() || bulkTagsMutation.isPending}
-                          onClick={() => bulkTagsMutation.mutate({ data: { ids: selectedArray, tag: newListName.trim(), action: "add" } })}
-                        >
+                          onClick={() => bulkTagsMutation.mutate({ data: { ids: selectedArray, tag: newListName.trim(), action: "add" } })}>
                           Criar
                         </Button>
                       </div>
@@ -893,12 +1074,10 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                         <Label className="text-xs">Listas Existentes</Label>
                         <div className="flex flex-col gap-1 max-h-[150px] overflow-y-auto">
                           {allTags.map(tag => (
-                            <button
-                              key={tag}
+                            <button key={tag}
                               onClick={() => bulkTagsMutation.mutate({ data: { ids: selectedArray, tag, action: "add" } })}
                               disabled={bulkTagsMutation.isPending}
-                              className="text-left px-3 py-2 text-xs border border-border/50 rounded-md hover:bg-muted/50 transition-colors flex items-center justify-between group"
-                            >
+                              className="text-left px-3 py-2 text-xs border border-border/50 rounded-md hover:bg-muted/50 transition-colors flex items-center justify-between group">
                               <span>{tag}</span>
                               <Plus className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
@@ -906,6 +1085,86 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                         </div>
                       </div>
                     )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Bulk Temperature */}
+              <Dialog open={bulkTempOpen} onOpenChange={setBulkTempOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
+                    <Flame className="w-3.5 h-3.5" /> Temperatura
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[300px]">
+                  <DialogHeader>
+                    <DialogTitle>Alterar Temperatura</DialogTitle>
+                    <DialogDescription>{selectedIds.size} contato(s) selecionado(s)</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-2 py-3">
+                    {TEMPERATURA_OPTIONS.map(t => (
+                      <button key={t.value}
+                        onClick={() => bulkTempMutation.mutate({ data: { ids: selectedArray, temperatura: t.value } })}
+                        disabled={bulkTempMutation.isPending}
+                        className="w-full flex items-center gap-2 p-2.5 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors text-left">
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color }} />
+                        <span className="text-xs font-medium">{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Bulk Assign */}
+              <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
+                    <Users className="w-3.5 h-3.5" /> Atribuir
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[300px]">
+                  <DialogHeader>
+                    <DialogTitle>Atribuir Responsável</DialogTitle>
+                    <DialogDescription>{selectedIds.size} contato(s) selecionado(s)</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3 py-3">
+                    <Input placeholder="Nome do responsável" value={bulkAssignValue}
+                      onChange={e => setBulkAssignValue(e.target.value)} className="text-sm" />
+                    <Button className="w-full" disabled={bulkAssignMutation.isPending}
+                      onClick={() => bulkAssignMutation.mutate({ data: { ids: selectedArray, responsavelUnidade: bulkAssignValue } })}>
+                      {bulkAssignMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Atribuir
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Bulk Follow-up */}
+              <Dialog open={bulkFollowupOpen} onOpenChange={setBulkFollowupOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
+                    <Calendar className="w-3.5 h-3.5" /> Follow-up
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[300px]">
+                  <DialogHeader>
+                    <DialogTitle>Agendar Follow-up</DialogTitle>
+                    <DialogDescription>{selectedIds.size} contato(s) selecionado(s)</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3 py-3">
+                    <Input type="date" value={bulkFollowupDate}
+                      onChange={e => setBulkFollowupDate(e.target.value)} className="text-sm" />
+                    <div className="flex gap-2">
+                      <Button className="flex-1" disabled={bulkFollowupMutation.isPending || !bulkFollowupDate}
+                        onClick={() => bulkFollowupMutation.mutate({ data: { ids: selectedArray, proximoFollowup: bulkFollowupDate } })}>
+                        {bulkFollowupMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Agendar
+                      </Button>
+                      <Button variant="outline" className="flex-1"
+                        onClick={() => bulkFollowupMutation.mutate({ data: { ids: selectedArray, proximoFollowup: null } })}>
+                        Limpar
+                      </Button>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
@@ -986,6 +1245,8 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                   </th>
                   <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Regime</th>
                   <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Porte</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Setor</th>
+                  <th className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">Temp.</th>
                   <th
                     className="px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors"
                     onClick={() => toggleSort("aiScore")}
@@ -1062,6 +1323,18 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                       </td>
                       <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         <Badge variant="secondary" className="text-xs">{contact.porte || "—"}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
+                        <span className="text-xs text-muted-foreground">{contact.setor || "—"}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
+                        {contact.temperatura ? (
+                          <span className="text-xs px-1.5 py-0.5 rounded-full border"
+                            style={{ borderColor: TEMPERATURA_OPTIONS.find(t => t.value === contact.temperatura)?.color || "#6B7280",
+                              color: TEMPERATURA_OPTIONS.find(t => t.value === contact.temperatura)?.color || "#6B7280" }}>
+                            {TEMPERATURA_OPTIONS.find(t => t.value === contact.temperatura)?.label || contact.temperatura}
+                          </span>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
                       </td>
                       <td className="px-4 py-3 text-center" onClick={() => onSelect(contact)}>
                         <ScoreBadge score={contact.aiScore} />
