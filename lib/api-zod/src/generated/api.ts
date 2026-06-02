@@ -1848,6 +1848,210 @@ export const ListCrmSegmentsResponse = zod.object({
 
 
 /**
+ * @summary List AI qualification history for a contact
+ */
+export const ListCrmQualificationHistoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListCrmQualificationHistoryResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "history": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "contactId": zod.number().optional(),
+  "score": zod.number().nullish(),
+  "tier": zod.string().nullish(),
+  "confidence": zod.number().nullish(),
+  "result": zod.object({
+  "score": zod.number().optional(),
+  "tier": zod.enum(['A', 'B', 'C', 'D']).optional(),
+  "temperatura_sugerida": zod.enum(['frio', 'morno', 'quente', 'burning']).optional(),
+  "setor_inferido": zod.string().nullish(),
+  "segmento_inferido": zod.string().nullish(),
+  "potencial_comercial": zod.string().nullish(),
+  "produto_recomendado": zod.string().nullish(),
+  "sinais_oportunidade": zod.array(zod.string()).optional(),
+  "dores_percebidas": zod.array(zod.string()).optional(),
+  "maturidade": zod.enum(['baixa', 'media', 'alta']).optional(),
+  "urgencia": zod.enum(['baixa', 'media', 'alta', 'imediata']).optional(),
+  "risco": zod.enum(['baixo', 'medio', 'alto']).optional(),
+  "proximo_passo": zod.string().optional(),
+  "observacoes_reuniao": zod.array(zod.string()).optional(),
+  "alerta_matriz": zod.boolean().optional(),
+  "depende_validacao_matriz": zod.boolean().optional(),
+  "confidence": zod.number().optional(),
+  "facts": zod.array(zod.object({
+  "tipo": zod.enum(['fato', 'inferencia', 'hipotese']).optional(),
+  "texto": zod.string().optional(),
+  "confianca": zod.enum(['baixa', 'media', 'alta']).optional()
+})).optional(),
+  "inferences": zod.array(zod.object({
+  "tipo": zod.enum(['fato', 'inferencia', 'hipotese']).optional(),
+  "texto": zod.string().optional(),
+  "confianca": zod.enum(['baixa', 'media', 'alta']).optional()
+})).optional(),
+  "hypotheses": zod.array(zod.object({
+  "tipo": zod.enum(['fato', 'inferencia', 'hipotese']).optional(),
+  "texto": zod.string().optional(),
+  "confianca": zod.enum(['baixa', 'media', 'alta']).optional()
+})).optional(),
+  "reasoning": zod.string().optional()
+}).optional(),
+  "agentId": zod.string().nullish(),
+  "createdAt": zod.date().optional()
+})).optional()
+})
+
+
+/**
+ * @summary Get the recommended next step for a contact (deterministic engine)
+ */
+export const GetCrmContactNextStepParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCrmContactNextStepResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "recommendation": zod.object({
+  "action": zod.string().optional(),
+  "label": zod.string().optional(),
+  "reason": zod.string().optional(),
+  "priority": zod.enum(['baixa', 'media', 'alta', 'urgente']).optional(),
+  "taskTemplate": zod.object({
+  "title": zod.string().optional(),
+  "type": zod.enum(['call', 'email', 'whatsapp', 'meeting', 'proposal', 'note']).optional(),
+  "dueInDays": zod.number().optional()
+}).nullish()
+}).optional()
+})
+
+
+/**
+ * @summary Accept a next-step recommendation (creates a task)
+ */
+export const AcceptCrmContactNextStepParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AcceptCrmContactNextStepResponse = zod.void()
+
+
+/**
+ * @summary Ignore a next-step recommendation
+ */
+export const IgnoreCrmContactNextStepParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const IgnoreCrmContactNextStepBody = zod.object({
+  "reason": zod.string().optional()
+})
+
+export const IgnoreCrmContactNextStepResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Get the Matriz briefing checklist for a contact
+ */
+export const GetCrmContactBriefingChecklistParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCrmContactBriefingChecklistResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "checklist": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "label": zod.string().optional(),
+  "required": zod.boolean().optional(),
+  "present": zod.boolean().optional(),
+  "value": zod.unknown().nullish()
+})).optional(),
+  "ready": zod.boolean().optional(),
+  "missingRequired": zod.array(zod.string()).optional(),
+  "completionPct": zod.number().optional()
+})
+
+
+/**
+ * @summary Recalculate the commercial priority score for a contact
+ */
+export const RecalculateCrmContactPriorityParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RecalculateCrmContactPriorityResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "score": zod.number().optional(),
+  "nivel": zod.enum(['baixa', 'media', 'alta', 'critica']).optional(),
+  "reasons": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary List commercial alerts
+ */
+export const ListCrmAlertsQueryParams = zod.object({
+  "severity": zod.enum(['info', 'warning', 'critical']).optional(),
+  "type": zod.coerce.string().optional(),
+  "includeResolved": zod.enum(['true', 'false']).optional()
+})
+
+export const ListCrmAlertsResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "alerts": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "contactId": zod.number().nullish(),
+  "dealId": zod.number().nullish(),
+  "type": zod.string().optional(),
+  "severity": zod.enum(['info', 'warning', 'critical']).optional(),
+  "title": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "context": zod.record(zod.string(), zod.unknown()).nullish(),
+  "isResolved": zod.boolean().optional(),
+  "resolvedAt": zod.date().nullish(),
+  "resolvedBy": zod.string().nullish(),
+  "createdAt": zod.date().optional()
+})).optional(),
+  "total": zod.number().optional()
+})
+
+
+/**
+ * @summary Resolve an alert
+ */
+export const ResolveCrmAlertParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ResolveCrmAlertResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Convert an alert into a follow-up task
+ */
+export const ConvertCrmAlertToTaskParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ConvertCrmAlertToTaskResponse = zod.void()
+
+
+/**
+ * @summary Re-evaluate all alerts and create new ones
+ */
+export const RefreshCrmAlertsResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
  * @summary Get operational summary for daily dashboard
  */
 export const GetCrmOperationalSummaryResponse = zod.object({

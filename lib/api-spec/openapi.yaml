@@ -2193,6 +2193,205 @@ paths:
                       $ref: "#/components/schemas/CrmSegment"
                 required: [segments]
 
+  /crm/contacts/{id}/qualification-history:
+    get:
+      operationId: listCrmQualificationHistory
+      tags: [crm]
+      summary: List AI qualification history for a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: History
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  history:
+                    type: array
+                    items: { $ref: "#/components/schemas/CrmQualificationHistory" }
+
+  /crm/contacts/{id}/next-step:
+    get:
+      operationId: getCrmContactNextStep
+      tags: [crm]
+      summary: Get the recommended next step for a contact (deterministic engine)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Recommendation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  recommendation: { $ref: "#/components/schemas/NextStepRecommendation" }
+
+  /crm/contacts/{id}/next-step/accept:
+    post:
+      operationId: acceptCrmContactNextStep
+      tags: [crm]
+      summary: Accept a next-step recommendation (creates a task)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  task: { $ref: "#/components/schemas/CrmTask" }
+                  recommendation: { $ref: "#/components/schemas/NextStepRecommendation" }
+
+  /crm/contacts/{id}/next-step/ignore:
+    post:
+      operationId: ignoreCrmContactNextStep
+      tags: [crm]
+      summary: Ignore a next-step recommendation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: Marked as ignored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+
+  /crm/contacts/{id}/briefing-checklist:
+    get:
+      operationId: getCrmContactBriefingChecklist
+      tags: [crm]
+      summary: Get the Matriz briefing checklist for a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Checklist
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BriefingChecklistResponse" }
+
+  /crm/contacts/{id}/priority/recalculate:
+    post:
+      operationId: recalculateCrmContactPriority
+      tags: [crm]
+      summary: Recalculate the commercial priority score for a contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Recalculated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PriorityResult" }
+
+  /crm/alerts:
+    get:
+      operationId: listCrmAlerts
+      tags: [crm]
+      summary: List commercial alerts
+      parameters:
+        - name: severity
+          in: query
+          schema: { type: string, enum: [info, warning, critical] }
+        - name: type
+          in: query
+          schema: { type: string }
+        - name: includeResolved
+          in: query
+          schema: { type: string, enum: ["true", "false"] }
+      responses:
+        "200":
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  alerts:
+                    type: array
+                    items: { $ref: "#/components/schemas/CrmAlert" }
+                  total: { type: integer }
+
+  /crm/alerts/{id}/resolve:
+    post:
+      operationId: resolveCrmAlert
+      tags: [crm]
+      summary: Resolve an alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Resolved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+
+  /crm/alerts/{id}/convert-to-task:
+    post:
+      operationId: convertCrmAlertToTask
+      tags: [crm]
+      summary: Convert an alert into a follow-up task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+
+  /crm/alerts/refresh:
+    post:
+      operationId: refreshCrmAlerts
+      tags: [crm]
+      summary: Re-evaluate all alerts and create new ones
+      responses:
+        "200":
+          description: Refreshed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessResponse" }
+
   /crm/operational-summary:
     get:
       operationId: getCrmOperationalSummary
@@ -4019,6 +4218,114 @@ components:
           nullable: true
         isDefault:
           type: boolean
+
+    # ─── Phase 3: IA, Alerts, Next Step ────────────────────────────────
+    QualificationResult:
+      type: object
+      properties:
+        score: { type: integer }
+        tier: { type: string, enum: [A, B, C, D] }
+        temperatura_sugerida: { type: string, enum: [frio, morno, quente, burning] }
+        setor_inferido: { type: string, nullable: true }
+        segmento_inferido: { type: string, nullable: true }
+        potencial_comercial: { type: string, nullable: true }
+        produto_recomendado: { type: string, nullable: true }
+        sinais_oportunidade: { type: array, items: { type: string } }
+        dores_percebidas: { type: array, items: { type: string } }
+        maturidade: { type: string, enum: [baixa, media, alta] }
+        urgencia: { type: string, enum: [baixa, media, alta, imediata] }
+        risco: { type: string, enum: [baixo, medio, alto] }
+        proximo_passo: { type: string }
+        observacoes_reuniao: { type: array, items: { type: string } }
+        alerta_matriz: { type: boolean }
+        depende_validacao_matriz: { type: boolean }
+        confidence: { type: integer }
+        facts: { type: array, items: { $ref: "#/components/schemas/InsightItem" } }
+        inferences: { type: array, items: { $ref: "#/components/schemas/InsightItem" } }
+        hypotheses: { type: array, items: { $ref: "#/components/schemas/InsightItem" } }
+        reasoning: { type: string }
+
+    InsightItem:
+      type: object
+      properties:
+        tipo: { type: string, enum: [fato, inferencia, hipotese] }
+        texto: { type: string }
+        confianca: { type: string, enum: [baixa, media, alta] }
+
+    CrmQualificationHistory:
+      type: object
+      properties:
+        id: { type: integer }
+        contactId: { type: integer }
+        score: { type: integer, nullable: true }
+        tier: { type: string, nullable: true }
+        confidence: { type: integer, nullable: true }
+        result: { $ref: "#/components/schemas/QualificationResult" }
+        agentId: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    NextStepRecommendation:
+      type: object
+      properties:
+        action: { type: string }
+        label: { type: string }
+        reason: { type: string }
+        priority: { type: string, enum: [baixa, media, alta, urgente] }
+        taskTemplate:
+          type: object
+          nullable: true
+          properties:
+            title: { type: string }
+            type: { type: string, enum: [call, email, whatsapp, meeting, proposal, note] }
+            dueInDays: { type: integer }
+
+    BriefingChecklistItem:
+      type: object
+      properties:
+        id: { type: string }
+        label: { type: string }
+        required: { type: boolean }
+        present: { type: boolean }
+        value: { nullable: true }
+
+    BriefingChecklistResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        checklist:
+          type: array
+          items: { $ref: "#/components/schemas/BriefingChecklistItem" }
+        ready: { type: boolean }
+        missingRequired:
+          type: array
+          items: { type: string }
+        completionPct: { type: integer }
+
+    PriorityResult:
+      type: object
+      properties:
+        success: { type: boolean }
+        score: { type: integer }
+        nivel: { type: string, enum: [baixa, media, alta, critica] }
+        reasons:
+          type: array
+          items: { type: string }
+
+    CrmAlert:
+      type: object
+      properties:
+        id: { type: integer }
+        contactId: { type: integer, nullable: true }
+        dealId: { type: integer, nullable: true }
+        type: { type: string }
+        severity: { type: string, enum: [info, warning, critical] }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        context: { type: object, additionalProperties: true, nullable: true }
+        isResolved: { type: boolean }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+        resolvedBy: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
 
     CrmContact:
       type: object

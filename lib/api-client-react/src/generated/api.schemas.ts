@@ -450,6 +450,208 @@ export interface UpdateLlmProfileRequest {
   isDefault?: boolean;
 }
 
+export type QualificationResultTier = typeof QualificationResultTier[keyof typeof QualificationResultTier];
+
+
+export const QualificationResultTier = {
+  A: 'A',
+  B: 'B',
+  C: 'C',
+  D: 'D',
+} as const;
+
+export type QualificationResultTemperaturaSugerida = typeof QualificationResultTemperaturaSugerida[keyof typeof QualificationResultTemperaturaSugerida];
+
+
+export const QualificationResultTemperaturaSugerida = {
+  frio: 'frio',
+  morno: 'morno',
+  quente: 'quente',
+  burning: 'burning',
+} as const;
+
+export type QualificationResultMaturidade = typeof QualificationResultMaturidade[keyof typeof QualificationResultMaturidade];
+
+
+export const QualificationResultMaturidade = {
+  baixa: 'baixa',
+  media: 'media',
+  alta: 'alta',
+} as const;
+
+export type QualificationResultUrgencia = typeof QualificationResultUrgencia[keyof typeof QualificationResultUrgencia];
+
+
+export const QualificationResultUrgencia = {
+  baixa: 'baixa',
+  media: 'media',
+  alta: 'alta',
+  imediata: 'imediata',
+} as const;
+
+export type QualificationResultRisco = typeof QualificationResultRisco[keyof typeof QualificationResultRisco];
+
+
+export const QualificationResultRisco = {
+  baixo: 'baixo',
+  medio: 'medio',
+  alto: 'alto',
+} as const;
+
+export type InsightItemTipo = typeof InsightItemTipo[keyof typeof InsightItemTipo];
+
+
+export const InsightItemTipo = {
+  fato: 'fato',
+  inferencia: 'inferencia',
+  hipotese: 'hipotese',
+} as const;
+
+export type InsightItemConfianca = typeof InsightItemConfianca[keyof typeof InsightItemConfianca];
+
+
+export const InsightItemConfianca = {
+  baixa: 'baixa',
+  media: 'media',
+  alta: 'alta',
+} as const;
+
+export interface InsightItem {
+  tipo?: InsightItemTipo;
+  texto?: string;
+  confianca?: InsightItemConfianca;
+}
+
+export interface QualificationResult {
+  score?: number;
+  tier?: QualificationResultTier;
+  temperatura_sugerida?: QualificationResultTemperaturaSugerida;
+  setor_inferido?: string | null;
+  segmento_inferido?: string | null;
+  potencial_comercial?: string | null;
+  produto_recomendado?: string | null;
+  sinais_oportunidade?: string[];
+  dores_percebidas?: string[];
+  maturidade?: QualificationResultMaturidade;
+  urgencia?: QualificationResultUrgencia;
+  risco?: QualificationResultRisco;
+  proximo_passo?: string;
+  observacoes_reuniao?: string[];
+  alerta_matriz?: boolean;
+  depende_validacao_matriz?: boolean;
+  confidence?: number;
+  facts?: InsightItem[];
+  inferences?: InsightItem[];
+  hypotheses?: InsightItem[];
+  reasoning?: string;
+}
+
+export interface CrmQualificationHistory {
+  id?: number;
+  contactId?: number;
+  score?: number | null;
+  tier?: string | null;
+  confidence?: number | null;
+  result?: QualificationResult;
+  agentId?: string | null;
+  createdAt?: string;
+}
+
+export type NextStepRecommendationPriority = typeof NextStepRecommendationPriority[keyof typeof NextStepRecommendationPriority];
+
+
+export const NextStepRecommendationPriority = {
+  baixa: 'baixa',
+  media: 'media',
+  alta: 'alta',
+  urgente: 'urgente',
+} as const;
+
+export type NextStepRecommendationTaskTemplateType = typeof NextStepRecommendationTaskTemplateType[keyof typeof NextStepRecommendationTaskTemplateType];
+
+
+export const NextStepRecommendationTaskTemplateType = {
+  call: 'call',
+  email: 'email',
+  whatsapp: 'whatsapp',
+  meeting: 'meeting',
+  proposal: 'proposal',
+  note: 'note',
+} as const;
+
+export type NextStepRecommendationTaskTemplate = {
+  title?: string;
+  type?: NextStepRecommendationTaskTemplateType;
+  dueInDays?: number;
+} | null;
+
+export interface NextStepRecommendation {
+  action?: string;
+  label?: string;
+  reason?: string;
+  priority?: NextStepRecommendationPriority;
+  taskTemplate?: NextStepRecommendationTaskTemplate;
+}
+
+export interface BriefingChecklistItem {
+  id?: string;
+  label?: string;
+  required?: boolean;
+  present?: boolean;
+  value?: unknown | null;
+}
+
+export interface BriefingChecklistResponse {
+  success?: boolean;
+  checklist?: BriefingChecklistItem[];
+  ready?: boolean;
+  missingRequired?: string[];
+  completionPct?: number;
+}
+
+export type PriorityResultNivel = typeof PriorityResultNivel[keyof typeof PriorityResultNivel];
+
+
+export const PriorityResultNivel = {
+  baixa: 'baixa',
+  media: 'media',
+  alta: 'alta',
+  critica: 'critica',
+} as const;
+
+export interface PriorityResult {
+  success?: boolean;
+  score?: number;
+  nivel?: PriorityResultNivel;
+  reasons?: string[];
+}
+
+export type CrmAlertSeverity = typeof CrmAlertSeverity[keyof typeof CrmAlertSeverity];
+
+
+export const CrmAlertSeverity = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export type CrmAlertContext = { [key: string]: unknown } | null;
+
+export interface CrmAlert {
+  id?: number;
+  contactId?: number | null;
+  dealId?: number | null;
+  type?: string;
+  severity?: CrmAlertSeverity;
+  title?: string;
+  description?: string | null;
+  context?: CrmAlertContext;
+  isResolved?: boolean;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+  createdAt?: string;
+}
+
 export interface CrmContact {
   id: number;
   cnpj: string;
@@ -1383,6 +1585,55 @@ export type ListCrmActivities200 = {
 
 export type ListCrmSegments200 = {
   segments: CrmSegment[];
+};
+
+export type ListCrmQualificationHistory200 = {
+  success?: boolean;
+  history?: CrmQualificationHistory[];
+};
+
+export type GetCrmContactNextStep200 = {
+  success?: boolean;
+  recommendation?: NextStepRecommendation;
+};
+
+export type AcceptCrmContactNextStep201 = {
+  success?: boolean;
+  task?: CrmTask;
+  recommendation?: NextStepRecommendation;
+};
+
+export type IgnoreCrmContactNextStepBody = {
+  reason?: string;
+};
+
+export type ListCrmAlertsParams = {
+severity?: ListCrmAlertsSeverity;
+type?: string;
+includeResolved?: ListCrmAlertsIncludeResolved;
+};
+
+export type ListCrmAlertsSeverity = typeof ListCrmAlertsSeverity[keyof typeof ListCrmAlertsSeverity];
+
+
+export const ListCrmAlertsSeverity = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export type ListCrmAlertsIncludeResolved = typeof ListCrmAlertsIncludeResolved[keyof typeof ListCrmAlertsIncludeResolved];
+
+
+export const ListCrmAlertsIncludeResolved = {
+  true: 'true',
+  false: 'false',
+} as const;
+
+export type ListCrmAlerts200 = {
+  success?: boolean;
+  alerts?: CrmAlert[];
+  total?: number;
 };
 
 export type GetCrmOperationalSummary200Summary = {

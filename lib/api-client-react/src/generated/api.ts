@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AcceptCrmContactNextStep201,
   ActivateLlmConnection200,
   ActivateLlmProfile200,
   Agent,
@@ -31,6 +32,7 @@ import type {
   AvailableModelsResponse,
   BadRequestResponse,
   BrandingConfig,
+  BriefingChecklistResponse,
   BroadcastWhatsApp200,
   BroadcastWhatsAppRequest,
   BulkAssignCrmContactsBody,
@@ -101,6 +103,7 @@ import type {
   GetCrmAnalyticsOverview200,
   GetCrmAnalyticsOverviewParams,
   GetCrmContact200,
+  GetCrmContactNextStep200,
   GetCrmOperationalSummary200,
   GetCrmPipeline200,
   GetCrmPipelineParams,
@@ -109,6 +112,7 @@ import type {
   GetDocumentChunksParams,
   GetKnowledgeSources200,
   HealthStatus,
+  IgnoreCrmContactNextStepBody,
   ImageGalleryResponse,
   IntegrationSettingsResponse,
   KnowledgeDocument,
@@ -124,6 +128,8 @@ import type {
   ListConversations200,
   ListConversationsParams,
   ListCrmActivities200,
+  ListCrmAlerts200,
+  ListCrmAlertsParams,
   ListCrmAutomations200,
   ListCrmContactActivities200,
   ListCrmContactAttachments200,
@@ -134,6 +140,7 @@ import type {
   ListCrmDeals200,
   ListCrmDealsParams,
   ListCrmPipelines200,
+  ListCrmQualificationHistory200,
   ListCrmSegments200,
   ListCrmTags200,
   ListCrmTasks200,
@@ -153,6 +160,7 @@ import type {
   MessageResponse,
   OrchestrateRequest,
   OrchestrateResponse,
+  PriorityResult,
   QualifyCrmContact200,
   RegenerateDeliverableSection200,
   RenameConversationRequest,
@@ -6879,6 +6887,742 @@ export function useListCrmSegments<TData = Awaited<ReturnType<typeof listCrmSegm
 
 
 
+
+export const getListCrmQualificationHistoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/crm/contacts/${id}/qualification-history`
+}
+
+/**
+ * @summary List AI qualification history for a contact
+ */
+export const listCrmQualificationHistory = async (id: number, options?: RequestInit): Promise<ListCrmQualificationHistory200> => {
+
+  return customFetch<ListCrmQualificationHistory200>(getListCrmQualificationHistoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCrmQualificationHistoryQueryKey = (id: number,) => {
+    return [
+    `/api/crm/contacts/${id}/qualification-history`
+    ] as const;
+    }
+
+
+export const getListCrmQualificationHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listCrmQualificationHistory>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrmQualificationHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCrmQualificationHistoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrmQualificationHistory>>> = ({ signal }) => listCrmQualificationHistory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCrmQualificationHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCrmQualificationHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof listCrmQualificationHistory>>>
+export type ListCrmQualificationHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List AI qualification history for a contact
+ */
+
+export function useListCrmQualificationHistory<TData = Awaited<ReturnType<typeof listCrmQualificationHistory>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrmQualificationHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCrmQualificationHistoryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetCrmContactNextStepUrl = (id: number,) => {
+
+
+
+
+  return `/api/crm/contacts/${id}/next-step`
+}
+
+/**
+ * @summary Get the recommended next step for a contact (deterministic engine)
+ */
+export const getCrmContactNextStep = async (id: number, options?: RequestInit): Promise<GetCrmContactNextStep200> => {
+
+  return customFetch<GetCrmContactNextStep200>(getGetCrmContactNextStepUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrmContactNextStepQueryKey = (id: number,) => {
+    return [
+    `/api/crm/contacts/${id}/next-step`
+    ] as const;
+    }
+
+
+export const getGetCrmContactNextStepQueryOptions = <TData = Awaited<ReturnType<typeof getCrmContactNextStep>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrmContactNextStep>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrmContactNextStepQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrmContactNextStep>>> = ({ signal }) => getCrmContactNextStep(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrmContactNextStep>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrmContactNextStepQueryResult = NonNullable<Awaited<ReturnType<typeof getCrmContactNextStep>>>
+export type GetCrmContactNextStepQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the recommended next step for a contact (deterministic engine)
+ */
+
+export function useGetCrmContactNextStep<TData = Awaited<ReturnType<typeof getCrmContactNextStep>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrmContactNextStep>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrmContactNextStepQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAcceptCrmContactNextStepUrl = (id: number,) => {
+
+
+
+
+  return `/api/crm/contacts/${id}/next-step/accept`
+}
+
+/**
+ * @summary Accept a next-step recommendation (creates a task)
+ */
+export const acceptCrmContactNextStep = async (id: number, options?: RequestInit): Promise<AcceptCrmContactNextStep201> => {
+
+  return customFetch<AcceptCrmContactNextStep201>(getAcceptCrmContactNextStepUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getAcceptCrmContactNextStepMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptCrmContactNextStep>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acceptCrmContactNextStep>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['acceptCrmContactNextStep'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptCrmContactNextStep>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  acceptCrmContactNextStep(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcceptCrmContactNextStepMutationResult = NonNullable<Awaited<ReturnType<typeof acceptCrmContactNextStep>>>
+
+    export type AcceptCrmContactNextStepMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Accept a next-step recommendation (creates a task)
+ */
+export const useAcceptCrmContactNextStep = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptCrmContactNextStep>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acceptCrmContactNextStep>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getAcceptCrmContactNextStepMutationOptions(options));
+    }
+
+export const getIgnoreCrmContactNextStepUrl = (id: number,) => {
+
+
+
+
+  return `/api/crm/contacts/${id}/next-step/ignore`
+}
+
+/**
+ * @summary Ignore a next-step recommendation
+ */
+export const ignoreCrmContactNextStep = async (id: number,
+    ignoreCrmContactNextStepBody?: IgnoreCrmContactNextStepBody, options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getIgnoreCrmContactNextStepUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(ignoreCrmContactNextStepBody)
+  }
+);}
+
+
+
+
+export const getIgnoreCrmContactNextStepMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof ignoreCrmContactNextStep>>, TError,{id: number;data?: BodyType<IgnoreCrmContactNextStepBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof ignoreCrmContactNextStep>>, TError,{id: number;data?: BodyType<IgnoreCrmContactNextStepBody>}, TContext> => {
+
+const mutationKey = ['ignoreCrmContactNextStep'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof ignoreCrmContactNextStep>>, {id: number;data?: BodyType<IgnoreCrmContactNextStepBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  ignoreCrmContactNextStep(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IgnoreCrmContactNextStepMutationResult = NonNullable<Awaited<ReturnType<typeof ignoreCrmContactNextStep>>>
+    export type IgnoreCrmContactNextStepMutationBody = BodyType<IgnoreCrmContactNextStepBody> | undefined
+    export type IgnoreCrmContactNextStepMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Ignore a next-step recommendation
+ */
+export const useIgnoreCrmContactNextStep = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof ignoreCrmContactNextStep>>, TError,{id: number;data?: BodyType<IgnoreCrmContactNextStepBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof ignoreCrmContactNextStep>>,
+        TError,
+        {id: number;data?: BodyType<IgnoreCrmContactNextStepBody>},
+        TContext
+      > => {
+      return useMutation(getIgnoreCrmContactNextStepMutationOptions(options));
+    }
+
+export const getGetCrmContactBriefingChecklistUrl = (id: number,) => {
+
+
+
+
+  return `/api/crm/contacts/${id}/briefing-checklist`
+}
+
+/**
+ * @summary Get the Matriz briefing checklist for a contact
+ */
+export const getCrmContactBriefingChecklist = async (id: number, options?: RequestInit): Promise<BriefingChecklistResponse> => {
+
+  return customFetch<BriefingChecklistResponse>(getGetCrmContactBriefingChecklistUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrmContactBriefingChecklistQueryKey = (id: number,) => {
+    return [
+    `/api/crm/contacts/${id}/briefing-checklist`
+    ] as const;
+    }
+
+
+export const getGetCrmContactBriefingChecklistQueryOptions = <TData = Awaited<ReturnType<typeof getCrmContactBriefingChecklist>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrmContactBriefingChecklist>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrmContactBriefingChecklistQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrmContactBriefingChecklist>>> = ({ signal }) => getCrmContactBriefingChecklist(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrmContactBriefingChecklist>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrmContactBriefingChecklistQueryResult = NonNullable<Awaited<ReturnType<typeof getCrmContactBriefingChecklist>>>
+export type GetCrmContactBriefingChecklistQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the Matriz briefing checklist for a contact
+ */
+
+export function useGetCrmContactBriefingChecklist<TData = Awaited<ReturnType<typeof getCrmContactBriefingChecklist>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrmContactBriefingChecklist>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrmContactBriefingChecklistQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getRecalculateCrmContactPriorityUrl = (id: number,) => {
+
+
+
+
+  return `/api/crm/contacts/${id}/priority/recalculate`
+}
+
+/**
+ * @summary Recalculate the commercial priority score for a contact
+ */
+export const recalculateCrmContactPriority = async (id: number, options?: RequestInit): Promise<PriorityResult> => {
+
+  return customFetch<PriorityResult>(getRecalculateCrmContactPriorityUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRecalculateCrmContactPriorityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recalculateCrmContactPriority>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recalculateCrmContactPriority>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['recalculateCrmContactPriority'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recalculateCrmContactPriority>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  recalculateCrmContactPriority(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecalculateCrmContactPriorityMutationResult = NonNullable<Awaited<ReturnType<typeof recalculateCrmContactPriority>>>
+
+    export type RecalculateCrmContactPriorityMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Recalculate the commercial priority score for a contact
+ */
+export const useRecalculateCrmContactPriority = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recalculateCrmContactPriority>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recalculateCrmContactPriority>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRecalculateCrmContactPriorityMutationOptions(options));
+    }
+
+export const getListCrmAlertsUrl = (params?: ListCrmAlertsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/crm/alerts?${stringifiedParams}` : `/api/crm/alerts`
+}
+
+/**
+ * @summary List commercial alerts
+ */
+export const listCrmAlerts = async (params?: ListCrmAlertsParams, options?: RequestInit): Promise<ListCrmAlerts200> => {
+
+  return customFetch<ListCrmAlerts200>(getListCrmAlertsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCrmAlertsQueryKey = (params?: ListCrmAlertsParams,) => {
+    return [
+    `/api/crm/alerts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCrmAlertsQueryOptions = <TData = Awaited<ReturnType<typeof listCrmAlerts>>, TError = ErrorType<unknown>>(params?: ListCrmAlertsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrmAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCrmAlertsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrmAlerts>>> = ({ signal }) => listCrmAlerts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCrmAlerts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCrmAlertsQueryResult = NonNullable<Awaited<ReturnType<typeof listCrmAlerts>>>
+export type ListCrmAlertsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List commercial alerts
+ */
+
+export function useListCrmAlerts<TData = Awaited<ReturnType<typeof listCrmAlerts>>, TError = ErrorType<unknown>>(
+ params?: ListCrmAlertsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrmAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCrmAlertsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getResolveCrmAlertUrl = (id: number,) => {
+
+
+
+
+  return `/api/crm/alerts/${id}/resolve`
+}
+
+/**
+ * @summary Resolve an alert
+ */
+export const resolveCrmAlert = async (id: number, options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getResolveCrmAlertUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getResolveCrmAlertMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveCrmAlert>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveCrmAlert>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['resolveCrmAlert'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveCrmAlert>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  resolveCrmAlert(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveCrmAlertMutationResult = NonNullable<Awaited<ReturnType<typeof resolveCrmAlert>>>
+
+    export type ResolveCrmAlertMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Resolve an alert
+ */
+export const useResolveCrmAlert = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveCrmAlert>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveCrmAlert>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getResolveCrmAlertMutationOptions(options));
+    }
+
+export const getConvertCrmAlertToTaskUrl = (id: number,) => {
+
+
+
+
+  return `/api/crm/alerts/${id}/convert-to-task`
+}
+
+/**
+ * @summary Convert an alert into a follow-up task
+ */
+export const convertCrmAlertToTask = async (id: number, options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getConvertCrmAlertToTaskUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getConvertCrmAlertToTaskMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof convertCrmAlertToTask>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof convertCrmAlertToTask>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['convertCrmAlertToTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof convertCrmAlertToTask>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  convertCrmAlertToTask(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConvertCrmAlertToTaskMutationResult = NonNullable<Awaited<ReturnType<typeof convertCrmAlertToTask>>>
+
+    export type ConvertCrmAlertToTaskMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Convert an alert into a follow-up task
+ */
+export const useConvertCrmAlertToTask = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof convertCrmAlertToTask>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof convertCrmAlertToTask>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getConvertCrmAlertToTaskMutationOptions(options));
+    }
+
+export const getRefreshCrmAlertsUrl = () => {
+
+
+
+
+  return `/api/crm/alerts/refresh`
+}
+
+/**
+ * @summary Re-evaluate all alerts and create new ones
+ */
+export const refreshCrmAlerts = async ( options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getRefreshCrmAlertsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRefreshCrmAlertsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshCrmAlerts>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshCrmAlerts>>, TError,void, TContext> => {
+
+const mutationKey = ['refreshCrmAlerts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshCrmAlerts>>, void> = () => {
+
+
+          return  refreshCrmAlerts(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshCrmAlertsMutationResult = NonNullable<Awaited<ReturnType<typeof refreshCrmAlerts>>>
+
+    export type RefreshCrmAlertsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Re-evaluate all alerts and create new ones
+ */
+export const useRefreshCrmAlerts = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshCrmAlerts>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshCrmAlerts>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRefreshCrmAlertsMutationOptions(options));
+    }
 
 export const getGetCrmOperationalSummaryUrl = () => {
 
