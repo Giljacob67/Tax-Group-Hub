@@ -45,6 +45,8 @@ export const crmContactsTable = pgTable("crm_contacts", {
   pendenciasMatriz: text("pendencias_matriz"),
   observacoes: text("observacoes"),
   aiScore: integer("ai_score"),
+  prioridadeComercial: text("prioridade_comercial"), // 'baixa' | 'media' | 'alta' | 'critica' (Phase 3)
+  proximoPassoRecomendado: jsonb("proximo_passo_recomendado").$type<Record<string, any>>(), // Phase 3
   aiScoreDetails: jsonb("ai_score_details"),
   aiRecommendedProduct: text("ai_recommended_product"),
   empresaquiId: text("empresaqui_id"),
@@ -175,6 +177,8 @@ export const crmTasksTable = pgTable("crm_tasks", {
   type: text("type").notNull().default("note"), // 'call' | 'email' | 'whatsapp' | 'meeting' | 'proposal' | 'note'
   priority: text("priority").notNull().default("medium"), // 'low' | 'medium' | 'high' | 'urgent'
   status: text("status").notNull().default("pending"), // 'pending' | 'done' | 'snoozed' | 'cancelled'
+  source: text("source").notNull().default("manual"), // 'manual' | 'automation' | 'ai_suggestion' | 'next_step'
+  sourceRef: text("source_ref"), // e.g. automation id, next-step action
   dueDate: timestamp("due_date"),
   reminderAt: timestamp("reminder_at"),
   assignedTo: text("assigned_to"),
@@ -188,6 +192,66 @@ export const crmTasksTable = pgTable("crm_tasks", {
 export const insertCrmTaskSchema = createInsertSchema(crmTasksTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type CrmTask = typeof crmTasksTable.$inferSelect;
 export type InsertCrmTask = z.infer<typeof insertCrmTaskSchema>;
+
+// ─── Qualification History (Phase 3) ──────────────────────────────────────────
+// Histórico de qualificações IA — cada execução gera um registro.
+// Permite reprocessar e auditar decisões de IA.
+export const crmQualificationHistoryTable = pgTable("crm_qualification_history", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  contactId: integer("contact_id").notNull().references(() => crmContactsTable.id, { onDelete: "cascade" }),
+  score: integer("score"),
+  tier: text("tier"), // 'A' | 'B' | 'C' | 'D'
+  confidence: integer("confidence"), // 0-100
+  result: jsonb("result").$type<Record<string, any>>().notNull(), // QualificationResult completo
+  agentId: text("agent_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCrmQualificationHistorySchema = createInsertSchema(crmQualificationHistoryTable).omit({ id: true, createdAt: true });
+export type CrmQualificationHistory = typeof crmQualificationHistoryTable.$inferSelect;
+export type InsertCrmQualificationHistory = z.infer<typeof insertCrmQualificationHistorySchema>;
+
+// ─── Alerts (Phase 3) ────────────────────────────────────────────────────────
+// Alertas comerciais persistíveis. Severidade: 'info' | 'warning' | 'critical'
+export const crmAlertsTable = pgTable("crm_alerts", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  contactId: integer("contact_id").references(() => crmContactsTable.id, { onDelete: "cascade" }),
+  dealId: integer("deal_id").references(() => crmDealsTable.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // AlertType
+  severity: text("severity").notNull().default("warning"),
+  title: text("title").notNull(),
+  description: text("description"),
+  context: jsonb("context").$type<Record<string, any>>(), // dados do alerta
+  isResolved: boolean("is_resolved").default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: text("resolved_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCrmAlertSchema = createInsertSchema(crmAlertsTable).omit({ id: true, createdAt: true });
+export type CrmAlert = typeof crmAlertsTable.$inferSelect;
+export type InsertCrmAlert = z.infer<typeof insertCrmAlertSchema>;
+
+// ─── Next Step History (Phase 3) ──────────────────────────────────────────────
+// Histórico de sugestões de próximo passo. Pode ser usado para treinar modelos
+// ou auditar a coerência do motor de recomendação.
+export const crmNextStepHistoryTable = pgTable("crm_next_step_history", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  contactId: integer("contact_id").notNull().references(() => crmContactsTable.id, { onDelete: "cascade" }),
+  dealId: integer("deal_id").references(() => crmDealsTable.id, { onDelete: "cascade" }),
+  action: text("action").notNull(), // NextStepAction
+  reason: text("reason").notNull(),
+  priority: text("priority").notNull(),
+  accepted: boolean("accepted"), // null = pendente, true = aceito, false = ignorado
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCrmNextStepHistorySchema = createInsertSchema(crmNextStepHistoryTable).omit({ id: true, createdAt: true });
+export type CrmNextStepHistory = typeof crmNextStepHistoryTable.$inferSelect;
+export type InsertCrmNextStepHistory = z.infer<typeof insertCrmNextStepHistorySchema>;
 
 // ─── Saved Views (Phase 2+) ──────────────────────────────────────────────────
 export const crmSavedViewsTable = pgTable("crm_saved_views", {

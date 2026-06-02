@@ -575,3 +575,259 @@ export const SYSTEM_VIEW_CATEGORIES = [
   { id: "followup", label: "Follow-up", color: "#EF4444" },
   { id: "segmento", label: "Segmento", color: "#10B981" },
 ] as const;
+
+// ─── Phase 3 — IA & Automações ──────────────────────────────────────────────
+
+// ─── Qualificação IA — Estrutura de saída ────────────────────────────────────
+// A qualificação IA retorna um JSON estruturado que é persistido e
+// exibido de forma amigável. Diferencia fato / inferência / hipótese.
+
+export const QUALIFICATION_TIERS = ["A", "B", "C", "D"] as const;
+export type QualificationTier = (typeof QUALIFICATION_TIERS)[number];
+
+export const TEMPERATURA_SUGERIDA = ["frio", "morno", "quente", "burning"] as const;
+export type TemperaturaSugerida = (typeof TEMPERATURA_SUGERIDA)[number];
+
+export const MATURIDADE_NIVEIS = ["baixa", "media", "alta"] as const;
+export type MaturidadeNivel = (typeof MATURIDADE_NIVEIS)[number];
+
+export const URGENCIA_NIVEIS = ["baixa", "media", "alta", "imediata"] as const;
+export type UrgenciaNivel = (typeof URGENCIA_NIVEIS)[number];
+
+export const RISCO_NIVEIS = ["baixo", "medio", "alto"] as const;
+export type RiscoNivel = (typeof RISCO_NIVEIS)[number];
+
+export type InsightItem = {
+  tipo: "fato" | "inferencia" | "hipotese";
+  texto: string;
+  confianca: "baixa" | "media" | "alta";
+};
+
+export type QualificationResult = {
+  score: number;            // 0-100
+  tier: QualificationTier;
+  temperatura_sugerida: TemperaturaSugerida;
+  setor_inferido: string | null;
+  segmento_inferido: string | null;
+  potencial_comercial: string | null;   // ex: "R$ 20-50k"
+  produto_recomendado: string | null;    // ex: "AFD", "RTI"
+  sinais_oportunidade: string[];
+  dores_percebidas: string[];
+  maturidade: MaturidadeNivel;
+  urgencia: UrgenciaNivel;
+  risco: RiscoNivel;
+  proximo_passo: string;
+  observacoes_reuniao: string[];
+  alerta_matriz: boolean;
+  depende_validacao_matriz: boolean;
+  confidence: number;        // 0-100
+  facts: InsightItem[];
+  inferences: InsightItem[];
+  hypotheses: InsightItem[];
+  reasoning: string;         // resumo em texto livre
+};
+
+// ─── Próximo Passo Recomendado ───────────────────────────────────────────────
+// Motor determinístico que sugere próxima ação com base no estado.
+// NÃO usa LLM — é lógica pura para previsibilidade e auditabilidade.
+
+export const NEXT_STEP_ACTIONS = [
+  "primeiro_contato",
+  "cobrar_retorno",
+  "agendar_reuniao",
+  "pedir_documentos",
+  "montar_briefing_matriz",
+  "reenviar_materiais",
+  "apresentar_proposta",
+  "follow_up_proposta",
+  "negociar_condicao",
+  "cobrar_pendencia_documental",
+  "reativar_lead_morno",
+  "encaminhar_pos_venda",
+  "criar_oportunidade",
+  "atualizar_dados",
+  "sem_acao_no_momento",
+] as const;
+export type NextStepAction = (typeof NEXT_STEP_ACTIONS)[number];
+
+export const NEXT_STEP_LABELS: Record<NextStepAction, string> = {
+  primeiro_contato: "Fazer primeiro contato",
+  cobrar_retorno: "Cobrar retorno",
+  agendar_reuniao: "Agendar reunião",
+  pedir_documentos: "Pedir documentos",
+  montar_briefing_matriz: "Montar briefing para Matriz",
+  reenviar_materiais: "Reenviar materiais",
+  apresentar_proposta: "Apresentar proposta",
+  follow_up_proposta: "Follow-up de proposta",
+  negociar_condicao: "Negociar condição",
+  cobrar_pendencia_documental: "Cobrar pendência documental",
+  reativar_lead_morno: "Reativar lead morno",
+  encaminhar_pos_venda: "Encaminhar para pós-venda",
+  criar_oportunidade: "Criar oportunidade",
+  atualizar_dados: "Atualizar dados do contato",
+  sem_acao_no_momento: "Sem ação no momento",
+};
+
+export const NEXT_STEP_PRIORITIES = ["baixa", "media", "alta", "urgente"] as const;
+export type NextStepPriority = (typeof NEXT_STEP_PRIORITIES)[number];
+
+export type NextStepRecommendation = {
+  action: NextStepAction;
+  label: string;
+  reason: string;
+  priority: NextStepPriority;
+  taskTemplate: {
+    title: string;
+    type: "call" | "email" | "whatsapp" | "meeting" | "proposal" | "note";
+    dueInDays: number;
+  } | null;
+};
+
+// ─── Alertas Comerciais ──────────────────────────────────────────────────────
+
+export const ALERT_SEVERITIES = ["info", "warning", "critical"] as const;
+export type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
+
+export const ALERT_TYPES = [
+  "followup_vencido",
+  "sem_atividade_7d",
+  "sem_atividade_14d",
+  "matriz_acima_prazo",
+  "pendencia_documental_parada",
+  "proposta_sem_retorno",
+  "negociacao_parada",
+  "onboarding_sem_avanco",
+  "conta_expansao_sem_acao",
+  "lead_quente_sem_responsavel",
+] as const;
+export type AlertType = (typeof ALERT_TYPES)[number];
+
+export const ALERT_LABELS: Record<AlertType, string> = {
+  followup_vencido: "Follow-up vencido",
+  sem_atividade_7d: "Sem atividade há 7+ dias",
+  sem_atividade_14d: "Sem atividade há 14+ dias",
+  matriz_acima_prazo: "Matriz acima do prazo de retorno",
+  pendencia_documental_parada: "Pendência documental parada",
+  proposta_sem_retorno: "Proposta sem retorno",
+  negociacao_parada: "Negociação parada",
+  onboarding_sem_avanco: "Onboarding sem avanço",
+  conta_expansao_sem_acao: "Conta com potencial de expansão sem ação",
+  lead_quente_sem_responsavel: "Lead quente sem responsável",
+};
+
+export const ALERT_SEVERITY_MAP: Record<AlertType, AlertSeverity> = {
+  followup_vencido: "warning",
+  sem_atividade_7d: "info",
+  sem_atividade_14d: "warning",
+  matriz_acima_prazo: "critical",
+  pendencia_documental_parada: "critical",
+  proposta_sem_retorno: "warning",
+  negociacao_parada: "warning",
+  onboarding_sem_avanco: "warning",
+  conta_expansao_sem_acao: "info",
+  lead_quente_sem_responsavel: "info",
+};
+
+export const ALERT_ICONS: Record<AlertType, string> = {
+  followup_vencido: "⏰",
+  sem_atividade_7d: "📉",
+  sem_atividade_14d: "📉",
+  matriz_acima_prazo: "🔴",
+  pendencia_documental_parada: "📑",
+  proposta_sem_retorno: "📄",
+  negociacao_parada: "🤝",
+  onboarding_sem_avanco: "🚀",
+  conta_expansao_sem_acao: "🔄",
+  lead_quente_sem_responsavel: "🔥",
+};
+
+// ─── Briefing Checklist — Matriz ────────────────────────────────────────────
+
+export const MATRIZ_BRIEFING_CHECKLIST = [
+  { id: "razao_social", label: "Razão social completa", required: true },
+  { id: "cnpj", label: "CNPJ", required: true },
+  { id: "regime_tributario", label: "Regime tributário", required: true },
+  { id: "porte", label: "Porte da empresa", required: true },
+  { id: "setor", label: "Setor de atuação", required: true },
+  { id: "produto_interesse", label: "Produto de interesse", required: true },
+  { id: "faturamento_estimado", label: "Faturamento estimado", required: false },
+  { id: "decisor", label: "Decisor (nome e cargo)", required: true },
+  { id: "contato_decisor", label: "Contato do decisor (telefone/e-mail)", required: true },
+  { id: "dor_comercial", label: "Dor comercial percebida", required: false },
+  { id: "resumo_diagnostico", label: "Resumo do diagnóstico comercial", required: true },
+  { id: "expectativa_cliente", label: "Expectativa do cliente", required: false },
+  { id: "prazo_desejado", label: "Prazo desejado pelo cliente", required: false },
+  { id: "concorrencia", label: "Concorrência / comparação", required: false },
+  { id: "documentos_relevantes", label: "Documentos relevantes anexados", required: false },
+] as const;
+
+// ─── Trigger Types (expandido) ──────────────────────────────────────────────
+
+export const AUTOMATION_TRIGGER_TYPES = [
+  "status_changed",
+  "score_above",
+  "score_below",
+  "deal_stage_changed",
+  "followup_vencido",
+  "sem_atividade_7d",
+  "sem_atividade_14d",
+  "matriz_enviado",
+  "matriz_aguardando",
+  "matriz_pendencia",
+  "proposta_pronta",
+  "proposta_enviada",
+  "proposta_sem_retorno_7d",
+] as const;
+export type AutomationTriggerType = (typeof AUTOMATION_TRIGGER_TYPES)[number];
+
+export const AUTOMATION_TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
+  status_changed: "Status do contato mudar para...",
+  score_above: "Score de IA maior ou igual a...",
+  score_below: "Score de IA menor ou igual a...",
+  deal_stage_changed: "Etapa do deal mudar para...",
+  followup_vencido: "Follow-up vencido",
+  sem_atividade_7d: "Sem atividade há 7+ dias",
+  sem_atividade_14d: "Sem atividade há 14+ dias",
+  matriz_enviado: "Deal enviado para Matriz",
+  matriz_aguardando: "Deal aguardando retorno da Matriz",
+  matriz_pendencia: "Pendência documental na Matriz",
+  proposta_pronta: "Proposta ficou pronta",
+  proposta_enviada: "Proposta foi enviada",
+  proposta_sem_retorno_7d: "Proposta sem retorno há 7+ dias",
+};
+
+// ─── Action Types (expandido) ───────────────────────────────────────────────
+
+export const AUTOMATION_ACTION_TYPES = [
+  "create_task",
+  "log_activity",
+  "enroll_sequence",
+  "send_whatsapp",
+  "add_tag",
+  "set_priority",
+  "set_assignee",
+  "create_alert",
+] as const;
+export type AutomationActionType = (typeof AUTOMATION_ACTION_TYPES)[number];
+
+export const AUTOMATION_ACTION_LABELS: Record<AutomationActionType, string> = {
+  create_task: "Criar Tarefa",
+  log_activity: "Registrar Atividade",
+  enroll_sequence: "Enrolar em Sequência",
+  send_whatsapp: "Registrar intenção WhatsApp",
+  add_tag: "Adicionar Tag",
+  set_priority: "Marcar prioridade",
+  set_assignee: "Atribuir responsável",
+  create_alert: "Criar alerta",
+};
+
+// ─── Prioridade Comercial — Score Composto ──────────────────────────────────
+// Combina IA score + temperatura + urgência + atividade + etapa
+
+export const PRIORIDADE_COMERCIAL_NIVEIS = ["baixa", "media", "alta", "critica"] as const;
+export type PrioridadeComercialNivel = (typeof PRIORIDADE_COMERCIAL_NIVEIS)[number];
+
+// ─── Task Source (origem da tarefa) ─────────────────────────────────────────
+
+export const TASK_SOURCES = ["manual", "automation", "ai_suggestion", "next_step"] as const;
+export type TaskSource = (typeof TASK_SOURCES)[number];
