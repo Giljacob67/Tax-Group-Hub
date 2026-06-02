@@ -1275,6 +1275,136 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /crm/contacts/bulk-update-temperature:
+    post:
+      operationId: bulkUpdateTemperatureCrmContacts
+      tags: [crm]
+      summary: Bulk update temperature on CRM contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+                temperatura:
+                  type: string
+              required: [ids, temperatura]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/contacts/bulk-assign:
+    post:
+      operationId: bulkAssignCrmContacts
+      tags: [crm]
+      summary: Bulk assign responsible unit to CRM contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+                responsavelUnidade:
+                  type: string
+              required: [ids]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/contacts/bulk-update-followup:
+    post:
+      operationId: bulkUpdateFollowupCrmContacts
+      tags: [crm]
+      summary: Bulk update next follow-up date on CRM contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+                proximoFollowup:
+                  type: string
+                  nullable: true
+              required: [ids]
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /crm/contacts/distinct-values:
+    get:
+      operationId: listCrmContactDistinctValues
+      tags: [crm]
+      summary: Get distinct values for a CRM contact field (for filter dropdowns)
+      parameters:
+        - name: field
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Values
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  values:
+                    type: array
+                    items:
+                      type: string
+
+  /crm/views/seed-system:
+    post:
+      operationId: seedSystemCrmViews
+      tags: [crm]
+      summary: Seed system views for the current user (idempotent)
+      responses:
+        "200":
+          description: Seeded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  views:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrmSavedView"
+                  seeded:
+                    type: integer
+
   /crm/contacts/{id}/enrich:
     post:
       operationId: enrichCrmContact
@@ -1792,6 +1922,35 @@ paths:
                 required: [success, view]
 
   /crm/views/{id}:
+    put:
+      operationId: updateCrmView
+      tags: [crm]
+      summary: Update a saved CRM view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCrmViewRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  view:
+                    $ref: "#/components/schemas/CrmSavedView"
+                required: [success, view]
     delete:
       operationId: deleteCrmView
       tags: [crm]
@@ -2033,6 +2192,39 @@ paths:
                     items:
                       $ref: "#/components/schemas/CrmSegment"
                 required: [segments]
+
+  /crm/operational-summary:
+    get:
+      operationId: getCrmOperationalSummary
+      tags: [crm]
+      summary: Get operational summary for daily dashboard
+      responses:
+        "200":
+          description: Operational summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  summary:
+                    type: object
+                    properties:
+                      followupVencidos: { type: integer }
+                      followupHoje: { type: integer }
+                      reunioesHoje: { type: integer }
+                      tarefasVencidas: { type: integer }
+                      semAtividade7d: { type: integer }
+                      semAtividade14d: { type: integer }
+                      aguardandoMatriz: { type: integer }
+                      pendenciaDocumental: { type: integer }
+                      propostasAbertas: { type: integer }
+                      emNegociacao: { type: integer }
+                      leadsNovos24h: { type: integer }
+                      leadsQuentes: { type: integer }
+                      totalContatos: { type: integer }
+                      totalDeals: { type: integer }
 
   /crm/analytics/overview:
     get:
@@ -4137,6 +4329,14 @@ components:
         filters:
           type: object
           additionalProperties: true
+        type:
+          type: string
+          enum: [system, user]
+        isSystem:
+          type: boolean
+        category:
+          type: string
+          nullable: true
         isDefault:
           type: boolean
         sortField:
@@ -4148,7 +4348,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, name, isDefault, createdAt]
+      required: [id, name, type, isDefault, createdAt]
 
     CreateCrmViewRequest:
       type: object
@@ -4165,6 +4365,12 @@ components:
         sortField:
           type: string
         sortDir:
+          type: string
+        type:
+          type: string
+        isSystem:
+          type: boolean
+        category:
           type: string
 
     CrmPipeline:
