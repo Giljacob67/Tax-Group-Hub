@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useRef, lazy, Suspense } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Building2, Plus, Loader2, Search, MapPin,
@@ -17,6 +17,33 @@ import {
 } from "lucide-react";
 import { useDemoMode } from "@/hooks/use-demo-mode";
 import { DEMO_CONTACTS, DEMO_DEALS } from "@/lib/demo-data";
+import {
+  useListCrmTasks,
+  useListCrmContacts,
+  useListCrmTags,
+  useListCrmDeals,
+  useListCrmContactActivities,
+  useListCrmContactAttachments,
+  useListCrmViews,
+  useGetCrmPipeline,
+  useListSequenceEnrollments,
+  useCreateCrmContact,
+  useUpdateCrmContact,
+  useDeleteCrmContact,
+  useBulkDeleteCrmContacts,
+  useBulkUpdateStatusCrmContacts,
+  useBulkTagCrmContacts,
+  useEnrichCrmContact,
+  useQualifyCrmContact,
+  useCreateCrmContactActivity,
+  useCreateCrmContactAttachment,
+  useDeleteCrmContactAttachment,
+  useCreateCrmDeal,
+  useUpdateCrmDeal,
+  useDeleteCrmDeal,
+  useCreateCrmView,
+  useDeleteCrmView,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -247,11 +274,7 @@ export default function CRMPage() {
   const queryClient = useQueryClient();
 
   // Pending tasks count for badge
-  const { data: pendingTasksData } = useQuery<{ tasks: any[] }>({
-    queryKey: ["/api/crm/tasks?status=pending"],
-    queryFn: async () => { const r = await fetch("/api/crm/tasks?status=pending"); return r.json(); },
-    refetchInterval: 60_000,
-  });
+  const { data: pendingTasksData } = useListCrmTasks({ status: "pending" } as any, { query: { refetchInterval: 60_000 } } as any);
   const pendingCount = pendingTasksData?.tasks?.filter(t =>
     t.dueDate && new Date(t.dueDate) <= new Date(new Date().setHours(23,59,59,999))
   ).length || 0;
@@ -376,35 +399,22 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
 
   const activeFilterCount = Object.values(filters).filter(v => v !== "").length + (statusFilter ? 1 : 0);
 
-  const queryParams = new URLSearchParams();
-  if (search)              queryParams.set("search",    search);
-  if (statusFilter)        queryParams.set("status",    statusFilter);
-  if (listFilter)          queryParams.set("tag",       listFilter);
-  if (filters.regime)      queryParams.set("regime",    filters.regime);
-  if (filters.porte)       queryParams.set("porte",     filters.porte);
-  if (filters.uf)          queryParams.set("uf",        filters.uf);
-  if (filters.scoreMin)    queryParams.set("scoreMin",  filters.scoreMin);
-  if (filters.scoreMax)    queryParams.set("scoreMax",  filters.scoreMax);
-  if (sort)                { queryParams.set("sort", sort.field); queryParams.set("sortDir", sort.dir); }
+  const contactsParams: any = {};
+  if (search)              contactsParams.search = search;
+  if (statusFilter)        contactsParams.status = statusFilter;
+  if (listFilter)          contactsParams.tag = listFilter;
+  if (filters.regime)      contactsParams.regime = filters.regime;
+  if (filters.porte)       contactsParams.porte = filters.porte;
+  if (filters.uf)          contactsParams.uf = filters.uf;
+  if (filters.scoreMin)    contactsParams.scoreMin = filters.scoreMin;
+  if (filters.scoreMax)    contactsParams.scoreMax = filters.scoreMax;
+  if (sort)                { contactsParams.sort = sort.field; contactsParams.sortDir = sort.dir; }
 
-  const { data: tagsData } = useQuery<{ tags: string[] }>({
-    queryKey: ["/api/crm/tags"],
-    queryFn: async () => {
-      const res = await fetch("/api/crm/tags");
-      return res.json();
-    },
-  });
+  const { data, isLoading } = useListCrmContacts(contactsParams);
 
-  const { data, isLoading } = useQuery<{ contacts: Contact[] }>({
-    queryKey: ["/api/crm/contacts", queryParams.toString()],
-    queryFn: async () => {
-      const res = await fetch(`/api/crm/contacts?${queryParams}`);
-      if (!res.ok) throw new Error("Failed to fetch contacts");
-      return res.json();
-    },
-  });
+  const { data: tagsData } = useListCrmTags();
 
-  let contacts = data?.contacts || [];
+  let contacts = (data?.contacts || []) as unknown as Contact[];
 
   // Demo fallback: quando não há dados reais e modo demo está ativo
   if (isDemo && contacts.length === 0 && !isLoading) {
@@ -435,61 +445,49 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
     });
   }
 
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async (ids: number[]) => {
-      const res = await fetch("/api/crm/contacts/bulk-delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-      if (!res.ok) throw new Error("Falha ao deletar");
-      return res.json();
+  const bulkDeleteMutation = useBulkDeleteCrmContacts({
+    mutation: {
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        setSelectedIds(new Set());
+        toast({ title: `${variables.data.ids.length} contato(s) removido(s).` });
+      },
+      onError: () => toast({ title: "Erro ao deletar", variant: "destructive" }),
     },
-    onSuccess: (_, ids) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      setSelectedIds(new Set());
-      toast({ title: `${ids.length} contato(s) removido(s).` });
-    },
-    onError: () => toast({ title: "Erro ao deletar", variant: "destructive" }),
   });
 
-  const bulkStatusMutation = useMutation({
-    mutationFn: async ({ ids, status }: { ids: number[]; status: string }) => {
-      const res = await fetch("/api/crm/contacts/bulk-update-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids, status }),
-      });
-      if (!res.ok) throw new Error("Falha ao atualizar");
-      return res.json();
+  const bulkStatusMutation = useBulkUpdateStatusCrmContacts({
+    mutation: {
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        setSelectedIds(new Set());
+        setBulkStatusOpen(false);
+        toast({ title: `${variables.data.ids.length} contato(s) atualizados.` });
+      },
+      onError: () => toast({ title: "Erro ao atualizar status", variant: "destructive" }),
     },
-    onSuccess: (_, { ids }) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      setSelectedIds(new Set());
-      setBulkStatusOpen(false);
-      toast({ title: `${ids.length} contato(s) atualizados.` });
-    },
-    onError: () => toast({ title: "Erro ao atualizar status", variant: "destructive" }),
   });
 
-  const bulkTagsMutation = useMutation({
-    mutationFn: async ({ ids, tag, action }: { ids: number[]; tag: string; action: "add" | "remove" }) => {
-      const res = await fetch("/api/crm/contacts/bulk-tags", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids, tag, action }),
-      });
-      if (!res.ok) throw new Error("Falha ao atualizar lista");
-      return res.json();
+  const bulkTagsMutation = useBulkTagCrmContacts({
+    mutation: {
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        setSelectedIds(new Set());
+        setBulkListOpen(false);
+        setNewListName("");
+        toast({ title: `${variables.data.ids.length} contato(s) ${variables.data.action === "add" ? "adicionados à" : "removidos da"} lista "${variables.data.tag}".` });
+      },
+      onError: () => toast({ title: "Erro ao atualizar lista", variant: "destructive" }),
     },
-    onSuccess: (_, { ids, tag, action }) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      setSelectedIds(new Set());
-      setBulkListOpen(false);
-      setNewListName("");
-      toast({ title: `${ids.length} contato(s) ${action === "add" ? "adicionados à" : "removidos da"} lista "${tag}".` });
+  });
+
+  const updateContactStatusMutation = useUpdateCrmContact({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        toast({ title: "Status atualizado!" });
+      },
     },
-    onError: () => toast({ title: "Erro ao atualizar lista", variant: "destructive" }),
   });
 
   const [bulkListOpen, setBulkListOpen] = useState(false);
@@ -522,47 +520,28 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
   const [isSaveViewOpen, setIsSaveViewOpen] = useState(false);
   const [newViewName, setNewViewName] = useState("");
 
-  const { data: savedViewsData } = useQuery<{ views: CrmSavedView[] }>({
-    queryKey: ["/api/crm/views"],
-    queryFn: async () => {
-      const r = await fetch("/api/crm/views");
-      return r.json();
-    }
+  const { data: savedViewsData } = useListCrmViews();
+
+  const saveViewMutation = useCreateCrmView({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/views"] });
+        setIsSaveViewOpen(false);
+        setNewViewName("");
+        toast({ title: "Visualização salva com sucesso." });
+      },
+      onError: () => toast({ title: "Erro ao salvar view", variant: "destructive" }),
+    },
   });
 
-  const saveViewMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/crm/views", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newViewName,
-          emoji: "🔖",
-          filters: { ...filters, status: statusFilter, tag: listFilter }
-        }),
-      });
-      if (!res.ok) throw new Error("Erro ao salvar view");
-      return res.json();
+  const deleteViewMutation = useDeleteCrmView({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/views"] });
+        setActiveViewId("all");
+        toast({ title: "Visualização removida." });
+      },
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/views"] });
-      setIsSaveViewOpen(false);
-      setNewViewName("");
-      toast({ title: "Visualização salva com sucesso." });
-    },
-    onError: () => toast({ title: "Erro ao salvar view", variant: "destructive" }),
-  });
-
-  const deleteViewMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await fetch(`/api/crm/views/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Erro");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/views"] });
-      setActiveViewId("all");
-      toast({ title: "Visualização removida." });
-    }
   });
 
   function applyView(viewId: string, viewFilters: Record<string, string>) {
@@ -606,11 +585,11 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
           {userViews.map(v => (
             <button
               key={`user-${v.id}`}
-              onClick={() => applyView(`user-${v.id}`, v.filters)}
+              onClick={() => applyView(`user-${v.id}`, (v.filters || {}) as Record<string, string>)}
               onDoubleClick={() => {
                 confirmDialogState[0](
                   { title: `Excluir view "${v.name}"?`, description: "Esta ação não pode ser desfeita.", variant: "destructive", confirmLabel: "Excluir" },
-                  () => deleteViewMutation.mutate(v.id)
+                  () => deleteViewMutation.mutate({ id: v.id })
                 );
               }}
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-colors ${
@@ -649,7 +628,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsSaveViewOpen(false)}>Cancelar</Button>
-                <Button onClick={() => saveViewMutation.mutate()} disabled={!newViewName.trim() || saveViewMutation.isPending}>
+                <Button onClick={() => saveViewMutation.mutate({ data: { name: newViewName, emoji: "🔖", filters: { ...filters, status: statusFilter, tag: listFilter } } })} disabled={!newViewName.trim() || saveViewMutation.isPending}>
                   {saveViewMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Salvar"}
                 </Button>
               </DialogFooter>
@@ -816,7 +795,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                     {Object.entries(STATUS_CONFIG).map(([k, v]) => (
                       <button
                         key={k}
-                        onClick={() => bulkStatusMutation.mutate({ ids: selectedArray, status: k })}
+                        onClick={() => bulkStatusMutation.mutate({ data: { ids: selectedArray, status: k } })}
                         disabled={bulkStatusMutation.isPending}
                         className="w-full flex items-center gap-2 p-2.5 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors text-left"
                       >
@@ -853,7 +832,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                           size="sm"
                           className="h-8 text-xs"
                           disabled={!newListName.trim() || bulkTagsMutation.isPending}
-                          onClick={() => bulkTagsMutation.mutate({ ids: selectedArray, tag: newListName.trim(), action: "add" })}
+                          onClick={() => bulkTagsMutation.mutate({ data: { ids: selectedArray, tag: newListName.trim(), action: "add" } })}
                         >
                           Criar
                         </Button>
@@ -866,7 +845,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                           {allTags.map(tag => (
                             <button
                               key={tag}
-                              onClick={() => bulkTagsMutation.mutate({ ids: selectedArray, tag, action: "add" })}
+                              onClick={() => bulkTagsMutation.mutate({ data: { ids: selectedArray, tag, action: "add" } })}
                               disabled={bulkTagsMutation.isPending}
                               className="text-left px-3 py-2 text-xs border border-border/50 rounded-md hover:bg-muted/50 transition-colors flex items-center justify-between group"
                             >
@@ -895,7 +874,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                 onClick={() => {
                   confirmDialogState[0](
                     { title: "Excluir contatos?", description: `Deletar ${selectedIds.size} contato(s)? Esta ação não pode ser desfeita.`, variant: "destructive", confirmLabel: "Excluir" },
-                    () => bulkDeleteMutation.mutate(selectedArray)
+                    () => bulkDeleteMutation.mutate({ data: { ids: selectedArray } })
                   );
                 }}
                 disabled={bulkDeleteMutation.isPending}
@@ -1039,11 +1018,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                       </td>
                       <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                         <Select value={contact.status} onValueChange={(v) => {
-                          fetch(`/api/crm/contacts/${contact.id}`, {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ status: v }),
-                          }).then(r => { if (r.ok) { queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] }); toast({ title: "Status atualizado!" }); } });
+                          updateContactStatusMutation.mutate({ id: contact.id, data: { status: v } });
                         }}>
                           <SelectTrigger className="h-auto border-0 bg-transparent p-0 shadow-none ring-0 focus:ring-0">
                             <Badge variant="outline" className={`text-xs border ${s.color} cursor-pointer hover:opacity-80`}>{s.label}</Badge>
@@ -1104,140 +1079,95 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
   const [newDealTitle, setNewDealTitle]           = useState("");
   const [newDealValue, setNewDealValue]           = useState("");
 
-  const enrichMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/crm/contacts/${contact.id}/enrich`, { method: "POST" });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Falha"); }
-      return res.json();
+  const enrichMutation = useEnrichCrmContact({
+    mutation: {
+      onSuccess: (data) => {
+        onUpdate(data.contact as unknown as Contact);
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        toast({ title: `Dados enriquecidos! ${data.fieldsUpdated?.length || 0} campos atualizados.` });
+      },
+      onError: (e: any) => toast({ title: "Erro no enriquecimento", description: e.message, variant: "destructive" }),
     },
-    onSuccess: (data) => {
-      onUpdate(data.contact);
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      toast({ title: `Dados enriquecidos! ${data.fieldsUpdated?.length || 0} campos atualizados.` });
-    },
-    onError: (e: any) => toast({ title: "Erro no enriquecimento", description: e.message, variant: "destructive" }),
   });
 
-  const qualifyMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/crm/contacts/${contact.id}/qualify`, { method: "POST" });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Falha"); }
-      return res.json();
+  const qualifyMutation = useQualifyCrmContact({
+    mutation: {
+      onSuccess: (data) => {
+        onUpdate(data.contact as unknown as Contact);
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
+        toast({ title: `Pontuação IA: ${data.qualification?.score}/100 — Nível ${data.qualification?.tier}` });
+      },
+      onError: (e: any) => toast({ title: "Erro na qualificação", description: e.message, variant: "destructive" }),
     },
-    onSuccess: (data) => {
-      onUpdate(data.contact);
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
-      toast({ title: `Pontuação IA: ${data.qualification?.score}/100 — Nível ${data.qualification?.tier}` });
-    },
-    onError: (e: any) => toast({ title: "Erro na qualificação", description: e.message, variant: "destructive" }),
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async (status: string) => {
-      const res = await fetch(`/api/crm/contacts/${contact.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) throw new Error("Falha");
-      return res.json();
+  const updateStatusMutation = useUpdateCrmContact({
+    mutation: {
+      onSuccess: (data) => {
+        onUpdate(data.contact as unknown as Contact);
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        toast({ title: "Status atualizado!" });
+      },
+      onError: () => toast({ title: "Erro ao atualizar status", variant: "destructive" }),
     },
-    onSuccess: (data) => {
-      onUpdate(data.contact);
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      toast({ title: "Status atualizado!" });
-    },
-    onError: () => toast({ title: "Erro ao atualizar status", variant: "destructive" }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/crm/contacts/${contact.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Falha");
+  const deleteMutation = useDeleteCrmContact({
+    mutation: {
+      onSuccess: () => { toast({ title: "Contato removido." }); onDelete(); },
+      onError: () => toast({ title: "Erro ao deletar contato", variant: "destructive" }),
     },
-    onSuccess: () => { toast({ title: "Contato removido." }); onDelete(); },
-    onError: () => toast({ title: "Erro ao deletar contato", variant: "destructive" }),
   });
 
-  const createDealMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/crm/deals", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newDealTitle || "Nova Oportunidade",
-          stage: "prospect",
-          value: newDealValue ? Number(newDealValue) : null,
-          contactId: contact.id,
-          probability: 20,
-          pipelineId: "default",
-        }),
-      });
-      if (!res.ok) throw new Error("Erro ao criar deal");
-      return res.json();
+  const createDealMutation = useCreateCrmDeal({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
+        toast({ title: "Negócio criado!" });
+        setShowNewDealForm(false);
+        setNewDealTitle("");
+        setNewDealValue("");
+      },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
-      toast({ title: "Negócio criado!" });
-      setShowNewDealForm(false);
-      setNewDealTitle("");
-      setNewDealValue("");
+  });
+
+  const logActivityMutation = useCreateCrmContactActivity({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
+        toast({ title: "Atividade registrada!" });
+        setShowActivityForm(false);
+        setActivitySubject(""); setActivityContent(""); setActivityType("note");
+      },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
-  const logActivityMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/crm/contacts/${contact.id}/activities`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: activityType,
-          subject: activitySubject || ACTIVITY_TYPES.find(t => t.value === activityType)?.label,
-          content: activityContent,
-          completedAt: new Date().toISOString(),
-        }),
-      });
-      if (!res.ok) throw new Error("Erro");
-      return res.json();
+  const { data: activitiesData }   = useListCrmContactActivities(contact.id);
+
+  const { data: attachmentsData, refetch: refetchAttachments } = useListCrmContactAttachments(contact.id);
+
+  const { data: dealsData } = useListCrmDeals({ contactId: contact.id } as any);
+
+  const { data: enrollmentsData } = useListSequenceEnrollments({ contactId: contact.id, status: "active" } as any);
+
+  const deleteAttachmentMutation = useDeleteCrmContactAttachment({
+    mutation: {
+      onSuccess: () => { refetchAttachments(); toast({ title: "Arquivo removido." }); },
+      onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
-      toast({ title: "Atividade registrada!" });
-      setShowActivityForm(false);
-      setActivitySubject(""); setActivityContent(""); setActivityType("note");
+  });
+
+  const createAttachmentMutation = useCreateCrmContactAttachment({
+    mutation: {
+      onSuccess: () => {
+        refetchAttachments();
+        queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
+      },
     },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
-  });
-
-  const { data: activitiesData }   = useQuery<{ activities: Activity[] }>({
-    queryKey: [`/api/crm/contacts/${contact.id}/activities`],
-    queryFn: async () => { const r = await fetch(`/api/crm/contacts/${contact.id}/activities`); return r.json(); },
-  });
-
-  const { data: attachmentsData, refetch: refetchAttachments } = useQuery<{ attachments: Attachment[] }>({
-    queryKey: [`/api/crm/contacts/${contact.id}/attachments`],
-    queryFn: async () => { const r = await fetch(`/api/crm/contacts/${contact.id}/attachments`); return r.json(); },
-  });
-
-  const { data: dealsData } = useQuery<{ deals: Deal[] }>({
-    queryKey: [`/api/crm/deals`, { contactId: contact.id }],
-    queryFn: async () => { const r = await fetch(`/api/crm/deals?contactId=${contact.id}`); return r.json(); },
-  });
-
-  const { data: enrollmentsData } = useQuery<{ enrollments: Array<{ id: number; sequenceName: string | null; currentStep: number; totalSteps: Array<any> | null; nextSendAt: string; status: string }> }>({
-    queryKey: [`/api/automate/enrollments`, { contactId: contact.id }],
-    queryFn: async () => { const r = await fetch(`/api/automate/enrollments?contactId=${contact.id}&status=active`); return r.json(); },
-  });
-
-  const deleteAttachmentMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await fetch(`/api/crm/contacts/${contact.id}/attachments/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Erro");
-    },
-    onSuccess: () => { refetchAttachments(); toast({ title: "Arquivo removido." }); },
-    onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
   });
 
   async function handleFileUpload(file: File) {
@@ -1249,14 +1179,12 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      const res = await fetch(`/api/crm/contacts/${contact.id}/attachments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, fileSize: file.size, mimeType: file.type, url: dataUrl }),
+      await new Promise<void>((resolve, reject) => {
+        createAttachmentMutation.mutate(
+          { id: contact.id, data: { fileName: file.name, fileSize: file.size, mimeType: file.type, url: dataUrl } },
+          { onSuccess: () => resolve(), onError: (e) => reject(e) }
+        );
       });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-      refetchAttachments();
-      queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
       toast({ title: `${file.name} anexado.` });
     } catch (e: any) {
       toast({ title: "Erro no upload", description: e.message, variant: "destructive" });
@@ -1317,7 +1245,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
             {showDeleteConfirm ? (
               <div className="flex items-center gap-1">
                 <Button size="sm" variant="destructive" className="text-xs h-7 px-2"
-                  onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
+                  onClick={() => deleteMutation.mutate({ id: contact.id })} disabled={deleteMutation.isPending}>
                   {deleteMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Confirmar"}
                 </Button>
                 <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setShowDeleteConfirm(false)}>
@@ -1345,10 +1273,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
             <button
               onClick={() => {
                 window.open(`tel:${contact.telefone}`, "_self");
-                setActivityType("call");
-                setActivitySubject("Ligação realizada");
-                setActivityContent(`Ligação para ${contact.telefone}`);
-                setTimeout(() => logActivityMutation.mutate(), 0);
+                logActivityMutation.mutate({ id: contact.id, data: { type: "call", subject: "Ligação realizada", content: `Ligação para ${contact.telefone}`, completedAt: new Date().toISOString() } as any });
               }}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-xs text-primary hover:text-primary/80 transition-colors border border-primary/20"
               title={contact.telefone}
@@ -1358,24 +1283,13 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           )}
           {contact.telefone && (
             <button
-              onClick={async () => {
+              onClick={() => {
                 const phone = contact.telefone!.replace(/\D/g, "");
                 const fullPhone = phone.startsWith("55") ? phone : `55${phone}`;
                 const name = contact.razaoSocial || "empresa";
                 const text = encodeURIComponent(`Olá, tudo bem? Meu nome é da Tax Group Hub e gostaria de conversar sobre oportunidades de otimização tributária para a ${name}.`);
                 window.open(`https://wa.me/${fullPhone}?text=${text}`, "_blank");
-                await fetch(`/api/crm/contacts/${contact.id}/activities`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    type: "whatsapp",
-                    subject: "WhatsApp enviado",
-                    content: `Mensagem WhatsApp enviada para ${contact.telefone}`,
-                    completedAt: new Date().toISOString(),
-                  }),
-                });
-                queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
-                toast({ title: "WhatsApp aberto e atividade registrada." });
+                logActivityMutation.mutate({ id: contact.id, data: { type: "whatsapp", subject: "WhatsApp enviado", content: `Mensagem WhatsApp enviada para ${contact.telefone}`, completedAt: new Date().toISOString() } as any });
               }}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-xs text-primary hover:text-primary/80 transition-colors border border-primary/20"
               title="Abrir WhatsApp"
@@ -1385,20 +1299,9 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           )}
           {contact.email && (
             <button
-              onClick={async () => {
+              onClick={() => {
                 window.open(`mailto:${contact.email}`, "_self");
-                await fetch(`/api/crm/contacts/${contact.id}/activities`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    type: "email",
-                    subject: "E-mail enviado",
-                    content: `E-mail para ${contact.email}`,
-                    completedAt: new Date().toISOString(),
-                  }),
-                });
-                queryClient.invalidateQueries({ queryKey: [`/api/crm/contacts/${contact.id}/activities`] });
-                toast({ title: "Cliente de e-mail aberto e atividade registrada." });
+                logActivityMutation.mutate({ id: contact.id, data: { type: "email", subject: "E-mail enviado", content: `E-mail para ${contact.email}`, completedAt: new Date().toISOString() } as any });
               }}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/50"
               title={contact.email}
@@ -1427,7 +1330,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
           </div>
           <div className="flex-1 bg-background rounded-lg p-3 text-center border border-border">
             <div className="text-xs text-muted-foreground mb-1">Status</div>
-            <Select value={contact.status} onValueChange={(v) => updateStatusMutation.mutate(v)}>
+            <Select value={contact.status} onValueChange={(v) => updateStatusMutation.mutate({ id: contact.id, data: { status: v } })}>
               <SelectTrigger className="h-auto border-0 bg-transparent p-0 text-center focus:ring-0 shadow-none">
                 <Badge variant="outline" className={`text-xs border ${status.color} cursor-pointer`}>
                   {status.label}
@@ -1461,7 +1364,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
         {/* Active sequence enrollment indicator */}
         {(enrollmentsData?.enrollments?.length ?? 0) > 0 && (
           <div className="space-y-1">
-            {enrollmentsData!.enrollments.map(en => {
+            {(enrollmentsData as any)?.enrollments?.map((en: any) => {
               const total = en.totalSteps?.length ?? 0;
               const pct   = total > 0 ? Math.round((en.currentStep / total) * 100) : 0;
               return (
@@ -1481,12 +1384,12 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
         )}
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="flex-1 text-xs"
-            disabled={enrichMutation.isPending} onClick={() => enrichMutation.mutate()}>
+            disabled={enrichMutation.isPending} onClick={() => enrichMutation.mutate({ id: contact.id })}>
             {enrichMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <RefreshCw className="w-3 h-3 mr-1.5" />}
             Enriquecer dados
           </Button>
           <Button size="sm" className="flex-1 text-xs bg-primary"
-            disabled={qualifyMutation.isPending} onClick={() => qualifyMutation.mutate()}>
+            disabled={qualifyMutation.isPending} onClick={() => qualifyMutation.mutate({ id: contact.id })}>
             {qualifyMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Bot className="w-3 h-3 mr-1.5" />}
             Qualificar IA
           </Button>
@@ -1581,7 +1484,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   <Input placeholder="Título da oportunidade" value={newDealTitle} onChange={e => setNewDealTitle(e.target.value)} className="text-xs h-8" />
                   <Input placeholder="Valor (R$)" type="number" value={newDealValue} onChange={e => setNewDealValue(e.target.value)} className="text-xs h-8" />
                   <div className="flex gap-2">
-                    <Button size="sm" className="text-xs flex-1" disabled={createDealMutation.isPending} onClick={() => createDealMutation.mutate()}>
+                    <Button size="sm" className="text-xs flex-1" disabled={createDealMutation.isPending} onClick={() => createDealMutation.mutate({ data: { title: newDealTitle || "Nova Oportunidade", stage: "prospect", value: newDealValue || undefined, contactId: contact.id, probability: 20, pipelineId: "default" } })}>
                       {createDealMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Criar"}
                     </Button>
                     <Button size="sm" variant="ghost" className="text-xs" onClick={() => setShowNewDealForm(false)}>Cancelar</Button>
@@ -1650,7 +1553,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                     onChange={(e) => setActivityContent(e.target.value)}
                     className="text-xs min-h-[64px] resize-none" />
                   <Button size="sm" className="w-full text-xs"
-                    onClick={() => logActivityMutation.mutate()}
+                    onClick={() => logActivityMutation.mutate({ id: contact.id, data: { type: activityType, subject: activitySubject || ACTIVITY_TYPES.find(t => t.value === activityType)?.label, content: activityContent, completedAt: new Date().toISOString() } as any })}
                     disabled={logActivityMutation.isPending || (!activitySubject && !activityContent)}>
                     {logActivityMutation.isPending
                       ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
@@ -1735,7 +1638,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                             <Button size="icon" variant="ghost" className="w-6 h-6"><Download className="w-3 h-3" /></Button>
                           </a>
                           <Button size="icon" variant="ghost" className="w-6 h-6 text-destructive hover:text-destructive"
-                            onClick={() => deleteAttachmentMutation.mutate(att.id)}>
+                            onClick={() => deleteAttachmentMutation.mutate({ contactId: contact.id, attachmentId: att.id })}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         </div>
@@ -1767,22 +1670,15 @@ function AddLeadDialog() {
       .replace(/(\d{4})(\d)/, "$1-$2");
   };
 
-  const mutation = useMutation({
-    mutationFn: async (raw: string) => {
-      const res = await fetch("/api/crm/contacts", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cnpj: raw.replace(/\D/g, "") }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao criar contato");
-      return data;
+  const mutation = useCreateCrmContact({
+    mutation: {
+      onSuccess: (data) => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        toast({ title: "Lead criado." + (data.contact ? " Dados enriquecidos." : "") });
+        setOpen(false); setCnpj("");
+      },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      toast({ title: "Lead criado." + (data.enriched ? " Dados enriquecidos." : "") });
-      setOpen(false); setCnpj("");
-    },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
   return (
@@ -1803,7 +1699,7 @@ function AddLeadDialog() {
             onChange={(e) => setCnpj(formatCnpj(e.target.value))} />
         </div>
         <DialogFooter>
-          <Button onClick={() => mutation.mutate(cnpj)}
+          <Button onClick={() => mutation.mutate({ data: { cnpj: cnpj.replace(/\D/g, "") } })}
             disabled={mutation.isPending || cnpj.replace(/\D/g, "").length < 14} className="w-full">
             {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
             {mutation.isPending ? "Buscando..." : "Criar e Enriquecer"}
@@ -1833,27 +1729,18 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/crm/deals/${deal.id}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, value, probability, stage, notes, produto,
-          expectedCloseDate: expectedClose ? new Date(expectedClose).toISOString() : null }),
-      });
-      if (!res.ok) throw new Error("Erro ao salvar");
-      return res.json();
+  const saveMutation = useUpdateCrmDeal({
+    mutation: {
+      onSuccess: () => { toast({ title: "Negócio atualizado." }); onSaved(); },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
-    onSuccess: () => { toast({ title: "Negócio atualizado." }); onSaved(); },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/crm/deals/${deal.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Erro");
+  const deleteMutation = useDeleteCrmDeal({
+    mutation: {
+      onSuccess: () => { toast({ title: "Negócio removido." }); onDeleted(); },
+      onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
     },
-    onSuccess: () => { toast({ title: "Negócio removido." }); onDeleted(); },
-    onError: () => toast({ title: "Erro ao remover", variant: "destructive" }),
   });
 
   return (
@@ -1927,7 +1814,7 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
       <DialogFooter className="flex items-center gap-2">
         {showDeleteConfirm ? (
           <>
-            <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
+            <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate({ id: deal.id })} disabled={deleteMutation.isPending}>
               {deleteMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
               Confirmar exclusão
             </Button>
@@ -1940,7 +1827,7 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
               <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Excluir deal
             </Button>
             <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-            <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            <Button size="sm" onClick={() => saveMutation.mutate({ id: deal.id, data: { title, value: value || undefined, probability, stage, notes, produto, expectedCloseDate: expectedClose ? new Date(expectedClose).toISOString() : undefined } })} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
               Salvar
             </Button>
@@ -1959,36 +1846,20 @@ function QuickAddDealForm({ stage, onDone }: { stage: string; onDone: () => void
   const [value, setValue]   = useState("");
   const [contactId, setContactId] = useState("");
 
-  const { data: contactsData } = useQuery<{ contacts: Contact[] }>({
-    queryKey: ["/api/crm/contacts", ""],
-    queryFn: async () => { const r = await fetch("/api/crm/contacts"); return r.json(); },
-  });
+  const { data: contactsData } = useListCrmContacts();
 
   const contacts = contactsData?.contacts || [];
   const stageInfo = STAGE_DICT[stage];
 
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/crm/deals", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title || "Nova Oportunidade",
-          stage,
-          value: value || null,
-          contactId: contactId ? Number(contactId) : contacts[0]?.id,
-          probability: 20,
-          pipelineId: "default",
-        }),
-      });
-      if (!res.ok) throw new Error("Erro ao criar deal");
-      return res.json();
+  const mutation = useCreateCrmDeal({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
+        toast({ title: `Deal criado em ${stageInfo?.label || stage}!` });
+        onDone();
+      },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
-      toast({ title: `Deal criado em ${stageInfo?.label || stage}!` });
-      onDone();
-    },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
   return (
@@ -2021,7 +1892,7 @@ function QuickAddDealForm({ stage, onDone }: { stage: string; onDone: () => void
       />
       <div className="flex gap-1.5">
         <Button size="sm" className="flex-1 text-xs h-7"
-          onClick={() => mutation.mutate()} disabled={mutation.isPending || contacts.length === 0}>
+          onClick={() => mutation.mutate({ data: { title: title || "Nova Oportunidade", stage, value: value || undefined, contactId: contactId ? Number(contactId) : contacts[0]?.id, probability: 20, pipelineId: "default" } })} disabled={mutation.isPending || contacts.length === 0}>
           {mutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Criar"}
         </Button>
         <Button size="sm" variant="ghost" className="text-xs h-7" onClick={onDone}>
@@ -2054,36 +1925,18 @@ function PipelineKanbanView() {
 
   const pipelineQueryParam = activePipelineId === "default" ? "" : `?pipelineId=${activePipelineId}`;
 
-  const { data, isLoading } = useQuery<{
-    pipeline: Record<string, Deal[]>;
-    stages: string[];
-    meta: any;
-    stats: any;
-  }>({
-    queryKey: ["/api/crm/deals/pipeline", activePipelineId],
-    queryFn: async () => {
-      const res = await fetch(`/api/crm/deals/pipeline${pipelineQueryParam}`);
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-  });
+  const { data, isLoading } = useGetCrmPipeline({ pipelineId: activePipelineId === "default" ? undefined : activePipelineId } as any);
 
-  const moveDealMutation = useMutation({
-    mutationFn: async ({ dealId, stage }: { dealId: number; stage: string }) => {
-      const res = await fetch(`/api/crm/deals/${dealId}`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage }),
-      });
-      if (!res.ok) throw new Error("Falha ao mover");
-      return res.json();
-    },
-    onSuccess: (_, { stage }) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
-      toast({ title: `Negócio movido para ${STAGE_DICT[stage]?.label || stage}` });
-    },
-    onError: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
-      toast({ title: "Erro ao mover negócio", variant: "destructive" });
+  const moveDealMutation = useUpdateCrmDeal({
+    mutation: {
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
+        toast({ title: `Negócio movido para ${STAGE_DICT[variables.data.stage!]?.label || variables.data.stage}` });
+      },
+      onError: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
+        toast({ title: "Erro ao mover negócio", variant: "destructive" });
+      },
     },
   });
 
@@ -2108,7 +1961,7 @@ function PipelineKanbanView() {
         if (deal) newPipeline[targetStage] = [{ ...deal, stage: targetStage }, ...(newPipeline[targetStage] || [])];
         return { ...old, pipeline: newPipeline };
       });
-      moveDealMutation.mutate({ dealId: draggedDealId, stage: targetStage });
+      moveDealMutation.mutate({ id: draggedDealId, data: { stage: targetStage } });
     }
     setDraggedDealId(null); setDraggedFromStage(null); setDragOverStage(null);
   }
@@ -2123,7 +1976,7 @@ function PipelineKanbanView() {
     </div>
   );
 
-  let pipeline    = data?.pipeline || {};
+  let pipeline: any = data?.pipeline || {};
   let stages      = data?.stages || [];
 
   // Demo fallback: quando pipeline está vazio e modo demo ativo
