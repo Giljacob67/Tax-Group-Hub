@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useListAutomationSequences,
+  useListSequenceEnrollments,
+  useUpdateAutomationSequence,
+  useDeleteAutomationSequence,
+  useEnrollInSequence,
+  useBroadcastWhatsApp,
+} from "@workspace/api-client-react";
 import { motion } from "framer-motion";
 import {
   Zap, Trash2, Plus, Users, Clock,
@@ -94,16 +102,12 @@ export default function AutomationsPage() {
   });
 
   // ── Queries ──
-  const { data: seqData, isLoading: seqLoading } = useQuery<{ sequences: Sequence[] }>({
-    queryKey: ["/api/automate/sequences"],
-    queryFn: () => fetch("/api/automate/sequences").then(r => r.json()),
-  });
+  const { data: seqData, isLoading: seqLoading } = useListAutomationSequences();
 
-  const { data: enrollData, isLoading: enrollLoading } = useQuery<{ enrollments: Enrollment[] }>({
-    queryKey: ["/api/automate/enrollments"],
-    queryFn: () => fetch("/api/automate/enrollments").then(r => r.json()),
-    refetchInterval: 30_000,
-  });
+  const { data: enrollData, isLoading: enrollLoading } = useListSequenceEnrollments(
+    undefined,
+    { query: { refetchInterval: 30_000 } } as any,
+  );
 
   const sequences = seqData?.sequences ?? [];
   const enrollments = enrollData?.enrollments ?? [];
@@ -112,74 +116,44 @@ export default function AutomationsPage() {
   const completedToday = enrollments.filter(e => e.completedAt && new Date(e.completedAt).toDateString() === new Date().toDateString()).length;
 
   // ── Toggle active ──
-  const toggleMutation = useMutation({
-    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
-      const r = await fetch(`/api/automate/sequences/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive }),
-      });
-      return r.json();
+  const toggleMutation = useUpdateAutomationSequence({
+    mutation: {
+      onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/automate/sequences"] }),
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/automate/sequences"] }),
   });
 
   // ── Delete sequence ──
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await fetch(`/api/automate/sequences/${id}`, { method: "DELETE" });
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/automate/sequences"] });
-      toast({ title: "Sequência removida" });
+  const deleteMutation = useDeleteAutomationSequence({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/api/automate/sequences"] });
+        toast({ title: "Sequência removida" });
+      },
     },
   });
 
   // ── Enroll contact ──
-  const enrollMutation = useMutation({
-    mutationFn: async () => {
-      const r = await fetch(`/api/automate/sequences/${enrollSeqId}/enroll`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId: Number(enrollContactId) }),
-      });
-      if (!r.ok) { const e = await r.json(); throw new Error(e.error || "Falha"); }
-      return r.json();
+  const enrollMutation = useEnrollInSequence({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/api/automate/enrollments"] });
+        setShowEnrollDialog(false);
+        setEnrollContactId("");
+        toast({ title: "Contato inscrito na sequência" });
+      },
+      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/automate/enrollments"] });
-      setShowEnrollDialog(false);
-      setEnrollContactId("");
-      toast({ title: "Contato inscrito na sequência" });
-    },
-    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
   // ── Broadcast ──
-  const broadcastMutation = useMutation({
-    mutationFn: async () => {
-      const filters: Record<string, any> = {};
-      if (broadcastForm.minScore) filters.minScore = Number(broadcastForm.minScore);
-      if (broadcastForm.maxScore) filters.maxScore = Number(broadcastForm.maxScore);
-      if (broadcastForm.status)   filters.status = [broadcastForm.status];
-      const r = await fetch("/api/automate/broadcast-whatsapp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          channelId: Number(broadcastForm.channelId),
-          agentId: broadcastForm.agentId,
-          inputTemplate: broadcastForm.inputTemplate,
-          filters,
-        }),
-      });
-      if (!r.ok) { const e = await r.json(); throw new Error(e.error || "Falha"); }
-      return r.json();
+  const broadcastMutation = useBroadcastWhatsApp({
+    mutation: {
+      onSuccess: (data) => {
+        setShowBroadcastDialog(false);
+        toast({ title: `Broadcast enviado: ${data.queued} contatos na fila` });
+      },
+      onError: (e: any) => toast({ title: "Erro no broadcast", description: e.message, variant: "destructive" }),
     },
-    onSuccess: (data) => {
-      setShowBroadcastDialog(false);
-      toast({ title: `Broadcast enviado: ${data.queued} contatos na fila` });
-    },
-    onError: (e: any) => toast({ title: "Erro no broadcast", description: e.message, variant: "destructive" }),
   });
 
   return (
@@ -271,7 +245,7 @@ export default function AutomationsPage() {
                           </div>
                           {/* Steps preview */}
                           <div className="flex items-center gap-1 mt-2 flex-wrap">
-                            {seq.steps.map((s, i) => (
+                            {seq.steps.map((s: any, i: number) => (
                               <div key={i} className="flex items-center gap-0.5">
                                 <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 border border-primary/20 text-primary/80">
                                   D+{s.day} · {s.channel === "whatsapp" ? "WA" : s.channel === "email" ? "E-mail" : "Nota"}
@@ -284,7 +258,7 @@ export default function AutomationsPage() {
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <Button
                             variant="ghost" size="sm"
-                            onClick={() => toggleMutation.mutate({ id: seq.id, isActive: !seq.isActive })}
+                            onClick={() => toggleMutation.mutate({ id: seq.id, data: { isActive: !seq.isActive } })}
                             className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                           >
                             {seq.isActive
@@ -305,7 +279,7 @@ export default function AutomationsPage() {
                           </Button>
                           <Button
                             variant="ghost" size="sm"
-                            onClick={() => deleteMutation.mutate(seq.id)}
+                            onClick={() => deleteMutation.mutate({ id: seq.id })}
                             className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -336,9 +310,10 @@ export default function AutomationsPage() {
             ) : (
               <div className="space-y-2">
                 {activeEnrollments.map(en => {
-                  const totalSteps = en.totalSteps?.length ?? 0;
+                  const seqForEnroll = sequences.find(s => s.id === en.sequenceId);
+                  const totalSteps = seqForEnroll?.steps?.length ?? 0;
                   const pct = totalSteps > 0 ? Math.round(((en.currentStep) / totalSteps) * 100) : 0;
-                  const overdue = new Date(en.nextSendAt) < new Date();
+                  const overdue = en.nextSendAt ? new Date(en.nextSendAt) < new Date() : false;
                   return (
                     <div key={en.id} className="bg-card/50 border border-border/40 rounded-lg px-4 py-3 flex items-center gap-4">
                       <div className="flex-1 min-w-0">
@@ -349,7 +324,7 @@ export default function AutomationsPage() {
                           <span className={`flex items-center gap-1 ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
                             {overdue ? <AlertCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                             {overdue ? "Atrasado · " : "Próximo: "}
-                            {fmtDate(en.nextSendAt)}
+                            {en.nextSendAt ? fmtDate(en.nextSendAt) : "—"}
                           </span>
                         </div>
                       </div>
@@ -399,7 +374,7 @@ export default function AutomationsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEnrollDialog(false)}>Cancelar</Button>
             <Button
-              onClick={() => enrollMutation.mutate()}
+              onClick={() => enrollMutation.mutate({ id: Number(enrollSeqId), data: { contactId: Number(enrollContactId) } })}
               disabled={!enrollSeqId || !enrollContactId || enrollMutation.isPending}
             >
               {enrollMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : null}
@@ -461,7 +436,20 @@ export default function AutomationsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowBroadcastDialog(false)}>Cancelar</Button>
             <Button
-              onClick={() => broadcastMutation.mutate()}
+              onClick={() => {
+  const filters: Record<string, any> = {};
+  if (broadcastForm.minScore) filters.minScore = Number(broadcastForm.minScore);
+  if (broadcastForm.maxScore) filters.maxScore = Number(broadcastForm.maxScore);
+  if (broadcastForm.status)   filters.status = [broadcastForm.status];
+  broadcastMutation.mutate({
+    data: {
+      channelId: Number(broadcastForm.channelId),
+      agentId: broadcastForm.agentId,
+      inputTemplate: broadcastForm.inputTemplate,
+      filters,
+    },
+  });
+}}
               disabled={!broadcastForm.channelId || !broadcastForm.inputTemplate || broadcastMutation.isPending}
               className="bg-primary hover:bg-primary/90"
             >
