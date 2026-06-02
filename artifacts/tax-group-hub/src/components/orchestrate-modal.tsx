@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp, ExternalLink, X, Zap, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useOrchestrateAgents } from "@workspace/api-client-react";
 
 interface Task {
   agentId: string;
@@ -60,6 +61,29 @@ export function OrchestrateModal({
   onNavigate: (agentId: string) => void;
 }) {
   const { toast } = useToast();
+  const orchestrateMutation = useOrchestrateAgents({
+    mutation: {
+      onSuccess: (data) => {
+        setResults(data.results as AgentResult[]);
+        setStatus("reviewing");
+
+        setTimeout(async () => {
+          if (data.coordinatorReview?.response) {
+            setCoordinatorReview(data.coordinatorReview);
+          }
+          setStatus("done");
+
+          const firstSuccess = data.results.find((r: any) => r.success);
+          if (firstSuccess) setExpandedIds(new Set([firstSuccess.agentId]));
+          toast({ title: `✅ ${data.results.filter((r: any) => r.success).length}/${tasks.length} agentes + parecer do Coordenador` });
+        }, 600);
+      },
+      onError: () => {
+        toast({ title: "Erro na orquestração", description: "Verifique a conexão com a API.", variant: "destructive" });
+        setStatus("preview");
+      },
+    },
+  });
   const [status, setStatus] = useState<"preview" | "running" | "reviewing" | "done">("preview");
   const [results, setResults] = useState<AgentResult[]>([]);
   const [coordinatorReview, setCoordinatorReview] = useState<CoordinatorReview | null>(null);
@@ -74,7 +98,7 @@ export function OrchestrateModal({
     });
   };
 
-  const handleExecute = async () => {
+  const handleExecute = () => {
     setStatus("running");
     setResults(tasks.map(t => ({
       agentId: t.agentId,
@@ -84,37 +108,7 @@ export function OrchestrateModal({
       conversationId: "",
       success: false,
     })));
-
-    try {
-      const res = await fetch("/api/orchestrate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tasks }),
-      });
-      if (!res.ok) throw new Error("Orchestration request failed");
-      const data = await res.json() as { results: AgentResult[]; coordinatorReview?: CoordinatorReview };
-
-      // Show agent results and transition to "reviewing" phase
-      setResults(data.results);
-      setStatus("reviewing");
-
-      // Small delay so user sees the "reviewing" state before done
-      await new Promise(r => setTimeout(r, 600));
-
-      if (data.coordinatorReview?.response) {
-        setCoordinatorReview(data.coordinatorReview);
-      }
-      setStatus("done");
-
-      // Auto-expand first successful result
-      const firstSuccess = data.results.find(r => r.success);
-      if (firstSuccess) setExpandedIds(new Set([firstSuccess.agentId]));
-      toast({ title: `✅ ${data.results.filter(r => r.success).length}/${tasks.length} agentes + parecer do Coordenador` });
-    } catch (err) {
-      void err;
-      toast({ title: "Erro na orquestração", description: "Verifique a conexão com a API.", variant: "destructive" });
-      setStatus("preview");
-    }
+    orchestrateMutation.mutate({ data: { tasks } });
   };
 
   return (
