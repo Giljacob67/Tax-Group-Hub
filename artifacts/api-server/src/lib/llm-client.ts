@@ -16,7 +16,7 @@ import { createGoogleGenerativeAI, google } from "@ai-sdk/google";
 import { getEffectiveOllamaUrl, getEffectiveOllamaModel, getConfigValue } from "../routes/settings.js";
 import { db } from "@workspace/db";
 import { embeddingCacheTable, apiKeysTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { availableTools, type ToolId } from "./tools/registry.js";
 
 import { decrypt } from "./crypto.js";
@@ -257,54 +257,121 @@ export async function callLLM(
 }
 
 /**
- * Generate embeddings for a given array of texts.
- * Uses a DB cache (MD5 hash) to avoid redundant API calls.
+ * Canonical embedding models per provider. Adding a new model here is the
+ * only place to teach the cache and the chunk store that a vector of
+ * `dimensions` floats came from `key`.
  */
-export async function generateEmbeddings(texts: string[], userId?: string): Promise<number[][]> {
-  if (texts.length === 0) return [];
+export const EMBEDDING_MODELS = {
+  // Google AI Studio / Vertex AI — Gemini Embedding
+  "google/text-embedding-004": { provider: "google" as const, dimensions: 768, modelId: "text-embedding-004" },
+  "google/gemini-embedding-001": { provider: "google" as const, dimensions: 768, modelId: "gemini-embedding-001" },
+  // OpenAI
+  "openai/text-embedding-3-small": { provider: "openai" as const, dimensions: 1536, modelId: "text-embedding-3-small" },
+  "openai/text-embedding-3-small-768": { provider: "openai" as const, dimensions: 768, modelId: "text-embedding-3-small" },
+  "openai/text-embedding-3-large": { provider: "openai" as const, dimensions: 3072, modelId: "text-embedding-3-large" },
+  "openai/text-embedding-ada-002": { provider: "openai" as const, dimensions: 1536, modelId: "text-embedding-ada-002" },
+  // Ollama (hosted or cloud)
+  "ollama/nomic-embed-text": { provider: "ollama" as const, dimensions: 768, modelId: "nomic-embed-text" },
+  "ollama/mxbai-embed-large": { provider: "ollama" as const, dimensions: 1024, modelId: "mxbai-embed-large" },
+  "ollama/all-minilm": { provider: "ollama" as const, dimensions: 384, modelId: "all-minilm" },
+} as const;
 
-  // Priority: OpenAI → Google → Ollama
-  const openaiKey = await getApiKey("openai", userId);
-  const googleKey = await getApiKey("google", userId);
-  const ollamaUrl = (await getEffectiveOllamaUrl()).url;
+export type EmbeddingModelKey = keyof typeof EMBEDDING_MODELS;
+export const DEFAULT_EMBEDDING_MODEL: EmbeddingModelKey = "google/text-embedding-004";
 
-  let embeddingModel: EmbeddingModel;
+export class EmbeddingDimError extends Error {
+  constructor(public readonly expected: number, public readonly got: number) {
+    super(`Embedding dimension mismatch: provider expects ${expected} dims, got ${got}.`);
+    this.name = "EmbeddingDimError";
+  }
+}
 
-  if (openaiKey) {
-    const openaiProvider = createOpenAI({ apiKey: openaiKey });
-    embeddingModel = openaiProvider.embeddingModel("text-embedding-3-small");
-  } else if (googleKey) {
-    const googleProvider = createGoogleGenerativeAI({ apiKey: googleKey });
-    embeddingModel = googleProvider.embeddingModel("gemini-embedding-001");
-  } else if (ollamaUrl) {
-    const ollamaProvider = createOpenAI({
-      baseURL: ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
-      apiKey: "ollama",
-    });
-    const modelId = await getEffectiveOllamaModel() || "nomic-embed-text";
-    embeddingModel = ollamaProvider.embeddingModel(modelId);
-  } else {
-    throw new Error("Nenhum provedor configurado para embeddings.");
+/**
+ * Lightweight structural check on a vector. We do not do a full numeric
+ * comparison — that would defeat caching — but we DO require the length to
+ * match the model the caller asked for.
+ */
+export function validateEmbeddingDim(vec: number[], model: EmbeddingModelKey): number[] {
+  const expected = EMBEDDING_MODELS[model].dimensions;
+  if (!Array.isArray(vec) || vec.length !== expected) {
+    throw new EmbeddingDimError(expected, vec?.length ?? 0);
+  }
+  return vec;
+}
+
+/**
+ * Generate embeddings for a given array of texts.
+ * Uses a DB cache (keyed by MD5(text) + model) to avoid redundant API calls.
+ *
+ * Default model is Google text-embedding-004 (768 dims) for backwards
+ * compatibility. Callers that need a different provider/dim must pass
+ * `opts.model`.
+ */
+export async function generateEmbeddings(
+  texts: string[],
+  userId?: string,
+  opts: { model?: EmbeddingModelKey } = {},
+): Promise<{ embeddings: number[][]; model: EmbeddingModelKey; dim: number }> {
+  if (texts.length === 0) {
+    return { embeddings: [], model: opts.model ?? DEFAULT_EMBEDDING_MODEL, dim: 0 };
   }
 
-  // 1. Compute MD5 hash for each text
+  const modelKey: EmbeddingModelKey = opts.model ?? DEFAULT_EMBEDDING_MODEL;
+  const spec = EMBEDDING_MODELS[modelKey];
+
+  // Resolve the SDK model for the requested provider.
+  let sdkModel: EmbeddingModel;
+  if (spec.provider === "google") {
+    const key = await getApiKey("google", userId);
+    if (!key) throw new Error("Google API key ausente para gerar embeddings.");
+    sdkModel = createGoogleGenerativeAI({ apiKey: key }).embeddingModel(spec.modelId);
+  } else if (spec.provider === "openai") {
+    const key = await getApiKey("openai", userId);
+    if (!key) throw new Error("OpenAI API key ausente para gerar embeddings.");
+    sdkModel = createOpenAI({ apiKey: key }).embeddingModel(spec.modelId);
+  } else {
+    // ollama
+    const ollamaUrl = (await getEffectiveOllamaUrl()).url;
+    if (!ollamaUrl) throw new Error("Ollama URL ausente para gerar embeddings.");
+    sdkModel = createOpenAI({
+      baseURL: ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
+      apiKey: "ollama",
+    }).embeddingModel(spec.modelId);
+  }
+
+  // 1. Hash the texts.
   const hashes = texts.map((t) => createHash("md5").update(t).digest("hex"));
 
-  // 2. Look up all hashes in the cache
-  let cachedRows: { textHash: string; embedding: number[] | null }[] = [];
+  // 2. Cache lookup: only rows whose model matches the one we're generating.
+  let cachedRows: { textHash: string; embedding: number[] | null; dim: number | null }[] = [];
   try {
     cachedRows = await db
-      .select({ textHash: embeddingCacheTable.textHash, embedding: embeddingCacheTable.embedding })
+      .select({
+        textHash: embeddingCacheTable.textHash,
+        embedding: embeddingCacheTable.embedding,
+        dim: embeddingCacheTable.dim,
+      })
       .from(embeddingCacheTable)
-      .where(inArray(embeddingCacheTable.textHash, hashes));
+      .where(and(eq(embeddingCacheTable.model, modelKey), inArray(embeddingCacheTable.textHash, hashes)));
   } catch (e) {
     console.warn("[Embedding Cache] DB error:", e);
   }
 
-  const cacheMap = new Map(cachedRows.map((r) => [r.textHash, r.embedding]));
+  // Validate dim on every cached vector before we trust it. If a cached
+  // vector has the wrong dim, drop it and regenerate — better than serving
+  // a poisoned embedding to the search.
+  const cacheMap = new Map<string, number[]>();
+  for (const r of cachedRows) {
+    if (!r.embedding) continue;
+    if (r.dim !== spec.dimensions) {
+      console.warn(`[Embedding Cache] dropping cache row with dim=${r.dim} (expected ${spec.dimensions})`);
+      continue;
+    }
+    cacheMap.set(r.textHash, r.embedding);
+  }
+
   const missingIndices: number[] = [];
   const missingTexts: string[] = [];
-  
   for (let i = 0; i < texts.length; i++) {
     if (!cacheMap.has(hashes[i])) {
       missingIndices.push(i);
@@ -314,38 +381,52 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
 
   const newEmbeddings: number[][] = [];
   if (missingTexts.length > 0) {
-    console.log(`[Embedding Cache] MISS - calling API for ${missingTexts.length}/${texts.length} texts`);
+    console.log(`[Embedding Cache] MISS model=${modelKey} (${missingTexts.length}/${texts.length} texts)`);
+    // Build providerOptions without undefined fields (the AI SDK types them as
+    // JSONValues which don't accept undefined).
+    const providerOptions: { google?: { outputDimensionality: number; taskType: string }; openai?: { dimensions: number } } = {};
+    if (spec.provider === "google") {
+      providerOptions.google = {
+        outputDimensionality: spec.dimensions,
+        taskType: "RETRIEVAL_DOCUMENT",
+      };
+    } else if (spec.provider === "openai" && spec.modelId === "text-embedding-3-small" && spec.dimensions === 768) {
+      // Only OpenAI accepts a `dimensions` override today; for the small model
+      // that targets 768 dims. Other providers ignore it.
+      providerOptions.openai = { dimensions: 768 };
+    }
     const { embeddings } = await Promise.race([
       embedMany({
-        model: embeddingModel,
+        model: sdkModel,
         values: missingTexts,
-        providerOptions: {
-          openai: {
-            dimensions: 768,
-          },
-          google: {
-            outputDimensionality: 768,
-            taskType: "RETRIEVAL_DOCUMENT",
-          },
-        },
+        providerOptions: providerOptions as any,
       }),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Timeout: embedMany excedeu 30000ms")), 30000)
       ),
     ]);
-    
+
     for (const emb of embeddings) {
-      newEmbeddings.push(Array.from(emb));
+      const arr = Array.from(emb);
+      try {
+        validateEmbeddingDim(arr, modelKey);
+      } catch (err) {
+        // Provider returned an unexpected shape — surface, don't poison cache.
+        throw err;
+      }
+      newEmbeddings.push(arr);
     }
 
-    // Persist new embeddings to cache (fire-and-forget)
+    // Persist (fire-and-forget). onConflictDoNothing against (text_hash, model).
     Promise.all(
       missingIndices.map((origIdx, i) =>
         db
           .insert(embeddingCacheTable)
-          .values({ 
-            textHash: hashes[origIdx], 
-            embedding: newEmbeddings[i] 
+          .values({
+            textHash: hashes[origIdx],
+            model: modelKey,
+            embedding: newEmbeddings[i],
+            dim: spec.dimensions,
           })
           .onConflictDoNothing()
           .catch((e: Error) => console.warn("[Embedding Cache] Save failed:", e.message)),
@@ -353,7 +434,7 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
     ).catch(() => {});
   }
 
-  // Assemble final result in original order
+  // Assemble final result in original order.
   const result: number[][] = [];
   let newIdx = 0;
   for (let i = 0; i < texts.length; i++) {
@@ -365,7 +446,7 @@ export async function generateEmbeddings(texts: string[], userId?: string): Prom
     }
   }
 
-  return result;
+  return { embeddings: result, model: modelKey, dim: spec.dimensions };
 }
 
 /**

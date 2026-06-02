@@ -235,7 +235,7 @@ router.post("/ai-quality/test-cases/:id/run", async (req, res) => {
       let ragSources: string[] = [];
 
       try {
-        const [queryEmbedding] = await generateEmbeddings([testCase.question]);
+        const { embeddings: [queryEmbedding] } = await generateEmbeddings([testCase.question]);
         const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
         const results = await db
           .select({ content: knowledgeChunksTable.content, score: similarity, filename: knowledgeDocumentsTable.filename })

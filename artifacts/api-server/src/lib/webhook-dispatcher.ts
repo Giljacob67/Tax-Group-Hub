@@ -50,8 +50,8 @@ export async function dispatchWebhook(opts: DispatchOptions): Promise<DispatchRe
   const integrationName = opts.integrationName ?? "Webhook";
   const ts = Date.now();
 
-  // SSRF guard
-  const safeUrl = validateSafeUrl(opts.targetUrl);
+  // SSRF guard (async: resolves DNS to defeat DNS rebinding)
+  const safeUrl = await validateSafeUrl(opts.targetUrl);
   if (!safeUrl) {
     const result: DispatchResult = {
       ok: false,

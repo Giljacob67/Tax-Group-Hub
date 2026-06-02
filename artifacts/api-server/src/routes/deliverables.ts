@@ -119,7 +119,7 @@ async function fetchRAGContext(query: string, userId?: string): Promise<{
   chunks: Array<{ filename: string; content: string; score: number }>;
 }> {
   try {
-    const [queryEmbedding] = await generateEmbeddings([query]);
+    const { embeddings: [queryEmbedding] } = await generateEmbeddings([query]);
     const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
     const results = await db
       .select({ content: knowledgeChunksTable.content, score: similarity, filename: knowledgeDocumentsTable.filename })

@@ -15,6 +15,7 @@ import { apiError } from "../lib/api-response.js";
 import { enrichContact } from "../lib/cnpj-enrichment.js";
 import { pick, safeNumber, validateHttpUrl } from "../lib/validation.js";
 import { dispatchWebhook } from "../lib/webhook-dispatcher.js";
+import { requireUserId } from "../middlewares/auth.js";
 import { decrypt } from "../lib/crypto.js";
 import { HubSpotClient } from "@workspace/hubspot";
 import { pushContactToHubSpot, pushDealToHubSpot, pushActivityToHubSpot, pushTaskToHubSpot } from "../lib/hubspot-sync.js";
@@ -276,7 +277,7 @@ async function evaluateAutomations(
 // GET /api/crm/contacts?search=&status=&regime=&porte=&uf=&scoreMin=&scoreMax=&sort=&sortDir=&tag=
 router.get("/contacts", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const { search, status, regime, porte, uf, scoreMin, scoreMax, sort, sortDir, tag } =
       req.query as Record<string, string>;
 
@@ -373,7 +374,7 @@ router.get("/contacts/summary", async (req: Request, res: Response) => {
 // ─── Contacts: Get by ID ──────────────────────────────────────────────────────
 router.get("/contacts/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [contact] = await db
       .select()
       .from(crmContactsTable)
@@ -388,7 +389,7 @@ router.get("/contacts/:id", async (req: Request, res: Response) => {
 // ─── Contacts: Create ─────────────────────────────────────────────────────────
 router.post("/contacts", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const data = req.body;
     const cleanCnpj = (data.cnpj || "").replace(/\D/g, "");
     if (!cleanCnpj || cleanCnpj.length !== 14) {
@@ -455,7 +456,7 @@ router.post("/contacts", async (req: Request, res: Response) => {
 // ─── Contacts: Update ─────────────────────────────────────────────────────────
 router.put("/contacts/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     
     // Check if status changed for automation
     const [oldContact] = await db.select({ status: crmContactsTable.status }).from(crmContactsTable)
@@ -490,7 +491,7 @@ router.put("/contacts/:id", async (req: Request, res: Response) => {
 // ─── Contacts: Delete ─────────────────────────────────────────────────────────
 router.delete("/contacts/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [existing] = await db.select({ id: crmContactsTable.id }).from(crmContactsTable).where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
     if (!existing) { apiError(res, 404, "Contact not found"); return; }
     await db.delete(crmContactsTable).where(eq(crmContactsTable.id, existing.id));
@@ -504,7 +505,7 @@ router.delete("/contacts/:id", async (req: Request, res: Response) => {
 // POST /api/crm/contacts/bulk-delete  body: { ids: number[] }
 router.post("/contacts/bulk-delete", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const { ids } = req.body as { ids: number[] };
     if (!Array.isArray(ids) || ids.length === 0) {
       apiError(res, 400, "ids deve ser um array não vazio.");
@@ -522,7 +523,7 @@ router.post("/contacts/bulk-delete", async (req: Request, res: Response) => {
 // POST /api/crm/contacts/bulk-update-status  body: { ids: number[], status: string }
 router.post("/contacts/bulk-update-status", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const { ids, status } = req.body as { ids: number[]; status: string };
     if (!Array.isArray(ids) || ids.length === 0 || !status) {
       apiError(res, 400, "ids e status são obrigatórios.");
@@ -547,7 +548,7 @@ router.post("/contacts/bulk-update-status", async (req: Request, res: Response) 
 // POST /api/crm/contacts/bulk-tags  body: { ids: number[], tag: string, action: "add" | "remove" }
 router.post("/contacts/bulk-tags", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const { ids, tag, action } = req.body as { ids: number[]; tag: string; action: "add" | "remove" };
     if (!Array.isArray(ids) || ids.length === 0 || !tag) {
       apiError(res, 400, "ids e tag são obrigatórios."); return;
@@ -576,7 +577,7 @@ router.post("/contacts/bulk-tags", async (req: Request, res: Response) => {
 // ─── Contacts: Get Tags (Lists) ───────────────────────────────────────────────
 router.get("/tags", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const result = await db.execute(sql`
       SELECT DISTINCT unnest(tags) as tag 
       FROM ${crmContactsTable} 
@@ -592,7 +593,7 @@ router.get("/tags", async (req: Request, res: Response) => {
 // ─── Contacts: Enrich via EmpresAqui ─────────────────────────────────────────
 router.post("/contacts/:id/enrich", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [contact] = await db.select().from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
     if (!contact) { apiError(res, 404, "Contact not found"); return; }
@@ -622,7 +623,7 @@ router.post("/contacts/:id/enrich", async (req: Request, res: Response) => {
 // ─── Contacts: Import batch de CNPJs ─────────────────────────────────────────
 router.post("/contacts/import", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const { cnpjs } = req.body as { cnpjs: string[] };
     if (!Array.isArray(cnpjs) || cnpjs.length === 0) {
       apiError(res, 400, "Informe um array de CNPJs em 'cnpjs'.");
@@ -672,7 +673,7 @@ router.post("/contacts/import", async (req: Request, res: Response) => {
 // ─── Contacts: Qualify via IA ────────────────────────────────────────────────
 router.post("/contacts/:id/qualify", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [contact] = await db.select().from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, Number(req.params.id)), eq(crmContactsTable.userId, userId)));
     if (!contact) { apiError(res, 404, "Contact not found"); return; }
@@ -770,7 +771,7 @@ Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","RE
 // GET /api/crm/deals/pipeline — inclui razaoSocial e cnpj do contato via LEFT JOIN
 router.get("/deals/pipeline", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const pipelineIdParam = (req.query.pipelineId as string) || "default";
 
     let [pipelineMeta] = await db
@@ -839,7 +840,7 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
 // ─── Deals: CRUD ─────────────────────────────────────────────────────────────
 router.get("/deals", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const { stage, contactId } = req.query as Record<string, string>;
     const conditions: any[] = [eq(crmDealsTable.userId, userId)];
     if (stage) conditions.push(eq(crmDealsTable.stage, stage));
@@ -853,7 +854,7 @@ router.get("/deals", async (req: Request, res: Response) => {
 
 router.post("/deals", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const allowedDealFields = ["contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId"] as const;
     const [deal] = await db.insert(crmDealsTable).values({ ...pick(req.body, allowedDealFields), userId } as any).returning();
     res.status(201).json({ success: true, deal });
@@ -872,7 +873,7 @@ router.post("/deals", async (req: Request, res: Response) => {
 
 router.put("/deals/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [oldDeal] = await db.select().from(crmDealsTable)
       .where(and(eq(crmDealsTable.id, Number(req.params.id)), eq(crmDealsTable.userId, userId)));
     if (!oldDeal) { apiError(res, 404, "Deal not found"); return; }
@@ -936,7 +937,7 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
 
 router.delete("/deals/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [existing] = await db.select({ id: crmDealsTable.id }).from(crmDealsTable).where(and(eq(crmDealsTable.id, Number(req.params.id)), eq(crmDealsTable.userId, userId)));
     if (!existing) { apiError(res, 404, "Deal not found"); return; }
     await db.delete(crmDealsTable).where(eq(crmDealsTable.id, existing.id));
@@ -949,7 +950,7 @@ router.delete("/deals/:id", async (req: Request, res: Response) => {
 // ─── Activities ───────────────────────────────────────────────────────────────
 router.get("/contacts/:id/activities", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const activities = await db.select().from(crmActivitiesTable)
       .where(and(eq(crmActivitiesTable.contactId, Number(req.params.id)), eq(crmActivitiesTable.userId, userId)))
       .orderBy(desc(crmActivitiesTable.createdAt));
@@ -961,7 +962,7 @@ router.get("/contacts/:id/activities", async (req: Request, res: Response) => {
 
 router.post("/contacts/:id/activities", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const allowedActivityFields = ["dealId","type","direction","subject","content","scheduledAt","completedAt","agentId","conversationId"] as const;
     const [activity] = await db.insert(crmActivitiesTable)
       .values({ ...pick(req.body, allowedActivityFields), contactId: Number(req.params.id), userId } as any)
@@ -981,7 +982,7 @@ router.post("/contacts/:id/activities", async (req: Request, res: Response) => {
 // ─── Attachments ──────────────────────────────────────────────────────────────
 router.get("/contacts/:id/attachments", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const attachments = await db.select().from(crmAttachmentsTable)
       .where(and(eq(crmAttachmentsTable.contactId, Number(req.params.id)), eq(crmAttachmentsTable.userId, userId)))
       .orderBy(desc(crmAttachmentsTable.createdAt));
@@ -993,7 +994,7 @@ router.get("/contacts/:id/attachments", async (req: Request, res: Response) => {
 
 router.post("/contacts/:id/attachments", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const contactId = Number(req.params.id);
     const [contact] = await db.select({ id: crmContactsTable.id }).from(crmContactsTable)
       .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)));
@@ -1029,7 +1030,7 @@ router.post("/contacts/:id/attachments", async (req: Request, res: Response) => 
 
 router.delete("/contacts/:contactId/attachments/:attachmentId", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [existing] = await db.select({ id: crmAttachmentsTable.id }).from(crmAttachmentsTable).where(and(
       eq(crmAttachmentsTable.id, Number(req.params.attachmentId)),
       eq(crmAttachmentsTable.contactId, Number(req.params.contactId)),
@@ -1047,7 +1048,7 @@ router.delete("/contacts/:contactId/attachments/:attachmentId", async (req: Requ
 // GET  /api/crm/tasks?contactId=&status=&priority=&dueToday=
 router.get("/tasks", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const { contactId, status, priority, dueToday } = req.query as Record<string, string>;
     const conditions: any[] = [eq(crmTasksTable.userId, userId)];
     if (contactId) conditions.push(eq(crmTasksTable.contactId, Number(contactId)));
@@ -1070,7 +1071,7 @@ router.get("/tasks", async (req: Request, res: Response) => {
 
 router.post("/tasks", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const allowedTaskFields = ["contactId","dealId","title","description","type","priority","status","dueDate","reminderAt","assignedTo","completedAt","conversationId"] as const;
     const [task] = await db.insert(crmTasksTable)
       .values({ ...pick(req.body, allowedTaskFields), userId } as any)
@@ -1091,7 +1092,7 @@ router.post("/tasks", async (req: Request, res: Response) => {
 
 router.put("/tasks/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const body = req.body;
     if (body.status === "done" && !body.completedAt) body.completedAt = new Date();
     const allowedTaskFields = ["contactId","dealId","title","description","type","priority","status","dueDate","reminderAt","assignedTo","completedAt","conversationId"] as const;
@@ -1117,7 +1118,7 @@ router.put("/tasks/:id", async (req: Request, res: Response) => {
 
 router.delete("/tasks/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [existing] = await db.select({ id: crmTasksTable.id }).from(crmTasksTable).where(and(eq(crmTasksTable.id, Number(req.params.id)), eq(crmTasksTable.userId, userId)));
     if (!existing) { apiError(res, 404, "Task not found"); return; }
     await db.delete(crmTasksTable).where(eq(crmTasksTable.id, existing.id));
@@ -1130,7 +1131,7 @@ router.delete("/tasks/:id", async (req: Request, res: Response) => {
 // ─── Activities: Global (Timeline Global) ───────────────────────────────────────
 router.get("/activities", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     
     // Join with contacts to get company name
     const activities = await db.select({
@@ -1162,7 +1163,7 @@ router.get("/activities", async (req: Request, res: Response) => {
 // ─── Saved Views: CRUD ────────────────────────────────────────────────────────
 router.get("/views", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const views = await db.select().from(crmSavedViewsTable)
       .where(eq(crmSavedViewsTable.userId, userId))
       .orderBy(asc(crmSavedViewsTable.createdAt));
@@ -1174,7 +1175,7 @@ router.get("/views", async (req: Request, res: Response) => {
 
 router.post("/views", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const allowedViewFields = ["name","emoji","filters","isDefault","sortField","sortDir"] as const;
     const [view] = await db.insert(crmSavedViewsTable)
       .values({ ...pick(req.body, allowedViewFields), userId } as any)
@@ -1187,7 +1188,7 @@ router.post("/views", async (req: Request, res: Response) => {
 
 router.delete("/views/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [existing] = await db.select({ id: crmSavedViewsTable.id }).from(crmSavedViewsTable).where(and(eq(crmSavedViewsTable.id, Number(req.params.id)), eq(crmSavedViewsTable.userId, userId)));
     if (!existing) { apiError(res, 404, "View not found"); return; }
     await db.delete(crmSavedViewsTable).where(eq(crmSavedViewsTable.id, existing.id));
@@ -1201,7 +1202,7 @@ router.delete("/views/:id", async (req: Request, res: Response) => {
 // GET /api/crm/analytics/overview?period=
 router.get("/analytics/overview", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const period = (req.query.period as string) || "this_month";
 
     const [contacts, deals, activities] = await Promise.all([
@@ -1331,7 +1332,7 @@ router.get("/analytics/overview", async (req: Request, res: Response) => {
 // GET /api/crm/analytics/funnel?period=
 router.get("/analytics/funnel", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const period = (req.query.period as string) || "all";
 
     let deals = await db.select().from(crmDealsTable).where(eq(crmDealsTable.userId, userId));
@@ -1384,7 +1385,7 @@ router.get("/analytics/funnel", async (req: Request, res: Response) => {
 // ─── Automations: CRUD ────────────────────────────────────────────────────────
 router.get("/automations", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const automations = await db.select().from(crmAutomationsTable)
       .where(eq(crmAutomationsTable.userId, userId))
       .orderBy(desc(crmAutomationsTable.createdAt));
@@ -1396,7 +1397,7 @@ router.get("/automations", async (req: Request, res: Response) => {
 
 router.post("/automations", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const allowedAutoFields = ["name","triggerType","triggerValue","actionType","actionPayload","isActive"] as const;
     const [auto] = await db.insert(crmAutomationsTable)
       .values({ ...pick(req.body, allowedAutoFields), userId } as any)
@@ -1409,7 +1410,7 @@ router.post("/automations", async (req: Request, res: Response) => {
 
 router.put("/automations/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const allowedAutoFields = ["name","triggerType","triggerValue","actionType","actionPayload","isActive"] as const;
     const [auto] = await db.update(crmAutomationsTable)
       .set({ ...pick(req.body, allowedAutoFields), updatedAt: new Date() })
@@ -1424,7 +1425,7 @@ router.put("/automations/:id", async (req: Request, res: Response) => {
 
 router.delete("/automations/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [existing] = await db.select({ id: crmAutomationsTable.id }).from(crmAutomationsTable).where(and(eq(crmAutomationsTable.id, Number(req.params.id)), eq(crmAutomationsTable.userId, userId)));
     if (!existing) { apiError(res, 404, "Automation not found"); return; }
     await db.delete(crmAutomationsTable).where(eq(crmAutomationsTable.id, existing.id));
@@ -1438,7 +1439,7 @@ router.delete("/automations/:id", async (req: Request, res: Response) => {
 // GET /api/crm/pipelines — list all pipelines for user
 router.get("/pipelines", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const pipelines = await db.select().from(crmPipelinesTable)
       .where(eq(crmPipelinesTable.userId, userId))
       .orderBy(asc(crmPipelinesTable.createdAt));
@@ -1451,7 +1452,7 @@ router.get("/pipelines", async (req: Request, res: Response) => {
 // POST /api/crm/pipelines — create a new pipeline
 router.post("/pipelines", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const { name, stages, isDefault } = req.body as { name: string; stages: string[]; isDefault?: boolean };
     if (!name || !Array.isArray(stages) || stages.length === 0) {
       apiError(res, 400, "name e stages são obrigatórios."); return;
@@ -1474,7 +1475,7 @@ router.post("/pipelines", async (req: Request, res: Response) => {
 // PUT /api/crm/pipelines/:id — update pipeline name, stages, or isDefault
 router.put("/pipelines/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const { name, stages, isDefault } = req.body as { name?: string; stages?: string[]; isDefault?: boolean };
     if (isDefault) {
       await db.update(crmPipelinesTable)
@@ -1495,7 +1496,7 @@ router.put("/pipelines/:id", async (req: Request, res: Response) => {
 // DELETE /api/crm/pipelines/:id — delete pipeline (not default)
 router.delete("/pipelines/:id", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const [pipeline] = await db.select().from(crmPipelinesTable)
       .where(and(eq(crmPipelinesTable.id, Number(req.params.id)), eq(crmPipelinesTable.userId, userId)));
     if (!pipeline) { apiError(res, 404, "Pipeline not found"); return; }
@@ -1512,7 +1513,7 @@ router.delete("/pipelines/:id", async (req: Request, res: Response) => {
 // GET /api/crm/segments — returns contact/deal stats by business segment
 router.get("/segments", async (req: Request, res: Response) => {
   try {
-    const userId = req.userId || "system";
+    const userId = requireUserId(req);
     const contacts = await db.select().from(crmContactsTable)
       .where(eq(crmContactsTable.userId, userId));
 

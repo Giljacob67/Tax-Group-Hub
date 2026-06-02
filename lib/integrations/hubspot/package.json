@@ -6,5 +6,9 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@workspace/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
   }
 }
+

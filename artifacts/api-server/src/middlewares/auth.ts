@@ -5,141 +5,227 @@ import { timingSafeEqual } from "node:crypto";
 function safeCompare(a: string, b: string): boolean {
   const ba = Buffer.from(a);
   const bb = Buffer.from(b);
-  return ba.length === bb.length && timingSafeEqual(ba, bb);
+  // timingSafeEqual requires equal-length buffers; pad to the longer side and
+  // fold the length mismatch into the boolean so timing is not informative.
+  const len = Math.max(ba.length, bb.length, 1);
+  const pad = (buf: Buffer) => {
+    const out = Buffer.alloc(len);
+    buf.copy(out);
+    return out;
+  };
+  const eq = ba.length === bb.length && timingSafeEqual(pad(ba), pad(bb));
+  return ba.length === bb.length && eq;
 }
 
-// Extend Express Request to carry userId for multi-tenancy
+// Extend Express Request to carry userId and auth metadata for multi-tenancy.
 declare global {
   namespace Express {
     interface Request {
       userId?: string;
+      isCron?: boolean;
+      authMethod?: "jwt" | "api-key" | "webhook" | "cron" | "dev-fallback" | "service-key";
     }
   }
 }
 
 /**
- * Checks if the given userId belongs to a real human user
- * Filters out system, demo or unauthenticated fallbacks
+ * Checks if the given userId belongs to a real human user.
+ * Filters out system, demo or unauthenticated fallbacks.
+ *
+ * NOTE: in production no request should ever end up with a reserved userId
+ * like "system"/"default"/"demo-user". The fallback assignments in
+ * authMiddleware are dev-only — they let the local environment work without
+ * a real auth provider. The requireUserId() helper below should be used
+ * inside protected routes so we never silently operate on a tenant that
+ * does not exist.
  */
-export function isRealUser(userId?: string): userId is string {
-  return typeof userId === "string" && !["default", "dev-user", "demo-user", "system"].includes(userId) && userId.trim() !== "";
+export function isRealUser(userId?: string | null): userId is string {
+  if (typeof userId !== "string") return false;
+  if (userId.trim() === "") return false;
+  if (["default", "dev-user", "demo-user", "system", "service"].includes(userId)) return false;
+  return true;
 }
 
 /**
- * Authentication middleware with support for:
- * 1. Webhook Secrets (x-webhook-secret) -> For automated external pipelines
- * 2. System API Key (Authorization: Bearer <API_KEY>) -> For server-to-server internal calls
- * 3. User JWT (Authorization: Bearer <JWT>) -> For Frontend/Dashboard users via Clerk/Self-hosted auth
- * 
- * Orders of precedence: Webhook -> JWT -> Auth Header Key -> x-api-key
+ * Routes reachable without user authentication.
+ * Read-only public endpoints; writes on these paths still require auth.
+ */
+const PUBLIC_PATHS: ReadonlyArray<string> = [
+  "/healthz",
+  "/branding/config",
+  "/branding/resolve",
+  "/agents",
+  "/agents/search",
+];
+
+const PUBLIC_GET_PATHS: ReadonlyArray<string> = [
+  "/settings/integrations",
+  "/settings/models",
+  "/settings/ollama",
+  "/settings/active-provider",
+];
+
+/**
+ * Vercel Cron paths. Vercel sends `Authorization: Bearer <CRON_SECRET>` (or
+ * the modern `x-cron-secret` header). We accept both so the platform can
+ * rotate without breaking the deployment.
+ */
+const CRON_PATHS: ReadonlyArray<string> = [
+  "/automate/process-sequences",
+  "/automate/trigger/reforma-tributaria",
+  "/automate/trigger/new-lead",
+  "/automate/trigger/editorial-calendar",
+  "/automate/trigger/follow-up-check",
+  "/automate/trigger/content-request",
+  "/automate/trigger/enrich-cnpj",
+  "/knowledge/process-queue",
+  "/integrations/hubspot/sync",
+];
+
+function bearerToken(req: Request): string | null {
+  const h = req.headers.authorization;
+  if (!h || !h.startsWith("Bearer ")) return null;
+  return h.slice(7);
+}
+
+/**
+ * Authentication middleware. Order of precedence:
+ *   1. CRON secret (x-cron-secret or Authorization: Bearer) for cron paths
+ *   2. JWT (sub / userId claim)
+ *   3. Bearer system API key (service identity — never client-supplied)
+ *   4. x-api-key header (same service key)
+ *   5. Webhook secret (x-webhook-secret) for omnichannel dispatchers
+ *   6. Dev fallback (only when NODE_ENV !== "production" and no auth env set)
+ *
+ * Tenant identity is ALWAYS derived from the token/secret, NEVER from a
+ * client-supplied header. The previous behaviour of trusting `x-user-id`
+ * together with the system API key allowed impersonation — that vector
+ * is closed.
  */
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const jwtSecret = process.env.JWT_SECRET;
   const systemApiKey = process.env.API_KEY;
   const webhookSecret = process.env.WEBHOOK_SECRET;
+  const cronSecret = process.env.CRON_SECRET;
+  const serviceUserId = process.env.SERVICE_USER_ID || "service";
 
-  // NOTE: This middleware is mounted at app.use("/api", authMiddleware)
-  // So Express strips the "/api" prefix — req.path arrives as "/agents", NOT "/api/agents"
-  const publicPaths = [
-    "/healthz",
-    "/branding/config",
-    "/branding/resolve",
-    "/agents",
-    "/agents/search",
-  ];
-  // Read-only settings endpoints: public GET only — writes require auth
-  const publicGetPaths = [
-    "/settings/integrations",
-    "/settings/models",
-    "/settings/ollama",
-    "/settings/active-provider",
-  ];
-  // Also allow GET /agents/:id (already redacts systemPrompt without API key)
+  // 1. Cron — only valid for whitelisted paths, constant-time compared.
+  if (cronSecret && CRON_PATHS.includes(req.path)) {
+    const headerSecret = req.headers["x-cron-secret"];
+    const authToken = bearerToken(req);
+    // Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`. The legacy
+    // x-cron-secret header is also accepted for non-Vercel callers.
+    const provided =
+      typeof headerSecret === "string"
+        ? headerSecret
+        : authToken ?? null;
+    if (provided && safeCompare(provided, cronSecret)) {
+      req.userId = "service";
+      req.isCron = true;
+      req.authMethod = "cron";
+      next();
+      return;
+    }
+  }
+
+  // Public read paths.
+  if (PUBLIC_PATHS.includes(req.path)) {
+    next();
+    return;
+  }
   if (req.path.startsWith("/agents/") && req.method === "GET") {
     next();
     return;
   }
-  if (publicPaths.includes(req.path)) {
-    next();
-    return;
-  }
-  if (req.method === "GET" && publicGetPaths.includes(req.path)) {
+  if (req.method === "GET" && PUBLIC_GET_PATHS.includes(req.path)) {
     next();
     return;
   }
 
-  // 1. Vercel Cron Authentication — Vercel sends GET with Authorization: Bearer <CRON_SECRET>
-  // These paths are self-protected by the cron secret check inside the handler.
-  const cronSecret = process.env.CRON_SECRET;
-  const cronPaths = [
-    "/automate/process-sequences",
-    "/automate/trigger/reforma-tributaria",
-    "/knowledge/process-queue",
-    "/integrations/hubspot/sync",
-  ];
-  if (cronPaths.includes(req.path) && cronSecret) {
-    const authHeader = req.headers.authorization;
-    if (authHeader && safeCompare(authHeader, `Bearer ${cronSecret}`)) {
-      req.userId = "system";
-      next();
-      return;
-    }
-    // No valid cron secret — fall through to normal auth (allows human callers with JWT/API_KEY)
-  }
-
-  // 2. Webhook Authentication (Automate/Webhooks routes)
-  const webhookProvided = req.headers["x-webhook-secret"];
-  if (webhookProvided && webhookSecret && safeCompare(String(webhookProvided), webhookSecret)) {
-    req.userId = String(req.headers["x-user-id"] || "system");
-    next();
-    return;
-  }
-
-  // 2. JWT / Bearer Token Authentication
-  const authHeader = req.headers.authorization;
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice(7);
-
-    // Try JWT first if secret is available
-    if (jwtSecret) {
-      try {
-        const decoded = jwt.verify(token, jwtSecret) as { sub?: string; userId?: string };
-        req.userId = decoded.userId || decoded.sub;
-        if (req.userId) {
-          next();
-          return;
-        }
-      } catch (err) {
-        // Token was provided but invalid for JWTS
-        // If it also fails as a system API key next, we'll block
+  // 2. JWT
+  const token = bearerToken(req);
+  if (token && jwtSecret) {
+    try {
+      const decoded = jwt.verify(token, jwtSecret) as { sub?: string; userId?: string };
+      const uid = decoded.userId || decoded.sub;
+      if (uid && isRealUser(uid)) {
+        req.userId = uid;
+        req.authMethod = "jwt";
+        next();
+        return;
       }
-    }
-
-    // Fallback/Alternative: System API Key
-    if (systemApiKey && safeCompare(token, systemApiKey)) {
-      req.userId = String(req.headers["x-user-id"] || "default");
-      next();
-      return;
+    } catch {
+      // fall through to API key check
     }
   }
 
-  // 3. Simple Header Authentication (x-api-key)
-  const headerKey = req.headers["x-api-key"];
-  if (systemApiKey && headerKey && safeCompare(String(headerKey), systemApiKey)) {
-    req.userId = String(req.headers["x-user-id"] || "default");
+  // 3. Bearer system API key → service identity (never client-supplied).
+  if (token && systemApiKey && safeCompare(token, systemApiKey)) {
+    req.userId = serviceUserId;
+    req.authMethod = "api-key";
     next();
     return;
   }
 
-  // 4. Safe Fallback: if no auth is configured, allow through (legacy demo mode)
-  if (!systemApiKey && !jwtSecret) {
-    req.userId = String(req.headers["x-user-id"] || "demo-user");
+  // 4. x-api-key header — same service key.
+  const headerKey = req.headers["x-api-key"];
+  if (systemApiKey && typeof headerKey === "string" && safeCompare(headerKey, systemApiKey)) {
+    req.userId = serviceUserId;
+    req.authMethod = "api-key";
+    next();
+    return;
+  }
+
+  // 5. Webhook secret → service identity (channel routing is per-token in handlers).
+  const webhookProvided = req.headers["x-webhook-secret"];
+  if (webhookSecret && typeof webhookProvided === "string" && safeCompare(webhookProvided, webhookSecret)) {
+    req.userId = "service";
+    req.authMethod = "webhook";
+    next();
+    return;
+  }
+
+  // 6. Dev fallback — only when no auth env is configured and not in production.
+  if (!systemApiKey && !jwtSecret && process.env.NODE_ENV !== "production") {
+    req.userId = "dev-user";
+    req.authMethod = "dev-fallback";
     next();
     return;
   }
 
   res.status(401).json({
     error: "Unauthorized",
-    message: "Acesso negado. Credenciais inválidas ou não fornecidas (JWT ou API Key necessária)."
+    message: "Acesso negado. Credenciais inválidas ou não fornecidas (JWT ou API Key necessária).",
   });
+}
+
+/**
+ * Resolve a userId from a request, refusing to operate on reserved/system
+ * ids in production code paths. Use this inside route handlers instead of
+ * `req.userId || "system"`.
+ */
+export function requireUserId(req: Request): string {
+  const uid = req.userId;
+  if (!isRealUser(uid)) {
+    const err = new Error("Autenticação obrigatória (userId inválido ou ausente).");
+    (err as any).statusCode = 401;
+    (err as any).status = 401;
+    throw err;
+  }
+  return uid;
+}
+
+/**
+ * Some routes (cron jobs, webhook dispatchers) intentionally act as the
+ * service. Use this guard in those handlers so we never silently demote
+ * a cron call into a real user scope.
+ */
+export function requireServiceOrUser(req: Request): string {
+  const uid = req.userId;
+  if (!uid) {
+    const err = new Error("Autenticação obrigatória.");
+    (err as any).statusCode = 401;
+    throw err;
+  }
+  return uid;
 }

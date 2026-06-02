@@ -197,7 +197,7 @@ router.post("/integrations/search-knowledge", async (req, res) => {
     }
 
     try {
-      const [queryEmbedding] = await generateEmbeddings([query]);
+      const { embeddings: [queryEmbedding] } = await generateEmbeddings([query]);
       const userId = req.userId;
       
       const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
@@ -503,7 +503,7 @@ router.post("/integrations/make/config", async (req, res) => {
     };
 
     if (webhookUrl !== undefined) {
-      if (webhookUrl && !validateSafeUrl(webhookUrl)) {
+      if (webhookUrl && !(await validateSafeUrl(webhookUrl))) {
         apiError(res, 400, "URL inválida ou não permitida."); return;
       }
       await upsertConfig(MAKE_KEYS.url, webhookUrl ?? "");

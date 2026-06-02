@@ -328,7 +328,7 @@ router.put("/settings/active-provider", async (req, res) => {
 
     if (customUrl !== undefined) {
       if (customUrl) {
-        const safeCustomUrl = validateSafeUrl(customUrl.trim());
+        const safeCustomUrl = await validateSafeUrl(customUrl.trim());
         if (!safeCustomUrl) {
           apiError(res, 400, "URL inválida ou aponta para endereço privado/interno.");
           return;
@@ -603,7 +603,7 @@ router.post("/settings/ollama/test", async (req, res) => {
     let testUrl: string;
 
     if (url) {
-      const safeUrl = validateSafeUrl(url.trim());
+      const safeUrl = await validateSafeUrl(url.trim());
       if (!safeUrl) {
         apiError(res, 400, "URL inválida ou aponta para endereço privado/interno. Use o formato: http://host:porta");
         return;

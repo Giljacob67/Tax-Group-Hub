@@ -129,13 +129,21 @@ export async function processDocumentAsync(
 
     const chunks = chunkText(extractedContent);
     let embeddingModel: string | null = null;
+    let embeddingDim: number | null = null;
 
     if (chunks.length > 0) {
-      const embeddings = await generateEmbeddings(chunks);
+      const { embeddings, model, dim } = await generateEmbeddings(chunks);
       await db.insert(knowledgeChunksTable).values(
-        chunks.map((chunk, i) => ({ documentId: docId, content: chunk, embedding: embeddings[i] })),
+        chunks.map((chunk, i) => ({
+          documentId: docId,
+          content: chunk,
+          embedding: embeddings[i],
+          embeddingModel: model,
+          embeddingDim: dim,
+        })),
       );
-      embeddingModel = "text-embedding-004"; // google default; actual model from llm-client
+      embeddingModel = model;
+      embeddingDim = dim;
     }
 
     await db
@@ -479,7 +487,7 @@ router.post("/knowledge/search", async (req, res) => {
     }
 
     try {
-      const [queryEmbedding] = await generateEmbeddings([query]);
+      const { embeddings: [queryEmbedding] } = await generateEmbeddings([query]);
       const userId = req.userId;
 
       const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;

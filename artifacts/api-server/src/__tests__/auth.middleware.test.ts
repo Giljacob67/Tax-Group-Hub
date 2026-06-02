@@ -125,7 +125,7 @@ describe("authMiddleware", () => {
 
   // ── Webhook secret ──────────────────────────────────────────────────────────
 
-  it("passes with valid webhook secret and sets userId from x-user-id", () => {
+  it("passes with valid webhook secret and sets userId to service", () => {
     process.env.API_KEY = "secret";
     process.env.WEBHOOK_SECRET = "wh-secret";
     const req = makeReq({
@@ -135,7 +135,8 @@ describe("authMiddleware", () => {
     const next = vi.fn() as NextFunction;
     authMiddleware(req, makeRes(), next);
     expect(next).toHaveBeenCalledOnce();
-    expect(req.userId).toBe("tenant-123");
+    // SECURITY: x-user-id is NEVER trusted — service identity is server-assigned.
+    expect(req.userId).toBe("service");
   });
 
   it("does not pass with wrong webhook secret", () => {
@@ -186,7 +187,8 @@ describe("authMiddleware", () => {
     const next = vi.fn() as NextFunction;
     authMiddleware(req, makeRes(), next);
     expect(next).toHaveBeenCalledOnce();
-    expect(req.userId).toBe("default");
+    // SECURITY: API key auth yields the service identity, never a client header.
+    expect(req.userId).toBe("service");
   });
 
   it("returns 401 when JWT is invalid and token is not the API key", async () => {
@@ -211,7 +213,7 @@ describe("authMiddleware", () => {
 
   // ── x-api-key header ────────────────────────────────────────────────────────
 
-  it("passes with valid x-api-key header", () => {
+  it("passes with valid x-api-key header and uses service identity", () => {
     process.env.API_KEY = "my-api-key";
     const req = makeReq({
       headers: { "x-api-key": "my-api-key", "x-user-id": "tenant-xyz" },
@@ -219,17 +221,21 @@ describe("authMiddleware", () => {
     const next = vi.fn() as NextFunction;
     authMiddleware(req, makeRes(), next);
     expect(next).toHaveBeenCalledOnce();
-    expect(req.userId).toBe("tenant-xyz");
+    // SECURITY: even with a valid API key, the client-supplied x-user-id
+    // header is ignored — the service identity is the only accepted scope.
+    expect(req.userId).toBe("service");
   });
 
   // ── Demo mode ───────────────────────────────────────────────────────────────
 
-  it("falls through to demo-user when no auth is configured", () => {
+  it("falls back to dev-user when no auth is configured (dev only)", () => {
+    process.env.NODE_ENV = "development";
     const req = makeReq({ headers: { "x-user-id": "u1" } });
     const next = vi.fn() as NextFunction;
     authMiddleware(req, makeRes(), next);
     expect(next).toHaveBeenCalledOnce();
-    expect(req.userId).toBe("u1");
+    // SECURITY: x-user-id is NEVER trusted — the fallback is the dev marker.
+    expect(req.userId).toBe("dev-user");
   });
 
   it("demo-user fallback does NOT apply when API_KEY is set", () => {
@@ -237,6 +243,47 @@ describe("authMiddleware", () => {
     const res = makeRes();
     const next = vi.fn() as NextFunction;
     authMiddleware(makeReq({}), res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it("demo-user fallback does NOT apply in production", () => {
+    process.env.NODE_ENV = "production";
+    const res = makeRes();
+    const next = vi.fn() as NextFunction;
+    authMiddleware(makeReq({}), res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  // ── CRON_SECRET ─────────────────────────────────────────────────────────────
+
+  it("accepts valid x-cron-secret for whitelisted cron paths", () => {
+    process.env.CRON_SECRET = "cron-123";
+    const req = makeReq({
+      path: "/automate/process-sequences",
+      method: "POST",
+      headers: { "x-cron-secret": "cron-123" },
+    });
+    const next = vi.fn() as NextFunction;
+    authMiddleware(req, makeRes(), next);
+    expect(next).toHaveBeenCalledOnce();
+    expect(req.isCron).toBe(true);
+  });
+
+  it("rejects x-cron-secret on non-cron paths", () => {
+    process.env.CRON_SECRET = "cron-123";
+    const res = makeRes();
+    const next = vi.fn() as NextFunction;
+    authMiddleware(
+      makeReq({
+        path: "/crm/contacts",
+        method: "POST",
+        headers: { "x-cron-secret": "cron-123" },
+      }),
+      res,
+      next,
+    );
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
   });
