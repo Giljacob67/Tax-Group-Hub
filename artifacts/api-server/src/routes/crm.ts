@@ -275,15 +275,20 @@ async function evaluateAutomations(
 }
 
 // ─── Contacts: List ───────────────────────────────────────────────────────────
-// GET /api/crm/contacts?search=&status=&regime=&porte=&uf=&scoreMin=&scoreMax=&sort=&sortDir=&tag=&temperatura=&setor=&statusMatriz=
+// GET /api/crm/contacts — expanded filters for Phase 2 operational views
 router.get("/contacts", async (req: Request, res: Response) => {
   try {
     const userId = requireUserId(req);
-    const { search, status, regime, porte, uf, scoreMin, scoreMax, sort, sortDir, tag, temperatura, setor, statusMatriz } =
-      req.query as Record<string, string>;
+    const {
+      search, status, regime, porte, uf, cidade, scoreMin, scoreMax,
+      sort, sortDir, tag, temperatura, setor, segmento, statusMatriz,
+      origemLead, loteProspeccao, produtoInteresse, responsavelUnidade,
+      followupVencido, semAtividadeDias,
+    } = req.query as Record<string, string>;
 
     const conditions: any[] = [eq(crmContactsTable.userId, userId)];
 
+    // Text search
     if (search) {
       conditions.push(
         or(
@@ -293,35 +298,65 @@ router.get("/contacts", async (req: Request, res: Response) => {
         )
       );
     }
-    if (status)   conditions.push(eq(crmContactsTable.status, status));
-    if (regime)   conditions.push(eq(crmContactsTable.regimeTributario, regime));
-    if (porte)    conditions.push(eq(crmContactsTable.porte, porte));
-    if (uf)       conditions.push(ilike(crmContactsTable.uf, `%${uf}%`));
+
+    // Status & categorical filters
+    if (status)          conditions.push(eq(crmContactsTable.status, status));
+    if (regime)          conditions.push(eq(crmContactsTable.regimeTributario, regime));
+    if (porte)           conditions.push(eq(crmContactsTable.porte, porte));
+    if (uf)              conditions.push(ilike(crmContactsTable.uf, `%${uf}%`));
+    if (cidade)          conditions.push(ilike(crmContactsTable.cidade, `%${cidade}%`));
+    if (temperatura)     conditions.push(eq(crmContactsTable.temperatura, temperatura));
+    if (setor)           conditions.push(eq(crmContactsTable.setor, setor));
+    if (segmento)        conditions.push(eq(crmContactsTable.segmento, segmento));
+    if (origemLead)      conditions.push(eq(crmContactsTable.origemLead, origemLead));
+    if (loteProspeccao)  conditions.push(eq(crmContactsTable.loteProspeccao, loteProspeccao));
+    if (produtoInteresse) conditions.push(eq(crmContactsTable.produtoInteresse, produtoInteresse));
+    if (responsavelUnidade) conditions.push(eq(crmContactsTable.responsavelUnidade, responsavelUnidade));
+
+    // Score range
     const scoreMinNum = safeNumber(scoreMin, { min: 0, max: 100 });
     const scoreMaxNum = safeNumber(scoreMax, { min: 0, max: 100 });
     if (scoreMinNum !== null) conditions.push(gte(crmContactsTable.aiScore, scoreMinNum));
     if (scoreMaxNum !== null) conditions.push(lte(crmContactsTable.aiScore, scoreMaxNum));
-    
-    // Filtro por tag (lista)
+
+    // Tag (lista)
     if (tag) {
-      const sqlFrag = sql`${crmContactsTable.tags} @> ${JSON.stringify([tag])}::jsonb`;
-      conditions.push(sqlFrag);
+      conditions.push(sql`${crmContactsTable.tags} @> ${JSON.stringify([tag])}::jsonb`);
     }
-    if (temperatura) conditions.push(eq(crmContactsTable.temperatura, temperatura));
-    if (setor)       conditions.push(eq(crmContactsTable.setor, setor));
+
+    // Matrix status (via deal subquery)
     if (statusMatriz) {
-      // Filter contacts that have at least one deal with the given statusMatriz
       conditions.push(sql`${crmContactsTable.id} IN (
         SELECT contact_id FROM ${crmDealsTable} WHERE status_matriz = ${statusMatriz}
       )`);
     }
 
+    // Follow-up vencido (proximo_followup < now AND not null)
+    if (followupVencido === "true") {
+      conditions.push(sql`${crmContactsTable.proximoFollowup} IS NOT NULL AND ${crmContactsTable.proximoFollowup} < NOW()`);
+    }
+
+    // Sem atividade há X dias (ultima_interacao older than X days)
+    if (semAtividadeDias) {
+      const days = parseInt(semAtividadeDias, 10);
+      if (!isNaN(days) && days > 0) {
+        const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        conditions.push(
+          sql`(${crmContactsTable.ultimaInteracao} IS NULL OR ${crmContactsTable.ultimaInteracao} < ${cutoff})`
+        );
+      }
+    }
+
+    // Sorting
     const isAsc = sortDir !== "desc";
-    let orderByCol: any = desc(crmContactsTable.createdAt); // default
-    if (sort === "razaoSocial") orderByCol = isAsc ? asc(crmContactsTable.razaoSocial)  : desc(crmContactsTable.razaoSocial);
-    else if (sort === "aiScore")    orderByCol = isAsc ? asc(crmContactsTable.aiScore)      : desc(crmContactsTable.aiScore);
-    else if (sort === "status")     orderByCol = isAsc ? asc(crmContactsTable.status)       : desc(crmContactsTable.status);
-    else if (sort === "createdAt")  orderByCol = isAsc ? asc(crmContactsTable.createdAt)    : desc(crmContactsTable.createdAt);
+    let orderByCol: any = desc(crmContactsTable.createdAt);
+    if (sort === "razaoSocial") orderByCol = isAsc ? asc(crmContactsTable.razaoSocial) : desc(crmContactsTable.razaoSocial);
+    else if (sort === "aiScore")       orderByCol = isAsc ? asc(crmContactsTable.aiScore) : desc(crmContactsTable.aiScore);
+    else if (sort === "status")        orderByCol = isAsc ? asc(crmContactsTable.status) : desc(crmContactsTable.status);
+    else if (sort === "createdAt")     orderByCol = isAsc ? asc(crmContactsTable.createdAt) : desc(crmContactsTable.createdAt);
+    else if (sort === "temperatura")   orderByCol = isAsc ? asc(crmContactsTable.temperatura) : desc(crmContactsTable.temperatura);
+    else if (sort === "setor")         orderByCol = isAsc ? asc(crmContactsTable.setor) : desc(crmContactsTable.setor);
+    else if (sort === "proximoFollowup") orderByCol = isAsc ? asc(crmContactsTable.proximoFollowup) : desc(crmContactsTable.proximoFollowup);
 
     const contacts = await db
       .select()
@@ -377,6 +412,84 @@ router.get("/contacts/summary", async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     apiError(res, 500, "Failed to get contacts summary");
+  }
+});
+
+// ─── Contacts: Bulk Temperature Update ─────────────────────────────────────
+// POST /api/crm/contacts/bulk-update-temperature  body: { ids: number[], temperatura: string }
+router.post("/contacts/bulk-update-temperature", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const { ids, temperatura } = req.body as { ids: number[]; temperatura: string };
+    if (!Array.isArray(ids) || ids.length === 0 || !temperatura) {
+      apiError(res, 400, "ids e temperatura são obrigatórios."); return;
+    }
+    await db.update(crmContactsTable)
+      .set({ temperatura, updatedAt: new Date() })
+      .where(and(inArray(crmContactsTable.id, ids), eq(crmContactsTable.userId, userId)));
+    res.json({ success: true, updated: ids.length });
+  } catch (err: any) {
+    apiError(res, 500, "Bulk temperature update failed");
+  }
+});
+
+// ─── Contacts: Bulk Assign ──────────────────────────────────────────────────
+// POST /api/crm/contacts/bulk-assign  body: { ids: number[], responsavelUnidade: string }
+router.post("/contacts/bulk-assign", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const { ids, responsavelUnidade } = req.body as { ids: number[]; responsavelUnidade: string };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      apiError(res, 400, "ids é obrigatório."); return;
+    }
+    await db.update(crmContactsTable)
+      .set({ responsavelUnidade: responsavelUnidade || null, updatedAt: new Date() })
+      .where(and(inArray(crmContactsTable.id, ids), eq(crmContactsTable.userId, userId)));
+    res.json({ success: true, updated: ids.length });
+  } catch (err: any) {
+    apiError(res, 500, "Bulk assign failed");
+  }
+});
+
+// ─── Contacts: Bulk Follow-up Update ────────────────────────────────────────
+// POST /api/crm/contacts/bulk-update-followup  body: { ids: number[], proximoFollowup: string | null }
+router.post("/contacts/bulk-update-followup", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const { ids, proximoFollowup } = req.body as { ids: number[]; proximoFollowup: string | null };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      apiError(res, 400, "ids é obrigatório."); return;
+    }
+    const dateVal = proximoFollowup ? new Date(proximoFollowup) : null;
+    await db.update(crmContactsTable)
+      .set({ proximoFollowup: dateVal, updatedAt: new Date() })
+      .where(and(inArray(crmContactsTable.id, ids), eq(crmContactsTable.userId, userId)));
+    res.json({ success: true, updated: ids.length });
+  } catch (err: any) {
+    apiError(res, 500, "Bulk followup update failed");
+  }
+});
+
+// ─── Contacts: Get Distinct Values (for filter dropdowns) ────────────────────
+// GET /api/crm/contacts/distinct-values?field=setor
+router.get("/contacts/distinct-values", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const { field } = req.query as { field: string };
+    const allowedFields = ["setor", "segmento", "origemLead", "loteProspeccao", "responsavelUnidade", "cidade", "uf"];
+    if (!allowedFields.includes(field)) {
+      apiError(res, 400, `Campo inválido. Permitidos: ${allowedFields.join(", ")}`); return;
+    }
+    const result = await db.execute(sql`
+      SELECT DISTINCT ${sql.raw(`"${field}"`)} as value
+      FROM ${crmContactsTable}
+      WHERE user_id = ${userId} AND ${sql.raw(`"${field}"`)} IS NOT NULL AND ${sql.raw(`"${field}"`)} != ''
+      ORDER BY ${sql.raw(`"${field}"`)}
+    `);
+    const values = result.rows.map((r: any) => r.value).filter(Boolean);
+    res.json({ success: true, values });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to fetch distinct values");
   }
 });
 
@@ -1232,13 +1345,68 @@ router.get("/views", async (req: Request, res: Response) => {
 router.post("/views", async (req: Request, res: Response) => {
   try {
     const userId = requireUserId(req);
-    const allowedViewFields = ["name","emoji","filters","isDefault","sortField","sortDir"] as const;
+    const allowedViewFields = ["name","emoji","filters","isDefault","sortField","sortDir","type","isSystem","category"] as const;
     const [view] = await db.insert(crmSavedViewsTable)
       .values({ ...pick(req.body, allowedViewFields), userId } as any)
       .returning();
     res.status(201).json({ success: true, view });
   } catch (err: any) {
     apiError(res, 400, "Failed to create view");
+  }
+});
+
+router.put("/views/:id", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const allowedViewFields = ["name","emoji","filters","isDefault","sortField","sortDir","type","isSystem","category"] as const;
+    const [view] = await db.update(crmSavedViewsTable)
+      .set({ ...pick(req.body, allowedViewFields) })
+      .where(and(eq(crmSavedViewsTable.id, Number(req.params.id)), eq(crmSavedViewsTable.userId, userId)))
+      .returning();
+    if (!view) { apiError(res, 404, "View not found"); return; }
+    res.json({ success: true, view });
+  } catch (err: any) {
+    apiError(res, 400, "Failed to update view");
+  }
+});
+
+// ─── Views: Seed System Views ────────────────────────────────────────────────
+// POST /api/crm/views/seed-system — inserts missing system views for the user
+router.post("/views/seed-system", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const { SYSTEM_VIEWS } = await import("@workspace/db/crm-constants");
+
+    // Get existing system view names for this user
+    const existing = await db.select({ name: crmSavedViewsTable.name })
+      .from(crmSavedViewsTable)
+      .where(and(eq(crmSavedViewsTable.userId, userId), eq(crmSavedViewsTable.type, "system")));
+    const existingNames = new Set(existing.map(v => v.name));
+
+    const toInsert = SYSTEM_VIEWS
+      .filter(sv => !existingNames.has(sv.name))
+      .map(sv => ({
+        userId,
+        name: sv.name,
+        emoji: sv.emoji,
+        filters: sv.filters,
+        type: "system" as const,
+        isSystem: true,
+        category: sv.category,
+      }));
+
+    if (toInsert.length > 0) {
+      await db.insert(crmSavedViewsTable).values(toInsert);
+    }
+
+    // Return all views for user
+    const views = await db.select().from(crmSavedViewsTable)
+      .where(eq(crmSavedViewsTable.userId, userId))
+      .orderBy(asc(crmSavedViewsTable.createdAt));
+
+    res.json({ success: true, views, seeded: toInsert.length });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to seed system views");
   }
 });
 
@@ -1562,6 +1730,115 @@ router.delete("/pipelines/:id", async (req: Request, res: Response) => {
     res.json({ success: true });
   } catch (err: any) {
     apiError(res, 500, "Failed to delete pipeline");
+  }
+});
+
+// ─── Operational Summary (TodayView) ────────────────────────────────────────
+// GET /api/crm/operational-summary — returns counts for daily operations dashboard
+router.get("/operational-summary", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const now = new Date();
+    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    // Fetch contacts + deals + tasks in parallel
+    const [contacts, deals, tasks] = await Promise.all([
+      db.select().from(crmContactsTable).where(eq(crmContactsTable.userId, userId)),
+      db.select().from(crmDealsTable).where(eq(crmDealsTable.userId, userId)),
+      db.select().from(crmTasksTable).where(eq(crmTasksTable.userId, userId)),
+    ]);
+
+    // Follow-ups vencidos
+    const followupVencidos = contacts.filter(c =>
+      c.proximoFollowup && new Date(c.proximoFollowup) < now && c.status !== "cliente" && c.status !== "perdido"
+    ).length;
+
+    // Follow-ups de hoje
+    const followupHoje = contacts.filter(c => {
+      if (!c.proximoFollowup) return false;
+      const d = new Date(c.proximoFollowup);
+      return d >= todayStart && d <= todayEnd;
+    }).length;
+
+    // Reuniões de hoje (tasks de tipo meeting com dueDate hoje)
+    const reunioesHoje = tasks.filter(t =>
+      t.type === "meeting" && t.dueDate &&
+      new Date(t.dueDate) >= todayStart && new Date(t.dueDate) <= todayEnd &&
+      t.status !== "done"
+    ).length;
+
+    // Tarefas vencidas
+    const tarefasVencidas = tasks.filter(t =>
+      t.dueDate && new Date(t.dueDate) < now && t.status === "pending"
+    ).length;
+
+    // Sem atividade 7 dias
+    const semAtividade7d = contacts.filter(c => {
+      if (c.status === "cliente" || c.status === "perdido" || c.status === "encerrado") return false;
+      return !c.ultimaInteracao || new Date(c.ultimaInteracao) < sevenDaysAgo;
+    }).length;
+
+    // Sem atividade 14 dias
+    const semAtividade14d = contacts.filter(c => {
+      if (c.status === "cliente" || c.status === "perdido" || c.status === "encerrado") return false;
+      return !c.ultimaInteracao || new Date(c.ultimaInteracao) < fourteenDaysAgo;
+    }).length;
+
+    // Aguardando Matriz
+    const aguardandoMatriz = deals.filter(d =>
+      d.statusMatriz === "aguardando" || d.statusMatriz === "enviado"
+    ).length;
+
+    // Pendência documental
+    const pendenciaDocumental = deals.filter(d =>
+      d.statusMatriz === "pendencia_documental"
+    ).length;
+
+    // Propostas abertas
+    const propostasAbertas = deals.filter(d =>
+      d.statusProposta === "proposta_enviada" || d.stage === "proposta_enviada"
+    ).length;
+
+    // Em negociação
+    const emNegociacao = deals.filter(d =>
+      d.stage === "em_negociacao"
+    ).length;
+
+    // Leads novos (últimas 24h)
+    const leadsNovos24h = contacts.filter(c => {
+      const created = new Date(c.createdAt);
+      return (now.getTime() - created.getTime()) < 24 * 60 * 60 * 1000;
+    }).length;
+
+    // Leads quentes (score >= 70)
+    const leadsQuentes = contacts.filter(c =>
+      (c.aiScore ?? 0) >= 70 && c.status !== "cliente" && c.status !== "perdido"
+    ).length;
+
+    res.json({
+      success: true,
+      summary: {
+        followupVencidos,
+        followupHoje,
+        reunioesHoje,
+        tarefasVencidas,
+        semAtividade7d,
+        semAtividade14d,
+        aguardandoMatriz,
+        pendenciaDocumental,
+        propostasAbertas,
+        emNegociacao,
+        leadsNovos24h,
+        leadsQuentes,
+        totalContatos: contacts.length,
+        totalDeals: deals.length,
+      },
+    });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to get operational summary");
   }
 });
 
