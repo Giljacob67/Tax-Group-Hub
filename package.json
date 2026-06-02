@@ -5,11 +5,23 @@
   "scripts": {
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck",
+    "test": "pnpm -r --if-present run test",
+    "test:coverage": "pnpm -r --if-present run test:coverage",
+    "lint": "pnpm -r --if-present run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm run typecheck && pnpm -r --if-present run test && pnpm run spec:check",
+    "spec:gen": "node ./scripts/spec-gen.mjs",
+    "spec:check": "node ./scripts/spec-check.mjs",
+    "db:generate": "pnpm --filter @workspace/db run generate",
+    "db:migrate": "pnpm --filter @workspace/db run migrate",
+    "dev": "pnpm -r --parallel --if-present run dev"
   },
   "private": true,
   "devDependencies": {
     "typescript": "~5.7.3",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "yaml": "^2.8.2"
   }
 }

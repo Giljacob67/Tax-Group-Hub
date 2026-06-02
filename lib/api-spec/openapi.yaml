@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: Api
-  version: 0.2.0
-  description: Tax Group AI Hub API
+  version: 0.3.0
+  description: Tax Group AI Hub API — auto-generated from Express routes via scripts/spec-gen.mjs.
 servers:
   - url: /api
     description: Base API path
@@ -19,45 +19,98 @@ tags:
     description: External integrations (image generation, Canva, embeddings)
   - name: settings
     description: Platform settings and integration status
-
+  - name: ai-quality
+  - name: analytics
+  - name: automate
+  - name: branding
+  - name: crm
+  - name: deliverables
+  - name: llm-connections
+  - name: orchestrate
+  - name: system
+  - name: webhooks
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+    webhookSecret:
+      type: apiKey
+      in: header
+      name: x-webhook-secret
+    cronSecret:
+      type: apiKey
+      in: header
+      name: x-cron-secret
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+      required:
+        - error
 paths:
-  /healthz:
-    get:
-      operationId: healthCheck
-      tags: [health]
-      summary: Health check
-      responses:
-        "200":
-          description: Healthy
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthStatus"
-
   /agents:
     get:
-      operationId: listAgents
-      tags: [agents]
-      summary: List all AI agents
+      summary: Get agents
+      description: GET agents resource.
+      tags:
+        - agents
+      operationId: agents_get__agents
+      parameters: []
       responses:
         "200":
-          description: List of agents
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  agents:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Agent"
-                required: [agents]
-
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /agents/search:
+    get:
+      summary: Get agents
+      description: GET agents resource.
+      tags:
+        - agents
+      operationId: agents_get__agents_search
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
   /agents/{agentId}:
     get:
-      operationId: getAgent
-      tags: [agents]
-      summary: Get agent details
+      summary: Get agents
+      description: GET agents resource.
+      tags:
+        - agents
+      operationId: agents_get__agents_agentId
       parameters:
         - name: agentId
           in: path
@@ -66,539 +119,3681 @@ paths:
             type: string
       responses:
         "200":
-          description: Agent details
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Agent"
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
         "404":
-          description: Agent not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /conversations:
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /ai-quality/feedback:
+    post:
+      summary: Create ai-quality
+      description: POST ai-quality resource.
+      tags:
+        - ai-quality
+      operationId: ai-quality_post__ai_quality_feedback
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /ai-quality/summary:
     get:
-      operationId: listConversations
-      tags: [conversations]
-      summary: List conversations
+      summary: Get ai-quality
+      description: GET ai-quality resource.
+      tags:
+        - ai-quality
+      operationId: ai-quality_get__ai_quality_summary
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /ai-quality/runs:
+    get:
+      summary: Get ai-quality
+      description: GET ai-quality resource.
+      tags:
+        - ai-quality
+      operationId: ai-quality_get__ai_quality_runs
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /ai-quality/test-cases:
+    get:
+      summary: Get ai-quality
+      description: GET ai-quality resource.
+      tags:
+        - ai-quality
+      operationId: ai-quality_get__ai_quality_test_cases
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create ai-quality
+      description: POST ai-quality resource.
+      tags:
+        - ai-quality
+      operationId: ai-quality_post__ai_quality_test_cases
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /ai-quality/test-cases/{id}:
+    delete:
+      summary: Delete ai-quality
+      description: DELETE ai-quality resource.
+      tags:
+        - ai-quality
+      operationId: ai-quality_delete__ai_quality_test_cases_id
       parameters:
-        - name: agentId
-          in: query
-          required: false
+        - name: id
+          in: path
+          required: true
           schema:
             type: string
       responses:
         "200":
-          description: List of conversations
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  conversations:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Conversation"
-                required: [conversations]
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /ai-quality/test-cases/{id}/run:
     post:
-      operationId: createConversation
-      tags: [conversations]
-      summary: Create a new conversation
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateConversationRequest"
+      summary: Create ai-quality
+      description: POST ai-quality resource.
+      tags:
+        - ai-quality
+      operationId: ai-quality_post__ai_quality_test_cases_id_run
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
-        "201":
-          description: Conversation created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Conversation"
-
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /ai-quality/test-cases/{id}/runs:
+    get:
+      summary: Get ai-quality
+      description: GET ai-quality resource.
+      tags:
+        - ai-quality
+      operationId: ai-quality_get__ai_quality_test_cases_id_runs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /analytics/overview:
+    get:
+      summary: Get analytics
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__analytics_overview
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /analytics/daily-usage:
+    get:
+      summary: Get analytics
+      description: GET analytics resource.
+      tags:
+        - analytics
+      operationId: analytics_get__analytics_daily_usage
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /analytics/agents:
+    get:
+      summary: Get analytics
+      description: GET analytics resource.
+      tags:
+        - analytics
+      operationId: analytics_get__analytics_agents
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /analytics/providers:
+    get:
+      summary: Get analytics
+      description: GET analytics resource.
+      tags:
+        - analytics
+      operationId: analytics_get__analytics_providers
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /analytics/models:
+    get:
+      summary: Get analytics
+      description: GET analytics resource.
+      tags:
+        - analytics
+      operationId: analytics_get__analytics_models
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /analytics/cost-trend:
+    get:
+      summary: Get analytics
+      description: GET analytics resource.
+      tags:
+        - analytics
+      operationId: analytics_get__analytics_cost_trend
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /analytics/recent-logs:
+    get:
+      summary: Get analytics
+      description: GET analytics resource.
+      tags:
+        - analytics
+      operationId: analytics_get__analytics_recent_logs
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/execute:
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_execute
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/trigger/reforma-tributaria:
+    get:
+      summary: Get automate
+      description: GET automate resource.
+      tags:
+        - automate
+      operationId: automate_get__automate_trigger_reforma_tributaria
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_trigger_reforma_tributaria
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/pipeline:
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_pipeline
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/trigger/new-lead:
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_trigger_new_lead
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/trigger/editorial-calendar:
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_trigger_editorial_calendar
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/trigger/follow-up-check:
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_trigger_follow_up_check
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/trigger/content-request:
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_trigger_content_request
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/triggers:
+    get:
+      summary: Get automate
+      description: GET automate resource.
+      tags:
+        - automate
+      operationId: automate_get__automate_triggers
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/broadcast-whatsapp:
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_broadcast_whatsapp
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/enrollments:
+    get:
+      summary: Get automate
+      description: GET automate resource.
+      tags:
+        - automate
+      operationId: automate_get__automate_enrollments
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/sequences:
+    get:
+      summary: Get automate
+      description: GET automate resource.
+      tags:
+        - automate
+      operationId: automate_get__automate_sequences
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_sequences
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/sequences/{id}:
+    put:
+      summary: Replace automate
+      description: PUT automate resource.
+      tags:
+        - automate
+      operationId: automate_put__automate_sequences_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    delete:
+      summary: Delete automate
+      description: DELETE automate resource.
+      tags:
+        - automate
+      operationId: automate_delete__automate_sequences_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/sequences/{id}/enroll:
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_sequences_id_enroll
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/process-sequences:
+    get:
+      summary: Get automate
+      description: GET automate resource.
+      tags:
+        - automate
+      operationId: automate_get__automate_process_sequences
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_process_sequences
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automate/trigger/enrich-cnpj:
+    post:
+      summary: Create automate
+      description: POST automate resource.
+      tags:
+        - automate
+      operationId: automate_post__automate_trigger_enrich_cnpj
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /branding/resolve:
+    get:
+      summary: Get branding
+      description: GET branding resource.
+      tags:
+        - branding
+      operationId: branding_get__branding_resolve
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /branding/config:
+    get:
+      summary: Get branding
+      description: GET branding resource.
+      tags:
+        - branding
+      operationId: branding_get__branding_config
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /branding/update:
+    post:
+      summary: Create branding
+      description: POST branding resource.
+      tags:
+        - branding
+      operationId: branding_post__branding_update
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /branding/logo:
+    post:
+      summary: Create branding
+      description: POST branding resource.
+      tags:
+        - branding
+      operationId: branding_post__branding_logo
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /conversations:
+    get:
+      summary: Get conversations
+      description: GET conversations resource.
+      tags:
+        - conversations
+      operationId: conversations_get__conversations
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create conversations
+      description: POST conversations resource.
+      tags:
+        - conversations
+      operationId: conversations_post__conversations
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /conversations/{conversationId}:
+    get:
+      summary: Get conversations
+      description: GET conversations resource.
+      tags:
+        - conversations
+      operationId: conversations_get__conversations_conversationId
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    patch:
+      summary: Update conversations
+      description: PATCH conversations resource.
+      tags:
+        - conversations
+      operationId: conversations_patch__conversations_conversationId
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    delete:
+      summary: Delete conversations
+      description: DELETE conversations resource.
+      tags:
+        - conversations
+      operationId: conversations_delete__conversations_conversationId
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /conversations/{conversationId}/export:
+    get:
+      summary: Get conversations
+      description: GET conversations resource.
+      tags:
+        - conversations
+      operationId: conversations_get__conversations_conversationId_export
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
   /messages/{messageId}:
     delete:
-      summary: Delete a single message
-      operationId: deleteMessage
-      tags: [conversations]
+      summary: Delete messages
+      description: DELETE conversations resource.
+      tags:
+        - conversations
+      operationId: conversations_delete__messages_messageId
       parameters:
         - name: messageId
           in: path
           required: true
           schema:
-            type: integer
-      responses:
-        '200':
-          description: Message deleted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/ServerError'
-
-  /conversations/{conversationId}:
-    get:
-      operationId: getConversation
-      tags: [conversations]
-      summary: Get conversation with messages
-      parameters:
-        - name: conversationId
-          in: path
-          required: true
-          schema:
             type: string
       responses:
         "200":
-          description: Conversation with messages
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ConversationWithMessages"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    patch:
-      operationId: renameConversation
-      tags: [conversations]
-      summary: Rename a conversation
-      parameters:
-        - name: conversationId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RenameConversationRequest"
-      responses:
-        "200":
-          description: Conversation renamed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RenameConversationResponse"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    delete:
-      operationId: deleteConversation
-      tags: [conversations]
-      summary: Delete a conversation
-      parameters:
-        - name: conversationId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-
-  /conversations/{conversationId}/messages:
-    post:
-      operationId: sendMessage
-      tags: [conversations]
-      summary: Send a message and get AI response
-      parameters:
-        - name: conversationId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SendMessageRequest"
-      responses:
-        "200":
-          description: AI response
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-
-  /conversations/{conversationId}/export:
-    get:
-      operationId: exportConversation
-      tags: [conversations]
-      summary: Export conversation as Markdown
-      parameters:
-        - name: conversationId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Markdown file
-          content:
-            text/markdown:
-              schema:
-                type: string
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /knowledge:
-    get:
-      operationId: listKnowledgeDocuments
-      tags: [knowledge]
-      summary: List knowledge base documents
-      parameters:
-        - name: agentId
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        "200":
-          description: List of documents
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  documents:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/KnowledgeDocument"
-                required: [documents]
-
-  /knowledge/upload:
-    post:
-      operationId: uploadKnowledgeDocument
-      tags: [knowledge]
-      summary: Upload a knowledge document with text extraction
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-                agentId:
-                  type: string
-              required: [file, agentId]
-      responses:
-        "201":
-          description: Document uploaded and processed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/KnowledgeDocument"
-
-  /knowledge/upload-url:
-    post:
-      operationId: requestUploadUrl
-      tags: [knowledge]
-      summary: Request a presigned upload URL for knowledge base document (legacy)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UploadUrlRequest"
-      responses:
-        "200":
-          description: Presigned upload URL
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UploadUrlResponse"
-
-  /knowledge/{documentId}:
-    delete:
-      operationId: deleteKnowledgeDocument
-      tags: [knowledge]
-      summary: Delete a knowledge document
-      parameters:
-        - name: documentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-
-  /knowledge/health:
-    get:
-      operationId: getKnowledgeHealth
-      tags: [knowledge]
-      summary: Knowledge base health stats
-      responses:
-        "200":
-          description: Health stats
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/KnowledgeHealthResponse"
-
-  /knowledge/sources:
-    get:
-      operationId: getKnowledgeSources
-      tags: [knowledge]
-      summary: List knowledge sources with stats
-      responses:
-        "200":
-          description: Sources list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  sources:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/KnowledgeSource"
-                required: [sources]
-
-  /knowledge/search:
-    post:
-      operationId: searchKnowledgeDedicated
-      tags: [knowledge]
-      summary: Semantic search in knowledge base
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SearchKnowledgeRequest"
-      responses:
-        "200":
-          description: Search results
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SearchKnowledgeResponse"
-
-  /knowledge/{documentId}/chunks:
-    get:
-      operationId: getDocumentChunks
-      tags: [knowledge]
-      summary: Get chunks for a knowledge document
-      parameters:
-        - name: documentId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Document chunks
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DocumentChunksResponse"
-
-  /knowledge/{documentId}/reindex:
-    post:
-      operationId: reindexDocument
-      tags: [knowledge]
-      summary: Reindex a knowledge document
-      parameters:
-        - name: documentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Reindex started
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-
-  /integrations/generate-image:
-    post:
-      operationId: generateImage
-      tags: [integrations]
-      summary: Generate an image using AI
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenerateImageRequest"
-      responses:
-        "200":
-          description: Generated image URL
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GenerateImageResponse"
-
-  /integrations/image-gallery/{agentId}:
-    get:
-      operationId: getImageGallery
-      tags: [integrations]
-      summary: Get generated images for an agent
-      parameters:
-        - name: agentId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Image gallery
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ImageGalleryResponse"
-
-  /integrations/canva-link:
-    post:
-      operationId: getCanvaLink
-      tags: [integrations]
-      summary: Generate a Canva deep link for editing
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CanvaLinkRequest"
-      responses:
-        "200":
-          description: Canva deep link
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CanvaLinkResponse"
-
-  /integrations/search-knowledge:
-    post:
-      operationId: searchKnowledge
-      tags: [integrations]
-      summary: Semantic search in knowledge base using embeddings
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SearchKnowledgeRequest"
-      responses:
-        "200":
-          description: Search results
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SearchKnowledgeResponse"
-
-  /settings/models:
-    get:
-      operationId: getAvailableModels
-      tags: [settings]
-      summary: Get curated list of available OpenRouter models
-      responses:
-        "200":
-          description: Available models
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AvailableModelsResponse"
-
-  /settings/integrations:
-    get:
-      operationId: getIntegrationSettings
-      tags: [settings]
-      summary: Get status of all platform integrations
-      responses:
-        "200":
-          description: Integration settings and status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/IntegrationSettingsResponse"
-
-  /settings/keys:
-    get:
-      operationId: getCustomKeys
-      tags: [settings]
-      summary: Get custom BYOK API keys
-      responses:
-        "200":
-          description: Custom keys list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  keys:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/CustomKey"
-                required: [keys]
-    post:
-      operationId: setCustomKey
-      tags: [settings]
-      summary: Set a custom BYOK API key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SetCustomKeyRequest"
-      responses:
-        "200":
-          description: Key set
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
+          description: OK
         "400":
           description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /conversations/{conversationId}/messages:
+    post:
+      summary: Create conversations
+      description: POST conversations resource.
+      tags:
+        - conversations
+      operationId: conversations_post__conversations_conversationId_messages
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts:
+    get:
+      summary: Get contacts
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__contacts
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create contacts
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__contacts
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/summary:
+    get:
+      summary: Get contacts
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__contacts_summary
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/{id}:
+    get:
+      summary: Get contacts
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__contacts_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    put:
+      summary: Replace contacts
+      description: PUT crm resource.
+      tags:
+        - crm
+      operationId: crm_put__contacts_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    delete:
+      summary: Delete contacts
+      description: DELETE crm resource.
+      tags:
+        - crm
+      operationId: crm_delete__contacts_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/bulk-delete:
+    post:
+      summary: Create contacts
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__contacts_bulk_delete
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/bulk-update-status:
+    post:
+      summary: Create contacts
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__contacts_bulk_update_status
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/bulk-tags:
+    post:
+      summary: Create contacts
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__contacts_bulk_tags
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /tags:
+    get:
+      summary: Get tags
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__tags
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/{id}/enrich:
+    post:
+      summary: Create contacts
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__contacts_id_enrich
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/import:
+    post:
+      summary: Create contacts
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__contacts_import
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/{id}/qualify:
+    post:
+      summary: Create contacts
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__contacts_id_qualify
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deals/pipeline:
+    get:
+      summary: Get deals
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__deals_pipeline
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deals:
+    get:
+      summary: Get deals
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__deals
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create deals
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__deals
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deals/{id}:
+    put:
+      summary: Replace deals
+      description: PUT crm resource.
+      tags:
+        - crm
+      operationId: crm_put__deals_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    delete:
+      summary: Delete deals
+      description: DELETE crm resource.
+      tags:
+        - crm
+      operationId: crm_delete__deals_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/{id}/activities:
+    get:
+      summary: Get contacts
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__contacts_id_activities
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create contacts
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__contacts_id_activities
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/{id}/attachments:
+    get:
+      summary: Get contacts
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__contacts_id_attachments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create contacts
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__contacts_id_attachments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /contacts/{contactId}/attachments/{attachmentId}:
+    delete:
+      summary: Delete contacts
+      description: DELETE crm resource.
+      tags:
+        - crm
+      operationId: crm_delete__contacts_contactId_attachments_attachmentId
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /tasks:
+    get:
+      summary: Get tasks
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__tasks
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create tasks
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__tasks
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /tasks/{id}:
+    put:
+      summary: Replace tasks
+      description: PUT crm resource.
+      tags:
+        - crm
+      operationId: crm_put__tasks_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    delete:
+      summary: Delete tasks
+      description: DELETE crm resource.
+      tags:
+        - crm
+      operationId: crm_delete__tasks_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /activities:
+    get:
+      summary: Get activities
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__activities
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /views:
+    get:
+      summary: Get views
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__views
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create views
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__views
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /views/{id}:
+    delete:
+      summary: Delete views
+      description: DELETE crm resource.
+      tags:
+        - crm
+      operationId: crm_delete__views_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /analytics/funnel:
+    get:
+      summary: Get analytics
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__analytics_funnel
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automations:
+    get:
+      summary: Get automations
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__automations
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create automations
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__automations
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /automations/{id}:
+    put:
+      summary: Replace automations
+      description: PUT crm resource.
+      tags:
+        - crm
+      operationId: crm_put__automations_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    delete:
+      summary: Delete automations
+      description: DELETE crm resource.
+      tags:
+        - crm
+      operationId: crm_delete__automations_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /pipelines:
+    get:
+      summary: Get pipelines
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__pipelines
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create pipelines
+      description: POST crm resource.
+      tags:
+        - crm
+      operationId: crm_post__pipelines
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /pipelines/{id}:
+    put:
+      summary: Replace pipelines
+      description: PUT crm resource.
+      tags:
+        - crm
+      operationId: crm_put__pipelines_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    delete:
+      summary: Delete pipelines
+      description: DELETE crm resource.
+      tags:
+        - crm
+      operationId: crm_delete__pipelines_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /segments:
+    get:
+      summary: Get segments
+      description: GET crm resource.
+      tags:
+        - crm
+      operationId: crm_get__segments
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deliverables:
+    get:
+      summary: Get deliverables
+      description: GET deliverables resource.
+      tags:
+        - deliverables
+      operationId: deliverables_get__deliverables
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deliverables/generate:
+    post:
+      summary: Create deliverables
+      description: POST deliverables resource.
+      tags:
+        - deliverables
+      operationId: deliverables_post__deliverables_generate
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deliverables/{id}:
+    get:
+      summary: Get deliverables
+      description: GET deliverables resource.
+      tags:
+        - deliverables
+      operationId: deliverables_get__deliverables_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    patch:
+      summary: Update deliverables
+      description: PATCH deliverables resource.
+      tags:
+        - deliverables
+      operationId: deliverables_patch__deliverables_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    delete:
+      summary: Delete deliverables
+      description: DELETE deliverables resource.
+      tags:
+        - deliverables
+      operationId: deliverables_delete__deliverables_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deliverables/{id}/sections/{sectionId}:
+    patch:
+      summary: Update deliverables
+      description: PATCH deliverables resource.
+      tags:
+        - deliverables
+      operationId: deliverables_patch__deliverables_id_sections_sectionId
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deliverables/{id}/sections/{sectionId}/regenerate:
+    post:
+      summary: Create deliverables
+      description: POST deliverables resource.
+      tags:
+        - deliverables
+      operationId: deliverables_post__deliverables_id_sections_sectionId_regenerate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deliverables/{id}/approve:
+    post:
+      summary: Create deliverables
+      description: POST deliverables resource.
+      tags:
+        - deliverables
+      operationId: deliverables_post__deliverables_id_approve
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deliverables/{id}/versions:
+    get:
+      summary: Get deliverables
+      description: GET deliverables resource.
+      tags:
+        - deliverables
+      operationId: deliverables_get__deliverables_id_versions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /deliverables/{id}/export:
+    get:
+      summary: Get deliverables
+      description: GET deliverables resource.
+      tags:
+        - deliverables
+      operationId: deliverables_get__deliverables_id_export
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /healthz:
+    get:
+      summary: Get healthz
+      description: GET health resource.
+      tags:
+        - health
+      operationId: health_get__healthz
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations:
+    get:
+      summary: Get integrations
+      description: GET integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_get__integrations
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/generate-image:
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_generate_image
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/image-gallery/{agentId}:
+    get:
+      summary: Get integrations
+      description: GET integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_get__integrations_image_gallery_agentId
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/canva-link:
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_canva_link
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/search-knowledge:
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_search_knowledge
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/health:
+    get:
+      summary: Get integrations
+      description: GET integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_get__integrations_health
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/logs:
+    get:
+      summary: Get integrations
+      description: GET integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_get__integrations_logs
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/logs/{id}:
+    get:
+      summary: Get integrations
+      description: GET integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_get__integrations_logs_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/make/config:
+    get:
+      summary: Get integrations
+      description: GET integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_get__integrations_make_config
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_make_config
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/make/test:
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_make_test
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/inbound/{source}:
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_inbound_source
+      parameters:
+        - name: source
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/events/dispatch:
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_events_dispatch
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/hubspot/config:
+    get:
+      summary: Get integrations
+      description: GET integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_get__integrations_hubspot_config
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_hubspot_config
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/hubspot/test:
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_hubspot_test
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/hubspot/setup-custom-properties:
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_hubspot_setup_custom_properties
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/hubspot/lists:
+    get:
+      summary: Get integrations
+      description: GET integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_get__integrations_hubspot_lists
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_hubspot_lists
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/hubspot/lists/{tagName}:
+    delete:
+      summary: Delete integrations
+      description: DELETE integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_delete__integrations_hubspot_lists_tagName
+      parameters:
+        - name: tagName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/hubspot/sync-lists:
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_hubspot_sync_lists
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/hubspot/sync:
+    get:
+      summary: Get integrations
+      description: GET integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_get__integrations_hubspot_sync
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/hubspot/lists-debug:
+    get:
+      summary: Get integrations
+      description: GET integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_get__integrations_hubspot_lists_debug
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /integrations/hubspot/auto-segment:
+    post:
+      summary: Create integrations
+      description: POST integrations resource.
+      tags:
+        - integrations
+      operationId: integrations_post__integrations_hubspot_auto_segment
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /knowledge/health:
+    get:
+      summary: Get knowledge
+      description: GET knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_get__knowledge_health
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /knowledge:
+    get:
+      summary: Get knowledge
+      description: GET knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_get__knowledge
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /knowledge/upload-token:
+    post:
+      summary: Create knowledge
+      description: POST knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_post__knowledge_upload_token
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /knowledge/upload:
+    post:
+      summary: Create knowledge
+      description: POST knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_post__knowledge_upload
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /knowledge/sources:
+    get:
+      summary: Get knowledge
+      description: GET knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_get__knowledge_sources
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /knowledge/search:
+    post:
+      summary: Create knowledge
+      description: POST knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_post__knowledge_search
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /knowledge/{id}/chunks:
+    get:
+      summary: Get knowledge
+      description: GET knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_get__knowledge_id_chunks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /knowledge/{id}/reindex:
+    post:
+      summary: Create knowledge
+      description: POST knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_post__knowledge_id_reindex
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /knowledge/{id}:
+    delete:
+      summary: Delete knowledge
+      description: DELETE knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_delete__knowledge_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /knowledge/process-queue:
+    get:
+      summary: Get knowledge
+      description: GET knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_get__knowledge_process_queue
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create knowledge
+      description: POST knowledge resource.
+      tags:
+        - knowledge
+      operationId: knowledge_post__knowledge_process_queue
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/providers:
+    get:
+      summary: Get llm
+      description: GET llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_get__llm_providers
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/validate:
+    post:
+      summary: Create llm
+      description: POST llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_post__llm_validate
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/discover:
+    post:
+      summary: Create llm
+      description: POST llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_post__llm_discover
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/connections:
+    get:
+      summary: Get llm
+      description: GET llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_get__llm_connections
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create llm
+      description: POST llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_post__llm_connections
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/connections/{id}:
+    put:
+      summary: Replace llm
+      description: PUT llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_put__llm_connections_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    delete:
+      summary: Delete llm
+      description: DELETE llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_delete__llm_connections_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/connections/{id}/test:
+    post:
+      summary: Create llm
+      description: POST llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_post__llm_connections_id_test
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/connections/{id}/activate:
+    post:
+      summary: Create llm
+      description: POST llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_post__llm_connections_id_activate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/profiles:
+    get:
+      summary: Get llm
+      description: GET llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_get__llm_profiles
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create llm
+      description: POST llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_post__llm_profiles
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/profiles/{id}:
+    put:
+      summary: Replace llm
+      description: PUT llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_put__llm_profiles_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    delete:
+      summary: Delete llm
+      description: DELETE llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_delete__llm_profiles_id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/profiles/{id}/activate:
+    post:
+      summary: Create llm
+      description: POST llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_post__llm_profiles_id_activate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/active-profile:
+    get:
+      summary: Get llm
+      description: GET llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_get__llm_active_profile
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /llm/health-check:
+    post:
+      summary: Create llm
+      description: POST llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_post__llm_health_check
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    get:
+      summary: Get llm
+      description: GET llm-connections resource.
+      tags:
+        - llm-connections
+      operationId: llm-connections_get__llm_health_check
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /orchestrate:
+    post:
+      summary: Create orchestrate
+      description: POST orchestrate resource.
+      tags:
+        - orchestrate
+      operationId: orchestrate_post__orchestrate
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /settings:
+    get:
+      summary: Get settings
+      description: GET settings resource.
+      tags:
+        - settings
+      operationId: settings_get__settings
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /settings/integrations:
+    get:
+      summary: Get settings
+      description: GET settings resource.
+      tags:
+        - settings
+      operationId: settings_get__settings_integrations
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /settings/keys:
+    get:
+      summary: Get settings
+      description: GET settings resource.
+      tags:
+        - settings
+      operationId: settings_get__settings_keys
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create settings
+      description: POST settings resource.
+      tags:
+        - settings
+      operationId: settings_post__settings_keys
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
   /settings/keys/{provider}:
     delete:
-      operationId: deleteCustomKey
-      tags: [settings]
-      summary: Delete a custom BYOK API key
+      summary: Delete settings
+      description: DELETE settings resource.
+      tags:
+        - settings
+      operationId: settings_delete__settings_keys_provider
       parameters:
         - name: provider
           in: path
@@ -607,550 +3802,383 @@ paths:
             type: string
       responses:
         "200":
-          description: Key deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-
-components:
-  responses:
-    BadRequest:
-      description: Bad request
-      content:
-        application/json:
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /settings/active-provider:
+    get:
+      summary: Get settings
+      description: GET settings resource.
+      tags:
+        - settings
+      operationId: settings_get__settings_active_provider
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    put:
+      summary: Replace settings
+      description: PUT settings resource.
+      tags:
+        - settings
+      operationId: settings_put__settings_active_provider
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /settings/active-provider/test:
+    post:
+      summary: Create settings
+      description: POST settings resource.
+      tags:
+        - settings
+      operationId: settings_post__settings_active_provider_test
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /settings/channels:
+    get:
+      summary: Get settings
+      description: GET settings resource.
+      tags:
+        - settings
+      operationId: settings_get__settings_channels
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create settings
+      description: POST settings resource.
+      tags:
+        - settings
+      operationId: settings_post__settings_channels
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /settings/channels/{id}:
+    delete:
+      summary: Delete settings
+      description: DELETE settings resource.
+      tags:
+        - settings
+      operationId: settings_delete__settings_channels_id
+      parameters:
+        - name: id
+          in: path
+          required: true
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    ServerError:
-      description: Internal server error
-      content:
-        application/json:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /settings/models:
+    get:
+      summary: Get settings
+      description: GET settings resource.
+      tags:
+        - settings
+      operationId: settings_get__settings_models
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /settings/ollama:
+    get:
+      summary: Get settings
+      description: GET settings resource.
+      tags:
+        - settings
+      operationId: settings_get__settings_ollama
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    put:
+      summary: Replace settings
+      description: PUT settings resource.
+      tags:
+        - settings
+      operationId: settings_put__settings_ollama
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /settings/ollama/test:
+    post:
+      summary: Create settings
+      description: POST settings resource.
+      tags:
+        - settings
+      operationId: settings_post__settings_ollama_test
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /system/jobs/retry:
+    post:
+      summary: Create system
+      description: POST system resource.
+      tags:
+        - system
+      operationId: system_post__system_jobs_retry
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /system/cache/embeddings:
+    delete:
+      summary: Delete system
+      description: DELETE system resource.
+      tags:
+        - system
+      operationId: system_delete__system_cache_embeddings
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /webhooks/telegram/{webhookId}:
+    post:
+      summary: Create webhooks
+      description: POST webhooks resource.
+      tags:
+        - webhooks
+      operationId: webhooks_post__webhooks_telegram_webhookId
+      parameters:
+        - name: webhookId
+          in: path
+          required: true
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
-  schemas:
-    HealthStatus:
-      type: object
-      properties:
-        status:
-          type: string
-      required: [status]
-
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-      required: [error]
-
-    SuccessResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-      required: [success]
-
-    Agent:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        slug:
-          type: string
-        description:
-          type: string
-        block:
-          type: string
-          enum: [estrategia, prospeccao, marketing, gestao]
-        blockLabel:
-          type: string
-        icon:
-          type: string
-        systemPrompt:
-          type: string
-        suggestedPrompts:
-          type: array
-          items:
             type: string
-        priority:
-          type: integer
-        color:
-          type: string
-        designStudio:
-          type: boolean
-      required: [id, name, slug, description, block, blockLabel, icon, systemPrompt, suggestedPrompts, priority, color]
-
-    Conversation:
-      type: object
-      properties:
-        id:
-          type: string
-        agentId:
-          type: string
-        title:
-          type: string
-        model:
-          type: string
-          nullable: true
-        provider:
-          type: string
-          nullable: true
-        connectionId:
-          type: integer
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        messageCount:
-          type: integer
-      required: [id, agentId, title, createdAt, updatedAt, messageCount]
-
-    Message:
-      type: object
-      properties:
-        id:
-          type: string
-        conversationId:
-          type: string
-        role:
-          type: string
-          enum: [user, assistant, system]
-        content:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        metadata:
-          type: object
-          additionalProperties: true
-      required: [id, conversationId, role, content, createdAt]
-
-    ConversationWithMessages:
-      type: object
-      properties:
-        id:
-          type: string
-        agentId:
-          type: string
-        title:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        model:
-          type: string
-        provider:
-          type: string
-        connectionId:
-          type: integer
-          nullable: true
-        agentName:
-          type: string
-        messages:
-          type: array
-          items:
-            $ref: "#/components/schemas/Message"
-      required: [id, agentId, title, createdAt, updatedAt, messages, model, provider, agentName]
-
-    CreateConversationRequest:
-      type: object
-      properties:
-        agentId:
-          type: string
-        title:
-          type: string
-        model:
-          type: string
-        provider:
-          type: string
-          nullable: true
-        connectionId:
-          type: integer
-          nullable: true
-      required: [agentId]
-
-    RenameConversationRequest:
-      type: object
-      properties:
-        title:
-          type: string
-      required: [title]
-
-    RenameConversationResponse:
-      type: object
-      properties:
-        id:
-          type: string
-        agentId:
-          type: string
-        title:
-          type: string
-        updatedAt:
-          type: string
-          format: date-time
-      required: [id, agentId, title, updatedAt]
-
-    SendMessageRequest:
-      type: object
-      properties:
-        content:
-          type: string
-        useKnowledgeBase:
-          type: boolean
-        customSystemPrompt:
-          type: string
-        model:
-          type: string
-        stream:
-          type: boolean
-      required: [content]
-
-    MessageResponse:
-      type: object
-      properties:
-        userMessage:
-          $ref: "#/components/schemas/Message"
-        assistantMessage:
-          $ref: "#/components/schemas/Message"
-        autoTitle:
-          type: string
-          nullable: true
-        model:
-          type: string
-        provider:
-          type: string
-      required: [userMessage, assistantMessage, model, provider]
-
-    KnowledgeDocument:
-      type: object
-      properties:
-        id:
-          type: string
-        agentId:
-          type: string
-        filename:
-          type: string
-        fileType:
-          type: string
-        fileSize:
-          type: integer
-        storageKey:
-          type: string
-        status:
-          type: string
-          enum: [pending, processing, processed, error]
-        hasContent:
-          type: boolean
-        category:
-          type: string
-          nullable: true
-        product:
-          type: string
-          nullable: true
-        origin:
-          type: string
-          nullable: true
-        tags:
-          type: array
-          items:
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /webhooks/whatsapp/{channelId}:
+    get:
+      summary: Get webhooks
+      description: GET webhooks resource.
+      tags:
+        - webhooks
+      operationId: webhooks_get__webhooks_whatsapp_channelId
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
             type: string
-        chunkCount:
-          type: integer
-        retries:
-          type: integer
-        errorLog:
-          type: string
-          nullable: true
-        embeddingModel:
-          type: string
-          nullable: true
-        createdAt:
-          type: string
-          format: date-time
-      required: [id, agentId, filename, fileType, fileSize, storageKey, status, createdAt]
-
-    KnowledgeHealthResponse:
-      type: object
-      properties:
-        total:
-          type: integer
-        indexed:
-          type: integer
-        pending:
-          type: integer
-        errors:
-          type: integer
-        totalChunks:
-          type: integer
-        lastSync:
-          type: string
-          nullable: true
-        sources:
-          type: array
-          items:
-            type: object
-            properties:
-              origin:
-                type: string
-              count:
-                type: integer
-      required: [total, indexed, pending, errors, totalChunks]
-
-    KnowledgeSource:
-      type: object
-      properties:
-        id:
-          type: string
-        label:
-          type: string
-        status:
-          type: string
-        total:
-          type: integer
-        indexed:
-          type: integer
-        errors:
-          type: integer
-      required: [id, label, status, total, indexed, errors]
-
-    DocumentChunksResponse:
-      type: object
-      properties:
-        documentId:
-          type: string
-        filename:
-          type: string
-        total:
-          type: integer
-        page:
-          type: integer
-        pageSize:
-          type: integer
-        chunks:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              index:
-                type: integer
-              content:
-                type: string
-              tokens:
-                type: integer
-              hasEmbedding:
-                type: boolean
-              createdAt:
-                type: string
-      required: [documentId, filename, total, page, pageSize, chunks]
-
-    UploadUrlRequest:
-      type: object
-      properties:
-        agentId:
-          type: string
-        filename:
-          type: string
-        fileType:
-          type: string
-        fileSize:
-          type: integer
-      required: [agentId, filename, fileType, fileSize]
-
-    UploadUrlResponse:
-      type: object
-      properties:
-        uploadUrl:
-          type: string
-        documentId:
-          type: string
-        storageKey:
-          type: string
-      required: [uploadUrl, documentId, storageKey]
-
-    GenerateImageRequest:
-      type: object
-      properties:
-        prompt:
-          type: string
-        style:
-          type: string
-        agentId:
-          type: string
-      required: [prompt]
-
-    GalleryImage:
-      type: object
-      properties:
-        url:
-          type: string
-        prompt:
-          type: string
-        createdAt:
-          type: string
-      required: [url, prompt, createdAt]
-
-    GenerateImageResponse:
-      type: object
-      properties:
-        imageUrl:
-          type: string
-        prompt:
-          type: string
-        gallery:
-          type: array
-          items:
-            $ref: "#/components/schemas/GalleryImage"
-      required: [imageUrl, prompt]
-
-    ImageGalleryResponse:
-      type: object
-      properties:
-        images:
-          type: array
-          items:
-            $ref: "#/components/schemas/GalleryImage"
-      required: [images]
-
-    CanvaLinkRequest:
-      type: object
-      properties:
-        contentType:
-          type: string
-        title:
-          type: string
-        description:
-          type: string
-      required: [contentType]
-
-    CanvaLinkResponse:
-      type: object
-      properties:
-        url:
-          type: string
-        contentType:
-          type: string
-        label:
-          type: string
-      required: [url, contentType]
-
-    SearchKnowledgeRequest:
-      type: object
-      properties:
-        query:
-          type: string
-        agentId:
-          type: string
-        limit:
-          type: integer
-      required: [query]
-
-    SearchKnowledgeResponse:
-      type: object
-      properties:
-        results:
-          type: array
-          items:
-            type: object
-            properties:
-              documentId:
-                type: string
-              filename:
-                type: string
-              content:
-                type: string
-              score:
-                type: number
-            required: [documentId, filename, content, score]
-        query:
-          type: string
-      required: [results, query]
-
-    IntegrationItem:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        envVar:
-          type: string
-        configured:
-          type: boolean
-        active:
-          type: boolean
-        category:
-          type: string
-      required: [id, name, description, envVar, configured, active, category]
-
-    IntegrationSettingsResponse:
-      type: object
-      properties:
-        integrations:
-          type: array
-          items:
-            $ref: "#/components/schemas/IntegrationItem"
-        activeLLM:
-          type: string
-          nullable: true
-        ollamaModel:
-          type: string
-        openrouterModel:
-          type: string
-      required: [integrations, ollamaModel, openrouterModel]
-
-    ModelOption:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-      required: [id, name, description]
-
-    AvailableModelsResponse:
-      type: object
-      properties:
-        models:
-          type: array
-          items:
-            $ref: "#/components/schemas/ModelOption"
-        defaultModel:
-          type: string
-        provider:
-          type: string
-          nullable: true
-      required: [models, defaultModel]
-
-    CustomKey:
-      type: object
-      properties:
-        provider:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
-      required: [provider, createdAt]
-
-    SetCustomKeyRequest:
-      type: object
-      properties:
-        provider:
-          type: string
-        key:
-          type: string
-      required: [provider, key]
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+    post:
+      summary: Create webhooks
+      description: POST webhooks resource.
+      tags:
+        - webhooks
+      operationId: webhooks_post__webhooks_whatsapp_channelId
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+  /webhooks/crm/inbound:
+    post:
+      summary: Create webhooks
+      description: POST webhooks resource.
+      tags:
+        - webhooks
+      operationId: webhooks_post__webhooks_crm_inbound
+      parameters: []
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+        "500":
+          description: Internal server error
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
