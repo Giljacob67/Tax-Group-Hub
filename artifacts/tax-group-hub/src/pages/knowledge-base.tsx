@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { put } from "@vercel/blob/client";
 import { format, formatDistanceToNow } from "date-fns";
@@ -13,6 +13,10 @@ import {
 import {
   useListKnowledgeDocuments,
   useDeleteKnowledgeDocument,
+  useGetKnowledgeHealth,
+  useGetDocumentChunks,
+  useReindexDocument,
+  useSearchKnowledgeDedicated,
 } from "@workspace/api-client-react";
 import { getListKnowledgeDocumentsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -57,15 +61,6 @@ interface KnowledgeDoc {
   errorLog: string | null;
   embeddingModel: string | null;
   createdAt: string;
-}
-
-interface HealthData {
-  total: number;
-  indexed: number;
-  pending: number;
-  errors: number;
-  totalChunks: number;
-  lastSync: string | null;
 }
 
 interface Chunk {
@@ -507,35 +502,26 @@ function SemanticSearchTab() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [product, setProduct] = useState("");
-  const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [fallback, setFallback] = useState(false);
   const [searched, setSearched] = useState(false);
 
+  const searchMutation = useSearchKnowledgeDedicated();
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
-    setLoading(true);
     setSearched(true);
     try {
-      const body: Record<string, unknown> = { query, limit: 8 };
-      if (category) body.category = category;
-      if (product) body.product = product;
-
-      const r = await fetch("/api/knowledge/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const data = await searchMutation.mutateAsync({
+        data: { query, limit: 8, ...(category ? { category } : {}), ...(product ? { product } : {}) },
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error((data as any).error ?? "Falha na busca");
-      setResults((data as any).results ?? []);
-      setFallback(!!(data as any).fallback);
+      setResults((data.results ?? []) as unknown as SearchResult[]);
+      setFallback(false);
     } catch (e: any) {
       toast({ title: "Erro na busca", description: e.message, variant: "destructive" });
       setResults([]);
     }
-    setLoading(false);
   };
 
   return (
@@ -554,10 +540,10 @@ function SemanticSearchTab() {
           </div>
           <button
             type="submit"
-            disabled={loading || !query.trim()}
+            disabled={searchMutation.isPending || !query.trim()}
             className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+            {searchMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
             Buscar
           </button>
         </div>
@@ -591,7 +577,7 @@ function SemanticSearchTab() {
         </div>
       )}
 
-      {searched && !loading && !results.length && (
+      {searched && !searchMutation.isPending && !results.length && (
         <div className="text-center py-10 text-muted-foreground text-sm">
           Nenhum resultado para &quot;{query}&quot;.
           {!fallback && " Verifique se há documentos indexados."}
@@ -665,7 +651,7 @@ function docStageIndex(doc: KnowledgeDoc): number {
 
 function StatusTab({ docs, health, loadingDocs }: {
   docs: KnowledgeDoc[];
-  health: HealthData | null;
+  health: { total: number; indexed: number; pending: number; errors: number; totalChunks: number; lastSync?: string | null } | undefined;
   loadingDocs: boolean;
 }) {
   const hasProcessing = docs.some((d) => d.status === "pending" || d.status === "processing");
@@ -792,21 +778,16 @@ function StatusTab({ docs, health, loadingDocs }: {
 // ─── ChunksModal ──────────────────────────────────────────────────────────────
 
 function ChunksModal({ doc, onClose }: { doc: KnowledgeDoc; onClose: () => void }) {
-  const [chunks, setChunks] = useState<Chunk[]>([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
   const pageSize = 10;
 
-  useEffect(() => {
-    setLoading(true);
-    fetch(`/api/knowledge/${doc.id}/chunks?page=${page}&pageSize=${pageSize}`)
-      .then((r) => r.json())
-      .then((d: any) => { setChunks(d.chunks ?? []); setTotal(d.total ?? 0); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [doc.id, page]);
+  const { data: chunksData, isLoading: loading } = useGetDocumentChunks(
+    doc.id,
+    { page, pageSize },
+  );
 
+  const chunks: Chunk[] = (chunksData?.chunks ?? []) as unknown as Chunk[];
+  const total = chunksData?.total ?? 0;
   const pages = Math.ceil(total / pageSize);
 
   return (
@@ -878,8 +859,6 @@ export default function KnowledgeBase() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [chunksDoc, setChunksDoc] = useState<KnowledgeDoc | null>(null);
   const [reindexing, setReindexing] = useState<Set<string>>(new Set());
-  const [health, setHealth] = useState<HealthData | null>(null);
-
   const { data: docsData, isLoading: isLoadingDocs } = useListKnowledgeDocuments(undefined, {
     query: {
       refetchInterval: (data: any) => {
@@ -893,16 +872,15 @@ export default function KnowledgeBase() {
 
   const docs: KnowledgeDoc[] = (docsData?.documents ?? []) as unknown as KnowledgeDoc[];
   const deleteMutation = useDeleteKnowledgeDocument();
+  const reindexMutation = useReindexDocument();
 
   const docsSummaryKey = docs.map((d) => `${d.id}:${d.status}`).join(",");
 
-  useEffect(() => {
-    fetch("/api/knowledge/health")
-      .then((r) => r.json())
-      .then((d: any) => setHealth(d))
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docsSummaryKey]);
+  const { data: health } = useGetKnowledgeHealth({
+    query: {
+      refetchInterval: docs.some((d) => d.status === "pending" || d.status === "processing") ? 5000 : false,
+    } as any,
+  });
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -919,9 +897,7 @@ export default function KnowledgeBase() {
   const handleReindex = async (id: string) => {
     setReindexing((prev) => new Set(prev).add(id));
     try {
-      const r = await fetch(`/api/knowledge/${id}/reindex`, { method: "POST" });
-      const d = await r.json();
-      if (!r.ok) throw new Error((d as any).error ?? "Falha ao reindexar");
+      await reindexMutation.mutateAsync({ documentId: id });
       toast({ title: "Reindexação iniciada", description: "Será processado em até 5 minutos." });
       setTimeout(() => queryClient.invalidateQueries({ queryKey: getListKnowledgeDocumentsQueryKey() }), 1500);
     } catch (e: any) {
