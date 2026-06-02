@@ -73,6 +73,14 @@ import AutomationsPanel from "@/components/crm/AutomationsPanel";
 import TodayView from "@/components/crm/TodayView";
 import PipelineManager from "@/components/crm/PipelineManager";
 import { CompanyAvatar } from "@/components/crm/CompanyAvatar";
+import {
+  CONTACT_STATUSES, CONTACT_STATUS_LABELS, CONTACT_STATUS_COLORS,
+  DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_STAGE_COLORS,
+  PIPELINE_TAX_GROUP_STAGES, PIPELINE_STAGE_LABELS, PIPELINE_STAGE_COLORS,
+  MATRIX_STATUSES, MATRIX_STATUS_LABELS, MATRIX_STATUS_COLORS,
+  ORIGEM_LEAD_OPTIONS, TEMPERATURA_OPTIONS, PRODUTO_INTERESSE_OPTIONS,
+  DEFAULT_PIPELINE_ID,
+} from "@workspace/db/crm-constants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type CrmSavedView = {
@@ -100,9 +108,17 @@ type Contact = {
   email: string | null;
   website: string | null;
   nomeDecissor: string | null;
+  cargoDecissor: string | null;
+  contatoDecisor: string | null;
   faturamentoEstimado: string | null;
   socios: any[] | null;
   status: string;
+  origemLead: string | null;
+  setor: string | null;
+  segmento: string | null;
+  temperatura: string | null;
+  produtoInteresse: string | null;
+  observacoes: string | null;
   aiScore: number | null;
   aiScoreDetails: any | null;
   aiRecommendedProduct: string | null;
@@ -122,6 +138,11 @@ type Deal = {
   probability: number | null;
   expectedCloseDate: string | null;
   notes: string | null;
+  origem: string | null;
+  resumoDiagnosticoComercial: string | null;
+  briefingMatriz: string | null;
+  statusMatriz: string | null;
+  observacoesNegociacao: string | null;
   wonAt: string | null;
   lostAt: string | null;
   createdAt: string;
@@ -177,22 +198,47 @@ const PORTES = [
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  prospect:    { label: "Prospect",     color: "bg-muted/40 text-muted-foreground border-border" },
-  qualified:   { label: "Qualificado",  color: "bg-primary/10 text-primary border-primary/30" },
-  opportunity: { label: "Oportunidade", color: "bg-secondary text-secondary-foreground border-secondary" },
-  client:      { label: "Cliente",      color: "bg-primary/10 text-primary border-primary/30" },
-  churned:     { label: "Churned",      color: "bg-destructive/10 text-destructive border-destructive/30" },
-  lost:        { label: "Perdido",      color: "bg-muted/30 text-muted-foreground border-muted" },
+  nao_iniciado:      { label: CONTACT_STATUS_LABELS.nao_iniciado,      color: "bg-muted/40 text-muted-foreground border-border" },
+  em_abordagem:      { label: CONTACT_STATUS_LABELS.em_abordagem,      color: "bg-blue-500/10 text-blue-500 border-blue-500/30" },
+  respondeu:         { label: CONTACT_STATUS_LABELS.respondeu,         color: "bg-violet-500/10 text-violet-500 border-violet-500/30" },
+  reuniao_agendada:  { label: CONTACT_STATUS_LABELS.reuniao_agendada,  color: "bg-purple-500/10 text-purple-500 border-purple-500/30" },
+  qualificado:       { label: CONTACT_STATUS_LABELS.qualificado,       color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" },
+  enviado_matriz:    { label: CONTACT_STATUS_LABELS.enviado_matriz,    color: "bg-pink-500/10 text-pink-500 border-pink-500/30" },
+  aguardando_matriz: { label: CONTACT_STATUS_LABELS.aguardando_matriz, color: "bg-orange-500/10 text-orange-500 border-orange-500/30" },
+  proposta_enviada:  { label: CONTACT_STATUS_LABELS.proposta_enviada,  color: "bg-cyan-500/10 text-cyan-500 border-cyan-500/30" },
+  em_negociacao:     { label: CONTACT_STATUS_LABELS.em_negociacao,     color: "bg-indigo-500/10 text-indigo-500 border-indigo-500/30" },
+  cliente:           { label: CONTACT_STATUS_LABELS.cliente,           color: "bg-green-500/10 text-green-500 border-green-500/30" },
+  sem_resposta:      { label: CONTACT_STATUS_LABELS.sem_resposta,      color: "bg-red-500/10 text-red-500 border-red-500/30" },
+  reciclar_depois:   { label: CONTACT_STATUS_LABELS.reciclar_depois,   color: "bg-amber-500/10 text-amber-500 border-amber-500/30" },
+  stand_by:          { label: CONTACT_STATUS_LABELS.stand_by,          color: "bg-gray-400/10 text-gray-400 border-gray-400/30" },
+  perdido:           { label: CONTACT_STATUS_LABELS.perdido,           color: "bg-red-600/10 text-red-600 border-red-600/30" },
 };
 
 const STAGE_DICT: Record<string, { label: string; accent: string; header: string }> = {
-  prospecting: { label: "Prospecção",  accent: "border-t-muted-foreground", header: "text-muted-foreground" },
-  discovery:   { label: "Descoberta",  accent: "border-t-primary",          header: "text-primary" },
-  proposal:    { label: "Proposta",    accent: "border-t-primary",          header: "text-primary" },
-  negotiation: { label: "Negociação",  accent: "border-t-primary",          header: "text-primary" },
-  closing:     { label: "Fechamento",  accent: "border-t-primary",          header: "text-primary" },
-  won:         { label: "Ganhos",      accent: "border-t-primary",          header: "text-primary" },
-  lost:        { label: "Perdidos",    accent: "border-t-muted-foreground", header: "text-muted-foreground" },
+  // Pipeline stages
+  lead_novo:                 { label: PIPELINE_STAGE_LABELS.lead_novo,                 accent: "border-t-slate-400",    header: "text-slate-400" },
+  qualificacao_comercial:    { label: PIPELINE_STAGE_LABELS.qualificacao_comercial,    accent: "border-t-blue-500",     header: "text-blue-500" },
+  reuniao_agendada:          { label: PIPELINE_STAGE_LABELS.reuniao_agendada,          accent: "border-t-violet-500",   header: "text-violet-500" },
+  diagnostico_comercial:     { label: PIPELINE_STAGE_LABELS.diagnostico_comercial,     accent: "border-t-amber-500",    header: "text-amber-500" },
+  enviado_para_matriz:       { label: PIPELINE_STAGE_LABELS.enviado_para_matriz,       accent: "border-t-pink-500",     header: "text-pink-500" },
+  aguardando_matriz:         { label: PIPELINE_STAGE_LABELS.aguardando_matriz,         accent: "border-t-orange-500",   header: "text-orange-500" },
+  proposta_pronta:           { label: PIPELINE_STAGE_LABELS.proposta_pronta,           accent: "border-t-emerald-500",  header: "text-emerald-500" },
+  apresentacao_ao_cliente:   { label: PIPELINE_STAGE_LABELS.apresentacao_ao_cliente,   accent: "border-t-cyan-500",     header: "text-cyan-500" },
+  negociacao:                { label: PIPELINE_STAGE_LABELS.negociacao,                accent: "border-t-indigo-500",   header: "text-indigo-500" },
+  fechado_ganho:             { label: PIPELINE_STAGE_LABELS.fechado_ganho,             accent: "border-t-green-500",    header: "text-green-500" },
+  perdido_standby:           { label: PIPELINE_STAGE_LABELS.perdido_standby,           accent: "border-t-red-500",      header: "text-red-500" },
+  onboarding_cliente:        { label: PIPELINE_STAGE_LABELS.onboarding_cliente,        accent: "border-t-teal-500",     header: "text-teal-500" },
+  execucao_pela_matriz:      { label: PIPELINE_STAGE_LABELS.execucao_pela_matriz,      accent: "border-t-purple-500",   header: "text-purple-500" },
+  acompanhamento_pendencias: { label: PIPELINE_STAGE_LABELS.acompanhamento_pendencias, accent: "border-t-amber-600",    header: "text-amber-600" },
+  pos_venda_expansao:        { label: PIPELINE_STAGE_LABELS.pos_venda_expansao,        accent: "border-t-blue-400",     header: "text-blue-400" },
+  encerrado:                 { label: PIPELINE_STAGE_LABELS.encerrado,                 accent: "border-t-slate-500",    header: "text-slate-500" },
+  // Deal stages (for edit modal)
+  proposta_em_preparacao:    { label: DEAL_STAGE_LABELS.proposta_em_preparacao,    accent: "border-t-violet-400",   header: "text-violet-400" },
+  proposta_enviada:          { label: DEAL_STAGE_LABELS.proposta_enviada,          accent: "border-t-cyan-400",     header: "text-cyan-400" },
+  proposta_apresentada:      { label: DEAL_STAGE_LABELS.proposta_apresentada,      accent: "border-t-indigo-400",   header: "text-indigo-400" },
+  em_negociacao:             { label: DEAL_STAGE_LABELS.em_negociacao,             accent: "border-t-purple-400",   header: "text-purple-400" },
+  perdido:                   { label: DEAL_STAGE_LABELS.perdido,                   accent: "border-t-red-400",      header: "text-red-400" },
+  stand_by:                  { label: DEAL_STAGE_LABELS.stand_by,                  accent: "border-t-gray-400",     header: "text-gray-400" },
 };
 
 const ACTIVITY_ICONS: Record<string, any> = {
@@ -515,9 +561,9 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
     { id: "agro", name: "Agro prioritário", icon: Compass, filters: { tag: "agro" } },
     { id: "lucro_real", name: "Indústrias Lucro Real", icon: Building2, filters: { regime: "lucro_real" } },
     { id: "atacado", name: "Atacado", icon: ShoppingCart, filters: { tag: "atacado" } },
-    { id: "opps", name: "Oportunidades RTI", icon: DollarSign, filters: { status: "opportunity" } },
-    { id: "proposals", name: "Propostas abertas", icon: FileText, filters: { status: "opportunity" } },
-    { id: "lost", name: "Perdidos", icon: AlertCircle, filters: { status: "lost" } },
+    { id: "opps", name: "Oportunidades RTI", icon: DollarSign, filters: { status: "em_negociacao" } },
+    { id: "proposals", name: "Propostas", icon: FileText, filters: { status: "proposta_enviada" } },
+    { id: "lost", name: "Perdidos", icon: AlertCircle, filters: { status: "perdido" } },
   ];
 
   const [activeViewId, setActiveViewId] = useState("all");
@@ -1082,6 +1128,11 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
   const [showNewDealForm, setShowNewDealForm]     = useState(false);
   const [newDealTitle, setNewDealTitle]           = useState("");
   const [newDealValue, setNewDealValue]           = useState("");
+  const [newDealOrigem, setNewDealOrigem]         = useState("");
+  const [newDealResumoDiag, setNewDealResumoDiag] = useState("");
+  const [newDealBriefing, setNewDealBriefing]     = useState("");
+  const [newDealStatusMatriz, setNewDealStatusMatriz] = useState("nao_enviado");
+  const [newDealObsNegociacao, setNewDealObsNegociacao] = useState("");
 
   const enrichMutation = useEnrichCrmContact({
     mutation: {
@@ -1133,6 +1184,11 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
         setShowNewDealForm(false);
         setNewDealTitle("");
         setNewDealValue("");
+        setNewDealOrigem("");
+        setNewDealResumoDiag("");
+        setNewDealBriefing("");
+        setNewDealStatusMatriz("nao_enviado");
+        setNewDealObsNegociacao("");
       },
       onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
@@ -1443,6 +1499,11 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   { label: "Regime",      value: contact.regimeTributario?.replace(/_/g, " ") },
                   { label: "CNAE",        value: contact.cnae },
                   { label: "Porte",       value: contact.porte },
+                  { label: "Setor",       value: contact.setor },
+                  { label: "Segmento",    value: contact.segmento },
+                  { label: "Temperatura", value: contact.temperatura },
+                  { label: "Produto",     value: contact.produtoInteresse },
+                  { label: "Origem",      value: contact.origemLead },
                   { label: "Faturamento", value: contact.faturamentoEstimado },
                   { label: "Website",     value: contact.website },
                   { label: "Localização", value: contact.cidade && contact.uf ? `${contact.cidade}/${contact.uf}` : contact.uf },
@@ -1450,7 +1511,9 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   { label: "Telefone",    value: contact.telefone },
                   { label: "E-mail",      value: contact.email },
                   { label: "Decissor",    value: contact.nomeDecissor },
+                  { label: "Contato Dec.", value: contact.contatoDecisor },
                   { label: "Sócios",      value: Array.isArray(contact.socios) ? contact.socios.map((s: any) => s.nome).join(", ") : undefined },
+                  { label: "Observações", value: contact.observacoes },
                 ].filter(f => f.value).map(f => (
                   <div key={f.label} className="flex gap-2 text-xs">
                     <span className="text-muted-foreground w-20 flex-shrink-0 pt-0.5">{f.label}</span>
@@ -1487,8 +1550,26 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                 <div className="space-y-2 p-3 border border-border/50 rounded-xl bg-background/50">
                   <Input placeholder="Título da oportunidade" value={newDealTitle} onChange={e => setNewDealTitle(e.target.value)} className="text-xs h-8" />
                   <Input placeholder="Valor (R$)" type="number" value={newDealValue} onChange={e => setNewDealValue(e.target.value)} className="text-xs h-8" />
+                  <Select value={newDealOrigem} onValueChange={setNewDealOrigem}>
+                    <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Origem" /></SelectTrigger>
+                    <SelectContent>
+                      {ORIGEM_LEAD_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={newDealStatusMatriz} onValueChange={setNewDealStatusMatriz}>
+                    <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Status Matriz" /></SelectTrigger>
+                    <SelectContent>
+                      {MATRIX_STATUSES.map(s => <SelectItem key={s} value={s}>{MATRIX_STATUS_LABELS[s]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Textarea placeholder="Resumo do diagnóstico comercial" value={newDealResumoDiag}
+                    onChange={e => setNewDealResumoDiag(e.target.value)} className="text-xs min-h-[48px] resize-none" />
+                  <Textarea placeholder="Briefing para a matriz" value={newDealBriefing}
+                    onChange={e => setNewDealBriefing(e.target.value)} className="text-xs min-h-[48px] resize-none" />
+                  <Textarea placeholder="Observações de negociação" value={newDealObsNegociacao}
+                    onChange={e => setNewDealObsNegociacao(e.target.value)} className="text-xs min-h-[48px] resize-none" />
                   <div className="flex gap-2">
-                    <Button size="sm" className="text-xs flex-1" disabled={createDealMutation.isPending} onClick={() => createDealMutation.mutate({ data: { title: newDealTitle || "Nova Oportunidade", stage: "prospect", value: newDealValue || undefined, contactId: contact.id, probability: 20, pipelineId: "default" } })}>
+                    <Button size="sm" className="text-xs flex-1" disabled={createDealMutation.isPending} onClick={() => createDealMutation.mutate({ data: { title: newDealTitle || "Nova Oportunidade", stage: "qualificacao_comercial", value: newDealValue || undefined, contactId: contact.id, probability: 20, pipelineId: DEFAULT_PIPELINE_ID, notes: [newDealResumoDiag, newDealBriefing, newDealObsNegociacao].filter(Boolean).join("\n\n") || undefined } as any })}>
                       {createDealMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Criar"}
                     </Button>
                     <Button size="sm" variant="ghost" className="text-xs" onClick={() => setShowNewDealForm(false)}>Cancelar</Button>
@@ -1502,11 +1583,11 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {deals.map(d => (
+                  {(deals as any[]).map(d => (
                     <div key={d.id} className="p-3 rounded-lg border border-border/50 bg-card hover:border-primary/30 transition-colors">
                       <div className="flex justify-between items-start gap-2">
                         <p className="text-xs font-semibold">{d.title}</p>
-                        <Badge variant="outline" className="text-[11px] whitespace-nowrap bg-muted/50">{d.stage}</Badge>
+                        <Badge variant="outline" className="text-[11px] whitespace-nowrap bg-muted/50">{STAGE_DICT[d.stage]?.label || d.stage}</Badge>
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-[11px] text-muted-foreground">
@@ -1516,6 +1597,16 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                           {formatCurrency(d.value)}
                         </span>
                       </div>
+                      {d.statusMatriz && d.statusMatriz !== "nao_enviado" && (
+                        <div className="mt-2">
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-full border font-medium"
+                            style={{ borderColor: MATRIX_STATUS_COLORS[d.statusMatriz as keyof typeof MATRIX_STATUS_COLORS] || "#6B7280", color: MATRIX_STATUS_COLORS[d.statusMatriz as keyof typeof MATRIX_STATUS_COLORS] || "#6B7280" }}
+                          >
+                            Matriz: {MATRIX_STATUS_LABELS[d.statusMatriz as keyof typeof MATRIX_STATUS_LABELS] || d.statusMatriz}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1663,6 +1754,14 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
 function AddLeadDialog() {
   const [open, setOpen] = useState(false);
   const [cnpj, setCnpj] = useState("");
+  const [setor, setSetor] = useState("");
+  const [segmento, setSegmento] = useState("");
+  const [temperatura, setTemperatura] = useState("");
+  const [produtoInteresse, setProdutoInteresse] = useState("");
+  const [origemLead, setOrigemLead] = useState("");
+  const [decisor, setDecisor] = useState("");
+  const [contatoDecisor, setContatoDecisor] = useState("");
+  const [observacoes, setObservacoes] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -1674,36 +1773,98 @@ function AddLeadDialog() {
       .replace(/(\d{4})(\d)/, "$1-$2");
   };
 
+  function resetForm() {
+    setCnpj(""); setSetor(""); setSegmento(""); setTemperatura("");
+    setProdutoInteresse(""); setOrigemLead(""); setDecisor("");
+    setContatoDecisor(""); setObservacoes("");
+  }
+
   const mutation = useCreateCrmContact({
     mutation: {
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
         toast({ title: "Lead criado." + (data.contact ? " Dados enriquecidos." : "") });
-        setOpen(false); setCnpj("");
+        setOpen(false); resetForm();
       },
       onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     },
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
       <DialogTrigger asChild>
         <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
           <Plus className="w-4 h-4 mr-2" /> Novo Lead
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Adicionar Lead via CNPJ</DialogTitle>
           <DialogDescription>Busca automaticamente os dados no EmpresAqui (se configurado).</DialogDescription>
         </DialogHeader>
-        <div className="py-4">
-          <Label htmlFor="cnpj" className="mb-2 block">CNPJ</Label>
-          <Input id="cnpj" placeholder="00.000.000/0001-00" value={cnpj}
-            onChange={(e) => setCnpj(formatCnpj(e.target.value))} />
+        <div className="py-4 space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="cnpj">CNPJ *</Label>
+            <Input id="cnpj" placeholder="00.000.000/0001-00" value={cnpj}
+              onChange={(e) => setCnpj(formatCnpj(e.target.value))} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Setor</Label>
+              <Input value={setor} onChange={e => setSetor(e.target.value)} placeholder="Ex: Agronegócio" className="text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Segmento</Label>
+              <Input value={segmento} onChange={e => setSegmento(e.target.value)} placeholder="Ex: Cooperativas" className="text-sm" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Temperatura</Label>
+              <Select value={temperatura} onValueChange={setTemperatura}>
+                <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                <SelectContent>
+                  {TEMPERATURA_OPTIONS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Produto de Interesse</Label>
+              <Select value={produtoInteresse} onValueChange={setProdutoInteresse}>
+                <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                <SelectContent>
+                  {PRODUTO_INTERESSE_OPTIONS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Origem do Lead</Label>
+            <Select value={origemLead} onValueChange={setOrigemLead}>
+              <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+              <SelectContent>
+                {ORIGEM_LEAD_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Decisor</Label>
+              <Input value={decisor} onChange={e => setDecisor(e.target.value)} placeholder="Nome do decisor" className="text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Contato do Decisor</Label>
+              <Input value={contatoDecisor} onChange={e => setContatoDecisor(e.target.value)} placeholder="E-mail ou telefone" className="text-sm" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Observações</Label>
+            <Textarea value={observacoes} onChange={e => setObservacoes(e.target.value)}
+              placeholder="Anotações sobre o lead..." className="text-sm min-h-[60px] resize-none" />
+          </div>
         </div>
         <DialogFooter>
-          <Button onClick={() => mutation.mutate({ data: { cnpj: cnpj.replace(/\D/g, "") } })}
+          <Button onClick={() => mutation.mutate({ data: { cnpj: cnpj.replace(/\D/g, ""), setor: setor || undefined, segmento: segmento || undefined, temperatura: temperatura || undefined, produtoInteresse: produtoInteresse || undefined, origemLead: origemLead || undefined, nomeDecissor: decisor || undefined, contatoDecisor: contatoDecisor || undefined, observacoes: observacoes || undefined } as any })}
             disabled={mutation.isPending || cnpj.replace(/\D/g, "").length < 14} className="w-full">
             {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
             {mutation.isPending ? "Buscando..." : "Criar e Enriquecer"}
@@ -1731,6 +1892,11 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
   const [expectedClose, setExpectedClose] = useState(
     deal.expectedCloseDate ? new Date(deal.expectedCloseDate).toISOString().slice(0, 10) : ""
   );
+  const [origem, setOrigem]                       = useState(deal.origem || "");
+  const [resumoDiagnosticoComercial, setResumoDiagnosticoComercial] = useState(deal.resumoDiagnosticoComercial || "");
+  const [briefingMatriz, setBriefingMatriz]       = useState(deal.briefingMatriz || "");
+  const [statusMatriz, setStatusMatriz]           = useState(deal.statusMatriz || "nao_enviado");
+  const [observacoesNegociacao, setObservacoesNegociacao] = useState(deal.observacoesNegociacao || "");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const saveMutation = useUpdateCrmDeal({
@@ -1795,8 +1961,8 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
             <Select value={stage} onValueChange={setStage}>
               <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(STAGE_DICT).map(([k, v]) => (
-                  <SelectItem key={k} value={k}><span className={v.header}>{v.label}</span></SelectItem>
+                {DEAL_STAGES.map(s => (
+                  <SelectItem key={s} value={s}><span className={STAGE_DICT[s]?.header || ""}>{DEAL_STAGE_LABELS[s]}</span></SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1807,6 +1973,41 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
             </Label>
             <Input type="date" value={expectedClose} onChange={(e) => setExpectedClose(e.target.value)} className="text-sm h-9" />
           </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Origem</Label>
+            <Select value={origem} onValueChange={setOrigem}>
+              <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+              <SelectContent>
+                {ORIGEM_LEAD_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Status Matriz</Label>
+            <Select value={statusMatriz} onValueChange={setStatusMatriz}>
+              <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {MATRIX_STATUSES.map(s => <SelectItem key={s} value={s}>{MATRIX_STATUS_LABELS[s]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Resumo Diagnóstico Comercial</Label>
+          <Textarea value={resumoDiagnosticoComercial} onChange={(e) => setResumoDiagnosticoComercial(e.target.value)}
+            placeholder="Resumo do diagnóstico..." className="text-sm min-h-[60px] resize-none" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Briefing Matriz</Label>
+          <Textarea value={briefingMatriz} onChange={(e) => setBriefingMatriz(e.target.value)}
+            placeholder="Briefing para a matriz..." className="text-sm min-h-[60px] resize-none" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Observações de Negociação</Label>
+          <Textarea value={observacoesNegociacao} onChange={(e) => setObservacoesNegociacao(e.target.value)}
+            placeholder="Observações..." className="text-sm min-h-[60px] resize-none" />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Notas</Label>
@@ -1831,7 +2032,7 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
               <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Excluir deal
             </Button>
             <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-            <Button size="sm" onClick={() => saveMutation.mutate({ id: deal.id, data: { title, value: value || undefined, probability, stage, notes, produto, expectedCloseDate: expectedClose ? new Date(expectedClose).toISOString() : undefined } })} disabled={saveMutation.isPending}>
+            <Button size="sm" onClick={() => saveMutation.mutate({ id: deal.id, data: { title, value: value || undefined, probability, stage, notes, produto, expectedCloseDate: expectedClose ? new Date(expectedClose).toISOString() : undefined, origem: origem || undefined, resumoDiagnosticoComercial: resumoDiagnosticoComercial || undefined, briefingMatriz: briefingMatriz || undefined, statusMatriz: statusMatriz || undefined, observacoesNegociacao: observacoesNegociacao || undefined } as any })} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
               Salvar
             </Button>
@@ -1853,7 +2054,7 @@ function QuickAddDealForm({ stage, onDone }: { stage: string; onDone: () => void
   const { data: contactsData } = useListCrmContacts();
 
   const contacts = contactsData?.contacts || [];
-  const stageInfo = STAGE_DICT[stage];
+  const stageInfo = STAGE_DICT[stage] || { label: PIPELINE_STAGE_LABELS[stage as keyof typeof PIPELINE_STAGE_LABELS] || stage };
 
   const mutation = useCreateCrmDeal({
     mutation: {
@@ -1896,7 +2097,7 @@ function QuickAddDealForm({ stage, onDone }: { stage: string; onDone: () => void
       />
       <div className="flex gap-1.5">
         <Button size="sm" className="flex-1 text-xs h-7"
-          onClick={() => mutation.mutate({ data: { title: title || "Nova Oportunidade", stage, value: value || undefined, contactId: contactId ? Number(contactId) : contacts[0]?.id, probability: 20, pipelineId: "default" } })} disabled={mutation.isPending || contacts.length === 0}>
+          onClick={() => mutation.mutate({ data: { title: title || "Nova Oportunidade", stage, value: value || undefined, contactId: contactId ? Number(contactId) : contacts[0]?.id, probability: 20, pipelineId: DEFAULT_PIPELINE_ID } })} disabled={mutation.isPending || contacts.length === 0}>
           {mutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Criar"}
         </Button>
         <Button size="sm" variant="ghost" className="text-xs h-7" onClick={onDone}>
@@ -1985,7 +2186,7 @@ function PipelineKanbanView() {
 
   // Demo fallback: quando pipeline está vazio e modo demo ativo
   if (isDemo && stages.length === 0 && Object.keys(pipeline).length === 0) {
-    stages = ["prospecting", "discovery", "proposal", "negotiation", "closing", "won", "lost"];
+    stages = [...PIPELINE_TAX_GROUP_STAGES];
     const demoPipeline: Record<string, Deal[]> = {};
     for (const s of stages) {
       demoPipeline[s] = DEMO_DEALS.filter(d => d.stage === s) as unknown as Deal[];
@@ -1994,10 +2195,10 @@ function PipelineKanbanView() {
   }
 
   const allDeals    = Object.values(pipeline).flat() as Deal[];
-  const activeDeals = allDeals.filter(d => !["lost"].includes(d.stage));
+  const activeDeals = allDeals.filter(d => !["perdido", "perdido_standby", "encerrado"].includes(d.stage));
   const totalActiveValue = activeDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
   const weightedValue    = activeDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0) * ((d.probability || 0) / 100), 0);
-  const wonDeals         = allDeals.filter(d => d.stage === "won");
+  const wonDeals         = allDeals.filter(d => d.stage === "fechado_ganho");
   const wonValue         = wonDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
 
   // Forecast bar
@@ -2297,6 +2498,16 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
           )}
         </div>
 
+        {/* Matrix status badge */}
+        {deal.statusMatriz && deal.statusMatriz !== "nao_enviado" && (
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-full border font-medium inline-flex items-center gap-0.5"
+            style={{ borderColor: MATRIX_STATUS_COLORS[deal.statusMatriz as keyof typeof MATRIX_STATUS_COLORS] || "#6B7280", color: MATRIX_STATUS_COLORS[deal.statusMatriz as keyof typeof MATRIX_STATUS_COLORS] || "#6B7280" }}
+          >
+            Matriz: {MATRIX_STATUS_LABELS[deal.statusMatriz as keyof typeof MATRIX_STATUS_LABELS] || deal.statusMatriz}
+          </span>
+        )}
+
         {/* Footer: close date + urgency + risk badge */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           {deal.expectedCloseDate && (
@@ -2313,7 +2524,7 @@ function DealCard({ deal, isDragging, onDragStart, onDragEnd, onClick }: {
               ? Math.ceil((new Date(deal.expectedCloseDate).getTime() - Date.now()) / (1000*60*60*24))
               : null;
             const isAtRisk = daysSinceUpdate >= 5 && daysToClose !== null && daysToClose <= 15 && daysToClose >= 0
-              && !['won','lost'].includes(deal.stage);
+              && !['fechado_ganho','perdido','perdido_standby','encerrado'].includes(deal.stage);
             if (!isAtRisk) return null;
             return (
               <span className="text-[11px] px-1.5 py-0.5 rounded-full border bg-red-500/10 border-red-500/30 text-red-400 font-semibold flex items-center gap-0.5">
