@@ -5,9 +5,10 @@ import {
   crmEnrichmentLogTable, crmPipelinesTable, crmAttachmentsTable,
   crmTasksTable, crmSavedViewsTable, crmAutomationsTable,
   automationSequencesTable, sequenceEnrollmentsTable,
+  crmQualificationHistoryTable, crmAlertsTable, crmNextStepHistoryTable,
   appConfigTable,
 } from "@workspace/db";
-import { eq, and, desc, asc, ilike, or, gte, lte, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, asc, ilike, or, gte, lte, inArray, sql, isNull } from "drizzle-orm";
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
 import { callLLM } from "../lib/llm-client.js";
 import { getAgentById } from "../lib/agents-data.js";
@@ -19,7 +20,17 @@ import { requireUserId } from "../middlewares/auth.js";
 import { decrypt } from "../lib/crypto.js";
 import { HubSpotClient } from "@workspace/hubspot";
 import { pushContactToHubSpot, pushDealToHubSpot, pushActivityToHubSpot, pushTaskToHubSpot } from "../lib/hubspot-sync.js";
-import { DEFAULT_PIPELINE_ID, DEFAULT_PIPELINE_NAME, PIPELINE_TAX_GROUP_STAGES, LEGACY_CONTACT_STATUS_MAP, LEGACY_DEAL_STAGE_MAP, DEAL_STAGE_TO_CONTACT_STATUS } from "@workspace/db/crm-constants";
+import {
+  DEFAULT_PIPELINE_ID, DEFAULT_PIPELINE_NAME, PIPELINE_TAX_GROUP_STAGES,
+  LEGACY_CONTACT_STATUS_MAP, LEGACY_DEAL_STAGE_MAP, DEAL_STAGE_TO_CONTACT_STATUS,
+  MATRIZ_BRIEFING_CHECKLIST, AUTOMATION_TRIGGER_LABELS, AUTOMATION_ACTION_LABELS,
+} from "@workspace/db/crm-constants";
+import { recommendNextStep } from "../lib/next-step-engine.js";
+import { evaluateAlerts, getAlertMeta } from "../lib/alerts-engine.js";
+import {
+  buildQualificationPrompt, parseQualificationResult, SYSTEM_INSTRUCTIONS,
+} from "../lib/qualification-engine.js";
+import { calculatePriority } from "../lib/priority-engine.js";
 
 const router = Router();
 
@@ -195,6 +206,8 @@ async function evaluateAutomations(
           priority: payload.priority || "high",
           status: "pending",
           dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          source: "automation",
+          sourceRef: `automation:${auto.id}:${triggerType}`,
         });
 
       } else if (auto.actionType === "log_activity") {
@@ -267,10 +280,122 @@ async function evaluateAutomations(
           subject: "WhatsApp automático pendente",
           content: payload.messageTemplate || `Automação '${auto.name}': enviar mensagem WhatsApp.`,
         });
+
+      } else if (auto.actionType === "add_tag" && auto.actionPayload) {
+        // Add a tag to the contact
+        const payload = auto.actionPayload as { tag?: string };
+        if (!payload.tag) continue;
+        const [contact] = await db.select({ tags: crmContactsTable.tags })
+          .from(crmContactsTable)
+          .where(eq(crmContactsTable.id, contactId))
+          .limit(1);
+        if (!contact) continue;
+        const currentTags = contact.tags || [];
+        if (!currentTags.includes(payload.tag)) {
+          await db.update(crmContactsTable)
+            .set({ tags: [...currentTags, payload.tag], updatedAt: new Date() })
+            .where(eq(crmContactsTable.id, contactId));
+        }
+
+      } else if (auto.actionType === "set_priority" && auto.actionPayload) {
+        const payload = auto.actionPayload as { priority?: string };
+        if (!payload.priority) continue;
+        await db.update(crmContactsTable)
+          .set({ prioridadeComercial: payload.priority, updatedAt: new Date() })
+          .where(eq(crmContactsTable.id, contactId));
+
+      } else if (auto.actionType === "set_assignee" && auto.actionPayload) {
+        const payload = auto.actionPayload as { responsavelUnidade?: string };
+        await db.update(crmContactsTable)
+          .set({ responsavelUnidade: payload.responsavelUnidade || null, updatedAt: new Date() })
+          .where(eq(crmContactsTable.id, contactId));
+
+      } else if (auto.actionType === "create_alert") {
+        // Create a persistent alert
+        const payload = (auto.actionPayload || {}) as { type?: string; severity?: string; title?: string; description?: string };
+        const alertType = payload.type || "followup_vencido";
+        const meta = getAlertMeta(alertType as any);
+        await db.insert(crmAlertsTable).values({
+          userId,
+          contactId,
+          dealId: dealId ?? null,
+          type: alertType,
+          severity: payload.severity || meta.severity,
+          title: payload.title || `Automação: ${auto.name}`,
+          description: payload.description || `Disparada por ${triggerType} = ${currentValue}.`,
+          context: { automationId: auto.id, triggerType, currentValue },
+          isResolved: false,
+        });
       }
     }
   } catch (error) {
     console.error("[Automations] evaluateAutomations error:", error);
+  }
+}
+
+// ─── Automation Engine — Event-based triggers ────────────────────────────────
+// These are evaluated on demand (e.g., during alerts/refresh or scheduled job).
+// Returns the number of automations that fired.
+async function evaluateEventAutomations(
+  userId: string,
+  triggerType: "followup_vencido" | "sem_atividade_7d" | "sem_atividade_14d"
+    | "matriz_enviado" | "matriz_aguardando" | "matriz_pendencia"
+    | "proposta_pronta" | "proposta_enviada" | "proposta_sem_retorno_7d",
+  context: { contactId?: number; dealId?: number },
+): Promise<number> {
+  try {
+    const automations = await db.select().from(crmAutomationsTable)
+      .where(and(
+        eq(crmAutomationsTable.userId, userId),
+        eq(crmAutomationsTable.isActive, true),
+        eq(crmAutomationsTable.triggerType, triggerType),
+      ));
+    if (automations.length === 0) return 0;
+
+    let fired = 0;
+    for (const auto of automations) {
+      const contactId = context.contactId;
+      if (!contactId) continue;
+      fired++;
+      // For event triggers, use the generic flow with triggerValue = "*"
+      if (auto.actionType === "create_task" && auto.actionPayload) {
+        const payload = auto.actionPayload as any;
+        await db.insert(crmTasksTable).values({
+          userId, contactId, dealId: context.dealId ?? null,
+          title: payload.title || `Tarefa: ${auto.name}`,
+          type: payload.type || "call",
+          priority: payload.priority || "high",
+          status: "pending",
+          dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          source: "automation",
+          sourceRef: `automation:${auto.id}:${triggerType}`,
+        });
+      } else if (auto.actionType === "log_activity") {
+        await db.insert(crmActivitiesTable).values({
+          userId, contactId, dealId: context.dealId ?? null,
+          type: "ai_generated",
+          subject: `Automação: ${auto.name}`,
+          content: `Disparada por evento '${triggerType}'.`,
+        });
+      } else if (auto.actionType === "create_alert") {
+        const payload = (auto.actionPayload || {}) as { type?: string; severity?: string; title?: string; description?: string };
+        const alertType = payload.type || "followup_vencido";
+        const meta = getAlertMeta(alertType as any);
+        await db.insert(crmAlertsTable).values({
+          userId, contactId, dealId: context.dealId ?? null,
+          type: alertType,
+          severity: payload.severity || meta.severity,
+          title: payload.title || `Automação: ${auto.name}`,
+          description: payload.description || `Disparada por evento '${triggerType}'.`,
+          context: { automationId: auto.id, triggerType },
+          isResolved: false,
+        });
+      }
+    }
+    return fired;
+  } catch (err) {
+    console.error("[Automations] evaluateEventAutomations error:", err);
+    return 0;
   }
 }
 
@@ -610,6 +735,9 @@ router.put("/contacts/:id", async (req: Request, res: Response) => {
       await evaluateAutomations(userId, updated.id, "status_changed", updated.status);
     }
 
+    // Re-evaluate next step (Phase 3)
+    setImmediate(() => evaluateNextStepsForContact(userId, updated.id));
+
     res.json({ success: true, contact: updated });
     fireIntegrationEvent("contact.updated", {
       contactId: updated.id,
@@ -804,7 +932,7 @@ router.post("/contacts/import", async (req: Request, res: Response) => {
   }
 });
 
-// ─── Contacts: Qualify via IA ────────────────────────────────────────────────
+// ─── Contacts: Qualify via IA (Phase 3 — Estruturada) ──────────────────────
 router.post("/contacts/:id/qualify", async (req: Request, res: Response) => {
   try {
     const userId = requireUserId(req);
@@ -815,31 +943,42 @@ router.post("/contacts/:id/qualify", async (req: Request, res: Response) => {
     const agent = getAgentById("qualificacao-leads-tax-group") || getAgentById("coordenador-geral-tax-group");
     if (!agent) { apiError(res, 500, "Qualification agent not found"); return; }
 
-    const input = `
-Qualifique este lead da Tax Group com base nas informações:
-- CNPJ: ${contact.cnpj}
-- Razão Social: ${contact.razaoSocial || "Desconhecida"}
-- Regime Tributário: ${contact.regimeTributario || "Desconhecido"}
-- CNAE: ${contact.cnae || "Desconhecido"}
-- Porte: ${contact.porte || "Desconhecido"}
-- Faturamento Estimado: ${contact.faturamentoEstimado || "Desconhecido"}
-- UF: ${contact.uf || "Desconhecida"}
+    const prompt = buildQualificationPrompt(contact as any);
+    const result = await callLLM(`${agent.systemPrompt}\n\n${SYSTEM_INSTRUCTIONS}`, prompt, {});
 
-Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","REP","RTI",...], reasoning: "...", nextAction: "..." }`;
-
-    const result = await callLLM(agent.systemPrompt, input, {});
-    let scoreData: any = {};
+    let rawJson: any = {};
     try {
       const match = result.output.match(/\{[\s\S]*\}/);
-      if (match) scoreData = JSON.parse(match[0]);
-    } catch { scoreData = { score: 50, tier: "C", reasoning: result.output }; }
+      if (match) rawJson = JSON.parse(match[0]);
+    } catch { /* keep empty */ }
+
+    const qualification = parseQualificationResult(rawJson, result.output);
+
+    // Persist in history (immutable record)
+    await db.insert(crmQualificationHistoryTable).values({
+      userId,
+      contactId: contact.id,
+      score: qualification.score,
+      tier: qualification.tier,
+      confidence: qualification.confidence,
+      result: qualification as any,
+      agentId: agent.id,
+    }).catch(() => {});
+
+    // Apply key fields back to contact
+    const newStatus = (qualification.tier === "A" || qualification.tier === "B")
+      ? "qualificado"
+      : contact.status;
 
     const [updated] = await db.update(crmContactsTable)
       .set({
-        aiScore: scoreData.score || null,
-        aiScoreDetails: scoreData,
-        aiRecommendedProduct: scoreData.products?.[0] || null,
-        status: scoreData.tier === "A" || scoreData.tier === "B" ? "qualified" : contact.status,
+        aiScore: qualification.score,
+        aiScoreDetails: qualification as any,
+        aiRecommendedProduct: qualification.produto_recomendado,
+        status: newStatus,
+        temperatura: contact.temperatura || qualification.temperatura_sugerida,
+        setor: contact.setor || qualification.setor_inferido,
+        segmento: contact.segmento || qualification.segmento_inferido,
         updatedAt: new Date(),
       })
       .where(eq(crmContactsTable.id, contact.id))
@@ -847,29 +986,26 @@ Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","RE
 
     // Trigger score automations
     if (updated.aiScore !== null) {
-      // triggers > X
       await evaluateAutomations(userId, updated.id, "score_above", updated.aiScore);
-      // triggers < X
       await evaluateAutomations(userId, updated.id, "score_below", updated.aiScore);
     }
-    // Also trigger status if changed
     if (updated.status !== contact.status) {
       await evaluateAutomations(userId, updated.id, "status_changed", updated.status);
     }
 
     await db.insert(crmActivitiesTable).values({
       contactId: contact.id, userId, type: "ai_generated",
-      subject: `Qualificação IA — Score ${scoreData.score}/100 (Tier ${scoreData.tier})`,
+      subject: `Qualificação IA — Score ${qualification.score}/100 (Tier ${qualification.tier}, Conf. ${qualification.confidence}%)`,
       content: result.output, completedAt: new Date(), agentId: agent.id,
     }).catch(() => {});
 
     let dealCreated = false;
-    if (["A", "B", "C"].includes(scoreData.tier)) {
+    if (["A", "B", "C"].includes(qualification.tier)) {
       const [existingDeal] = await db.select({ id: crmDealsTable.id }).from(crmDealsTable)
         .where(and(eq(crmDealsTable.contactId, contact.id), eq(crmDealsTable.userId, userId)));
       if (!existingDeal) {
-        const stage = scoreData.tier === "A" ? "discovery" : "prospecting";
-        const probability = scoreData.tier === "A" ? 40 : (scoreData.tier === "B" ? 20 : 10);
+        const stage = qualification.tier === "A" ? "diagnostico_comercial" : "qualificacao_comercial";
+        const probability = qualification.tier === "A" ? 40 : (qualification.tier === "B" ? 20 : 10);
         await db.insert(crmDealsTable).values({
           contactId: contact.id, userId,
           title: `Oportunidade - ${contact.razaoSocial || contact.cnpj}`,
@@ -880,24 +1016,43 @@ Retorne um JSON com: { score: 0-100, tier: "A"|"B"|"C"|"D", products: ["AFD","RE
       }
     }
 
-    res.json({ success: true, contact: updated, qualification: scoreData, dealCreated });
+    res.json({ success: true, contact: updated, qualification, dealCreated });
 
-    // Fire integration event for qualified leads (score >= 60 = actionable)
     if (updated.aiScore !== null && updated.aiScore >= 60) {
       fireIntegrationEvent("lead.qualified", {
         contactId: updated.id,
         cnpj: updated.cnpj,
         razaoSocial: updated.razaoSocial,
         score: updated.aiScore,
-        tier: scoreData.tier,
-        recommendedProducts: scoreData.products,
-        nextAction: scoreData.nextAction,
+        tier: qualification.tier,
+        recommendedProducts: qualification.produto_recomendado ? [qualification.produto_recomendado] : [],
+        nextAction: qualification.proximo_passo,
         status: updated.status,
         dealCreated,
       }, userId);
     }
   } catch (err: any) {
+    console.error("[crm] qualify failed:", err);
     apiError(res, 500, "Qualification failed");
+  }
+});
+
+// ─── Contacts: Qualification History ────────────────────────────────────────
+// GET /api/crm/contacts/:id/qualification-history
+router.get("/contacts/:id/qualification-history", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const rows = await db.select()
+      .from(crmQualificationHistoryTable)
+      .where(and(
+        eq(crmQualificationHistoryTable.contactId, Number(req.params.id)),
+        eq(crmQualificationHistoryTable.userId, userId),
+      ))
+      .orderBy(desc(crmQualificationHistoryTable.createdAt))
+      .limit(20);
+    res.json({ success: true, history: rows });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to fetch qualification history");
   }
 });
 
@@ -1095,8 +1250,25 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
           produto: deal.produto,
           lostReason: deal.lostReason,
         }, userId);
+
+        // Phase 3: trigger Matriz event automations
+        if (deal.statusMatriz === "enviado" || deal.statusMatriz === "aguardando") {
+          setImmediate(() => evaluateEventAutomations(userId, "matriz_aguardando", { contactId: deal.contactId, dealId: deal.id }));
+        }
+        if (deal.statusMatriz === "pendencia_documental") {
+          setImmediate(() => evaluateEventAutomations(userId, "matriz_pendencia", { contactId: deal.contactId, dealId: deal.id }));
+        }
+        if (deal.statusProposta === "proposta_pronta") {
+          setImmediate(() => evaluateEventAutomations(userId, "proposta_pronta", { contactId: deal.contactId, dealId: deal.id }));
+        }
+        if (deal.statusProposta === "proposta_enviada") {
+          setImmediate(() => evaluateEventAutomations(userId, "proposta_enviada", { contactId: deal.contactId, dealId: deal.id }));
+        }
       } catch { /* non-fatal */ }
     }
+
+    // Phase 3: re-evaluate next step after any deal change
+    setImmediate(() => evaluateNextStepsForContact(userId, deal.contactId));
 
     res.json({ success: true, deal });
   } catch (err: any) {
@@ -1841,6 +2013,509 @@ router.get("/operational-summary", async (req: Request, res: Response) => {
     apiError(res, 500, "Failed to get operational summary");
   }
 });
+
+// ════════════════════════════════════════════════════════════════════════════════
+// PHASE 3 — IA, AUTOMAÇÕES, ALERTAS
+// ════════════════════════════════════════════════════════════════════════════════
+
+// ─── Next Step Recommendation ────────────────────────────────────────────────
+// GET /api/crm/contacts/:id/next-step
+router.get("/contacts/:id/next-step", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const contactId = Number(req.params.id);
+    const [contact] = await db.select().from(crmContactsTable)
+      .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)));
+    if (!contact) { apiError(res, 404, "Contact not found"); return; }
+
+    // Get primary deal (first one for this contact)
+    const [deal] = await db.select().from(crmDealsTable)
+      .where(and(eq(crmDealsTable.contactId, contactId), eq(crmDealsTable.userId, userId)))
+      .orderBy(desc(crmDealsTable.updatedAt))
+      .limit(1);
+
+    const [hasOpenTask] = await db.select({ id: crmTasksTable.id }).from(crmTasksTable)
+      .where(and(
+        eq(crmTasksTable.contactId, contactId),
+        eq(crmTasksTable.userId, userId),
+        eq(crmTasksTable.status, "pending"),
+      )).limit(1);
+
+    const hasProposal = !!(deal && (
+      deal.statusProposta === "proposta_enviada"
+      || deal.statusProposta === "proposta_pronta"
+      || deal.statusProposta === "proposta_apresentada"
+      || deal.statusProposta === "em_negociacao"
+      || deal.statusMatriz === "proposta_liberada"
+    ));
+
+    const rec = recommendNextStep({
+      contact: {
+        status: contact.status,
+        temperatura: contact.temperatura,
+        proximoFollowup: contact.proximoFollowup,
+        ultimaInteracao: contact.ultimaInteracao,
+        pendenciasCliente: contact.pendenciasCliente,
+        responsavelUnidade: contact.responsavelUnidade,
+      },
+      deal: deal ? {
+        stage: deal.stage,
+        statusMatriz: deal.statusMatriz,
+        statusProposta: deal.statusProposta,
+        briefingMatriz: deal.briefingMatriz,
+        dataEnvioMatriz: deal.dataEnvioMatriz,
+        prazoRetornoMatriz: deal.prazoRetornoMatriz,
+      } : null,
+      hasProposal,
+      hasOpenTasks: !!hasOpenTask,
+    });
+
+    res.json({ success: true, recommendation: rec, contactId });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to compute next step");
+  }
+});
+
+// ─── Next Step: Accept (cria tarefa a partir da recomendação) ────────────────
+// POST /api/crm/contacts/:id/next-step/accept
+router.post("/contacts/:id/next-step/accept", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const contactId = Number(req.params.id);
+    const [contact] = await db.select().from(crmContactsTable)
+      .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)));
+    if (!contact) { apiError(res, 404, "Contact not found"); return; }
+
+    const [deal] = await db.select().from(crmDealsTable)
+      .where(and(eq(crmDealsTable.contactId, contactId), eq(crmDealsTable.userId, userId)))
+      .orderBy(desc(crmDealsTable.updatedAt))
+      .limit(1);
+
+    const [hasOpenTask] = await db.select({ id: crmTasksTable.id }).from(crmTasksTable)
+      .where(and(
+        eq(crmTasksTable.contactId, contactId),
+        eq(crmTasksTable.userId, userId),
+        eq(crmTasksTable.status, "pending"),
+      )).limit(1);
+
+    const hasProposal = !!(deal && (
+      deal.statusProposta === "proposta_enviada"
+      || deal.statusProposta === "proposta_pronta"
+      || deal.statusProposta === "proposta_apresentada"
+      || deal.statusProposta === "em_negociacao"
+      || deal.statusMatriz === "proposta_liberada"
+    ));
+
+    const rec = recommendNextStep({
+      contact: {
+        status: contact.status,
+        temperatura: contact.temperatura,
+        proximoFollowup: contact.proximoFollowup,
+        ultimaInteracao: contact.ultimaInteracao,
+        pendenciasCliente: contact.pendenciasCliente,
+        responsavelUnidade: contact.responsavelUnidade,
+      },
+      deal: deal ? {
+        stage: deal.stage,
+        statusMatriz: deal.statusMatriz,
+        statusProposta: deal.statusProposta,
+        briefingMatriz: deal.briefingMatriz,
+        dataEnvioMatriz: deal.dataEnvioMatriz,
+        prazoRetornoMatriz: deal.prazoRetornoMatriz,
+      } : null,
+      hasProposal,
+      hasOpenTasks: !!hasOpenTask,
+    });
+
+    if (!rec.taskTemplate) {
+      apiError(res, 400, "Esta recomendação não gera tarefa."); return;
+    }
+
+    const dueDate = new Date(Date.now() + rec.taskTemplate.dueInDays * 24 * 60 * 60 * 1000);
+    const priorityMap: Record<string, string> = {
+      baixa: "low", media: "medium", alta: "high", urgente: "urgent",
+    };
+
+    const [task] = await db.insert(crmTasksTable).values({
+      userId,
+      contactId,
+      dealId: deal?.id ?? null,
+      title: rec.taskTemplate.title,
+      type: rec.taskTemplate.type,
+      priority: priorityMap[rec.priority] || "medium",
+      status: "pending",
+      dueDate,
+      source: "next_step",
+      sourceRef: rec.action,
+    }).returning();
+
+    // Mark recommendation as accepted in history
+    await db.insert(crmNextStepHistoryTable).values({
+      userId, contactId, dealId: deal?.id ?? null,
+      action: rec.action, reason: rec.reason, priority: rec.priority, accepted: true,
+    });
+
+    res.status(201).json({ success: true, task, recommendation: rec });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to accept next step");
+  }
+});
+
+// ─── Next Step: Ignore ────────────────────────────────────────────────────────
+// POST /api/crm/contacts/:id/next-step/ignore
+router.post("/contacts/:id/next-step/ignore", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const contactId = Number(req.params.id);
+    const { reason } = req.body as { reason?: string };
+    await db.insert(crmNextStepHistoryTable).values({
+      userId, contactId,
+      action: "sem_acao_no_momento",
+      reason: reason || "Usuário ignorou a recomendação",
+      priority: "baixa",
+      accepted: false,
+    });
+    res.json({ success: true });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to ignore next step");
+  }
+});
+
+// ─── Alerts: List (with filtering) ───────────────────────────────────────────
+// GET /api/crm/alerts?severity=&type=&includeResolved=false
+router.get("/alerts", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const { severity, type, includeResolved } = req.query as Record<string, string>;
+    const conditions: any[] = [eq(crmAlertsTable.userId, userId)];
+    if (includeResolved !== "true") conditions.push(eq(crmAlertsTable.isResolved, false));
+    if (severity) conditions.push(eq(crmAlertsTable.severity, severity));
+    if (type) conditions.push(eq(crmAlertsTable.type, type));
+
+    const alertsRaw = await db.select({
+      alert: crmAlertsTable,
+      contact: {
+        id: crmContactsTable.id,
+        razaoSocial: crmContactsTable.razaoSocial,
+        cnpj: crmContactsTable.cnpj,
+        status: crmContactsTable.status,
+      },
+    })
+      .from(crmAlertsTable)
+      .leftJoin(crmContactsTable, eq(crmAlertsTable.contactId, crmContactsTable.id))
+      .where(and(...conditions))
+      .orderBy(desc(crmAlertsTable.createdAt))
+      .limit(200);
+
+    const alerts = alertsRaw.map(r => ({
+      ...r.alert,
+      meta: r.alert.type ? getAlertMeta(r.alert.type as any) : null,
+      contact: r.contact,
+    }));
+
+    res.json({ success: true, alerts, total: alerts.length });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to list alerts");
+  }
+});
+
+// ─── Alerts: Resolve ─────────────────────────────────────────────────────────
+// POST /api/crm/alerts/:id/resolve
+router.post("/alerts/:id/resolve", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const [updated] = await db.update(crmAlertsTable)
+      .set({ isResolved: true, resolvedAt: new Date(), resolvedBy: userId })
+      .where(and(eq(crmAlertsTable.id, Number(req.params.id)), eq(crmAlertsTable.userId, userId)))
+      .returning();
+    if (!updated) { apiError(res, 404, "Alert not found"); return; }
+    res.json({ success: true, alert: updated });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to resolve alert");
+  }
+});
+
+// ─── Alerts: Convert to Task ─────────────────────────────────────────────────
+// POST /api/crm/alerts/:id/convert-to-task
+router.post("/alerts/:id/convert-to-task", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const [alert] = await db.select().from(crmAlertsTable)
+      .where(and(eq(crmAlertsTable.id, Number(req.params.id)), eq(crmAlertsTable.userId, userId)));
+    if (!alert) { apiError(res, 404, "Alert not found"); return; }
+
+    const priorityMap: Record<string, string> = {
+      info: "low", warning: "medium", critical: "high",
+    };
+    const [task] = await db.insert(crmTasksTable).values({
+      userId,
+      contactId: alert.contactId,
+      dealId: alert.dealId,
+      title: alert.title,
+      description: alert.description,
+      type: "note",
+      priority: priorityMap[alert.severity] || "medium",
+      status: "pending",
+      dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      source: "automation",
+      sourceRef: `alert:${alert.id}:${alert.type}`,
+    }).returning();
+
+    // Mark alert as resolved
+    await db.update(crmAlertsTable)
+      .set({ isResolved: true, resolvedAt: new Date(), resolvedBy: userId })
+      .where(eq(crmAlertsTable.id, alert.id));
+
+    res.status(201).json({ success: true, task });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to convert alert to task");
+  }
+});
+
+// ─── Alerts: Refresh (re-evaluate and create new ones) ──────────────────────
+// POST /api/crm/alerts/refresh
+router.post("/alerts/refresh", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const [contacts, deals, existingAlerts] = await Promise.all([
+      db.select().from(crmContactsTable).where(eq(crmContactsTable.userId, userId)),
+      db.select().from(crmDealsTable).where(eq(crmDealsTable.userId, userId)),
+      db.select().from(crmAlertsTable).where(and(
+        eq(crmAlertsTable.userId, userId),
+        eq(crmAlertsTable.isResolved, false),
+      )),
+    ]);
+
+    const candidates = evaluateAlerts(contacts as any, deals as any);
+
+    // Dedupe: only create alerts that don't already exist (by type + contactId + dealId)
+    const existingKeys = new Set(existingAlerts.map(a =>
+      `${a.type}:${a.contactId}:${a.dealId ?? ""}`));
+
+    const toInsert = candidates
+      .filter(c => !existingKeys.has(`${c.type}:${c.contactId}:${c.dealId ?? ""}`))
+      .map(c => ({
+        userId,
+        contactId: c.contactId,
+        dealId: c.dealId,
+        type: c.type,
+        severity: getAlertMeta(c.type).severity,
+        title: c.title,
+        description: c.description,
+        context: c.context,
+        isResolved: false,
+      }));
+
+    if (toInsert.length > 0) {
+      await db.insert(crmAlertsTable).values(toInsert);
+    }
+
+    // Fire event-based automations for followup_vencido, sem_atividade, etc.
+    const followupAlerts = candidates.filter(c => c.type === "followup_vencido");
+    const semAtividade7d = candidates.filter(c => c.type === "sem_atividade_7d");
+    const semAtividade14d = candidates.filter(c => c.type === "sem_atividade_14d");
+    const matrizAlerts = candidates.filter(c => c.type === "matriz_acima_prazo");
+    const pendenciaAlerts = candidates.filter(c => c.type === "pendencia_documental_parada");
+    const propostaAlerts = candidates.filter(c => c.type === "proposta_sem_retorno");
+
+    let automationsFired = 0;
+    for (const a of followupAlerts) {
+      if (a.contactId) automationsFired += await evaluateEventAutomations(userId, "followup_vencido", { contactId: a.contactId, dealId: a.dealId ?? undefined });
+    }
+    for (const a of semAtividade7d) {
+      if (a.contactId) automationsFired += await evaluateEventAutomations(userId, "sem_atividade_7d", { contactId: a.contactId, dealId: a.dealId ?? undefined });
+    }
+    for (const a of semAtividade14d) {
+      if (a.contactId) automationsFired += await evaluateEventAutomations(userId, "sem_atividade_14d", { contactId: a.contactId, dealId: a.dealId ?? undefined });
+    }
+    for (const a of matrizAlerts) {
+      if (a.contactId) automationsFired += await evaluateEventAutomations(userId, "matriz_aguardando", { contactId: a.contactId, dealId: a.dealId ?? undefined });
+    }
+    for (const a of pendenciaAlerts) {
+      if (a.contactId) automationsFired += await evaluateEventAutomations(userId, "matriz_pendencia", { contactId: a.contactId, dealId: a.dealId ?? undefined });
+    }
+    for (const a of propostaAlerts) {
+      if (a.contactId) automationsFired += await evaluateEventAutomations(userId, "proposta_sem_retorno_7d", { contactId: a.contactId, dealId: a.dealId ?? undefined });
+    }
+
+    res.json({ success: true, created: toInsert.length, evaluated: candidates.length, automationsFired });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to refresh alerts");
+  }
+});
+
+// ─── Briefing Checklist (Matriz) ─────────────────────────────────────────────
+// GET /api/crm/contacts/:id/briefing-checklist
+router.get("/contacts/:id/briefing-checklist", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const contactId = Number(req.params.id);
+    const [contact] = await db.select().from(crmContactsTable)
+      .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)));
+    if (!contact) { apiError(res, 404, "Contact not found"); return; }
+
+    // Check each field in the checklist
+    const [latestDeal] = await db.select({ resumo: crmDealsTable.resumoDiagnosticoComercial })
+      .from(crmDealsTable)
+      .where(eq(crmDealsTable.contactId, contactId))
+      .orderBy(desc(crmDealsTable.updatedAt))
+      .limit(1);
+
+    const checklist = MATRIZ_BRIEFING_CHECKLIST.map(item => {
+      let value: any = null;
+      let present = false;
+      switch (item.id) {
+        case "razao_social":     value = contact.razaoSocial; present = !!value; break;
+        case "cnpj":             value = contact.cnpj; present = !!value; break;
+        case "regime_tributario": value = contact.regimeTributario; present = !!value; break;
+        case "porte":            value = contact.porte; present = !!value; break;
+        case "setor":            value = contact.setor; present = !!value; break;
+        case "produto_interesse": value = contact.produtoInteresse; present = !!value; break;
+        case "faturamento_estimado": value = contact.faturamentoEstimado; present = !!value; break;
+        case "decisor":          value = contact.nomeDecissor; present = !!value; break;
+        case "contato_decisor":  value = contact.contatoDecisor; present = !!value; break;
+        case "dor_comercial":    value = contact.dorComercialPercebida; present = !!value; break;
+        case "resumo_diagnostico":
+          value = latestDeal?.resumo;
+          present = !!value;
+          break;
+        default: present = false;
+      }
+      return { ...item, present, value };
+    });
+
+    const required = checklist.filter(c => c.required);
+    const missing = required.filter(c => !c.present);
+    const ready = missing.length === 0;
+
+    res.json({
+      success: true,
+      checklist,
+      ready,
+      missingRequired: missing.map(m => m.id),
+      completionPct: Math.round(((required.length - missing.length) / Math.max(1, required.length)) * 100),
+    });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to compute briefing checklist");
+  }
+});
+
+// ─── Priority: Recalculate ──────────────────────────────────────────────────
+// POST /api/crm/contacts/:id/priority/recalculate
+router.post("/contacts/:id/priority/recalculate", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const contactId = Number(req.params.id);
+    const [contact] = await db.select().from(crmContactsTable)
+      .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)));
+    if (!contact) { apiError(res, 404, "Contact not found"); return; }
+
+    const [deal] = await db.select().from(crmDealsTable)
+      .where(and(eq(crmDealsTable.contactId, contactId), eq(crmDealsTable.userId, userId)))
+      .orderBy(desc(crmDealsTable.updatedAt))
+      .limit(1);
+
+    const [hasOpenTask] = await db.select({ id: crmTasksTable.id }).from(crmTasksTable)
+      .where(and(
+        eq(crmTasksTable.contactId, contactId),
+        eq(crmTasksTable.userId, userId),
+        eq(crmTasksTable.status, "pending"),
+      )).limit(1);
+
+    const now = new Date();
+    const daysWithoutActivity = contact.ultimaInteracao
+      ? Math.floor((now.getTime() - new Date(contact.ultimaInteracao).getTime()) / (24 * 60 * 60 * 1000))
+      : 999;
+    const daysSinceFollowupOverdue = contact.proximoFollowup && new Date(contact.proximoFollowup) < now
+      ? Math.floor((now.getTime() - new Date(contact.proximoFollowup).getTime()) / (24 * 60 * 60 * 1000))
+      : 0;
+    const expectedCloseDays = deal?.expectedCloseDate
+      ? Math.floor((new Date(deal.expectedCloseDate).getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+      : null;
+    const isUrgentMatrix = !!(deal && (deal.statusMatriz === "enviado" || deal.statusMatriz === "aguardando")
+      && deal.prazoRetornoMatriz && new Date(deal.prazoRetornoMatriz) < now);
+
+    const result = calculatePriority({
+      aiScore: contact.aiScore,
+      temperatura: contact.temperatura,
+      status: contact.status,
+      dealStage: deal?.stage ?? null,
+      statusMatriz: deal?.statusMatriz ?? null,
+      hasProposal: !!(deal && (deal.statusProposta || deal.statusMatriz === "proposta_liberada")),
+      daysWithoutActivity,
+      daysSinceFollowupOverdue,
+      expectedCloseDays,
+      hasOpenTask: !!hasOpenTask,
+      isUrgentMatrix,
+    });
+
+    // Persist
+    await db.update(crmContactsTable)
+      .set({ prioridadeComercial: result.nivel, updatedAt: new Date() })
+      .where(eq(crmContactsTable.id, contactId));
+
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    apiError(res, 500, "Failed to recalculate priority");
+  }
+});
+
+// ─── Next Step: Re-evaluate for all contacts (used by automations) ──────────
+async function evaluateNextStepsForContact(userId: string, contactId: number) {
+  try {
+    const [contact] = await db.select().from(crmContactsTable)
+      .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)));
+    if (!contact) return;
+
+    const [deal] = await db.select().from(crmDealsTable)
+      .where(and(eq(crmDealsTable.contactId, contactId), eq(crmDealsTable.userId, userId)))
+      .orderBy(desc(crmDealsTable.updatedAt))
+      .limit(1);
+
+    const [hasOpenTask] = await db.select({ id: crmTasksTable.id }).from(crmTasksTable)
+      .where(and(
+        eq(crmTasksTable.contactId, contactId),
+        eq(crmTasksTable.userId, userId),
+        eq(crmTasksTable.status, "pending"),
+      )).limit(1);
+
+    const hasProposal = !!(deal && (
+      deal.statusProposta === "proposta_enviada"
+      || deal.statusProposta === "proposta_pronta"
+      || deal.statusProposta === "proposta_apresentada"
+      || deal.statusProposta === "em_negociacao"
+      || deal.statusMatriz === "proposta_liberada"
+    ));
+
+    const rec = recommendNextStep({
+      contact: {
+        status: contact.status,
+        temperatura: contact.temperatura,
+        proximoFollowup: contact.proximoFollowup,
+        ultimaInteracao: contact.ultimaInteracao,
+        pendenciasCliente: contact.pendenciasCliente,
+        responsavelUnidade: contact.responsavelUnidade,
+      },
+      deal: deal ? {
+        stage: deal.stage,
+        statusMatriz: deal.statusMatriz,
+        statusProposta: deal.statusProposta,
+        briefingMatriz: deal.briefingMatriz,
+        dataEnvioMatriz: deal.dataEnvioMatriz,
+        prazoRetornoMatriz: deal.prazoRetornoMatriz,
+      } : null,
+      hasProposal,
+      hasOpenTasks: !!hasOpenTask,
+    });
+
+    // Persist on contact
+    await db.update(crmContactsTable)
+      .set({ proximoPassoRecomendado: rec as any, updatedAt: new Date() })
+      .where(eq(crmContactsTable.id, contactId));
+  } catch (err) {
+    console.error("[next-step] re-evaluate failed:", err);
+  }
+}
 
 // ─── Segment Analytics ────────────────────────────────────────────────────────
 // GET /api/crm/segments — returns contact/deal stats by business segment
