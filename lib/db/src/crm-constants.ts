@@ -329,3 +329,249 @@ export const PROPOSTA_STATUS_LABELS: Record<PropostaStatus, string> = {
 
 export const DEFAULT_PIPELINE_ID = "tax-group";
 export const DEFAULT_PIPELINE_NAME = "Tax Group";
+
+// ─── Saved View Types ───────────────────────────────────────────────────────
+
+export const SAVED_VIEW_TYPES = ["system", "user"] as const;
+export type SavedViewType = (typeof SAVED_VIEW_TYPES)[number];
+
+// ─── System Views — Tax Group Operational Views ──────────────────────────────
+// These are the predefined views that ship with the CRM for daily operations.
+// Each view defines a set of filter criteria that map to backend query params.
+
+export type SystemViewDefinition = {
+  id: string;
+  name: string;
+  emoji: string;
+  category: "operacional" | "pipeline" | "matriz" | "followup" | "segmento";
+  filters: Record<string, string>;
+  description: string;
+};
+
+export const SYSTEM_VIEWS: SystemViewDefinition[] = [
+  // ── Operacional ──
+  {
+    id: "sv_todos",
+    name: "Todos",
+    emoji: "📋",
+    category: "operacional",
+    filters: {},
+    description: "Todos os contatos",
+  },
+  {
+    id: "sv_leads_novos",
+    name: "Leads Novos",
+    emoji: "🆕",
+    category: "operacional",
+    filters: { status: "nao_iniciado" },
+    description: "Contatos recém-criados, sem ação iniciada",
+  },
+  {
+    id: "sv_nao_iniciado",
+    name: "Não Iniciado",
+    emoji: "⏳",
+    category: "operacional",
+    filters: { status: "nao_iniciado" },
+    description: "Contatos ainda não contatados",
+  },
+  {
+    id: "sv_em_abordagem",
+    name: "Em Abordagem",
+    emoji: "📞",
+    category: "operacional",
+    filters: { status: "em_abordagem" },
+    description: "Contatos sendo contatados agora",
+  },
+  {
+    id: "sv_respondeu",
+    name: "Respondeu",
+    emoji: "💬",
+    category: "operacional",
+    filters: { status: "respondeu" },
+    description: "Contatos que responderam ao primeiro contato",
+  },
+  {
+    id: "sv_reuniao_agendada",
+    name: "Reunião Agendada",
+    emoji: "📅",
+    category: "operacional",
+    filters: { status: "reuniao_agendada" },
+    description: "Reuniões agendadas com leads",
+  },
+  {
+    id: "sv_qualificados",
+    name: "Qualificados",
+    emoji: "✅",
+    category: "operacional",
+    filters: { status: "qualificado" },
+    description: "Leads qualificados pela IA ou pelo time",
+  },
+  {
+    id: "sv_sem_resposta",
+    name: "Sem Resposta",
+    emoji: "🔴",
+    category: "operacional",
+    filters: { status: "sem_resposta" },
+    description: "Contatos que não responderam",
+  },
+  {
+    id: "sv_ganhos",
+    name: "Ganhos",
+    emoji: "🏆",
+    category: "operacional",
+    filters: { status: "cliente" },
+    description: "Contatos que viraram clientes",
+  },
+  {
+    id: "sv_perdidos",
+    name: "Perdidos",
+    emoji: "❌",
+    category: "operacional",
+    filters: { status: "perdido" },
+    description: "Contatos perdidos",
+  },
+  {
+    id: "sv_standby",
+    name: "Stand By",
+    emoji: "⏸️",
+    category: "operacional",
+    filters: { status: "stand_by" },
+    description: "Contatos em espera",
+  },
+  {
+    id: "sv_reciclar",
+    name: "Reciclar Depois",
+    emoji: "♻️",
+    category: "operacional",
+    filters: { status: "reciclar_depois" },
+    description: "Contatos para recontatar no futuro",
+  },
+
+  // ── Pipeline ──
+  {
+    id: "sv_propostas_abertas",
+    name: "Propostas Abertas",
+    emoji: "📄",
+    category: "pipeline",
+    filters: { status: "proposta_enviada" },
+    description: "Propostas enviadas aguardando retorno",
+  },
+  {
+    id: "sv_em_negociacao",
+    name: "Em Negociação",
+    emoji: "🤝",
+    category: "pipeline",
+    filters: { status: "em_negociacao" },
+    description: "Negociações em andamento",
+  },
+  {
+    id: "sv_negociacoes_criticas",
+    name: "Negociações Críticas",
+    emoji: "🔥",
+    category: "pipeline",
+    filters: { status: "em_negociacao", scoreMin: "70" },
+    description: "Negociações com alto score de prioridade",
+  },
+
+  // ── Matriz ──
+  {
+    id: "sv_enviado_matriz",
+    name: "Enviado p/ Matriz",
+    emoji: "📤",
+    category: "matriz",
+    filters: { statusMatriz: "enviado" },
+    description: "Propostas enviadas para a Matriz",
+  },
+  {
+    id: "sv_aguardando_matriz",
+    name: "Aguardando Matriz",
+    emoji: "⏳",
+    category: "matriz",
+    filters: { statusMatriz: "aguardando" },
+    description: "Aguardando retorno da Matriz",
+  },
+  {
+    id: "sv_pendencia_documental",
+    name: "Pendência Documental",
+    emoji: "📑",
+    category: "matriz",
+    filters: { statusMatriz: "pendencia_documental" },
+    description: "Documentos pendentes na Matriz",
+  },
+  {
+    id: "sv_retorno_recebido",
+    name: "Retorno Recebido",
+    emoji: "📥",
+    category: "matriz",
+    filters: { statusMatriz: "retorno_recebido" },
+    description: "Retorno recebido da Matriz",
+  },
+  {
+    id: "sv_proposta_liberada",
+    name: "Proposta Liberada",
+    emoji: "✅",
+    category: "matriz",
+    filters: { statusMatriz: "proposta_liberada" },
+    description: "Propostas liberadas pela Matriz",
+  },
+
+  // ── Follow-up ──
+  {
+    id: "sv_followup_vencidos",
+    name: "Follow-ups Vencidos",
+    emoji: "⏰",
+    category: "followup",
+    filters: { followupVencido: "true" },
+    description: "Contatos com follow-up atrasado",
+  },
+  {
+    id: "sv_sem_atividade_7d",
+    name: "Sem Atividade 7 dias",
+    emoji: "📉",
+    category: "followup",
+    filters: { semAtividadeDias: "7" },
+    description: "Contatos sem interação há 7+ dias",
+  },
+  {
+    id: "sv_sem_atividade_14d",
+    name: "Sem Atividade 14 dias",
+    emoji: "📉",
+    category: "followup",
+    filters: { semAtividadeDias: "14" },
+    description: "Contatos sem interação há 14+ dias",
+  },
+
+  // ── Segmento (examples) ──
+  {
+    id: "sv_leads_quentes",
+    name: "Leads Quentes",
+    emoji: "🔥",
+    category: "segmento",
+    filters: { scoreMin: "70" },
+    description: "Leads com score IA >= 70",
+  },
+  {
+    id: "sv_onboarding",
+    name: "Onboarding",
+    emoji: "🚀",
+    category: "pipeline",
+    filters: { status: "enviado_matriz" },
+    description: "Contatos em processo de onboarding",
+  },
+  {
+    id: "sv_pos_venda",
+    name: "Pós-Venda / Expansão",
+    emoji: "🔄",
+    category: "operacional",
+    filters: { status: "stand_by" },
+    description: "Clientes para expansão de carteira",
+  },
+];
+
+export const SYSTEM_VIEW_CATEGORIES = [
+  { id: "operacional", label: "Operacional", color: "#3B82F6" },
+  { id: "pipeline", label: "Pipeline", color: "#8B5CF6" },
+  { id: "matriz", label: "Matriz", color: "#F97316" },
+  { id: "followup", label: "Follow-up", color: "#EF4444" },
+  { id: "segmento", label: "Segmento", color: "#10B981" },
+] as const;

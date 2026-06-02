@@ -189,13 +189,16 @@ export const insertCrmTaskSchema = createInsertSchema(crmTasksTable).omit({ id: 
 export type CrmTask = typeof crmTasksTable.$inferSelect;
 export type InsertCrmTask = z.infer<typeof insertCrmTaskSchema>;
 
-// ─── Saved Views (Phase 4) ────────────────────────────────────────────────────
+// ─── Saved Views (Phase 2+) ──────────────────────────────────────────────────
 export const crmSavedViewsTable = pgTable("crm_saved_views", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
   name: text("name").notNull(),
   emoji: text("emoji").default("📋"),
   filters: jsonb("filters").$type<Record<string, any>>().notNull().default({}),
+  type: text("type").notNull().default("user"), // 'system' | 'user'
+  isSystem: boolean("is_system").default(false),
+  category: text("category"), // 'operacional' | 'pipeline' | 'matriz' | 'followup' | 'segmento'
   isDefault: boolean("is_default").default(false),
   sortField: text("sort_field"),
   sortDir: text("sort_dir"),
