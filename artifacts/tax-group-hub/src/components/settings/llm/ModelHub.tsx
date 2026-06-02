@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, Plus, RefreshCw, Loader2, Wifi, AlertTriangle,
@@ -15,14 +16,25 @@ import { ProfileMatrix } from "./ProfileMatrix";
 import { ConnectionWizardV2 } from "./ConnectionWizardV2";
 import EditConnectionModal from "./EditConnectionModal";
 import type { ProviderMeta, LlmConnection, LlmProfile, DiagnosticResult, HealthCheckResult } from "./types";
+import {
+  useListLlmProviders,
+  useListLlmConnections,
+  useListLlmProfiles,
+  useLlmHealthCheck,
+  useCreateLlmProfile,
+  useActivateLlmConnection,
+  useDeleteLlmConnection,
+  useActivateLlmProfile,
+  useDeleteLlmProfile,
+  getListLlmProvidersQueryKey,
+  getListLlmConnectionsQueryKey,
+  getListLlmProfilesQueryKey,
+} from "@workspace/api-client-react";
 
 export default function ModelHub() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const [providers, setProviders] = useState<ProviderMeta[]>([]);
-  const [connections, setConnections] = useState<LlmConnection[]>([]);
-  const [profiles, setProfiles] = useState<LlmProfile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<ProviderMeta | null>(null);
   const [activeTab, setActiveTab] = useState<"connections" | "profiles">("connections");
   const [showWizard, setShowWizard] = useState(false);
@@ -30,33 +42,103 @@ export default function ModelHub() {
   const [editingConnection, setEditingConnection] = useState<LlmConnection | null>(null);
   const [testingId, setTestingId] = useState<number | null>(null);
   const [healthResults, setHealthResults] = useState<HealthCheckResult[]>([]);
-  const [healthLoading, setHealthLoading] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
   const [diagnosticsMap, setDiagnosticsMap] = useState<Map<number, { results: DiagnosticResult[]; overall: string }>>(new Map());
   const [diagConnection, setDiagConnection] = useState<LlmConnection | null>(null);
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [pRes, cRes, prRes] = await Promise.all([
-        fetch("/api/llm/providers"),
-        fetch("/api/llm/connections"),
-        fetch("/api/llm/profiles"),
-      ]);
-      const pData = await pRes.json();
-      const cData = await cRes.json();
-      const prData = await prRes.json();
-      setProviders(pData.providers || []);
-      setConnections(cData.connections || []);
-      setProfiles(prData.profiles || []);
-    } catch {
-      toast({ title: "Erro ao carregar configurações", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+  const { data: providersData, isLoading: loadingProviders } = useListLlmProviders();
+  const { data: connectionsData, isLoading: loadingConnections } = useListLlmConnections();
+  const { data: profilesData, isLoading: loadingProfiles } = useListLlmProfiles();
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  const providers: ProviderMeta[] = (providersData?.providers as ProviderMeta[]) || [];
+  const connections: LlmConnection[] = (connectionsData?.connections as unknown as LlmConnection[]) || [];
+  const profiles: LlmProfile[] = (profilesData?.profiles as unknown as LlmProfile[]) || [];
+  const loading = loadingProviders || loadingConnections || loadingProfiles;
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: getListLlmProvidersQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListLlmConnectionsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListLlmProfilesQueryKey() });
+  };
+
+  const healthCheckMutate = useLlmHealthCheck({
+    mutation: {
+      onSuccess: (data) => {
+        const results = (data as any).results || [];
+        setHealthResults(results);
+        const newMap = new Map(diagnosticsMap);
+        (results as HealthCheckResult[]).forEach((r) => {
+          if (r.diagnostics) newMap.set(r.connectionId, r.diagnostics);
+        });
+        setDiagnosticsMap(newMap);
+        const okCount = results.filter((r: HealthCheckResult) => !r.error && r.diagnostics?.overall === "ok").length;
+        toast({ title: `Health check: ${okCount} OK, ${results.length - okCount} erro(s)` });
+      },
+      onError: () => {
+        toast({ title: "Erro no health check", variant: "destructive" });
+      },
+    },
+  });
+
+  const createProfileMutate = useCreateLlmProfile({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Perfil criado" });
+        invalidateAll();
+      },
+      onError: () => {
+        toast({ title: "Erro ao criar perfil", variant: "destructive" });
+      },
+    },
+  });
+
+  const activateConnMutate = useActivateLlmConnection({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Conexão ativada como padrão" });
+        invalidateAll();
+      },
+      onError: () => {
+        toast({ title: "Erro ao ativar", variant: "destructive" });
+      },
+    },
+  });
+
+  const deleteConnMutate = useDeleteLlmConnection({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Conexão removida" });
+        invalidateAll();
+      },
+      onError: () => {
+        toast({ title: "Erro ao remover", variant: "destructive" });
+      },
+    },
+  });
+
+  const activateProfileMutate = useActivateLlmProfile({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Perfil ativado" });
+        invalidateAll();
+      },
+      onError: () => {
+        toast({ title: "Erro ao ativar perfil", variant: "destructive" });
+      },
+    },
+  });
+
+  const deleteProfileMutate = useDeleteLlmProfile({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Perfil removido" });
+        invalidateAll();
+      },
+      onError: () => {
+        toast({ title: "Erro ao remover perfil", variant: "destructive" });
+      },
+    },
+  });
 
   const handleTest = async (conn: LlmConnection) => {
     setTestingId(conn.id);
@@ -78,82 +160,31 @@ export default function ModelHub() {
     }
   };
 
-  const handleActivate = async (conn: LlmConnection) => {
-    try {
-      await fetch(`/api/llm/connections/${conn.id}/activate`, { method: "POST" });
-      toast({ title: "Conexão ativada como padrão" });
-      fetchAll();
-    } catch {
-      toast({ title: "Erro ao ativar", variant: "destructive" });
-    }
+  const handleActivate = (conn: LlmConnection) => {
+    activateConnMutate.mutate({ id: conn.id });
   };
 
-  const handleDelete = async (conn: LlmConnection) => {
+  const handleDelete = (conn: LlmConnection) => {
     if (!window.confirm(`Remover conexão "${conn.name}"?`)) return;
-    try {
-      await fetch(`/api/llm/connections/${conn.id}`, { method: "DELETE" });
-      toast({ title: "Conexão removida" });
-      fetchAll();
-    } catch {
-      toast({ title: "Erro ao remover", variant: "destructive" });
-    }
+    deleteConnMutate.mutate({ id: conn.id });
   };
 
-  const handleHealthCheck = async () => {
-    setHealthLoading(true);
+  const handleHealthCheck = () => {
     setShowHealth(true);
-    try {
-      const res = await fetch("/api/llm/health-check", { method: "POST" });
-      const data = await res.json();
-      setHealthResults(data.results || []);
-      // Also update diagnostics map
-      const newMap = new Map(diagnosticsMap);
-      (data.results || []).forEach((r: HealthCheckResult) => {
-        if (r.diagnostics) newMap.set(r.connectionId, r.diagnostics);
-      });
-      setDiagnosticsMap(newMap);
-      const okCount = (data.results || []).filter((r: HealthCheckResult) => !r.error && r.diagnostics?.overall === "ok").length;
-      toast({ title: `Health check: ${okCount} OK, ${data.results.length - okCount} erro(s)` });
-    } catch {
-      toast({ title: "Erro no health check", variant: "destructive" });
-    } finally {
-      setHealthLoading(false);
-    }
+    healthCheckMutate.mutate();
   };
 
-  const handleProfileCreate = async (profile: Omit<LlmProfile, "id" | "userId" | "createdAt" | "updatedAt">) => {
-    try {
-      await fetch("/api/llm/profiles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
-      });
-      toast({ title: "Perfil criado" });
-      fetchAll();
-    } catch {
-      toast({ title: "Erro ao criar perfil", variant: "destructive" });
-    }
+  const handleProfileCreate = (profile: Omit<LlmProfile, "id" | "userId" | "createdAt" | "updatedAt">) => {
+    createProfileMutate.mutate({ data: profile as any });
   };
 
-  const handleProfileActivate = async (id: number) => {
-    try {
-      await fetch(`/api/llm/profiles/${id}/activate`, { method: "POST" });
-      toast({ title: "Perfil ativado" });
-      fetchAll();
-    } catch {
-      toast({ title: "Erro ao ativar perfil", variant: "destructive" });
-    }
+  const handleProfileActivate = (id: number) => {
+    activateProfileMutate.mutate({ id });
   };
 
-  const handleProfileDelete = async (id: number) => {
+  const handleProfileDelete = (id: number) => {
     if (!window.confirm("Remover perfil? Esta ação não pode ser desfeita.")) return;
-    try {
-      await fetch(`/api/llm/profiles/${id}`, { method: "DELETE" });
-      toast({ title: "Perfil removido" });
-      fetchAll();
-    } catch {
-      toast({ title: "Erro ao remover perfil", variant: "destructive" });
-    }
+    deleteProfileMutate.mutate({ id });
   };
 
   // Stats
@@ -185,8 +216,8 @@ export default function ModelHub() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={handleHealthCheck}>
-              <BarChart3 className="w-3.5 h-3.5" />Health Check
+            <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={handleHealthCheck} disabled={healthCheckMutate.isPending}>
+              <BarChart3 className="w-3.5 h-3.5" />{healthCheckMutate.isPending ? "Verificando..." : "Health Check"}
             </Button>
             <Button size="sm" className="h-8 gap-1 text-xs" onClick={() => { setWizardProviderId(undefined); setShowWizard(true); }}>
               <Plus className="w-3.5 h-3.5" />Nova conexão
@@ -231,7 +262,7 @@ export default function ModelHub() {
           {showHealth && (
             <HealthCheckPanel
               results={healthResults}
-              loading={healthLoading}
+              loading={healthCheckMutate.isPending}
               onRun={handleHealthCheck}
               onClose={() => setShowHealth(false)}
             />
@@ -276,7 +307,6 @@ export default function ModelHub() {
                 onEdit={setEditingConnection}
                 onShowDiagnostics={(conn) => {
                   setDiagConnection(conn);
-                  // Ensure we have diagnostics
                   if (!diagnosticsMap.has(conn.id)) {
                     handleTest(conn);
                   }
@@ -309,7 +339,7 @@ export default function ModelHub() {
             providers={providers}
             initialProviderId={wizardProviderId}
             onClose={() => setShowWizard(false)}
-            onCreated={fetchAll}
+            onCreated={invalidateAll}
           />
         )}
       </AnimatePresence>
@@ -319,7 +349,7 @@ export default function ModelHub() {
           connection={editingConnection}
           providers={providers}
           onClose={() => setEditingConnection(null)}
-          onSaved={fetchAll}
+          onSaved={invalidateAll}
         />
       )}
 

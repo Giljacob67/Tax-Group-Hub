@@ -4,6 +4,7 @@ import { X, Wifi, Loader2, CheckCircle2, Eye, EyeOff, Save } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { LlmConnection, ProviderMeta } from "./types";
+import { useDiscoverLlmModels, useUpdateLlmConnection } from "@workspace/api-client-react";
 
 interface Props {
   connection: LlmConnection;
@@ -34,7 +35,9 @@ export default function EditConnectionModal({ connection, providers, onClose, on
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  // Pre-select current model if discovered
+  const discoverMutate = useDiscoverLlmModels();
+  const updateConnMutate = useUpdateLlmConnection();
+
   useEffect(() => {
     if (models.length && connection.modelId) {
       const current = models.find((m) => m.id === connection.modelId);
@@ -48,21 +51,18 @@ export default function EditConnectionModal({ connection, providers, onClose, on
     setDiscoverError("");
     setModels([]);
     try {
-      const r = await fetch("/api/llm/discover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await discoverMutate.mutateAsync({
+        data: {
           provider: provider.id,
           apiKey: apiKey.trim() || "x",
           baseUrl: provider.needsBaseUrl ? baseUrl : undefined,
-        }),
+        },
       });
-      const data = await r.json();
-      if (data.success) {
-        setModels(data.models);
-        if (data.models.length === 0) setDiscoverError("Nenhum modelo encontrado.");
+      if ((data as any).success) {
+        setModels((data as any).models);
+        if ((data as any).models.length === 0) setDiscoverError("Nenhum modelo encontrado.");
       } else {
-        setDiscoverError(data.error || "Falha na descoberta");
+        setDiscoverError((data as any).error || "Falha na descoberta");
       }
     } catch {
       setDiscoverError("Erro de rede");
@@ -88,12 +88,10 @@ export default function EditConnectionModal({ connection, providers, onClose, on
       if (baseUrl !== (connection.baseUrl || "")) body.baseUrl = baseUrl || null;
       if (apiKey.trim()) body.apiKey = apiKey.trim();
 
-      const r = await fetch(`/api/llm/connections/${connection.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      await updateConnMutate.mutateAsync({
+        id: connection.id,
+        data: body,
       });
-      if (!r.ok) throw new Error();
       onSaved();
       onClose();
     } catch {

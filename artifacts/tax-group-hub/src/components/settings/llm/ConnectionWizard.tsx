@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ProviderMeta, DiscoveredModel, UsageType } from "./types";
 import { USAGE_TYPES } from "./types";
+import { useDiscoverLlmModels, useCreateLlmConnection } from "@workspace/api-client-react";
 
 interface Props {
   providers: ProviderMeta[];
@@ -27,8 +28,9 @@ export default function ConnectionWizard({ providers, onClose, onCreated }: Prop
   const [selectedModel, setSelectedModel] = useState<DiscoveredModel | null>(null);
   const [usageType, setUsageType] = useState<UsageType>("chat");
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testOk, setTestOk] = useState(false);
+
+  const discoverMutate = useDiscoverLlmModels();
+  const createConnMutate = useCreateLlmConnection();
 
   async function handleDiscover() {
     if (!provider) return;
@@ -36,21 +38,18 @@ export default function ConnectionWizard({ providers, onClose, onCreated }: Prop
     setDiscoverError("");
     setModels([]);
     try {
-      const r = await fetch("/api/llm/discover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await discoverMutate.mutateAsync({
+        data: {
           provider: provider.id,
           apiKey,
           baseUrl: provider.needsBaseUrl ? baseUrl : undefined,
-        }),
+        },
       });
-      const data = await r.json();
-      if (data.success) {
-        setModels(data.models);
-        if (data.models.length === 0) setDiscoverError("Nenhum modelo encontrado.");
+      if ((data as any).success) {
+        setModels((data as any).models);
+        if ((data as any).models.length === 0) setDiscoverError("Nenhum modelo encontrado.");
       } else {
-        setDiscoverError(data.error || "Falha na descoberta");
+        setDiscoverError((data as any).error || "Falha na descoberta");
       }
     } catch {
       setDiscoverError("Erro de rede");
@@ -63,13 +62,11 @@ export default function ConnectionWizard({ providers, onClose, onCreated }: Prop
     if (!provider || !selectedModel) return;
     setSaving(true);
     try {
-      const r = await fetch("/api/llm/connections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await createConnMutate.mutateAsync({
+        data: {
           name: `${provider.name} — ${selectedModel.name}`,
           provider: provider.id,
-          baseUrl: provider.needsBaseUrl ? baseUrl : null,
+          baseUrl: provider.needsBaseUrl ? baseUrl : undefined,
           apiKey,
           modelId: selectedModel.id,
           modelName: selectedModel.name,
@@ -82,9 +79,8 @@ export default function ConnectionWizard({ providers, onClose, onCreated }: Prop
           priceOutput: selectedModel.priceOutput,
           providerMetadata: selectedModel.providerMetadata,
           usageType,
-        }),
+        } as any,
       });
-      if (!r.ok) throw new Error();
       onCreated();
     } catch {
       setDiscoverError("Erro ao salvar conexão");

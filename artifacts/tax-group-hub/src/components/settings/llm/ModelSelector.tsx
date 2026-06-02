@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Check, ChevronDown, Cpu, Wifi, WifiOff, AlertCircle } from "lucide-react";
 import {
   Command,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import type { LlmConnection } from "./types";
+import { useListLlmConnections } from "@workspace/api-client-react";
 
 interface Props {
   value?: number | null;
@@ -24,18 +25,9 @@ interface Props {
 
 export default function ModelSelector({ value, onChange, placeholder = "Selecionar modelo..." }: Props) {
   const [open, setOpen] = useState(false);
-  const [connections, setConnections] = useState<LlmConnection[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch("/api/llm/connections")
-      .then((r) => r.json())
-      .then((d) => {
-        setConnections(d.connections || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useListLlmConnections();
+  const connections: LlmConnection[] = (data?.connections as unknown as LlmConnection[]) || [];
 
   const selected = connections.find((c) => c.id === value);
 

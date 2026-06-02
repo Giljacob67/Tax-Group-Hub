@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { LlmProfile, LlmConnection } from "./types";
+import {
+  useCreateLlmProfile,
+  useActivateLlmProfile,
+  useDeleteLlmProfile,
+} from "@workspace/api-client-react";
 
 interface Props {
   profiles: LlmProfile[];
@@ -26,58 +31,54 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", description: "" });
   const [assignments, setAssignments] = useState<Record<string, number | undefined>>({});
-  const [saving, setSaving] = useState(false);
-  const [activatingId, setActivatingId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const connectionOptions = connections.filter((c) => c.lastTestStatus === "ok" || c.lastTestStatus === "untested");
 
+  const createProfileMutate = useCreateLlmProfile({
+    mutation: {
+      onSuccess: () => {
+        setCreating(false);
+        setForm({ name: "", description: "" });
+        setAssignments({});
+        onRefresh();
+      },
+    },
+  });
+
+  const activateProfileMutate = useActivateLlmProfile({
+    mutation: {
+      onSuccess: () => {
+        onRefresh();
+      },
+    },
+  });
+
+  const deleteProfileMutate = useDeleteLlmProfile({
+    mutation: {
+      onSuccess: () => {
+        onRefresh();
+      },
+    },
+  });
+
   async function handleCreate() {
     if (!form.name.trim()) return;
-    setSaving(true);
-    try {
-      const body: Record<string, any> = {
-        name: form.name.trim(),
-        description: form.description || null,
-      };
-      Object.entries(assignments).forEach(([key, val]) => {
-        body[key] = val;
-      });
-      const r = await fetch("/api/llm/profiles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) throw new Error();
-      setCreating(false);
-      setForm({ name: "", description: "" });
-      setAssignments({});
-      onRefresh();
-    } catch {
-      // toast handled by parent or silent
-    } finally {
-      setSaving(false);
-    }
+    const body: Record<string, any> = {
+      name: form.name.trim(),
+      description: form.description || null,
+    };
+    Object.entries(assignments).forEach(([key, val]) => {
+      body[key] = val;
+    });
+    createProfileMutate.mutate({ data: body as any });
   }
 
-  async function handleActivate(id: number) {
-    setActivatingId(id);
-    try {
-      await fetch(`/api/llm/profiles/${id}/activate`, { method: "POST" });
-      onRefresh();
-    } finally {
-      setActivatingId(null);
-    }
+  function handleActivate(id: number) {
+    activateProfileMutate.mutate({ id });
   }
 
-  async function handleDelete(id: number) {
-    setDeletingId(id);
-    try {
-      await fetch(`/api/llm/profiles/${id}`, { method: "DELETE" });
-      onRefresh();
-    } finally {
-      setDeletingId(null);
-    }
+  function handleDelete(id: number) {
+    deleteProfileMutate.mutate({ id });
   }
 
   return (
@@ -147,8 +148,8 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
                 <Button size="sm" variant="outline" onClick={() => setCreating(false)}>
                   Cancelar
                 </Button>
-                <Button size="sm" onClick={handleCreate} disabled={saving || !form.name.trim()}>
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+                <Button size="sm" onClick={handleCreate} disabled={createProfileMutate.isPending || !form.name.trim()}>
+                  {createProfileMutate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
                   Salvar Perfil
                 </Button>
               </div>
@@ -201,9 +202,9 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
                   size="sm"
                   className="h-7 text-[11px] px-2.5"
                   onClick={() => handleActivate(profile.id)}
-                  disabled={activatingId === profile.id}
+                  disabled={activateProfileMutate.isPending}
                 >
-                  {activatingId === profile.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                  {activateProfileMutate.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
                   Ativar
                 </Button>
               )}
@@ -212,9 +213,9 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
                 size="sm"
                 className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400"
                 onClick={() => handleDelete(profile.id)}
-                disabled={deletingId === profile.id}
+                disabled={deleteProfileMutate.isPending}
               >
-                {deletingId === profile.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                {deleteProfileMutate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
               </Button>
             </div>
           </div>

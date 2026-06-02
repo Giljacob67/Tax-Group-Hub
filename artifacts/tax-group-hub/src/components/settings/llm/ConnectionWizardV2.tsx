@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import type { ProviderMeta, DiscoveredModel, DiagnosticResult, WizardStep, WIZARD_STEPS } from "./types";
+import {
+  useValidateLlmCredentials,
+  useDiscoverLlmModels,
+  useCreateLlmConnection,
+  useTestLlmConnection,
+  useDeleteLlmConnection,
+} from "@workspace/api-client-react";
 
 interface ConnectionWizardV2Props {
   providers: ProviderMeta[];
@@ -46,6 +53,12 @@ export function ConnectionWizardV2({ providers, initialProviderId, onClose, onCr
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string; latencyMs?: number } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const validateMutate = useValidateLlmCredentials();
+  const discoverMutate = useDiscoverLlmModels();
+  const createConnMutate = useCreateLlmConnection();
+  const testConnMutate = useTestLlmConnection();
+  const deleteConnMutate = useDeleteLlmConnection();
+
   const canAdvance = () => {
     if (step === 1) return !!selectedProvider;
     if (step === 2) {
@@ -65,13 +78,10 @@ export function ConnectionWizardV2({ providers, initialProviderId, onClose, onCr
     setValidating(true);
     setValidationResults(null);
     try {
-      const res = await fetch("/api/llm/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: selectedProvider.id, apiKey, baseUrl: baseUrl || undefined }),
+      const data = await validateMutate.mutateAsync({
+        data: { provider: selectedProvider.id, apiKey, baseUrl: baseUrl || undefined },
       });
-      const data = await res.json();
-      setValidationResults(data.results || []);
+      setValidationResults((data as any).results || []);
     } catch (err: any) {
       setValidationResults([{ ok: false, stage: "auth", latencyMs: 0, message: err.message, userMessage: "Erro de rede ao validar credenciais." }]);
     } finally {
@@ -83,13 +93,10 @@ export function ConnectionWizardV2({ providers, initialProviderId, onClose, onCr
     if (!selectedProvider) return;
     setDiscovering(true);
     try {
-      const res = await fetch("/api/llm/discover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: selectedProvider.id, apiKey, baseUrl: baseUrl || undefined }),
+      const data = await discoverMutate.mutateAsync({
+        data: { provider: selectedProvider.id, apiKey, baseUrl: baseUrl || undefined },
       });
-      const data = await res.json();
-      setDiscoveredModels(data.models || []);
+      setDiscoveredModels((data as any).models || []);
     } catch {
       setDiscoveredModels([]);
     } finally {
@@ -102,11 +109,8 @@ export function ConnectionWizardV2({ providers, initialProviderId, onClose, onCr
     setTesting(true);
     setTestResult(null);
     try {
-      // Create temporary connection for testing
-      const createRes = await fetch("/api/llm/connections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const createResult = await createConnMutate.mutateAsync({
+        data: {
           provider: selectedProvider.id,
           apiKey,
           baseUrl: baseUrl || undefined,
@@ -117,18 +121,13 @@ export function ConnectionWizardV2({ providers, initialProviderId, onClose, onCr
           supportsTools: selectedModel.supportsTools,
           supportsJson: selectedModel.supportsJson,
           contextWindow: selectedModel.contextWindow,
-          isActive: false,
-        }),
+        } as any,
       });
-      const createData = await createRes.json();
-      const connId = createData.connection?.id;
+      const connId = (createResult as any).connection?.id;
       if (!connId) throw new Error("Falha ao criar conexão de teste");
 
-      const testRes = await fetch(`/api/llm/connections/${connId}/test`, { method: "POST" });
-      const testData = await testRes.json();
-
-      // Delete test connection
-      await fetch(`/api/llm/connections/${connId}`, { method: "DELETE" });
+      const testData = await testConnMutate.mutateAsync({ id: connId });
+      await deleteConnMutate.mutateAsync({ id: connId });
 
       setTestResult({
         ok: testData.ok,
@@ -146,10 +145,8 @@ export function ConnectionWizardV2({ providers, initialProviderId, onClose, onCr
     if (!selectedProvider || !selectedModel) return;
     setSaving(true);
     try {
-      await fetch("/api/llm/connections", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await createConnMutate.mutateAsync({
+        data: {
           provider: selectedProvider.id,
           apiKey,
           baseUrl: baseUrl || undefined,
@@ -160,7 +157,7 @@ export function ConnectionWizardV2({ providers, initialProviderId, onClose, onCr
           supportsTools: selectedModel.supportsTools,
           supportsJson: selectedModel.supportsJson,
           contextWindow: selectedModel.contextWindow,
-        }),
+        },
       });
       onCreated();
       onClose();
