@@ -81,6 +81,10 @@ import AlertsPanel from "@/components/crm/AlertsPanel";
 import NextStepCard from "@/components/crm/NextStepCard";
 import BriefingChecklist from "@/components/crm/BriefingChecklist";
 import { CompanyAvatar } from "@/components/crm/CompanyAvatar";
+import DataQualityPanel from "@/components/crm/DataQualityPanel";
+import AuditLogPanel from "@/components/crm/AuditLogPanel";
+import RolesAdminPanel from "@/components/crm/RolesAdminPanel";
+import QueuesPanel from "@/components/crm/QueuesPanel";
 import {
   CONTACT_STATUSES, CONTACT_STATUS_LABELS, CONTACT_STATUS_COLORS,
   DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_STAGE_COLORS,
@@ -370,6 +374,10 @@ export default function CRMPage() {
                 <TabsTrigger value="timeline" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Atividades</TabsTrigger>
                 <TabsTrigger value="alerts" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Alertas</TabsTrigger>
                 <TabsTrigger value="automations" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Automações</TabsTrigger>
+                <TabsTrigger value="queues" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Filas</TabsTrigger>
+                <TabsTrigger value="quality" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Qualidade</TabsTrigger>
+                <TabsTrigger value="audit" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Governança</TabsTrigger>
+                <TabsTrigger value="roles" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Usuários</TabsTrigger>
                 <TabsTrigger value="dashboard" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Resumo</TabsTrigger>
               </TabsList>
             </div>
@@ -402,6 +410,18 @@ export default function CRMPage() {
           </TabsContent>
           <TabsContent value="automations" className="h-full m-0 p-6 overflow-y-auto max-w-4xl mx-auto">
             <AutomationsPanel />
+          </TabsContent>
+          <TabsContent value="queues" className="h-full m-0 p-6 overflow-hidden">
+            <QueuesPanel />
+          </TabsContent>
+          <TabsContent value="quality" className="h-full m-0 p-6 overflow-hidden">
+            <DataQualityPanel />
+          </TabsContent>
+          <TabsContent value="audit" className="h-full m-0 p-6 overflow-hidden">
+            <AuditLogPanel />
+          </TabsContent>
+          <TabsContent value="roles" className="h-full m-0 p-6 overflow-hidden">
+            <RolesAdminPanel />
           </TabsContent>
           <TabsContent value="dashboard" className="h-full m-0 p-6 overflow-y-auto">
             <Suspense fallback={
