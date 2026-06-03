@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
+import { Can } from "@/components/can";
 import {
   useListCrmAutomations,
   useCreateCrmAutomation,
@@ -189,10 +190,12 @@ export default function AutomationsPanel() {
             Regras SE → ENTÃO que disparam automaticamente no CRM.
           </p>
         </div>
+        <Can permission="canManageAutomations">
         <Button onClick={() => setShowForm(v => !v)} variant="outline" size="sm" className="gap-2">
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           {showForm ? "Cancelar" : "Nova Regra"}
         </Button>
+        </Can>
       </CardHeader>
 
       <CardContent className="p-4 flex-1 overflow-y-auto">
@@ -397,6 +400,7 @@ export default function AutomationsPanel() {
                       onCheckedChange={checked => toggleMutation.mutate({ id: auto.id, isActive: checked })}
                     />
                   </div>
+                  <Can permission="canManageAutomations">
                   <Button
                     variant="ghost" size="icon"
                     className="text-muted-foreground hover:text-destructive h-8 w-8"
@@ -409,6 +413,7 @@ export default function AutomationsPanel() {
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
+                  </Can>
                 </div>
               </div>
             ))}

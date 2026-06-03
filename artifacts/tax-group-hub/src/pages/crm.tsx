@@ -71,7 +71,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-const CRMDashboard = lazy(() => import("@/components/crm/CRMDashboard"));
+const CRMDashboard = lazy(() => import("@/components/crm/PersonaDashboard"));
 import TasksPanel from "@/components/crm/TasksPanel";
 import GlobalTimeline from "@/components/crm/GlobalTimeline";
 import AutomationsPanel from "@/components/crm/AutomationsPanel";
@@ -85,6 +85,8 @@ import DataQualityPanel from "@/components/crm/DataQualityPanel";
 import AuditLogPanel from "@/components/crm/AuditLogPanel";
 import RolesAdminPanel from "@/components/crm/RolesAdminPanel";
 import QueuesPanel from "@/components/crm/QueuesPanel";
+import PersonaDashboard from "@/components/crm/PersonaDashboard";
+import { Can } from "@/components/can";
 import {
   CONTACT_STATUSES, CONTACT_STATUS_LABELS, CONTACT_STATUS_COLORS,
   DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_STAGE_COLORS,
@@ -375,19 +377,27 @@ export default function CRMPage() {
                 <TabsTrigger value="alerts" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Alertas</TabsTrigger>
                 <TabsTrigger value="automations" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Automações</TabsTrigger>
                 <TabsTrigger value="queues" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Filas</TabsTrigger>
+                <Can permission="canViewDashboards">
                 <TabsTrigger value="quality" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Qualidade</TabsTrigger>
+                </Can>
+                <Can permission="canViewAudit">
                 <TabsTrigger value="audit" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Governança</TabsTrigger>
+                </Can>
+                <Can permission="canManageUsers">
                 <TabsTrigger value="roles" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Usuários</TabsTrigger>
-                <TabsTrigger value="dashboard" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Resumo</TabsTrigger>
+                </Can>
+                <TabsTrigger value="dashboard" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Dashboards</TabsTrigger>
               </TabsList>
             </div>
             {(activeTab === "contacts" || activeTab === "today") && (
+              <Can permission="canEditAll">
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
                   <UploadCloud className="w-4 h-4 mr-2" />Importar
                 </Button>
                 <AddLeadDialog />
               </div>
+              </Can>
             )}
           </div>
         </div>
@@ -1047,6 +1057,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
             <span className="text-xs font-medium text-primary">{selectedIds.size} selecionado(s)</span>
             <div className="flex items-center gap-1.5 ml-auto">
               {/* Bulk status */}
+              <Can permission="canEditStatus">
               <Dialog open={bulkStatusOpen} onOpenChange={setBulkStatusOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="text-xs h-7">Alterar Status</Button>
@@ -1070,8 +1081,10 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                   </div>
                 </DialogContent>
               </Dialog>
+              </Can>
 
               {/* Bulk List/Tag */}
+              <Can permission="canCreateLists">
               <Dialog open={bulkListOpen} onOpenChange={setBulkListOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
@@ -1115,8 +1128,10 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                   </div>
                 </DialogContent>
               </Dialog>
+              </Can>
 
               {/* Bulk Temperature */}
+              <Can permission="canEditStatus">
               <Dialog open={bulkTempOpen} onOpenChange={setBulkTempOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
@@ -1141,8 +1156,10 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                   </div>
                 </DialogContent>
               </Dialog>
+              </Can>
 
               {/* Bulk Assign */}
+              <Can permission="canEditAll">
               <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
@@ -1165,8 +1182,10 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                   </div>
                 </DialogContent>
               </Dialog>
+              </Can>
 
               {/* Bulk Follow-up */}
+              <Can permission="canEditAll">
               <Dialog open={bulkFollowupOpen} onOpenChange={setBulkFollowupOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="text-xs h-7 gap-1">
@@ -1195,16 +1214,20 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                   </div>
                 </DialogContent>
               </Dialog>
+              </Can>
 
               {/* Bulk export */}
+              <Can permission="canExport">
               <Button
                 variant="outline" size="sm" className="text-xs h-7 gap-1"
                 onClick={() => exportContactsToXlsx(contacts.filter(c => selectedIds.has(c.id)))}
               >
                 <Download className="w-3 h-3" /> Exportar
               </Button>
+              </Can>
 
               {/* Bulk delete */}
+              <Can permission="canEditAll">
               <Button
                 variant="outline" size="sm" className="text-xs h-7 gap-1 text-destructive hover:text-destructive border-destructive/30"
                 onClick={() => {
@@ -1220,6 +1243,7 @@ function ContactsView({ onSelect, selected }: { onSelect: (c: Contact) => void; 
                   : <Trash2 className="w-3 h-3" />}
                 Excluir
               </Button>
+              </Can>
 
               <button
                 onClick={() => setSelectedIds(new Set())}
@@ -1613,6 +1637,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                 </Button>
               </div>
             ) : (
+              <Can permission="canEditAll">
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 className="p-1 hover:bg-destructive/10 hover:text-destructive rounded-md transition-colors"
@@ -1620,6 +1645,7 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
               >
                 <Trash2 className="w-4 h-4 text-muted-foreground" />
               </button>
+              </Can>
             )}
             <button onClick={onClose} className="p-1 hover:bg-muted rounded-md transition-colors">
               <X className="w-4 h-4" />
@@ -2329,15 +2355,19 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
           </>
         ) : (
           <>
+            <Can permission="canEditAll">
             <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive mr-auto"
               onClick={() => setShowDeleteConfirm(true)}>
               <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Excluir deal
             </Button>
+            </Can>
             <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+            <Can permission="canEditPipeline">
             <Button size="sm" onClick={() => saveMutation.mutate({ id: deal.id, data: { title, value: value || undefined, probability, stage, notes, produto, expectedCloseDate: expectedClose ? new Date(expectedClose).toISOString() : undefined, origem: origem || undefined, resumoDiagnosticoComercial: resumoDiagnosticoComercial || undefined, briefingMatriz: briefingMatriz || undefined, statusMatriz: statusMatriz || undefined, observacoesNegociacao: observacoesNegociacao || undefined } as any })} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
               Salvar
             </Button>
+            </Can>
           </>
         )}
       </DialogFooter>

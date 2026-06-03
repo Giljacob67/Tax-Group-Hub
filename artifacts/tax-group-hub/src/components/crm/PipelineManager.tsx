@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Can } from "@/components/can";
 import {
   useListCrmPipelines,
   useCreateCrmPipeline,
@@ -323,9 +324,11 @@ export default function PipelineManager({
           <Layers className="w-4 h-4 text-primary" />
           <span className="text-sm font-bold">Gerenciar Funis</span>
         </div>
+        <Can permission="canEditPipeline">
         <Button size="sm" className="h-7 text-xs gap-1" onClick={() => setMode("create")}>
           <Plus className="w-3 h-3" /> Novo Funil
         </Button>
+        </Can>
       </div>
 
       {/* Pipeline list */}
@@ -381,6 +384,7 @@ export default function PipelineManager({
                         <Star className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    <Can permission="canEditPipeline">
                     <button
                       onClick={e => { e.stopPropagation(); setEditTarget(pl); setMode("edit"); }}
                       className="p-1 hover:bg-primary/10 hover:text-primary text-muted-foreground/50 rounded transition-colors"
@@ -395,6 +399,7 @@ export default function PipelineManager({
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
+                    </Can>
                   </div>
                 )}
 
