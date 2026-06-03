@@ -353,3 +353,50 @@ export const hubspotListMappingTable = pgTable("hubspot_list_mapping", {
 }, (t) => [
   uniqueIndex("hs_list_map_user_tag_idx").on(t.userId, t.tagName),
 ]);
+
+// ─── Phase 4: Audit Log ────────────────────────────────────────────────────────
+// Trilha de auditoria para alterações sensíveis. Diferencia origem
+// (manual | ia | automation | integration) e registra antes/depois.
+export const crmAuditLogTable = pgTable("crm_audit_log", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  actorId: text("actor_id"), // quem fez (pode ser diferente de userId em cron/automation)
+  actorType: text("actor_type").notNull().default("user"), // 'user' | 'ia' | 'automation' | 'integration' | 'service'
+  entityType: text("entity_type").notNull(), // 'contact' | 'deal' | 'task' | 'view' | 'automation' | 'sequence'
+  entityId: integer("entity_id").notNull(),
+  action: text("action").notNull(), // 'create' | 'update' | 'delete' | 'status_change' | 'stage_change' | 'assign' | 'qualify' | etc
+  fieldName: text("field_name"), // campo alterado (null para create/delete)
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  context: jsonb("context").$type<Record<string, any>>(), // dados extras (automationId, agentId, etc)
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("crm_audit_user_idx").on(t.userId, t.createdAt),
+]);
+
+export const insertCrmAuditLogSchema = createInsertSchema(crmAuditLogTable).omit({ id: true, createdAt: true });
+export type CrmAuditLog = typeof crmAuditLogTable.$inferSelect;
+export type InsertCrmAuditLog = z.infer<typeof insertCrmAuditLogSchema>;
+
+// ─── Phase 4: App User Roles (RBAC) ───────────────────────────────────────────
+// Associa papéis a usuários. Um userId pode ter múltiplos papéis.
+// `scope` permite escopo futuro (ex: role limitada a um setor/equipe).
+export const appUserRolesTable = pgTable("app_user_roles", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  role: text("role").notNull(), // 'admin' | 'coordenador' | 'comercial' | 'marketing' | 'leitura'
+  scope: text("scope"), // futuro: 'agro' | 'logistica' | null (global)
+  grantedBy: text("granted_by"),
+  grantedAt: timestamp("granted_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("app_user_roles_user_role_idx").on(t.userId, t.role, t.scope),
+]);
+
+export const insertAppUserRoleSchema = createInsertSchema(appUserRolesTable).omit({ id: true, createdAt: true, grantedAt: true });
+export type AppUserRole = typeof appUserRolesTable.$inferSelect;
+export type InsertAppUserRole = z.infer<typeof insertAppUserRoleSchema>;

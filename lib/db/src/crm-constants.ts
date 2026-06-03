@@ -831,3 +831,272 @@ export type PrioridadeComercialNivel = (typeof PRIORIDADE_COMERCIAL_NIVEIS)[numb
 
 export const TASK_SOURCES = ["manual", "automation", "ai_suggestion", "next_step"] as const;
 export type TaskSource = (typeof TASK_SOURCES)[number];
+
+// ════════════════════════════════════════════════════════════════════════════════
+// PHASE 4 — GOVERANÇA, RBAC, AUDITORIA, DASHBOARDS
+// ════════════════════════════════════════════════════════════════════════════════
+
+// ─── Perfis (RBAC) ────────────────────────────────────────────────────────────
+
+export const APP_ROLES = ["admin", "coordenador", "comercial", "marketing", "leitura"] as const;
+export type AppRole = (typeof APP_ROLES)[number];
+
+export const APP_ROLE_LABELS: Record<AppRole, string> = {
+  admin:       "Administrador",
+  coordenador: "Coordenação",
+  comercial:   "Comercial",
+  marketing:   "Marketing",
+  leitura:     "Leitura / Consulta",
+};
+
+export const APP_ROLE_DESCRIPTIONS: Record<AppRole, string> = {
+  admin:       "Acesso total. Gerencia usuários, configurações e dados.",
+  coordenador: "Visualiza dashboards executivos, gerencia equipe, edita leads/deals/automations.",
+  comercial:   "Edita leads, deals, tarefas e listas. Não gerencia equipe.",
+  marketing:   "Visualiza dados para campanhas. Cria listas. Não edita pipeline.",
+  leitura:     "Apenas leitura. Não edita nada.",
+};
+
+/**
+ * Matriz de permissões por papel. Define o que cada papel pode fazer.
+ * Backend deve verificar essas permissões antes de operações sensíveis.
+ */
+export const ROLE_PERMISSIONS = {
+  admin: {
+    canViewAll: true,
+    canEditAll: true,
+    canManageUsers: true,
+    canManageSettings: true,
+    canEditPipeline: true,
+    canEditStatus: true,
+    canCreateLists: true,
+    canDeleteLists: true,
+    canEditSystemViews: true,
+    canExport: true,
+    canTriggerIA: true,
+    canManageAutomations: true,
+    canViewDashboards: true,
+    canViewAudit: true,
+    canEditProposals: true,
+  },
+  coordenador: {
+    canViewAll: true,
+    canEditAll: true,
+    canManageUsers: false,
+    canManageSettings: false,
+    canEditPipeline: true,
+    canEditStatus: true,
+    canCreateLists: true,
+    canDeleteLists: true,
+    canEditSystemViews: false,
+    canExport: true,
+    canTriggerIA: true,
+    canManageAutomations: true,
+    canViewDashboards: true,
+    canViewAudit: true,
+    canEditProposals: true,
+  },
+  comercial: {
+    canViewAll: true,
+    canEditAll: true,
+    canManageUsers: false,
+    canManageSettings: false,
+    canEditPipeline: true,
+    canEditStatus: true,
+    canCreateLists: true,
+    canDeleteLists: false,
+    canEditSystemViews: false,
+    canExport: true,
+    canTriggerIA: true,
+    canManageAutomations: false,
+    canViewDashboards: true,
+    canViewAudit: false,
+    canEditProposals: true,
+  },
+  marketing: {
+    canViewAll: true,
+    canEditAll: false,
+    canManageUsers: false,
+    canManageSettings: false,
+    canEditPipeline: false,
+    canEditStatus: false,
+    canCreateLists: true,
+    canDeleteLists: false,
+    canEditSystemViews: false,
+    canExport: true,
+    canTriggerIA: false,
+    canManageAutomations: false,
+    canViewDashboards: true,
+    canViewAudit: false,
+    canEditProposals: false,
+  },
+  leitura: {
+    canViewAll: true,
+    canEditAll: false,
+    canManageUsers: false,
+    canManageSettings: false,
+    canEditPipeline: false,
+    canEditStatus: false,
+    canCreateLists: false,
+    canDeleteLists: false,
+    canEditSystemViews: false,
+    canExport: true,
+    canTriggerIA: false,
+    canManageAutomations: false,
+    canViewDashboards: true,
+    canViewAudit: false,
+    canEditProposals: false,
+  },
+} as const;
+
+export type Permission = keyof typeof ROLE_PERMISSIONS["admin"];
+
+// ─── Audit Log ─────────────────────────────────────────────────────────────────
+
+export const AUDIT_ENTITY_TYPES = [
+  "contact", "deal", "task", "view", "automation", "sequence", "alert",
+] as const;
+export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
+
+export const AUDIT_ACTIONS = [
+  "create", "update", "delete", "status_change", "stage_change", "assign",
+  "qualify", "enrich", "bulk_update", "send_to_matriz", "matriz_return",
+  "proposal_create", "proposal_send", "proposal_present", "win", "loss",
+  "onboard_start", "pos_venda_start", "automation_fired", "task_auto_created",
+  "task_completed", "alert_created", "alert_resolved", "view_saved",
+  "view_deleted", "export",
+] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  create: "Criação",
+  update: "Atualização",
+  delete: "Exclusão",
+  status_change: "Mudança de status",
+  stage_change: "Mudança de etapa",
+  assign: "Atribuição",
+  qualify: "Qualificação IA",
+  enrich: "Enriquecimento",
+  bulk_update: "Atualização em massa",
+  send_to_matriz: "Envio para Matriz",
+  matriz_return: "Retorno da Matriz",
+  proposal_create: "Proposta criada",
+  proposal_send: "Proposta enviada",
+  proposal_present: "Proposta apresentada",
+  win: "Ganho",
+  loss: "Perda",
+  onboard_start: "Onboarding iniciado",
+  pos_venda_start: "Pós-venda iniciado",
+  automation_fired: "Automação disparada",
+  task_auto_created: "Tarefa automática",
+  task_completed: "Tarefa concluída",
+  alert_created: "Alerta gerado",
+  alert_resolved: "Alerta resolvido",
+  view_saved: "View salva",
+  view_deleted: "View excluída",
+  export: "Exportação",
+};
+
+export const AUDIT_ACTOR_TYPES = ["user", "ia", "automation", "integration", "service"] as const;
+export type AuditActorType = (typeof AUDIT_ACTOR_TYPES)[number];
+
+export const AUDIT_ACTOR_LABELS: Record<AuditActorType, string> = {
+  user: "Usuário",
+  ia: "IA",
+  automation: "Automação",
+  integration: "Integração",
+  service: "Serviço",
+};
+
+// ─── Dashboards ───────────────────────────────────────────────────────────────
+
+export const DASHBOARD_PERIODS = ["7d", "30d", "90d", "this_month", "all"] as const;
+export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];
+
+export const DASHBOARD_PERIOD_LABELS: Record<DashboardPeriod, string> = {
+  "7d": "Últimos 7 dias",
+  "30d": "Últimos 30 dias",
+  "90d": "Últimos 90 dias",
+  "this_month": "Este mês",
+  "all": "Todo o período",
+};
+
+export const DASHBOARD_PERSONAS = [
+  "executive", "coordenador", "operacional", "pos_venda",
+] as const;
+export type DashboardPersona = (typeof DASHBOARD_PERSONAS)[number];
+
+export const DASHBOARD_PERSONA_LABELS: Record<DashboardPersona, string> = {
+  executive: "Executivo da Unidade",
+  coordenador: "Coordenador Comercial",
+  operacional: "Operacional / Dia a Dia",
+  pos_venda: "Pós-Venda / Expansão",
+};
+
+// ─── Queues (filas) ────────────────────────────────────────────────────────────
+
+export const QUEUE_TYPES = [
+  "my_accounts", "my_deals", "team", "no_responsible", "matriz_waiting",
+  "matriz_overdue", "no_followup", "hot_leads", "needs_attention",
+] as const;
+export type QueueType = (typeof QUEUE_TYPES)[number];
+
+export const QUEUE_LABELS: Record<QueueType, string> = {
+  my_accounts: "Minhas contas",
+  my_deals: "Meus negócios",
+  team: "Carteira da equipe",
+  no_responsible: "Sem responsável",
+  matriz_waiting: "Aguardando Matriz",
+  matriz_overdue: "Matriz acima do prazo",
+  no_followup: "Sem follow-up definido",
+  hot_leads: "Leads quentes",
+  needs_attention: "Precisam de atenção",
+};
+
+// ─── Data Quality ─────────────────────────────────────────────────────────────
+
+export const QUALITY_RULES = [
+  "missing_cnpj",
+  "missing_razao_social",
+  "missing_contato",
+  "missing_setor",
+  "missing_regime_tributario",
+  "missing_decisor",
+  "no_responsavel",
+  "no_followup",
+  "no_deal_qualificado",
+  "matriz_no_briefing",
+  "proposta_no_status",
+  "perda_no_motivo",
+] as const;
+export type QualityRule = (typeof QUALITY_RULES)[number];
+
+export const QUALITY_RULE_LABELS: Record<QualityRule, string> = {
+  missing_cnpj: "CNPJ ausente",
+  missing_razao_social: "Razão social ausente",
+  missing_contato: "Sem telefone/e-mail",
+  missing_setor: "Setor não definido",
+  missing_regime_tributario: "Regime tributário não definido",
+  missing_decisor: "Decisor não identificado",
+  no_responsavel: "Sem responsável atribuído",
+  no_followup: "Sem próximo follow-up",
+  no_deal_qualificado: "Lead qualificado sem negócio",
+  matriz_no_briefing: "Enviado para Matriz sem briefing",
+  proposta_no_status: "Proposta sem status definido",
+  perda_no_motivo: "Perda sem motivo registrado",
+};
+
+export const QUALITY_SEVERITIES: Record<QualityRule, "info" | "warning" | "critical"> = {
+  missing_cnpj: "critical",
+  missing_razao_social: "critical",
+  missing_contato: "critical",
+  missing_setor: "warning",
+  missing_regime_tributario: "warning",
+  missing_decisor: "warning",
+  no_responsavel: "warning",
+  no_followup: "info",
+  no_deal_qualificado: "info",
+  matriz_no_briefing: "critical",
+  proposta_no_status: "warning",
+  perda_no_motivo: "info",
+};
