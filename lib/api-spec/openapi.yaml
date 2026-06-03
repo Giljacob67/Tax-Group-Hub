@@ -2493,6 +2493,462 @@ paths:
                       type: number
                 required: [success, funnel]
 
+  /crm/me:
+    get:
+      operationId: getCrmMe
+      tags: [crm]
+      summary: Get current user context (roles, permissions)
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user:
+                    type: object
+                    properties:
+                      userId:
+                        type: string
+                      authMethod:
+                        type: string
+                      roles:
+                        type: array
+                        items:
+                          type: string
+                      permissions:
+                        type: object
+                        additionalProperties:
+                          type: boolean
+                      roleLabels:
+                        type: array
+                        items:
+                          type: string
+                    required: [userId, roles, permissions]
+                required: [success, user]
+
+  /crm/dashboards/{persona}:
+    get:
+      operationId: getCrmDashboard
+      tags: [crm]
+      summary: Get CRM dashboard by persona (executive, coordenador, operacional, pos_venda)
+      parameters:
+        - name: persona
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [executive, coordenador, operacional, pos_venda]
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: ["7d", "30d", "90d", this_month, all]
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  persona:
+                    type: string
+                  period:
+                    type: string
+                  data:
+                    type: object
+                required: [success, persona, data]
+
+  /crm/queues/{type}:
+    get:
+      operationId: getCrmQueue
+      tags: [crm]
+      summary: Get a queue (list of contacts/deals) for a given type
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [my_accounts, my_deals, team, no_responsible, matriz_waiting, matriz_overdue, no_followup, hot_leads, needs_attention]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 200
+      responses:
+        "200":
+          description: Queue contents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  type:
+                    type: string
+                  contacts:
+                    type: array
+                    items:
+                      type: object
+                  deals:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+                required: [success, type, total]
+
+  /crm/quality/health:
+    get:
+      operationId: getCrmQualityHealth
+      tags: [crm]
+      summary: Get CRM data quality health metrics
+      responses:
+        "200":
+          description: Health report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  totalContacts:
+                    type: integer
+                  totalDeals:
+                    type: integer
+                  completenessPct:
+                    type: integer
+                  withResponsiblePct:
+                    type: integer
+                  withFollowupPct:
+                    type: integer
+                  duplicates:
+                    type: integer
+                  criticalIssues:
+                    type: integer
+                  warningIssues:
+                    type: integer
+                  infoIssues:
+                    type: integer
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                  topRules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rule:
+                          type: string
+                        count:
+                          type: integer
+                required: [success, totalContacts, totalDeals]
+
+  /crm/quality/issues:
+    get:
+      operationId: getCrmQualityIssues
+      tags: [crm]
+      summary: List data quality issues for the current tenant
+      responses:
+        "200":
+          description: Quality issues
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rule:
+                          type: string
+                        severity:
+                          type: string
+                          enum: [info, warning, critical]
+                        entityType:
+                          type: string
+                          enum: [contact, deal]
+                        entityId:
+                          type: integer
+                        entityLabel:
+                          type: string
+                        context:
+                          type: object
+                  total:
+                    type: integer
+                required: [success, issues, total]
+
+  /crm/quality/duplicates:
+    get:
+      operationId: getCrmQualityDuplicates
+      tags: [crm]
+      summary: Find potential duplicate contacts by CNPJ or razão social
+      responses:
+        "200":
+          description: Duplicate candidates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  duplicates:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                          enum: [cnpj, razao_social]
+                        value:
+                          type: string
+                        contactIds:
+                          type: array
+                          items:
+                            type: integer
+                        labels:
+                          type: array
+                          items:
+                            type: string
+                  total:
+                    type: integer
+                required: [success, duplicates, total]
+
+  /crm/audit-log:
+    get:
+      operationId: getCrmAuditLog
+      tags: [crm]
+      summary: Get audit log entries (admin/coordenador only)
+      parameters:
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: entityId
+          in: query
+          schema:
+            type: integer
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: actorType
+          in: query
+          schema:
+            type: string
+            enum: [user, ia, automation, integration, service]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 500
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+                required: [success, entries, total]
+
+  /crm/users:
+    get:
+      operationId: listCrmUsers
+      tags: [crm]
+      summary: List users in the tenant with their roles (admin only)
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        roles:
+                          type: array
+                          items:
+                            type: object
+                  total:
+                    type: integer
+                required: [success, users, total]
+
+  /crm/users/{userId}/roles:
+    post:
+      operationId: grantCrmUserRole
+      tags: [crm]
+      summary: Grant a role to a user (admin only)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [admin, coordenador, comercial, marketing, leitura]
+                scope:
+                  type: string
+                expiresAt:
+                  type: string
+                  format: date-time
+              required: [role]
+      responses:
+        "201":
+          description: Role granted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  role:
+                    type: object
+                required: [success, role]
+
+  /crm/users/{userId}/roles/{roleId}:
+    delete:
+      operationId: revokeCrmUserRole
+      tags: [crm]
+      summary: Revoke a role from a user (admin only)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Role revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+
+  /crm/roles:
+    get:
+      operationId: listCrmRoles
+      tags: [crm]
+      summary: List available roles and their labels
+      responses:
+        "200":
+          description: Roles list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  roles:
+                    type: array
+                    items:
+                      type: string
+                  labels:
+                    type: object
+                required: [success, roles, labels]
+
+  /crm/governance/recent:
+    get:
+      operationId: getCrmGovernanceRecent
+      tags: [crm]
+      summary: Get recent governance activity (audit + activities combined)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 200
+      responses:
+        "200":
+          description: Recent governance entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source:
+                          type: string
+                          enum: [audit, activity]
+                        id:
+                          type: integer
+                        type:
+                          type: string
+                        entityType:
+                          type: string
+                        entityId:
+                          type: integer
+                        actorType:
+                          type: string
+                        actorId:
+                          type: string
+                        title:
+                          type: string
+                        description:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                  total:
+                    type: integer
+                required: [success, entries, total]
+
   /deliverables:
     get:
       operationId: listDeliverables

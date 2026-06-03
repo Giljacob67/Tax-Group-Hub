@@ -19,7 +19,20 @@ const routesDir = join(repoRoot, "artifacts", "api-server", "src", "routes");
 const specPath = join(repoRoot, "lib", "api-spec", "openapi.yaml");
 
 const routeRegex = /router\.(get|post|put|delete|patch|head|options)\(\s*(['"`])([^'"`]+)\2/g;
+const mountRegex = /router\.use\(\s*(['"`])(\/[^'"`]*)?\1\s*,\s*(\w+Router)\s*\)/g;
 const expressToOpenApi = (p) => p.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, "{$1}");
+
+// Discover mount prefixes from routes/index.ts so the check matches
+// the path the API actually serves (e.g. /crm/contacts, not /contacts).
+const indexSrc = readFileSync(join(routesDir, "index.ts"), "utf8");
+const mountPrefixes = {};
+for (const m of indexSrc.matchAll(mountRegex)) {
+  const prefix = m[2] || "";
+  const routerVar = m[3];
+  // routerVar is like "crmRouter" → file "crm.ts"
+  const file = routerVar.replace(/Router$/, "") + ".ts";
+  mountPrefixes[file] = prefix;
+}
 
 const declared = new Set();
 for (const file of readdirSync(routesDir)) {
@@ -27,9 +40,11 @@ for (const file of readdirSync(routesDir)) {
   const full = join(routesDir, file);
   if (!statSync(full).isFile()) continue;
   const src = readFileSync(full, "utf8");
+  const prefix = mountPrefixes[file] || "";
   for (const m of src.matchAll(routeRegex)) {
     if (m[3].includes("(") || m[3].includes(")")) continue;
-    declared.add(`${m[1].toLowerCase()} ${expressToOpenApi(m[3])}`);
+    const fullPath = prefix + expressToOpenApi(m[3]);
+    declared.add(`${m[1].toLowerCase()} ${fullPath}`);
   }
 }
 
@@ -43,6 +58,13 @@ for (const [path, ops] of Object.entries(spec?.paths || {})) {
 }
 
 const missing = [...declared].filter((d) => !documented.has(d));
+const extras = [...documented].filter((d) => !declared.has(d));
+
+if (extras.length) {
+  console.warn(`[spec-check] note — ${extras.length} documented-but-not-declared (extras):`);
+  for (const e of extras.slice(0, 20)) console.warn(`    - ${e}`);
+  if (extras.length > 20) console.warn(`    ... and ${extras.length - 20} more`);
+}
 
 if (missing.length) {
   console.error(`[spec-check] FAIL — ${missing.length} routes missing from openapi.yaml:`);
@@ -50,5 +72,5 @@ if (missing.length) {
   if (missing.length > 50) console.error(`    ... and ${missing.length - 50} more`);
   process.exit(1);
 }
-console.log(`[spec-check] OK — ${declared.size} routes covered (missing=0)`);
+console.log(`[spec-check] OK — ${declared.size} routes covered (missing=0, extras=${extras.length})`);
 process.exit(0);

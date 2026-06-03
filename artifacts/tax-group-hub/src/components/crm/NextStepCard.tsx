@@ -113,7 +113,7 @@ export default function NextStepCard({ contactId, compact = false }: { contactId
           </Button>
           <Button
             variant="ghost" size="sm" className="h-8 text-xs"
-            onClick={() => ignoreMutation.mutate({ id: contactId })}
+            onClick={() => ignoreMutation.mutate({ id: contactId, data: {} })}
             disabled={ignoreMutation.isPending}
           >
             <X className="w-3 h-3 mr-1" />

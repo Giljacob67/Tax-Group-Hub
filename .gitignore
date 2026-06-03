@@ -63,3 +63,9 @@ Thumbs.db
 
 .claude/
 .env*
+
+# Local development artifacts (never commit)
+.codegraph/
+Tax-Group-Hub-main.zip
+test-connectivity.ts
+docs/PULL_REQUEST_fix-audit-producao-vercel.md
