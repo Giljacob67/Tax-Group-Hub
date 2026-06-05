@@ -584,6 +584,21 @@ export const ListLlmProvidersResponse = zod.object({
 });
 
 /**
+ * @summary Curated static catalog of well-known LLM models
+ */
+export const ListStaticLlmModelsResponse = zod.object({
+  models: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      provider: zod.string(),
+      description: zod.string().optional(),
+      tag: zod.enum(["cloud", "local", "compatible"]).optional(),
+    }),
+  ),
+});
+
+/**
  * @summary List LLM connections
  */
 export const ListLlmConnectionsResponse = zod.object({

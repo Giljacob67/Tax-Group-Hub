@@ -1257,6 +1257,18 @@ export type ListLlmProviders200 = {
   providers: LlmProvider[];
 };
 
+export type StaticLlmModel = {
+  id: string;
+  name: string;
+  provider: string;
+  description?: string;
+  tag?: "cloud" | "local" | "compatible";
+};
+
+export type ListStaticLlmModels200 = {
+  models: StaticLlmModel[];
+};
+
 export type ListLlmConnections200 = {
   success: boolean;
   connections: LlmConnection[];

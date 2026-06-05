@@ -167,6 +167,7 @@ import type {
   ListLlmProfiles200,
   ListLlmProviders200,
   ListSequenceEnrollments200,
+  ListStaticLlmModels200,
   ListSequenceEnrollmentsParams,
   LlmHealthCheck200,
   LlmTestResult,
@@ -3047,6 +3048,81 @@ export function useListLlmProviders<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListLlmProvidersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Curated static catalog of well-known LLM models
+ */
+export const getListStaticLlmModelsUrl = () => {
+  return `/api/llm/models/static`;
+};
+
+export const listStaticLlmModels = async (
+  options?: RequestInit,
+): Promise<ListStaticLlmModels200> => {
+  return customFetch<ListStaticLlmModels200>(getListStaticLlmModelsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListStaticLlmModelsQueryKey = () => {
+  return [`/api/llm/models/static`] as const;
+};
+
+export const getListStaticLlmModelsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listStaticLlmModels>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listStaticLlmModels>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListStaticLlmModelsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listStaticLlmModels>>
+  > = ({ signal }) => listStaticLlmModels({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listStaticLlmModels>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListStaticLlmModelsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listStaticLlmModels>>
+>;
+export type ListStaticLlmModelsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Curated static catalog of well-known LLM models
+ */
+
+export function useListStaticLlmModels<
+  TData = Awaited<ReturnType<typeof listStaticLlmModels>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listStaticLlmModels>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListStaticLlmModelsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -28,7 +28,7 @@ function periodStart(period: string): Date {
 }
 
 const FINALIZADO_CONTATO = new Set(["cliente", "perdido", "stand_by", "encerrado"]);
-const FINALIZADO_DEAL = new Set(["fechado_ganho", "perdido_standby", "encerrado"]);
+const FINALIZADO_DEAL = new Set(["fechado_ganho", "perdido", "stand_by", "encerrado"]);
 
 // ─── Executive ──────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ export async function getExecutiveDashboard(userId: string, period: string) {
   const dealsByStage = groupCount(deals, d => d.stage);
   const totalDeals = deals.length;
   const wonDeals = deals.filter(d => d.stage === "fechado_ganho");
-  const lostDeals = deals.filter(d => d.stage === "perdido_standby");
+  const lostDeals = deals.filter(d => d.stage === "perdido" || d.stage === "stand_by");
   const activeDeals = deals.filter(d => !FINALIZADO_DEAL.has(d.stage));
   const wonInPeriod = wonDeals.filter(d => d.wonAt && new Date(d.wonAt) >= start);
 
@@ -185,7 +185,7 @@ export async function getCoordinatorDashboard(userId: string, period: string) {
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * DAY_MS);
   const proposalsNoReturn = deals.filter(d =>
-    d.statusProposta === "proposta_enviada" && new Date(d.updatedAt) < sevenDaysAgo
+    (d.statusProposta === "enviada" || d.statusProposta === "apresentada") && new Date(d.updatedAt) < sevenDaysAgo
   );
 
   // Inactive accounts
