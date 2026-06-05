@@ -124,8 +124,18 @@ export const CONTACT_STATUS_COLORS: Record<ContactStatus, string> = {
 };
 
 // ─── Deal Stage ──────────────────────────────────────────────────────────────
+// Alinhado ao Pipeline Tax Group (16 etapas do contato). Adicionadas na Fase 1.5:
+//   - reuniao_agendada (anterior à qualificação comercial)
+//   - lead_novo (entrada do lead no funil)
+//   - onboarding_cliente (após fechamento_ganho)
+//   - execucao_pela_matriz (pós-fechamento)
+//   - acompanhamento_pendencias (pós-fechamento)
+//   - pos_venda_expansao (pós-fechamento)
+//   - encerrado (final do ciclo)
 
 export const DEAL_STAGES = [
+  "lead_novo",
+  "reuniao_agendada",
   "qualificacao_comercial",
   "diagnostico_comercial",
   "enviado_para_matriz",
@@ -138,11 +148,18 @@ export const DEAL_STAGES = [
   "fechado_ganho",
   "perdido",
   "stand_by",
+  "onboarding_cliente",
+  "execucao_pela_matriz",
+  "acompanhamento_pendencias",
+  "pos_venda_expansao",
+  "encerrado",
 ] as const;
 
 export type DealStage = (typeof DEAL_STAGES)[number];
 
 export const DEAL_STAGE_LABELS: Record<DealStage, string> = {
+  lead_novo: "Lead Novo",
+  reuniao_agendada: "Reunião Agendada",
   qualificacao_comercial: "Qualificação Comercial",
   diagnostico_comercial: "Diagnóstico Comercial",
   enviado_para_matriz: "Enviado p/ Matriz",
@@ -155,9 +172,16 @@ export const DEAL_STAGE_LABELS: Record<DealStage, string> = {
   fechado_ganho: "Fechado Ganho",
   perdido: "Perdido",
   stand_by: "Stand By",
+  onboarding_cliente: "Onboarding Cliente",
+  execucao_pela_matriz: "Execução pela Matriz",
+  acompanhamento_pendencias: "Acomp. Pendências",
+  pos_venda_expansao: "Pós-Venda / Expansão",
+  encerrado: "Encerrado",
 };
 
 export const DEAL_STAGE_COLORS: Record<DealStage, string> = {
+  lead_novo: "#6B7280",
+  reuniao_agendada: "#8B5CF6",
   qualificacao_comercial: "#3B82F6",
   diagnostico_comercial: "#F59E0B",
   enviado_para_matriz: "#EC4899",
@@ -170,6 +194,11 @@ export const DEAL_STAGE_COLORS: Record<DealStage, string> = {
   fechado_ganho: "#22C55E",
   perdido: "#EF4444",
   stand_by: "#9CA3AF",
+  onboarding_cliente: "#14B8A6",
+  execucao_pela_matriz: "#A855F7",
+  acompanhamento_pendencias: "#F59E0B",
+  pos_venda_expansao: "#3B82F4",
+  encerrado: "#6B7280",
 };
 
 // ─── Matrix Status ───────────────────────────────────────────────────────────
@@ -210,13 +239,19 @@ export const MATRIX_STATUS_COLORS: Record<MatrixStatus, string> = {
  * A deal is only created when the contact reaches "qualificado" or later.
  */
 export const CONTACT_STATUS_TO_DEAL_STAGE: Partial<Record<ContactStatus, DealStage>> = {
+  nao_iniciado: "lead_novo",
+  em_abordagem: "lead_novo",
+  respondeu: "lead_novo",
+  reuniao_agendada: "reuniao_agendada",
   qualificado: "qualificacao_comercial",
-  reuniao_agendada: "qualificacao_comercial",
   enviado_matriz: "enviado_para_matriz",
   aguardando_matriz: "aguardando_matriz",
   proposta_enviada: "proposta_enviada",
   em_negociacao: "em_negociacao",
   cliente: "fechado_ganho",
+  sem_resposta: "lead_novo",
+  reciclar_depois: "stand_by",
+  stand_by: "stand_by",
   perdido: "perdido",
 };
 
@@ -226,6 +261,8 @@ export const CONTACT_STATUS_TO_DEAL_STAGE: Partial<Record<ContactStatus, DealSta
  * When a deal stage changes, suggests the corresponding contact status.
  */
 export const DEAL_STAGE_TO_CONTACT_STATUS: Partial<Record<DealStage, ContactStatus>> = {
+  lead_novo: "nao_iniciado",
+  reuniao_agendada: "reuniao_agendada",
   qualificacao_comercial: "qualificado",
   diagnostico_comercial: "qualificado",
   enviado_para_matriz: "enviado_matriz",
@@ -238,6 +275,55 @@ export const DEAL_STAGE_TO_CONTACT_STATUS: Partial<Record<DealStage, ContactStat
   fechado_ganho: "cliente",
   perdido: "perdido",
   stand_by: "stand_by",
+  onboarding_cliente: "cliente",
+  execucao_pela_matriz: "cliente",
+  acompanhamento_pendencias: "cliente",
+  pos_venda_expansao: "cliente",
+  encerrado: "cliente",
+};
+
+/**
+ * Documentação do alinhamento entre as 16 etapas do Pipeline Tax Group
+ * (pipeline do contato) e as 19 etapas do Deal. O deal replica as 16
+ * etapas do pipeline e adiciona 3 granularidades operacionais:
+ *   - proposta_em_preparacao, proposta_pronta, proposta_apresentada
+ *     (sub-etapas da fase de proposta do pipeline).
+ *
+ * Mapeamento de equivalência (etapas pós-fechamento foram alinhadas):
+ *   lead_novo                       → lead_novo
+ *   qualificacao_comercial          → qualificacao_comercial
+ *   reuniao_agendada                → reuniao_agendada
+ *   diagnostico_comercial           → diagnostico_comercial
+ *   enviado_para_matriz             → enviado_para_matriz
+ *   aguardando_matriz               → aguardando_matriz
+ *   proposta_pronta                 → proposta_em_preparacao / proposta_pronta
+ *   apresentacao_ao_cliente         → proposta_apresentada
+ *   negociacao                      → em_negociacao
+ *   fechado_ganho                   → fechado_ganho
+ *   perdido_standby                 → perdido / stand_by
+ *   onboarding_cliente              → onboarding_cliente
+ *   execucao_pela_matriz            → execucao_pela_matriz
+ *   acompanhamento_pendencias       → acompanhamento_pendencias
+ *   pos_venda_expansao              → pos_venda_expansao
+ *   encerrado                       → encerrado
+ */
+export const PIPELINE_TO_DEAL_STAGE: Record<PipelineStage, DealStage | DealStage[]> = {
+  lead_novo: "lead_novo",
+  qualificacao_comercial: "qualificacao_comercial",
+  reuniao_agendada: "reuniao_agendada",
+  diagnostico_comercial: "diagnostico_comercial",
+  enviado_para_matriz: "enviado_para_matriz",
+  aguardando_matriz: "aguardando_matriz",
+  proposta_pronta: ["proposta_em_preparacao", "proposta_pronta"],
+  apresentacao_ao_cliente: "proposta_apresentada",
+  negociacao: "em_negociacao",
+  fechado_ganho: "fechado_ganho",
+  perdido_standby: ["perdido", "stand_by"],
+  onboarding_cliente: "onboarding_cliente",
+  execucao_pela_matriz: "execucao_pela_matriz",
+  acompanhamento_pendencias: "acompanhamento_pendencias",
+  pos_venda_expansao: "pos_venda_expansao",
+  encerrado: "encerrado",
 };
 
 // ─── Legacy status migration map ─────────────────────────────────────────────
@@ -256,15 +342,30 @@ export const LEGACY_CONTACT_STATUS_MAP: Record<string, ContactStatus> = {
 
 /**
  * Maps old deal stage values to new ones for data migration.
+ * Aplicado em runtime pelo endpoint de migração (Fase 1.5).
  */
 export const LEGACY_DEAL_STAGE_MAP: Record<string, DealStage> = {
-  prospecting: "qualificacao_comercial",
+  // inglês legado
+  prospecting: "lead_novo",
   discovery: "diagnostico_comercial",
   proposal: "proposta_em_preparacao",
   negotiation: "em_negociacao",
   closing: "em_negociacao",
   won: "fechado_ganho",
   lost: "perdido",
+  // pt-br legado (labels humanos)
+  "prospecção": "lead_novo",
+  "contato inicial": "reuniao_agendada",
+  "qualificação": "qualificacao_comercial",
+  "descoberta": "diagnostico_comercial",
+  "proposta": "proposta_em_preparacao",
+  "negociação": "em_negociacao",
+  "fechamento": "em_negociacao",
+  "ganhos": "fechado_ganho",
+  "perdidos": "perdido",
+  "onboarding": "onboarding_cliente",
+  "pós-venda": "pos_venda_expansao",
+  "renovação": "pos_venda_expansao",
 };
 
 // ─── Origem Lead ─────────────────────────────────────────────────────────────
@@ -304,25 +405,29 @@ export const PRODUTO_INTERESSE_OPTIONS = [
 ] as const;
 
 // ─── Proposta Status ─────────────────────────────────────────────────────────
+// Fase 1.5 — enum padronizado exigido pelo escopo. Inclui todos os
+// estados intermediários de uma proposta, do início à renegociação.
 
 export const PROPOSTA_STATUS = [
-  "oportunidade_qualificada",
-  "proposta_em_preparacao",
-  "proposta_pronta",
-  "proposta_enviada",
-  "proposta_apresentada",
-  "em_negociacao",
+  "em_preparacao",
+  "pronta",
+  "enviada",
+  "apresentada",
+  "aceita",
+  "recusada",
+  "em_renegociacao",
 ] as const;
 
 export type PropostaStatus = (typeof PROPOSTA_STATUS)[number];
 
 export const PROPOSTA_STATUS_LABELS: Record<PropostaStatus, string> = {
-  oportunidade_qualificada: "Oportunidade Qualificada",
-  proposta_em_preparacao: "Proposta em Preparação",
-  proposta_pronta: "Proposta Pronta",
-  proposta_enviada: "Proposta Enviada",
-  proposta_apresentada: "Proposta Apresentada",
-  em_negociacao: "Em Negociação",
+  em_preparacao: "Em preparação",
+  pronta: "Pronta",
+  enviada: "Enviada",
+  apresentada: "Apresentada",
+  aceita: "Aceita",
+  recusada: "Recusada",
+  em_renegociacao: "Em renegociação",
 };
 
 // ─── Default pipeline ────────────────────────────────────────────────────────

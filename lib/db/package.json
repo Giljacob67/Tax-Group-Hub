@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
-    "./crm-constants": "./src/crm-constants.ts"
+    "./crm-constants": "./src/crm-constants.ts",
+    "./legacy-migration": "./src/legacy-migration.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

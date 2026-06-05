@@ -120,7 +120,7 @@ export const crmActivitiesTable = pgTable("crm_activities", {
   contactId: integer("contact_id").notNull().references(() => crmContactsTable.id, { onDelete: "cascade" }),
   dealId: integer("deal_id").references(() => crmDealsTable.id, { onDelete: "set null" }),
   userId: text("user_id").notNull(),
-  type: text("type").notNull(), // 'call' | 'email' | 'whatsapp' | 'linkedin' | 'meeting' | 'note' | 'ai_generated' | 'stage_change'
+  type: text("type").notNull(), // 'call' | 'email' | 'whatsapp' | 'linkedin' | 'meeting' | 'note' | 'ai_generated' | 'stage_change' | 'matriz_event'
   direction: text("direction"), // 'inbound' | 'outbound' | null
   subject: text("subject"),
   content: text("content"),

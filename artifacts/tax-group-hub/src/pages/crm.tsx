@@ -92,6 +92,7 @@ import {
   DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_STAGE_COLORS,
   PIPELINE_TAX_GROUP_STAGES, PIPELINE_STAGE_LABELS, PIPELINE_STAGE_COLORS,
   MATRIX_STATUSES, MATRIX_STATUS_LABELS, MATRIX_STATUS_COLORS,
+  PROPOSTA_STATUS, PROPOSTA_STATUS_LABELS,
   ORIGEM_LEAD_OPTIONS, TEMPERATURA_OPTIONS, PRODUTO_INTERESSE_OPTIONS,
   DEFAULT_PIPELINE_ID,
   SYSTEM_VIEWS, SYSTEM_VIEW_CATEGORIES,
@@ -134,6 +135,13 @@ type Contact = {
   temperatura: string | null;
   produtoInteresse: string | null;
   observacoes: string | null;
+  // Fase 1.5 — pendências, valor e responsável
+  valorPotencial: string | null;
+  pendenciasCliente: string | null;
+  pendenciasUnidade: string | null;
+  pendenciasMatriz: string | null;
+  responsavelUnidade: string | null;
+  proximoFollowup: string | null;
   aiScore: number | null;
   aiScoreDetails: any | null;
   aiRecommendedProduct: string | null;
@@ -158,6 +166,16 @@ type Deal = {
   briefingMatriz: string | null;
   statusMatriz: string | null;
   observacoesNegociacao: string | null;
+  // Fase 1.5 — campos da Matriz e Proposta
+  statusProposta: string | null;
+  motivoPerda: string | null;
+  dataEnvioMatriz: string | null;
+  prazoRetornoMatriz: string | null;
+  dataRetornoMatriz: string | null;
+  retornoMatriz: string | null;
+  documentosEnviados: string[] | null;
+  responsavelEnvioMatriz: string | null;
+  pendenciasMatriz: string | null;
   wonAt: string | null;
   lostAt: string | null;
   createdAt: string;
@@ -241,7 +259,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 const STAGE_DICT: Record<string, { label: string; accent: string; header: string }> = {
-  // Pipeline stages
+  // Pipeline stages (16 etapas Tax Group)
   lead_novo:                 { label: PIPELINE_STAGE_LABELS.lead_novo,                 accent: "border-t-slate-400",    header: "text-slate-400" },
   qualificacao_comercial:    { label: PIPELINE_STAGE_LABELS.qualificacao_comercial,    accent: "border-t-blue-500",     header: "text-blue-500" },
   reuniao_agendada:          { label: PIPELINE_STAGE_LABELS.reuniao_agendada,          accent: "border-t-violet-500",   header: "text-violet-500" },
@@ -258,7 +276,7 @@ const STAGE_DICT: Record<string, { label: string; accent: string; header: string
   acompanhamento_pendencias: { label: PIPELINE_STAGE_LABELS.acompanhamento_pendencias, accent: "border-t-amber-600",    header: "text-amber-600" },
   pos_venda_expansao:        { label: PIPELINE_STAGE_LABELS.pos_venda_expansao,        accent: "border-t-blue-400",     header: "text-blue-400" },
   encerrado:                 { label: PIPELINE_STAGE_LABELS.encerrado,                 accent: "border-t-slate-500",    header: "text-slate-500" },
-  // Deal stages (for edit modal)
+  // Deal stages adicionais (Fase 1.5 — alinhamento com pipeline)
   proposta_em_preparacao:    { label: DEAL_STAGE_LABELS.proposta_em_preparacao,    accent: "border-t-violet-400",   header: "text-violet-400" },
   proposta_enviada:          { label: DEAL_STAGE_LABELS.proposta_enviada,          accent: "border-t-cyan-400",     header: "text-cyan-400" },
   proposta_apresentada:      { label: DEAL_STAGE_LABELS.proposta_apresentada,      accent: "border-t-indigo-400",   header: "text-indigo-400" },
@@ -276,6 +294,7 @@ const ACTIVITY_ICONS: Record<string, any> = {
   note:         StickyNote,
   stage_change: TrendingUp,
   linkedin:     Users,
+  matriz_event: Briefcase,
 };
 
 const ACTIVITY_TYPES = [
@@ -1833,6 +1852,9 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   { label: "Produto",     value: contact.produtoInteresse },
                   { label: "Origem",      value: contact.origemLead },
                   { label: "Faturamento", value: contact.faturamentoEstimado },
+                  { label: "Valor Potencial", value: contact.valorPotencial ? `R$ ${Number(contact.valorPotencial).toLocaleString("pt-BR")}` : undefined },
+                  { label: "Responsável", value: contact.responsavelUnidade },
+                  { label: "Próx. Follow-up", value: contact.proximoFollowup ? new Date(contact.proximoFollowup).toLocaleDateString("pt-BR") : undefined },
                   { label: "Website",     value: contact.website },
                   { label: "Localização", value: contact.cidade && contact.uf ? `${contact.cidade}/${contact.uf}` : contact.uf },
                   { label: "Endereço",    value: contact.endereco },
@@ -1844,10 +1866,29 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                   { label: "Observações", value: contact.observacoes },
                 ].filter(f => f.value).map(f => (
                   <div key={f.label} className="flex gap-2 text-xs">
-                    <span className="text-muted-foreground w-20 flex-shrink-0 pt-0.5">{f.label}</span>
+                    <span className="text-muted-foreground w-24 flex-shrink-0 pt-0.5">{f.label}</span>
                     <span className="text-foreground flex-1 break-words leading-relaxed">{f.value}</span>
                   </div>
                 ))}
+
+                {/* ─── Fase 1.5: bloco de pendências ─── */}
+                {(contact.pendenciasCliente || contact.pendenciasUnidade || contact.pendenciasMatriz) && (
+                  <>
+                    <Separator className="my-2" />
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pendências</h4>
+                    {[
+                      { label: "Cliente",  value: contact.pendenciasCliente },
+                      { label: "Unidade",  value: contact.pendenciasUnidade },
+                      { label: "Matriz",   value: contact.pendenciasMatriz },
+                    ].filter(f => f.value).map(f => (
+                      <div key={f.label} className="flex gap-2 text-xs">
+                        <span className="text-muted-foreground w-20 flex-shrink-0 pt-0.5">{f.label}</span>
+                        <span className="text-foreground flex-1 break-words leading-relaxed whitespace-pre-wrap">{f.value}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
                 {contact.lastEnrichedAt && (
                   <div className="flex gap-2 text-xs pt-1">
                     <span className="text-muted-foreground w-20 flex-shrink-0">Enriquecido</span>
@@ -1857,9 +1898,9 @@ function ContactDetailPanel({ contact, onClose, onUpdate, onDelete }: {
                     </span>
                   </div>
                 )}
-              </div>
             </div>
           </TabsContent>
+
 
           {/* ── Tasks Tab ── */}
           <TabsContent value="tasks" className="m-0">
@@ -2090,6 +2131,13 @@ function AddLeadDialog() {
   const [decisor, setDecisor] = useState("");
   const [contatoDecisor, setContatoDecisor] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  // Fase 1.5 — campos opcionais adicionais
+  const [valorPotencial, setValorPotencial] = useState("");
+  const [responsavelUnidade, setResponsavelUnidade] = useState("");
+  const [proximoFollowup, setProximoFollowup] = useState("");
+  const [pendenciasCliente, setPendenciasCliente] = useState("");
+  const [pendenciasUnidade, setPendenciasUnidade] = useState("");
+  const [pendenciasMatriz, setPendenciasMatriz] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -2105,6 +2153,8 @@ function AddLeadDialog() {
     setCnpj(""); setSetor(""); setSegmento(""); setTemperatura("");
     setProdutoInteresse(""); setOrigemLead(""); setDecisor("");
     setContatoDecisor(""); setObservacoes("");
+    setValorPotencial(""); setResponsavelUnidade(""); setProximoFollowup("");
+    setPendenciasCliente(""); setPendenciasUnidade(""); setPendenciasMatriz("");
   }
 
   const mutation = useCreateCrmContact({
@@ -2185,6 +2235,46 @@ function AddLeadDialog() {
               <Input value={contatoDecisor} onChange={e => setContatoDecisor(e.target.value)} placeholder="E-mail ou telefone" className="text-sm" />
             </div>
           </div>
+
+          {/* ─── Fase 1.5: campos adicionais opcionais ─────────────── */}
+          <div className="space-y-3 pt-2 border-t border-border/40">
+            <p className="text-[11px] text-muted-foreground/80 uppercase tracking-wider font-semibold pt-1">
+              Operação · Pendências & Acompanhamento
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Valor Potencial (R$)</Label>
+                <Input type="number" value={valorPotencial} onChange={e => setValorPotencial(e.target.value)}
+                  placeholder="0" className="text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Responsável Unidade</Label>
+                <Input value={responsavelUnidade} onChange={e => setResponsavelUnidade(e.target.value)}
+                  placeholder="Nome do responsável" className="text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Próximo Follow-up</Label>
+              <Input type="date" value={proximoFollowup} onChange={e => setProximoFollowup(e.target.value)}
+                className="text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Pendências do Cliente</Label>
+              <Textarea value={pendenciasCliente} onChange={e => setPendenciasCliente(e.target.value)}
+                placeholder="O que o cliente precisa enviar/fornecer..." className="text-sm min-h-[50px] resize-none" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Pendências da Unidade</Label>
+              <Textarea value={pendenciasUnidade} onChange={e => setPendenciasUnidade(e.target.value)}
+                placeholder="Pendências internas da unidade..." className="text-sm min-h-[50px] resize-none" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Pendências da Matriz</Label>
+              <Textarea value={pendenciasMatriz} onChange={e => setPendenciasMatriz(e.target.value)}
+                placeholder="Pendências com a Matriz..." className="text-sm min-h-[50px] resize-none" />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label>Observações</Label>
             <Textarea value={observacoes} onChange={e => setObservacoes(e.target.value)}
@@ -2192,7 +2282,24 @@ function AddLeadDialog() {
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={() => mutation.mutate({ data: { cnpj: cnpj.replace(/\D/g, ""), setor: setor || undefined, segmento: segmento || undefined, temperatura: temperatura || undefined, produtoInteresse: produtoInteresse || undefined, origemLead: origemLead || undefined, nomeDecissor: decisor || undefined, contatoDecisor: contatoDecisor || undefined, observacoes: observacoes || undefined } as any })}
+          <Button onClick={() => mutation.mutate({ data: {
+            cnpj: cnpj.replace(/\D/g, ""),
+            setor: setor || undefined,
+            segmento: segmento || undefined,
+            temperatura: temperatura || undefined,
+            produtoInteresse: produtoInteresse || undefined,
+            origemLead: origemLead || undefined,
+            nomeDecissor: decisor || undefined,
+            contatoDecisor: contatoDecisor || undefined,
+            observacoes: observacoes || undefined,
+            // Fase 1.5
+            valorPotencial: valorPotencial || undefined,
+            responsavelUnidade: responsavelUnidade || undefined,
+            proximoFollowup: proximoFollowup ? new Date(proximoFollowup).toISOString() : undefined,
+            pendenciasCliente: pendenciasCliente || undefined,
+            pendenciasUnidade: pendenciasUnidade || undefined,
+            pendenciasMatriz: pendenciasMatriz || undefined,
+          } as any })}
             disabled={mutation.isPending || cnpj.replace(/\D/g, "").length < 14} className="w-full">
             {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
             {mutation.isPending ? "Buscando..." : "Criar e Enriquecer"}
@@ -2225,6 +2332,22 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
   const [briefingMatriz, setBriefingMatriz]       = useState(deal.briefingMatriz || "");
   const [statusMatriz, setStatusMatriz]           = useState(deal.statusMatriz || "nao_enviado");
   const [observacoesNegociacao, setObservacoesNegociacao] = useState(deal.observacoesNegociacao || "");
+  // ─── Fase 1.5: campos da Matriz ──────────────────────────────────────────────
+  const [motivoPerda, setMotivoPerda] = useState((deal as any).motivoPerda || "");
+  const [statusProposta, setStatusProposta] = useState((deal as any).statusProposta || "");
+  const [dataEnvioMatriz, setDataEnvioMatriz] = useState(
+    (deal as any).dataEnvioMatriz ? new Date((deal as any).dataEnvioMatriz).toISOString().slice(0, 10) : ""
+  );
+  const [prazoRetornoMatriz, setPrazoRetornoMatriz] = useState(
+    (deal as any).prazoRetornoMatriz ? new Date((deal as any).prazoRetornoMatriz).toISOString().slice(0, 10) : ""
+  );
+  const [dataRetornoMatriz, setDataRetornoMatriz] = useState(
+    (deal as any).dataRetornoMatriz ? new Date((deal as any).dataRetornoMatriz).toISOString().slice(0, 10) : ""
+  );
+  const [retornoMatriz, setRetornoMatriz] = useState((deal as any).retornoMatriz || "");
+  const [documentosEnviados, setDocumentosEnviados] = useState(((deal as any).documentosEnviados || []).join(", "));
+  const [responsavelEnvioMatriz, setResponsavelEnvioMatriz] = useState((deal as any).responsavelEnvioMatriz || "");
+  const [pendenciasMatriz, setPendenciasMatriz] = useState((deal as any).pendenciasMatriz || "");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const saveMutation = useUpdateCrmDeal({
@@ -2322,6 +2445,90 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
             </Select>
           </div>
         </div>
+
+        {/* ─── Fase 1.5: campos operacionais do deal ─────────────────── */}
+        <div className="space-y-3 pt-2 border-t border-border/40">
+          <p className="text-[11px] text-muted-foreground/80 uppercase tracking-wider font-semibold pt-1">
+            Operação · Matriz & Proposta
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Status da Proposta</Label>
+              <Select value={statusProposta || "_none"} onValueChange={(v) => setStatusProposta(v === "_none" ? "" : v)}>
+                <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">— Nenhum —</SelectItem>
+                  {PROPOSTA_STATUS.map(s => <SelectItem key={s} value={s}>{PROPOSTA_STATUS_LABELS[s]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Responsável Envio Matriz</Label>
+              <Input value={responsavelEnvioMatriz} onChange={(e) => setResponsavelEnvioMatriz(e.target.value)}
+                placeholder="Nome ou matrícula" className="text-sm h-9" />
+            </div>
+          </div>
+
+          {/* Datas da Matriz — visíveis a partir do envio */}
+          {["enviado", "aguardando", "pendencia_documental", "retorno_recebido", "proposta_liberada"].includes(statusMatriz) && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Data de Envio p/ Matriz</Label>
+                <Input type="date" value={dataEnvioMatriz}
+                  onChange={(e) => setDataEnvioMatriz(e.target.value)} className="text-sm h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Prazo Retorno Matriz</Label>
+                <Input type="date" value={prazoRetornoMatriz}
+                  onChange={(e) => setPrazoRetornoMatriz(e.target.value)} className="text-sm h-9" />
+              </div>
+            </div>
+          )}
+
+          {/* Documentos enviados */}
+          {["enviado", "aguardando", "pendencia_documental", "retorno_recebido", "proposta_liberada"].includes(statusMatriz) && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Documentos Enviados (separados por vírgula)</Label>
+              <Input value={documentosEnviados} onChange={(e) => setDocumentosEnviados(e.target.value)}
+                placeholder="Ex: CNH, contrato social, balancete 2024" className="text-sm h-9" />
+            </div>
+          )}
+
+          {/* Retorno da Matriz — visível quando status for retorno_recebido ou proposta_liberada */}
+          {["retorno_recebido", "proposta_liberada"].includes(statusMatriz) && (
+            <>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Data do Retorno da Matriz</Label>
+                <Input type="date" value={dataRetornoMatriz}
+                  onChange={(e) => setDataRetornoMatriz(e.target.value)} className="text-sm h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Observações do Retorno</Label>
+                <Textarea value={retornoMatriz} onChange={(e) => setRetornoMatriz(e.target.value)}
+                  placeholder="Resumo do que a Matriz retornou..." className="text-sm min-h-[60px] resize-none" />
+              </div>
+            </>
+          )}
+
+          {/* Pendências da Matriz */}
+          {statusMatriz === "pendencia_documental" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Pendências da Matriz</Label>
+              <Textarea value={pendenciasMatriz} onChange={(e) => setPendenciasMatriz(e.target.value)}
+                placeholder="O que está pendente com a Matriz..." className="text-sm min-h-[60px] resize-none" />
+            </div>
+          )}
+
+          {/* Motivo da perda — visível somente quando o deal for perdido */}
+          {stage === "perdido" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Motivo da Perda</Label>
+              <Textarea value={motivoPerda} onChange={(e) => setMotivoPerda(e.target.value)}
+                placeholder="Por que o deal foi perdido?" className="text-sm min-h-[60px] resize-none" />
+            </div>
+          )}
+        </div>
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Resumo Diagnóstico Comercial</Label>
           <Textarea value={resumoDiagnosticoComercial} onChange={(e) => setResumoDiagnosticoComercial(e.target.value)}
@@ -2363,7 +2570,39 @@ function DealEditModal({ deal, onClose, onSaved, onDeleted }: {
             </Can>
             <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
             <Can permission="canEditPipeline">
-            <Button size="sm" onClick={() => saveMutation.mutate({ id: deal.id, data: { title, value: value || undefined, probability, stage, notes, produto, expectedCloseDate: expectedClose ? new Date(expectedClose).toISOString() : undefined, origem: origem || undefined, resumoDiagnosticoComercial: resumoDiagnosticoComercial || undefined, briefingMatriz: briefingMatriz || undefined, statusMatriz: statusMatriz || undefined, observacoesNegociacao: observacoesNegociacao || undefined } as any })} disabled={saveMutation.isPending}>
+            <Button size="sm" onClick={() => {
+              const docs = documentosEnviados
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean);
+              saveMutation.mutate({
+                id: deal.id,
+                data: {
+                  title,
+                  value: value || undefined,
+                  probability,
+                  stage,
+                  notes,
+                  produto,
+                  expectedCloseDate: expectedClose ? new Date(expectedClose).toISOString() : undefined,
+                  origem: origem || undefined,
+                  resumoDiagnosticoComercial: resumoDiagnosticoComercial || undefined,
+                  briefingMatriz: briefingMatriz || undefined,
+                  statusMatriz: statusMatriz || undefined,
+                  observacoesNegociacao: observacoesNegociacao || undefined,
+                  // Fase 1.5
+                  statusProposta: statusProposta || undefined,
+                  motivoPerda: motivoPerda || undefined,
+                  dataEnvioMatriz: dataEnvioMatriz ? new Date(dataEnvioMatriz).toISOString() : undefined,
+                  prazoRetornoMatriz: prazoRetornoMatriz ? new Date(prazoRetornoMatriz).toISOString() : undefined,
+                  dataRetornoMatriz: dataRetornoMatriz ? new Date(dataRetornoMatriz).toISOString() : undefined,
+                  retornoMatriz: retornoMatriz || undefined,
+                  documentosEnviados: docs.length > 0 ? docs : undefined,
+                  responsavelEnvioMatriz: responsavelEnvioMatriz || undefined,
+                  pendenciasMatriz: pendenciasMatriz || undefined,
+                } as any,
+              });
+            }} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
               Salvar
             </Button>

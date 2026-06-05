@@ -13,7 +13,7 @@ import { eq, and, desc, asc, ilike, or, gte, lte, inArray, sql, isNull, isNotNul
 import { EmpresAquiClient, mapEmpresAquiToContact } from "@workspace/empresaqui";
 import { callLLM } from "../lib/llm-client.js";
 import { getAgentById } from "../lib/agents-data.js";
-import { apiError } from "../lib/api-response.js";
+import { apiError, logAndApiError } from "../lib/api-response.js";
 import { enrichContact } from "../lib/cnpj-enrichment.js";
 import { pick, safeNumber, validateHttpUrl } from "../lib/validation.js";
 import { dispatchWebhook } from "../lib/webhook-dispatcher.js";
@@ -26,8 +26,10 @@ import {
   LEGACY_CONTACT_STATUS_MAP, LEGACY_DEAL_STAGE_MAP, DEAL_STAGE_TO_CONTACT_STATUS,
   MATRIZ_BRIEFING_CHECKLIST, AUTOMATION_TRIGGER_LABELS, AUTOMATION_ACTION_LABELS,
   APP_ROLES, APP_ROLE_LABELS, DASHBOARD_PERIODS, DASHBOARD_PERSONAS,
+  PROPOSTA_STATUS_LABELS,
   type AppRole, type DashboardPersona, type DashboardPeriod,
 } from "@workspace/db/crm-constants";
+import { normalizeContactStatus, normalizeDealStage } from "@workspace/db/legacy-migration";
 import { recommendNextStep } from "../lib/next-step-engine.js";
 import { evaluateAlerts, getAlertMeta } from "../lib/alerts-engine.js";
 import {
@@ -499,9 +501,21 @@ router.get("/contacts", async (req: Request, res: Response) => {
       .where(and(...conditions))
       .orderBy(orderByCol);
 
-    res.json({ success: true, contacts, total: contacts.length });
+    // Fase 1.5 — Migração de status legado: aplica LEGACY_CONTACT_STATUS_MAP
+    // em runtime para garantir que dados antigos não quebrem a UI.
+    // O status original é preservado em `statusOriginal` para auditoria.
+    const normalizedContacts = contacts.map((c) => {
+      const normalized = normalizeContactStatus(c.status);
+      return {
+        ...c,
+        statusOriginal: normalized ? null : c.status,
+        status: normalized || c.status,
+      };
+    });
+
+    res.json({ success: true, contacts: normalizedContacts, total: normalizedContacts.length });
   } catch (err: any) {
-    apiError(res, 500, "Failed to list contacts");
+    logAndApiError(res, err, 500, "Failed to list contacts", { route: "GET /contacts", userId: req.userId });
   }
 });
 
@@ -546,7 +560,7 @@ router.get("/contacts/summary", async (req: Request, res: Response) => {
       summary: { total, byStatus, bySource, byUf, byPorte, hotLeads, prospects, recentContacts },
     });
   } catch (err: any) {
-    apiError(res, 500, "Failed to get contacts summary");
+    logAndApiError(res, err, 500, "Failed to get contacts summary");
   }
 });
 
@@ -564,7 +578,7 @@ router.post("/contacts/bulk-update-temperature", async (req: Request, res: Respo
       .where(and(inArray(crmContactsTable.id, ids), eq(crmContactsTable.userId, userId)));
     res.json({ success: true, updated: ids.length });
   } catch (err: any) {
-    apiError(res, 500, "Bulk temperature update failed");
+    logAndApiError(res, err, 500, "Bulk temperature update failed");
   }
 });
 
@@ -582,7 +596,7 @@ router.post("/contacts/bulk-assign", async (req: Request, res: Response) => {
       .where(and(inArray(crmContactsTable.id, ids), eq(crmContactsTable.userId, userId)));
     res.json({ success: true, updated: ids.length });
   } catch (err: any) {
-    apiError(res, 500, "Bulk assign failed");
+    logAndApiError(res, err, 500, "Bulk assign failed");
   }
 });
 
@@ -601,7 +615,7 @@ router.post("/contacts/bulk-update-followup", async (req: Request, res: Response
       .where(and(inArray(crmContactsTable.id, ids), eq(crmContactsTable.userId, userId)));
     res.json({ success: true, updated: ids.length });
   } catch (err: any) {
-    apiError(res, 500, "Bulk followup update failed");
+    logAndApiError(res, err, 500, "Bulk followup update failed");
   }
 });
 
@@ -624,7 +638,7 @@ router.get("/contacts/distinct-values", async (req: Request, res: Response) => {
     const values = result.rows.map((r: any) => r.value).filter(Boolean);
     res.json({ success: true, values });
   } catch (err: any) {
-    apiError(res, 500, "Failed to fetch distinct values");
+    logAndApiError(res, err, 500, "Failed to fetch distinct values");
   }
 });
 
@@ -639,7 +653,7 @@ router.get("/contacts/:id", async (req: Request, res: Response) => {
     if (!contact) { apiError(res, 404, "Contact not found"); return; }
     res.json({ success: true, contact });
   } catch (err: any) {
-    apiError(res, 500, "Failed to get contact");
+    logAndApiError(res, err, 500, "Failed to get contact");
   }
 });
 
@@ -682,6 +696,9 @@ router.post("/contacts", async (req: Request, res: Response) => {
       "decisor","contatoDecissor","influenciadores",
       "loteProspeccao","responsavelUnidade",
       "observacoes",
+      // Fase 1.5 — pendências e follow-up
+      "pendenciasCliente","pendenciasUnidade","pendenciasMatriz",
+      "proximoFollowup",
     ] as const;
     const sanitizedData = pick(data, allowedContactFields);
     const [newContact] = await db
@@ -731,6 +748,9 @@ router.put("/contacts/:id", async (req: Request, res: Response) => {
       "decisor","contatoDecissor","influenciadores",
       "loteProspeccao","responsavelUnidade",
       "observacoes",
+      // Fase 1.5 — pendências e follow-up
+      "pendenciasCliente","pendenciasUnidade","pendenciasMatriz",
+      "proximoFollowup",
     ] as const;
     const [updated] = await db
       .update(crmContactsTable)
@@ -769,7 +789,7 @@ router.delete("/contacts/:id", async (req: Request, res: Response) => {
     await db.delete(crmContactsTable).where(eq(crmContactsTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
-    apiError(res, 500, "Failed to delete contact");
+    logAndApiError(res, err, 500, "Failed to delete contact");
   }
 });
 
@@ -787,7 +807,7 @@ router.post("/contacts/bulk-delete", async (req: Request, res: Response) => {
       .where(and(inArray(crmContactsTable.id, ids), eq(crmContactsTable.userId, userId)));
     res.json({ success: true, deleted: ids.length });
   } catch (err: any) {
-    apiError(res, 500, "Bulk delete failed");
+    logAndApiError(res, err, 500, "Bulk delete failed");
   }
 });
 
@@ -812,7 +832,7 @@ router.post("/contacts/bulk-update-status", async (req: Request, res: Response) 
 
     res.json({ success: true, updated: ids.length });
   } catch (err: any) {
-    apiError(res, 500, "Bulk update failed");
+    logAndApiError(res, err, 500, "Bulk update failed");
   }
 });
 
@@ -842,7 +862,7 @@ router.post("/contacts/bulk-tags", async (req: Request, res: Response) => {
 
     res.json({ success: true });
   } catch (err: any) {
-    apiError(res, 500, "Bulk tags update failed");
+    logAndApiError(res, err, 500, "Bulk tags update failed");
   }
 });
 
@@ -858,7 +878,7 @@ router.get("/tags", async (req: Request, res: Response) => {
     const tags = result.rows.map((r: any) => r.tag).sort();
     res.json({ success: true, tags });
   } catch (err: any) {
-    apiError(res, 500, "Failed to fetch tags");
+    logAndApiError(res, err, 500, "Failed to fetch tags");
   }
 });
 
@@ -888,7 +908,7 @@ router.post("/contacts/:id/enrich", async (req: Request, res: Response) => {
 
     res.json({ success: true, contact: updated, fieldsUpdated: Object.keys(mapped) });
   } catch (err: any) {
-    apiError(res, 500, "Enrichment failed");
+    logAndApiError(res, err, 500, "Enrichment failed");
   }
 });
 
@@ -938,7 +958,7 @@ router.post("/contacts/import", async (req: Request, res: Response) => {
       errors: results.filter(r => r.status === "error").length,
     }});
   } catch (err: any) {
-    apiError(res, 500, "Import failed");
+    logAndApiError(res, err, 500, "Import failed");
   }
 });
 
@@ -1043,7 +1063,7 @@ router.post("/contacts/:id/qualify", async (req: Request, res: Response) => {
     }
   } catch (err: any) {
     console.error("[crm] qualify failed:", err);
-    apiError(res, 500, "Qualification failed");
+    logAndApiError(res, err, 500, "Qualification failed");
   }
 });
 
@@ -1062,7 +1082,7 @@ router.get("/contacts/:id/qualification-history", async (req: Request, res: Resp
       .limit(20);
     res.json({ success: true, history: rows });
   } catch (err: any) {
-    apiError(res, 500, "Failed to fetch qualification history");
+    logAndApiError(res, err, 500, "Failed to fetch qualification history");
   }
 });
 
@@ -1118,21 +1138,32 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
       .where(and(eq(crmDealsTable.userId, userId), eq(crmDealsTable.pipelineId, pipelineIdParam)))
       .orderBy(desc(crmDealsTable.updatedAt));
 
+    // Fase 1.5 — Migração de stage legado: aplica LEGACY_DEAL_STAGE_MAP
+    // em runtime. O stage original é preservado em `stageOriginal` para auditoria.
+    const normalizedDeals = deals.map((d) => {
+      const normalized = normalizeDealStage(d.stage);
+      return {
+        ...d,
+        stageOriginal: normalized ? null : d.stage,
+        stage: normalized || d.stage,
+      };
+    });
+
     // Normalize stages: handle both string[] and object[] (e.g. [{name: "Novo Lead", order: 1}])
     const normalizedStages: string[] = stages.map((s: any) =>
       typeof s === "string" ? s : (s?.name || String(s))
     );
 
     const pipeline: Record<string, any[]> = {};
-    for (const s of normalizedStages) pipeline[s] = deals.filter((d: typeof deals[number]) => d.stage === s);
+    for (const s of normalizedStages) pipeline[s] = normalizedDeals.filter((d: typeof normalizedDeals[number]) => d.stage === s);
 
-    const totalValue = deals
-      .filter((d: typeof deals[number]) => !["lost"].includes(d.stage))
-      .reduce((sum: number, d: typeof deals[number]) => sum + (parseFloat(d.value || "0") || 0), 0);
+    const totalValue = normalizedDeals
+      .filter((d: typeof normalizedDeals[number]) => !["perdido", "lost"].includes(d.stage))
+      .reduce((sum: number, d: typeof normalizedDeals[number]) => sum + (parseFloat(d.value || "0") || 0), 0);
 
-    res.json({ success: true, pipeline, stages, meta: pipelineMeta, stats: { total: deals.length, totalValue } });
+    res.json({ success: true, pipeline, stages, meta: pipelineMeta, stats: { total: normalizedDeals.length, totalValue } });
   } catch (err: any) {
-    apiError(res, 500, "Failed to fetch pipeline");
+    logAndApiError(res, err, 500, "Failed to fetch pipeline");
   }
 });
 
@@ -1145,9 +1176,14 @@ router.get("/deals", async (req: Request, res: Response) => {
     if (stage) conditions.push(eq(crmDealsTable.stage, stage));
     if (contactId) conditions.push(eq(crmDealsTable.contactId, Number(contactId)));
     const deals = await db.select().from(crmDealsTable).where(and(...conditions)).orderBy(desc(crmDealsTable.updatedAt));
-    res.json({ success: true, deals });
+    // Fase 1.5 — normalização de stage legado em runtime
+    const normalizedDeals = deals.map((d) => {
+      const normalized = normalizeDealStage(d.stage);
+      return { ...d, stageOriginal: normalized ? null : d.stage, stage: normalized || d.stage };
+    });
+    res.json({ success: true, deals: normalizedDeals });
   } catch (err: any) {
-    apiError(res, 500, "Failed to list deals");
+    logAndApiError(res, err, 500, "Failed to list deals");
   }
 });
 
@@ -1157,9 +1193,10 @@ router.post("/deals", async (req: Request, res: Response) => {
     const allowedDealFields = [
       "contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId",
       "origem","resumoDiagnosticoComercial",
-      "briefingMatriz","dataEnvioMatriz","responsavelEnvioMatriz","prazoRetornoMatriz",
-      "statusMatriz","documentosEnviados",
+      "briefingMatriz","dataEnvioMatriz","responsavelEnvioMatriz","prazoRetornoMatriz","dataRetornoMatriz","retornoMatriz",
+      "statusMatriz","documentosEnviados","pendenciasMatriz",
       "statusProposta","observacoesNegociacao",
+      "motivoPerda",
     ] as const;
     const [deal] = await db.insert(crmDealsTable).values({ ...pick(req.body, allowedDealFields), userId } as any).returning();
     res.status(201).json({ success: true, deal });
@@ -1185,16 +1222,17 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
 
     const body = req.body;
     if (body.stage && body.stage !== oldDeal.stage) {
-      if (body.stage === "won" && !body.wonAt) body.wonAt = new Date();
-      if (body.stage === "lost" && !body.lostAt) body.lostAt = new Date();
+      if (body.stage === "fechado_ganho" && !body.wonAt) body.wonAt = new Date();
+      if (body.stage === "perdido" && !body.lostAt) body.lostAt = new Date();
     }
 
     const allowedDealFields = [
       "contactId","pipelineId","title","produto","stage","value","probability","expectedCloseDate","customFields","lostReason","wonAt","lostAt","assignedTo","notes","conversationId",
       "origem","resumoDiagnosticoComercial",
-      "briefingMatriz","dataEnvioMatriz","responsavelEnvioMatriz","prazoRetornoMatriz",
-      "statusMatriz","documentosEnviados",
+      "briefingMatriz","dataEnvioMatriz","responsavelEnvioMatriz","prazoRetornoMatriz","dataRetornoMatriz","retornoMatriz",
+      "statusMatriz","documentosEnviados","pendenciasMatriz",
       "statusProposta","observacoesNegociacao",
+      "motivoPerda",
     ] as const;
     const [deal] = await db.update(crmDealsTable)
       .set({ ...pick(body, allowedDealFields), updatedAt: new Date() })
@@ -1228,8 +1266,8 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
       try {
         const agnt = getAgentById("prospeccao-tax-group");
         let automationNote = "Avançou de etapa internamente.";
-        if (body.stage === "won") automationNote = "Contrato e Setup Operacional prontos para envio. Disparar onboarding.";
-        else if (body.stage === "proposal") automationNote = "Gerar e enviar Carta de Apresentação e PDF analítico tributário usando a Base de Conhecimento.";
+        if (body.stage === "fechado_ganho") automationNote = "Contrato e Setup Operacional prontos para envio. Disparar onboarding.";
+        else if (body.stage === "proposta_pronta" || body.stage === "proposta_enviada" || body.stage === "proposta_em_preparacao") automationNote = "Gerar e enviar Carta de Apresentação e PDF analítico tributário usando a Base de Conhecimento.";
 
         await db.insert(crmActivitiesTable).values({
           contactId: deal.contactId, dealId: deal.id, userId,
@@ -1247,8 +1285,8 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
         });
 
         // Integration event fan-out
-        const stageEventType = body.stage === "won" ? "deal.won"
-          : body.stage === "lost" ? "deal.lost"
+        const stageEventType = body.stage === "fechado_ganho" ? "deal.won"
+          : body.stage === "perdido" ? "deal.lost"
           : "deal.stage_changed";
         fireIntegrationEvent(stageEventType, {
           dealId: deal.id,
@@ -1260,31 +1298,108 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
           produto: deal.produto,
           lostReason: deal.lostReason,
         }, userId);
-
-        // Phase 3: trigger Matriz event automations
-        if (deal.statusMatriz === "enviado" || deal.statusMatriz === "aguardando") {
-          setImmediate(() => evaluateEventAutomations(userId, "matriz_aguardando", { contactId: deal.contactId, dealId: deal.id }));
-        }
-        if (deal.statusMatriz === "pendencia_documental") {
-          setImmediate(() => evaluateEventAutomations(userId, "matriz_pendencia", { contactId: deal.contactId, dealId: deal.id }));
-        }
-        if (deal.statusProposta === "proposta_pronta") {
-          setImmediate(() => evaluateEventAutomations(userId, "proposta_pronta", { contactId: deal.contactId, dealId: deal.id }));
-        }
-        if (deal.statusProposta === "proposta_enviada") {
-          setImmediate(() => evaluateEventAutomations(userId, "proposta_enviada", { contactId: deal.contactId, dealId: deal.id }));
-        }
       } catch { /* non-fatal */ }
-    }
 
-    // Phase 3: re-evaluate next step after any deal change
-    setImmediate(() => evaluateNextStepsForContact(userId, deal.contactId));
+      // Phase 3: trigger Matriz event automations
+      if (deal.statusMatriz === "enviado" || deal.statusMatriz === "aguardando") {
+        setImmediate(() => evaluateEventAutomations(userId, "matriz_aguardando", { contactId: deal.contactId, dealId: deal.id }));
+      }
+      if (deal.statusMatriz === "pendencia_documental") {
+        setImmediate(() => evaluateEventAutomations(userId, "matriz_pendencia", { contactId: deal.contactId, dealId: deal.id }));
+      }
+      if (deal.statusProposta === "pronta") {
+        setImmediate(() => evaluateEventAutomations(userId, "proposta_pronta", { contactId: deal.contactId, dealId: deal.id }));
+      }
+      if (deal.statusProposta === "enviada") {
+        setImmediate(() => evaluateEventAutomations(userId, "proposta_enviada", { contactId: deal.contactId, dealId: deal.id }));
+      }
 
-    res.json({ success: true, deal });
+      // Fase 1.5 — Eventos de timeline da Matriz
+      // Detecta transição de statusMatriz/statusProposta e grava uma atividade
+      // na timeline com tipo semântico. Falha silenciosa.
+      try {
+      const oldStatusMatriz = oldDeal.statusMatriz;
+      const newStatusMatriz = deal.statusMatriz;
+      const oldStatusProposta = oldDeal.statusProposta;
+      const newStatusProposta = deal.statusProposta;
+
+      // deal_enviado_matriz: statusMatriz transita para "enviado" ou "aguardando"
+      if (oldStatusMatriz !== newStatusMatriz && (newStatusMatriz === "enviado" || newStatusMatriz === "aguardando")) {
+        const subject = newStatusMatriz === "enviado"
+          ? "📤 Deal enviado para a Matriz"
+          : "⏳ Deal aguardando retorno da Matriz";
+        await db.insert(crmActivitiesTable).values({
+          contactId: deal.contactId, dealId: deal.id, userId,
+          type: "matriz_event",
+          subject,
+          content: deal.responsavelEnvioMatriz
+            ? `Responsável pelo envio: ${deal.responsavelEnvioMatriz}.${deal.dataEnvioMatriz ? " Enviado em " + new Date(deal.dataEnvioMatriz).toLocaleDateString("pt-BR") : ""}`
+            : `Status atualizado para "${newStatusMatriz}"${deal.dataEnvioMatriz ? " em " + new Date(deal.dataEnvioMatriz).toLocaleDateString("pt-BR") : ""}.`,
+          completedAt: new Date(),
+        }).catch(() => {});
+      }
+
+      // deal_retorno_matriz_recebido: statusMatriz transita para "retorno_recebido"
+      if (oldStatusMatriz !== newStatusMatriz && newStatusMatriz === "retorno_recebido") {
+        await db.insert(crmActivitiesTable).values({
+          contactId: deal.contactId, dealId: deal.id, userId,
+          type: "matriz_event",
+          subject: "📥 Retorno da Matriz recebido",
+          content: deal.retornoMatriz
+            ? `Observações do retorno: ${deal.retornoMatriz.slice(0, 240)}${deal.retornoMatriz.length > 240 ? "..." : ""}`
+            : `Retorno da Matriz recebido${deal.dataRetornoMatriz ? " em " + new Date(deal.dataRetornoMatriz).toLocaleDateString("pt-BR") : ""}.`,
+          completedAt: new Date(),
+        }).catch(() => {});
+      }
+
+      // deal_pendencia_matriz: statusMatriz transita para "pendencia_documental"
+      if (oldStatusMatriz !== newStatusMatriz && newStatusMatriz === "pendencia_documental") {
+        await db.insert(crmActivitiesTable).values({
+          contactId: deal.contactId, dealId: deal.id, userId,
+          type: "matriz_event",
+          subject: "📑 Pendência documental na Matriz",
+          content: deal.pendenciasMatriz
+            ? `Pendências: ${deal.pendenciasMatriz.slice(0, 240)}${deal.pendenciasMatriz.length > 240 ? "..." : ""}`
+            : "Pendência documental registrada. Acompanhar com a Matriz.",
+          completedAt: new Date(),
+        }).catch(() => {});
+      }
+
+      // deal_proposta_liberada_matriz: statusMatriz transita para "proposta_liberada"
+      if (oldStatusMatriz !== newStatusMatriz && newStatusMatriz === "proposta_liberada") {
+        await db.insert(crmActivitiesTable).values({
+          contactId: deal.contactId, dealId: deal.id, userId,
+          type: "matriz_event",
+          subject: "✅ Proposta liberada pela Matriz",
+          content: `Proposta liberada para apresentação ao cliente.${deal.documentosEnviados && deal.documentosEnviados.length > 0 ? " Documentos: " + deal.documentosEnviados.join(", ") : ""}`,
+          completedAt: new Date(),
+        }).catch(() => {});
+      }
+
+      // Mudança de statusProposta: registra na timeline (genérico)
+      if (oldStatusProposta !== newStatusProposta && newStatusProposta) {
+        const propostaLabel = (PROPOSTA_STATUS_LABELS as Record<string, string>)[newStatusProposta] || newStatusProposta;
+        await db.insert(crmActivitiesTable).values({
+          contactId: deal.contactId, dealId: deal.id, userId,
+          type: "matriz_event",
+          subject: `📄 Status da proposta: ${propostaLabel}`,
+          content: `Status da proposta atualizado de "${oldStatusProposta || "nenhum"}" para "${newStatusProposta}".`,
+          completedAt: new Date(),
+        }).catch(() => {});
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // Phase 3: re-evaluate next step after any deal change
+  setImmediate(() => evaluateNextStepsForContact(userId, deal.contactId));
+
+  res.json({ success: true, deal });
   } catch (err: any) {
     apiError(res, 400, "Failed to update deal");
   }
 });
+
+
 
 router.delete("/deals/:id", async (req: Request, res: Response) => {
   try {
@@ -1294,7 +1409,7 @@ router.delete("/deals/:id", async (req: Request, res: Response) => {
     await db.delete(crmDealsTable).where(eq(crmDealsTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
-    apiError(res, 500, "Failed to delete deal");
+    logAndApiError(res, err, 500, "Failed to delete deal");
   }
 });
 
@@ -1307,7 +1422,7 @@ router.get("/contacts/:id/activities", async (req: Request, res: Response) => {
       .orderBy(desc(crmActivitiesTable.createdAt));
     res.json({ success: true, activities });
   } catch (err: any) {
-    apiError(res, 500, "Failed to list activities");
+    logAndApiError(res, err, 500, "Failed to list activities");
   }
 });
 
@@ -1339,7 +1454,7 @@ router.get("/contacts/:id/attachments", async (req: Request, res: Response) => {
       .orderBy(desc(crmAttachmentsTable.createdAt));
     res.json({ success: true, attachments });
   } catch (err: any) {
-    apiError(res, 500, "Failed to list attachments");
+    logAndApiError(res, err, 500, "Failed to list attachments");
   }
 });
 
@@ -1391,7 +1506,7 @@ router.delete("/contacts/:contactId/attachments/:attachmentId", async (req: Requ
     await db.delete(crmAttachmentsTable).where(eq(crmAttachmentsTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
-    apiError(res, 500, "Failed to delete attachment");
+    logAndApiError(res, err, 500, "Failed to delete attachment");
   }
 });
 
@@ -1416,7 +1531,7 @@ router.get("/tasks", async (req: Request, res: Response) => {
       .orderBy(asc(crmTasksTable.dueDate));
     res.json({ success: true, tasks });
   } catch (err: any) {
-    apiError(res, 500, "Failed to list tasks");
+    logAndApiError(res, err, 500, "Failed to list tasks");
   }
 });
 
@@ -1475,7 +1590,7 @@ router.delete("/tasks/:id", async (req: Request, res: Response) => {
     await db.delete(crmTasksTable).where(eq(crmTasksTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
-    apiError(res, 500, "Failed to delete task");
+    logAndApiError(res, err, 500, "Failed to delete task");
   }
 });
 
@@ -1507,7 +1622,7 @@ router.get("/activities", async (req: Request, res: Response) => {
 
     res.json({ success: true, activities: formatted });
   } catch (err: any) {
-    apiError(res, 500, "Failed to fetch global activities");
+    logAndApiError(res, err, 500, "Failed to fetch global activities");
   }
 });
 
@@ -1520,7 +1635,7 @@ router.get("/views", async (req: Request, res: Response) => {
       .orderBy(asc(crmSavedViewsTable.createdAt));
     res.json({ success: true, views });
   } catch (err: any) {
-    apiError(res, 500, "Failed to list views");
+    logAndApiError(res, err, 500, "Failed to list views");
   }
 });
 
@@ -1588,7 +1703,7 @@ router.post("/views/seed-system", async (req: Request, res: Response) => {
 
     res.json({ success: true, views, seeded: toInsert.length });
   } catch (err: any) {
-    apiError(res, 500, "Failed to seed system views");
+    logAndApiError(res, err, 500, "Failed to seed system views");
   }
 });
 
@@ -1600,7 +1715,7 @@ router.delete("/views/:id", async (req: Request, res: Response) => {
     await db.delete(crmSavedViewsTable).where(eq(crmSavedViewsTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
-    apiError(res, 500, "Failed to delete view");
+    logAndApiError(res, err, 500, "Failed to delete view");
   }
 });
 
@@ -1644,8 +1759,8 @@ router.get("/analytics/overview", async (req: Request, res: Response) => {
       return d >= lastPeriodStart && d < lastPeriodEnd;
     }).length;
 
-    const activeDeals = deals.filter(d => !["lost"].includes(d.stage));
-    const wonDeals = deals.filter(d => d.stage === "won");
+    const activeDeals = deals.filter(d => !["perdido", "lost"].includes(d.stage));
+    const wonDeals = deals.filter(d => d.stage === "fechado_ganho" || d.stage === "won");
     const wonInPeriod = wonDeals.filter(d => d.wonAt && new Date(d.wonAt) >= startDate && new Date(d.wonAt) <= endDate);
 
     const pipelineValue = activeDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
@@ -1653,11 +1768,11 @@ router.get("/analytics/overview", async (req: Request, res: Response) => {
     const wonValue = wonDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
     const wonValueInPeriod = wonInPeriod.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
 
-    const qualifiedCount = contacts.filter(c => ["qualified", "opportunity", "client"].includes(c.status)).length;
+    const qualifiedCount = contacts.filter(c => ["qualificado", "qualified", "em_negociacao", "opportunity", "cliente", "client"].includes(c.status)).length;
     const qualificationRate = contacts.length > 0 ? Math.round((qualifiedCount / contacts.length) * 100) : 0;
 
     const winRate = (deals.length > 0)
-      ? Math.round((wonDeals.length / Math.max(1, wonDeals.length + deals.filter(d => d.stage === "lost").length)) * 100)
+      ? Math.round((wonDeals.length / Math.max(1, wonDeals.length + deals.filter(d => d.stage === "perdido" || d.stage === "lost").length)) * 100)
       : 0;
 
     const periodActivities = activities.filter(a => {
@@ -1729,7 +1844,7 @@ router.get("/analytics/overview", async (req: Request, res: Response) => {
       weeklyLeads,
     });
   } catch (err: any) {
-    apiError(res, 500, "Analytics overview failed");
+    logAndApiError(res, err, 500, "Analytics overview failed");
   }
 });
 
@@ -1784,7 +1899,7 @@ router.get("/analytics/funnel", async (req: Request, res: Response) => {
 
     res.json({ success: true, funnel, avgDaysPerStage });
   } catch (err: any) {
-    apiError(res, 500, "Funnel analytics failed");
+    logAndApiError(res, err, 500, "Funnel analytics failed");
   }
 });
 
@@ -1797,7 +1912,7 @@ router.get("/automations", async (req: Request, res: Response) => {
       .orderBy(desc(crmAutomationsTable.createdAt));
     res.json({ success: true, automations });
   } catch (err: any) {
-    apiError(res, 500, "Failed to list automations");
+    logAndApiError(res, err, 500, "Failed to list automations");
   }
 });
 
@@ -1837,7 +1952,7 @@ router.delete("/automations/:id", async (req: Request, res: Response) => {
     await db.delete(crmAutomationsTable).where(eq(crmAutomationsTable.id, existing.id));
     res.json({ success: true });
   } catch (err: any) {
-    apiError(res, 500, "Failed to delete automation");
+    logAndApiError(res, err, 500, "Failed to delete automation");
   }
 });
 
@@ -1851,7 +1966,7 @@ router.get("/pipelines", async (req: Request, res: Response) => {
       .orderBy(asc(crmPipelinesTable.createdAt));
     res.json({ success: true, pipelines });
   } catch (err: any) {
-    apiError(res, 500, "Failed to list pipelines");
+    logAndApiError(res, err, 500, "Failed to list pipelines");
   }
 });
 
@@ -1911,7 +2026,7 @@ router.delete("/pipelines/:id", async (req: Request, res: Response) => {
       .where(and(eq(crmPipelinesTable.id, Number(req.params.id)), eq(crmPipelinesTable.userId, userId)));
     res.json({ success: true });
   } catch (err: any) {
-    apiError(res, 500, "Failed to delete pipeline");
+    logAndApiError(res, err, 500, "Failed to delete pipeline");
   }
 });
 
@@ -1981,7 +2096,7 @@ router.get("/operational-summary", async (req: Request, res: Response) => {
 
     // Propostas abertas
     const propostasAbertas = deals.filter(d =>
-      d.statusProposta === "proposta_enviada" || d.stage === "proposta_enviada"
+      d.statusProposta === "enviada" || d.statusProposta === "apresentada" || d.stage === "proposta_enviada"
     ).length;
 
     // Em negociação
@@ -2020,7 +2135,7 @@ router.get("/operational-summary", async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    apiError(res, 500, "Failed to get operational summary");
+    logAndApiError(res, err, 500, "Failed to get operational summary");
   }
 });
 
@@ -2045,7 +2160,7 @@ router.get("/me", async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    apiError(res, 500, "Failed to get user context");
+    logAndApiError(res, err, 500, "Failed to get user context");
   }
 });
 
@@ -2073,8 +2188,11 @@ router.get("/dashboards/:persona", async (req: Request, res: Response) => {
     }
     res.json({ success: true, persona, period, data });
   } catch (err: any) {
+    console.error("[dashboards] error for persona", req.params.persona, ":", err?.message);
+    console.error("[dashboards] cause:", err?.cause?.message, err?.cause?.code, err?.cause?.detail);
+    console.error("[dashboards] stack:", err?.stack?.slice(0, 800));
     if (err.statusCode) { apiError(res, err.statusCode, err.message); return; }
-    apiError(res, 500, "Failed to get dashboard");
+    logAndApiError(res, err, 500, "Failed to get dashboard");
   }
 });
 
@@ -2171,7 +2289,7 @@ router.get("/queues/:type", async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     if (err.statusCode) { apiError(res, err.statusCode, err.message); return; }
-    apiError(res, 500, "Failed to get queue");
+    logAndApiError(res, err, 500, "Failed to get queue");
   }
 });
 
@@ -2189,7 +2307,7 @@ router.get("/quality/health", async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error("[crm/quality/health]", err);
     if (err.statusCode) { apiError(res, err.statusCode, err.message); return; }
-    apiError(res, 500, "Failed to compute health");
+    logAndApiError(res, err, 500, "Failed to compute health");
   }
 });
 
@@ -2201,7 +2319,7 @@ router.get("/quality/issues", async (req: Request, res: Response) => {
     res.json({ success: true, issues, total: issues.length });
   } catch (err: any) {
     console.error("[crm/quality/issues]", err);
-    apiError(res, 500, "Failed to get quality issues");
+    logAndApiError(res, err, 500, "Failed to get quality issues");
   }
 });
 
@@ -2212,7 +2330,7 @@ router.get("/quality/duplicates", async (req: Request, res: Response) => {
     const duplicates = await findDuplicates(userId);
     res.json({ success: true, duplicates, total: duplicates.length });
   } catch (err: any) {
-    apiError(res, 500, "Failed to find duplicates");
+    logAndApiError(res, err, 500, "Failed to find duplicates");
   }
 });
 
@@ -2243,7 +2361,7 @@ router.get("/audit-log", async (req: Request, res: Response) => {
     res.json({ success: true, entries: rows, total: rows.length });
   } catch (err: any) {
     if (err.statusCode) { apiError(res, err.statusCode, err.message); return; }
-    apiError(res, 500, "Failed to get audit log");
+    logAndApiError(res, err, 500, "Failed to get audit log");
   }
 });
 
@@ -2288,7 +2406,7 @@ router.get("/users", async (req: Request, res: Response) => {
     res.json({ success: true, users, total: users.length });
   } catch (err: any) {
     if (err.statusCode) { apiError(res, err.statusCode, err.message); return; }
-    apiError(res, 500, "Failed to list users");
+    logAndApiError(res, err, 500, "Failed to list users");
   }
 });
 
@@ -2327,7 +2445,7 @@ router.post("/users/:userId/roles", async (req: Request, res: Response) => {
     res.status(201).json({ success: true, role: created });
   } catch (err: any) {
     if (err.statusCode) { apiError(res, err.statusCode, err.message); return; }
-    apiError(res, 500, "Failed to grant role");
+    logAndApiError(res, err, 500, "Failed to grant role");
   }
 });
 
@@ -2360,7 +2478,7 @@ router.delete("/users/:userId/roles/:roleId", async (req: Request, res: Response
     res.json({ success: true });
   } catch (err: any) {
     if (err.statusCode) { apiError(res, err.statusCode, err.message); return; }
-    apiError(res, 500, "Failed to revoke role");
+    logAndApiError(res, err, 500, "Failed to revoke role");
   }
 });
 
@@ -2370,7 +2488,7 @@ router.get("/roles", async (req: Request, res: Response) => {
     const userId = requireUserId(req);
     res.json({ success: true, roles: APP_ROLES, labels: APP_ROLE_LABELS });
   } catch (err: any) {
-    apiError(res, 500, "Failed to list roles");
+    logAndApiError(res, err, 500, "Failed to list roles");
   }
 });
 
@@ -2439,7 +2557,7 @@ router.get("/governance/recent", async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error("[crm/governance/recent]", err);
     if (err.statusCode) { apiError(res, err.statusCode, err.message); return; }
-    apiError(res, 500, "Failed to get recent activity");
+    logAndApiError(res, err, 500, "Failed to get recent activity");
   }
 });
 
@@ -2478,9 +2596,9 @@ router.get("/contacts/:id/next-step", async (req: Request, res: Response) => {
       )).limit(1);
 
     const hasProposal = !!(deal && (
-      deal.statusProposta === "proposta_enviada"
-      || deal.statusProposta === "proposta_pronta"
-      || deal.statusProposta === "proposta_apresentada"
+      deal.statusProposta === "enviada"
+      || deal.statusProposta === "pronta"
+      || deal.statusProposta === "apresentada"
       || deal.statusProposta === "em_negociacao"
       || deal.statusMatriz === "proposta_liberada"
     ));
@@ -2508,7 +2626,7 @@ router.get("/contacts/:id/next-step", async (req: Request, res: Response) => {
 
     res.json({ success: true, recommendation: rec, contactId });
   } catch (err: any) {
-    apiError(res, 500, "Failed to compute next step");
+    logAndApiError(res, err, 500, "Failed to compute next step");
   }
 });
 
@@ -2535,9 +2653,9 @@ router.post("/contacts/:id/next-step/accept", async (req: Request, res: Response
       )).limit(1);
 
     const hasProposal = !!(deal && (
-      deal.statusProposta === "proposta_enviada"
-      || deal.statusProposta === "proposta_pronta"
-      || deal.statusProposta === "proposta_apresentada"
+      deal.statusProposta === "enviada"
+      || deal.statusProposta === "pronta"
+      || deal.statusProposta === "apresentada"
       || deal.statusProposta === "em_negociacao"
       || deal.statusMatriz === "proposta_liberada"
     ));
@@ -2593,7 +2711,7 @@ router.post("/contacts/:id/next-step/accept", async (req: Request, res: Response
 
     res.status(201).json({ success: true, task, recommendation: rec });
   } catch (err: any) {
-    apiError(res, 500, "Failed to accept next step");
+    logAndApiError(res, err, 500, "Failed to accept next step");
   }
 });
 
@@ -2613,7 +2731,7 @@ router.post("/contacts/:id/next-step/ignore", async (req: Request, res: Response
     });
     res.json({ success: true });
   } catch (err: any) {
-    apiError(res, 500, "Failed to ignore next step");
+    logAndApiError(res, err, 500, "Failed to ignore next step");
   }
 });
 
@@ -2651,7 +2769,7 @@ router.get("/alerts", async (req: Request, res: Response) => {
 
     res.json({ success: true, alerts, total: alerts.length });
   } catch (err: any) {
-    apiError(res, 500, "Failed to list alerts");
+    logAndApiError(res, err, 500, "Failed to list alerts");
   }
 });
 
@@ -2667,7 +2785,7 @@ router.post("/alerts/:id/resolve", async (req: Request, res: Response) => {
     if (!updated) { apiError(res, 404, "Alert not found"); return; }
     res.json({ success: true, alert: updated });
   } catch (err: any) {
-    apiError(res, 500, "Failed to resolve alert");
+    logAndApiError(res, err, 500, "Failed to resolve alert");
   }
 });
 
@@ -2704,7 +2822,7 @@ router.post("/alerts/:id/convert-to-task", async (req: Request, res: Response) =
 
     res.status(201).json({ success: true, task });
   } catch (err: any) {
-    apiError(res, 500, "Failed to convert alert to task");
+    logAndApiError(res, err, 500, "Failed to convert alert to task");
   }
 });
 
@@ -2776,7 +2894,7 @@ router.post("/alerts/refresh", async (req: Request, res: Response) => {
 
     res.json({ success: true, created: toInsert.length, evaluated: candidates.length, automationsFired });
   } catch (err: any) {
-    apiError(res, 500, "Failed to refresh alerts");
+    logAndApiError(res, err, 500, "Failed to refresh alerts");
   }
 });
 
@@ -2832,7 +2950,7 @@ router.get("/contacts/:id/briefing-checklist", async (req: Request, res: Respons
       completionPct: Math.round(((required.length - missing.length) / Math.max(1, required.length)) * 100),
     });
   } catch (err: any) {
-    apiError(res, 500, "Failed to compute briefing checklist");
+    logAndApiError(res, err, 500, "Failed to compute briefing checklist");
   }
 });
 
@@ -2892,7 +3010,7 @@ router.post("/contacts/:id/priority/recalculate", async (req: Request, res: Resp
 
     res.json({ success: true, ...result });
   } catch (err: any) {
-    apiError(res, 500, "Failed to recalculate priority");
+    logAndApiError(res, err, 500, "Failed to recalculate priority");
   }
 });
 
@@ -2916,9 +3034,9 @@ async function evaluateNextStepsForContact(userId: string, contactId: number) {
       )).limit(1);
 
     const hasProposal = !!(deal && (
-      deal.statusProposta === "proposta_enviada"
-      || deal.statusProposta === "proposta_pronta"
-      || deal.statusProposta === "proposta_apresentada"
+      deal.statusProposta === "enviada"
+      || deal.statusProposta === "pronta"
+      || deal.statusProposta === "apresentada"
       || deal.statusProposta === "em_negociacao"
       || deal.statusMatriz === "proposta_liberada"
     ));
@@ -3011,7 +3129,7 @@ router.get("/segments", async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("[CRM] segments error:", err);
-    apiError(res, 500, "Failed to compute segments");
+    logAndApiError(res, err, 500, "Failed to compute segments");
   }
 });
 

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Edit2, Save, X, GripVertical,
   CheckCircle2, Loader2, ChevronRight, Star, Layers,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,11 @@ import {
   useDeleteCrmPipeline,
   getListCrmPipelinesQueryKey,
 } from "@workspace/api-client-react";
+import {
+  PIPELINE_TAX_GROUP_STAGES,
+  PIPELINE_STAGE_LABELS,
+  DEFAULT_PIPELINE_NAME,
+} from "@workspace/db/crm-constants";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export type Pipeline = {
@@ -27,30 +33,23 @@ export type Pipeline = {
   createdAt?: string;
 };
 
-// ─── Default stages palette ──────────────────────────────────────────────────
-const SUGGESTED_STAGES = [
-  "Prospecção", "Contato Inicial", "Qualificação", "Descoberta",
-  "Proposta", "Negociação", "Fechamento", "Ganhos", "Perdidos",
-  "Onboarding", "Pós-Venda", "Renovação",
-];
+// ─── Default stages palette (Fase 1.5) ──────────────────────────────────────
+// Apenas as 16 etapas oficiais do Pipeline Tax Group.
+// O array legado (Prospecção, Contato Inicial, Qualificação, Descoberta,
+// Proposta, Negociação, Fechamento, Ganhos, Perdidos, Onboarding, Pós-Venda,
+// Renovação) foi removido. O usuário pode criar funis customizados, mas o
+// funil padrão e a sugestão inicial são sempre as 16 etapas Tax Group.
 
-const STAGE_COLORS: Record<string, string> = {
-  "Prospecção":     "bg-slate-500/20 text-slate-300 border-slate-500/30",
-  "Contato Inicial":"bg-sky-500/20 text-sky-300 border-sky-500/30",
-  "Qualificação":   "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  "Descoberta":     "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
-  "Proposta":       "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  "Negociação":     "bg-orange-500/20 text-orange-300 border-orange-500/30",
-  "Fechamento":     "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  "Ganhos":         "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  "Perdidos":       "bg-red-500/20 text-red-300 border-red-500/30",
-  "Onboarding":     "bg-teal-500/20 text-teal-300 border-teal-500/30",
-  "Pós-Venda":      "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  "Renovação":      "bg-lime-500/20 text-lime-300 border-lime-500/30",
-};
+const SUGGESTED_STAGES: string[] = [...PIPELINE_TAX_GROUP_STAGES];
 
 function getStageColor(stage: string) {
-  return STAGE_COLORS[stage] || "bg-muted/50 text-muted-foreground border-border/50";
+  // O pipeline Tax Group usa labels canônicos; sem cor pré-definida para
+  // a UI do editor, mantém-se o estilo neutro do badge.
+  return "bg-muted/50 text-muted-foreground border-border/50";
+}
+
+function getStageLabel(stage: string): string {
+  return (PIPELINE_STAGE_LABELS as Record<string, string | undefined>)[stage] || stage;
 }
 
 // ─── Stage editor ────────────────────────────────────────────────────────────
@@ -117,7 +116,7 @@ function StageEditor({
             >
               <GripVertical className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${getStageColor(stage)}`}>
-                {stage}
+                {getStageLabel(stage)}
               </span>
               <span className="flex-1" />
               <span className="text-[11px] text-muted-foreground/50 font-mono">{idx + 1}</span>
@@ -152,7 +151,7 @@ function StageEditor({
 
       {/* Suggested stages */}
       <div>
-        <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-1.5">Sugestões</p>
+        <p className="text-[11px] text-muted-foreground/60 uppercase tracking-wider mb-1.5">Sugestões (Pipeline Tax Group)</p>
         <div className="flex gap-1.5 flex-wrap">
           {SUGGESTED_STAGES.filter(s => !stages.includes(s)).map(s => (
             <button
@@ -160,7 +159,7 @@ function StageEditor({
               onClick={() => onChange([...stages, s])}
               className="text-xs px-2 py-0.5 rounded-full border border-border/40 text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
             >
-              + {s}
+              + {getStageLabel(s)}
             </button>
           ))}
         </div>
@@ -182,7 +181,7 @@ function PipelineForm({
 
   const [name, setName] = useState(initial?.name || "");
   const [stages, setStages] = useState<string[]>(
-    initial?.stages || ["Prospecção", "Qualificação", "Proposta", "Negociação", "Fechamento", "Ganhos", "Perdidos"]
+    initial?.stages || [...PIPELINE_TAX_GROUP_STAGES]
   );
 
   const createPipeline = useCreateCrmPipeline({
@@ -216,12 +215,19 @@ function PipelineForm({
           Nome do funil
         </label>
         <Input
-          placeholder="Ex: Funil de Renovação, Pós-Venda..."
+          placeholder="Ex: Funil Customizado..."
           value={name}
           onChange={e => setName(e.target.value)}
           className="h-9 text-sm"
           autoFocus
         />
+      </div>
+      <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 flex items-start gap-2">
+        <Info className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          O funil operacional padrão é o <strong className="text-foreground">Pipeline Tax Group</strong> (16 etapas).
+          Use este formulário apenas se precisar criar um funil customizado para uso específico.
+        </p>
       </div>
 
       <StageEditor stages={stages} onChange={setStages} />
@@ -291,8 +297,8 @@ export default function PipelineManager({
 
   const pipelines = (data as any)?.pipelines || [];
   const DEFAULT_PIPELINE = {
-    id: 0, name: "Funil Comercial (Padrão)", isDefault: true,
-    stages: ["prospecting", "discovery", "proposal", "negotiation", "closing", "won", "lost"],
+    id: 0, name: DEFAULT_PIPELINE_NAME, isDefault: true,
+    stages: [...PIPELINE_TAX_GROUP_STAGES],
     createdAt: "",
   } as Pipeline;
 

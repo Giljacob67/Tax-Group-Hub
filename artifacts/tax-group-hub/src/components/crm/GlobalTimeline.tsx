@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, PhoneCall, AtSign, MessageSquare, Calendar, StickyNote, Activity, Loader2 } from "lucide-react";
+import { Clock, PhoneCall, AtSign, MessageSquare, Calendar, StickyNote, Activity, Loader2, Briefcase } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CompanyAvatar } from "./CompanyAvatar";
 import { useListCrmActivities } from "@workspace/api-client-react";
@@ -11,6 +11,7 @@ const ACTIVITY_ICONS: Record<string, any> = {
   meeting: Calendar,
   note: StickyNote,
   ai_generated: Activity,
+  matriz_event: Briefcase,
 };
 
 type GlobalActivity = {
