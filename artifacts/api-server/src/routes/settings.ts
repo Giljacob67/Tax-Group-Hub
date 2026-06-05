@@ -493,21 +493,31 @@ router.get("/settings/models", async (_req, res) => {
     const { url: ollamaUrl } = await getEffectiveOllamaUrl();
 
     const models: ModelOption[] = [
-      { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", description: "Rapido e eficiente. Recomendado para tarefas gerais e respostas ageis." },
-      { id: "gemini-3-pro-preview", name: "Gemini 3 Pro", description: "Mais capaz. Melhor para analises complexas e textos longos." },
+      // ─── Google Gemini (via Gemini API ou Ollama Cloud) ─────────────────
+      { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", description: "Rapido e eficiente. Recomendado para tarefas gerais e respostas ageis. (Ollama Cloud)" },
+      { id: "gemini-3-pro-preview", name: "Gemini 3 Pro", description: "Mais capaz. Melhor para analises complexas e textos longos. (Ollama Cloud)" },
       { id: "gemini-2.5-pro-preview-05-06", name: "Gemini 2.5 Pro", description: "Alta performance. Excelente raciocinio e contexto longo." },
       { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", description: "Versao compacta. Otimo custo-beneficio para tarefas simples." },
+      // ─── Ollama Cloud (open-source) ──────────────────────────────────────
+      { id: "minimax-m3:cloud", name: "MiniMax M3 Cloud", description: "Coding & Agentic Frontier. 1M context. Native Multimodality." },
+      { id: "minimax-m2.7:cloud", name: "Minimax M2.7 Cloud", description: "Otimizado para raciocínio em múltiplos cenários (Ollama Cloud)." },
+      { id: "gemma4:cloud", name: "Gemma 4 Cloud", description: "Frontier-level multimodal open-source (ate 31b)." },
+      { id: "qwen3.5:cloud", name: "Qwen 3.5 Cloud", description: "Open-source multimodal com utilidade e performance excepcionais (ate 122b)." },
+      { id: "qwen-2.5-coder-32b", name: "Qwen 2.5 Coder 32B", description: "Excepcional para codigo na nuvem corporativa." },
+      { id: "glm-5.1:cloud", name: "GLM 5.1 Cloud", description: "Next-gen flagship da Z.ai para agentic engineering e SWE-Bench Pro." },
+      { id: "kimi-k2.6:cloud", name: "Kimi K2.6 Cloud", description: "Open-source multimodal agentic, long-horizon coding." },
+      { id: "kimi-k2.5:cloud", name: "Kimi K2.5 Cloud", description: "Leitor avancado de contexto ultra-longo na nuvem." },
+      { id: "deepseek-v3.2:cloud", name: "DeepSeek V3.2 Cloud", description: "Equilibrio entre eficiencia computacional e raciocinio." },
+      { id: "deepseek-v4-pro:cloud", name: "DeepSeek V4 Pro Cloud", description: "Frontier MoE com 1M context window, 3 modos de raciocinio." },
+      { id: "deepseek-v4-flash:cloud", name: "DeepSeek V4 Flash Cloud", description: "V4 preview MoE eficiente com 1M context." },
       { id: "llama-3.1-70b", name: "LLaMA 3.1 70B (Ollama Cloud)", description: "Modelo open-source top de linha (Ollama Cloud / OpenRouter)." },
       { id: "llama-3.1-8b", name: "LLaMA 3.1 8B (Ollama Cloud)", description: "Modelo veloz open-source (Ollama Cloud / OpenRouter)." },
-      { id: "qwen-2.5-coder-32b", name: "Qwen 2.5 Coder 32B", description: "Excepcional para código na nuvem corporativa." },
-      { id: "glm-5.1:cloud", name: "GLM 5.1 Cloud", description: "Modelo poderoso para compreensão profunda (Ollama Cloud)." },
-      { id: "minimax-m2.7:cloud", name: "Minimax M2.7 Cloud", description: "Otimizado para raciocínio em múltiplos cenários (Ollama Cloud)." },
-      { id: "kimi-k2.5:cloud", name: "Kimi K2.5 Cloud", description: "Leitor avançado de contexto ultra-longo na nuvem (Ollama Cloud)." },
+      { id: "qwen3-coder-next:cloud", name: "Qwen3 Coder Next Cloud", description: "Coding-focused agentic workflows." },
     ];
 
     res.json({
       models,
-      defaultModel: process.env.GEMINI_MODEL || "gemini-3-flash-preview",
+      defaultModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
       provider: ollamaUrl ? "ollama" : process.env.GEMINI_API_KEY ? "gemini" : null,
     });
   } catch (err) {

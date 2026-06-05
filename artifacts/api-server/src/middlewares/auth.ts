@@ -49,6 +49,19 @@ export function isRealUser(userId?: string | null): userId is string {
 /**
  * Routes reachable without user authentication.
  * Read-only public endpoints; writes on these paths still require auth.
+ *
+ * LLM provider metadata and model discovery are static reference data —
+ * they expose no user info and are needed for the IA & LLM tab to render
+ * the wizard UI before the user has any credentials configured.
+ *
+ * LLM validate/discover take user-supplied credentials in the body and
+ * are intentionally open: they form a chicken-and-egg flow where the
+ * user must validate a key BEFORE having a connection to authenticate
+ * with. The endpoints never write or read user-owned data; they only
+ * call the upstream provider's API with the supplied key.
+ *
+ * LLM connections/profiles still REQUIRE auth — those are per-tenant
+ * state and protected by the standard auth flow.
  */
 const PUBLIC_PATHS: ReadonlyArray<string> = [
   "/healthz",
@@ -56,6 +69,10 @@ const PUBLIC_PATHS: ReadonlyArray<string> = [
   "/branding/resolve",
   "/agents",
   "/agents/search",
+  "/llm/providers",
+  "/llm/validate",
+  "/llm/discover",
+  "/llm/models/static",
 ];
 
 const PUBLIC_GET_PATHS: ReadonlyArray<string> = [

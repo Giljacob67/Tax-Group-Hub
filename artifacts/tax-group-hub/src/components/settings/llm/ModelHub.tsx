@@ -18,6 +18,7 @@ import EditConnectionModal from "./EditConnectionModal";
 import type { ProviderMeta, LlmConnection, LlmProfile, DiagnosticResult, HealthCheckResult } from "./types";
 import {
   useListLlmProviders,
+  useListStaticLlmModels,
   useListLlmConnections,
   useListLlmProfiles,
   useLlmHealthCheck,
@@ -27,6 +28,7 @@ import {
   useActivateLlmProfile,
   useDeleteLlmProfile,
   getListLlmProvidersQueryKey,
+  getListStaticLlmModelsQueryKey,
   getListLlmConnectionsQueryKey,
   getListLlmProfilesQueryKey,
 } from "@workspace/api-client-react";
@@ -47,16 +49,20 @@ export default function ModelHub() {
   const [diagConnection, setDiagConnection] = useState<LlmConnection | null>(null);
 
   const { data: providersData, isLoading: loadingProviders } = useListLlmProviders();
+  const { data: staticModelsData, isLoading: loadingStaticModels } = useListStaticLlmModels();
   const { data: connectionsData, isLoading: loadingConnections } = useListLlmConnections();
   const { data: profilesData, isLoading: loadingProfiles } = useListLlmProfiles();
 
   const providers: ProviderMeta[] = (providersData?.providers as ProviderMeta[]) || [];
+  const staticModels: { id: string; name: string; provider: string; description?: string; tag?: string }[] =
+    (staticModelsData?.models as any) || [];
   const connections: LlmConnection[] = (connectionsData?.connections as unknown as LlmConnection[]) || [];
   const profiles: LlmProfile[] = (profilesData?.profiles as unknown as LlmProfile[]) || [];
-  const loading = loadingProviders || loadingConnections || loadingProfiles;
+  const loading = loadingProviders || loadingStaticModels || loadingConnections || loadingProfiles;
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: getListLlmProvidersQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListStaticLlmModelsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListLlmConnectionsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListLlmProfilesQueryKey() });
   };
@@ -337,6 +343,7 @@ export default function ModelHub() {
         {showWizard && (
           <ConnectionWizardV2
             providers={providers}
+            staticModels={staticModels}
             initialProviderId={wizardProviderId}
             onClose={() => setShowWizard(false)}
             onCreated={invalidateAll}

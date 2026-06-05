@@ -101,10 +101,14 @@ export async function discoverOpenAI(apiKey: string): Promise<DiscoveryResult> {
     const chatModels = (data.data || []).filter(
       (m) =>
         m.object === "model" &&
-        (m.id.startsWith("gpt-") || m.id.startsWith("o1") || m.id.startsWith("o3") || m.id.startsWith("o4") || m.id.startsWith("text-embedding"))
+        (m.id.startsWith("gpt-") || m.id.startsWith("o1") || m.id.startsWith("o2") || m.id.startsWith("o3") || m.id.startsWith("o4") || m.id.startsWith("o5") || m.id.startsWith("text-embedding"))
     );
 
     const contextMap: Record<string, number> = {
+      "gpt-5.5": 1000000,
+      "gpt-5.4": 1000000,
+      "gpt-5.4-mini": 400000,
+      "gpt-5.4-nano": 200000,
       "gpt-4o": 128000,
       "gpt-4o-mini": 128000,
       "gpt-4-turbo": 128000,
@@ -122,9 +126,9 @@ export async function discoverOpenAI(apiKey: string): Promise<DiscoveryResult> {
         id,
         name: id,
         contextWindow: cw,
-        supportsVision: id.includes("4o") || id.includes("vision"),
-        supportsTools: id.includes("gpt-4") || id.includes("o1") || id.includes("o3") || id.includes("o4"),
-        supportsJson: id.includes("gpt-4") || id.includes("o1") || id.includes("o3") || id.includes("o4"),
+        supportsVision: id.includes("4o") || id.includes("vision") || id.includes("gpt-5"),
+        supportsTools: id.includes("gpt-4") || id.includes("gpt-5") || id.includes("o1") || id.includes("o3") || id.includes("o4") || id.includes("o5"),
+        supportsJson: id.includes("gpt-4") || id.includes("gpt-5") || id.includes("o1") || id.includes("o3") || id.includes("o4") || id.includes("o5"),
         providerMetadata: { ownedBy: m.owned_by, created: m.created },
       };
     });
@@ -143,7 +147,7 @@ export async function discoverAnthropic(apiKey: string): Promise<DiscoveryResult
     const ping = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-3-5-sonnet-20241022", max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
+      body: JSON.stringify({ model: "claude-sonnet-4-5-20250929", max_tokens: 1, messages: [{ role: "user", content: "hi" }] }),
       signal: AbortSignal.timeout(8000),
     });
     if (!ping.ok && ping.status !== 400) {
@@ -152,12 +156,13 @@ export async function discoverAnthropic(apiKey: string): Promise<DiscoveryResult
     }
 
     const models: DiscoveredModel[] = [
-      { id: "claude-opus-4", name: "Claude Opus 4", contextWindow: 200000, supportsVision: true, supportsTools: true, supportsJson: true },
-      { id: "claude-sonnet-4", name: "Claude Sonnet 4", contextWindow: 200000, supportsVision: true, supportsTools: true, supportsJson: true },
-      { id: "claude-haiku-4", name: "Claude Haiku 4", contextWindow: 200000, supportsVision: true, supportsTools: true, supportsJson: true },
+      { id: "claude-opus-4-8", name: "Claude Opus 4.8", contextWindow: 1000000, supportsVision: true, supportsTools: true, supportsJson: true },
+      { id: "claude-opus-4-7", name: "Claude Opus 4.7", contextWindow: 1000000, supportsVision: true, supportsTools: true, supportsJson: true },
+      { id: "claude-opus-4-6", name: "Claude Opus 4.6", contextWindow: 1000000, supportsVision: true, supportsTools: true, supportsJson: true },
+      { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", contextWindow: 1000000, supportsVision: true, supportsTools: true, supportsJson: true },
+      { id: "claude-sonnet-4-5-20250929", name: "Claude Sonnet 4.5", contextWindow: 200000, supportsVision: true, supportsTools: true, supportsJson: true },
+      { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", contextWindow: 200000, supportsVision: true, supportsTools: true, supportsJson: true },
       { id: "claude-3-7-sonnet-20250219", name: "Claude 3.7 Sonnet", contextWindow: 200000, supportsVision: true, supportsTools: true, supportsJson: true },
-      { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet", contextWindow: 200000, supportsVision: true, supportsTools: true, supportsJson: true },
-      { id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku", contextWindow: 200000, supportsVision: false, supportsTools: true, supportsJson: true },
     ];
     return { success: true, models };
   } catch (err: any) {

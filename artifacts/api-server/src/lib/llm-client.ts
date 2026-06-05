@@ -92,7 +92,7 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
       baseURL: "https://openrouter.ai/api/v1",
       apiKey: openrouterKey,
     });
-    const modelId = requestedModel || activeLlmModel || "meta-llama/llama-3.1-70b-instruct";
+    const modelId = requestedModel || activeLlmModel || "meta-llama/llama-3.3-70b-instruct";
     return { model: customOpenAI(modelId), providerName: "OpenRouter", modelId };
   }
 
@@ -117,7 +117,7 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
   const anthropicKey = await getApiKey("anthropic", userId);
   if ((provider === "anthropic" || provider === "claude") && anthropicKey) {
     const customAnthropic = createAnthropic({ apiKey: anthropicKey });
-    const modelId = requestedModel || "claude-3-5-sonnet-20240620";
+    const modelId = requestedModel || "claude-sonnet-4-5-20250929";
     return { model: customAnthropic(modelId), providerName: "Anthropic", modelId };
   }
 
@@ -133,7 +133,7 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
   const googleKey = await getApiKey("google", userId);
   if ((provider === "google" || provider === "gemini" || provider === "auto") && googleKey) {
     const customGoogle = createGoogleGenerativeAI({ apiKey: googleKey });
-    const modelId = requestedModel || activeLlmModel || process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    const modelId = requestedModel || activeLlmModel || process.env.GEMINI_MODEL || "gemini-2.5-flash";
     return { model: customGoogle(modelId), providerName: "Google", modelId };
   }
 

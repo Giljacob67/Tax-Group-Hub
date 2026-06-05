@@ -17,8 +17,17 @@ import {
   useDeleteLlmConnection,
 } from "@workspace/api-client-react";
 
+interface StaticModelRef {
+  id: string;
+  name: string;
+  provider: string;
+  description?: string;
+  tag?: string;
+}
+
 interface ConnectionWizardV2Props {
   providers: ProviderMeta[];
+  staticModels?: StaticModelRef[];
   initialProviderId?: string;
   onClose: () => void;
   onCreated: () => void;
@@ -33,7 +42,7 @@ const USAGE_OPTIONS = [
   { id: "embedding", label: "Fallback Geral", icon: ShieldAlert, desc: "Backup quando o principal falha" },
 ];
 
-export function ConnectionWizardV2({ providers, initialProviderId, onClose, onCreated }: ConnectionWizardV2Props) {
+export function ConnectionWizardV2({ providers, staticModels, initialProviderId, onClose, onCreated }: ConnectionWizardV2Props) {
   const [step, setStep] = useState(1);
   const [selectedProvider, setSelectedProvider] = useState<ProviderMeta | null>(
     providers.find((p) => p.id === initialProviderId) || null
@@ -169,6 +178,23 @@ export function ConnectionWizardV2({ providers, initialProviderId, onClose, onCr
   const filteredModels = discoveredModels.filter((m) =>
     !modelSearch || m.name.toLowerCase().includes(modelSearch.toLowerCase()) || m.id.toLowerCase().includes(modelSearch.toLowerCase())
   );
+
+  // Static catalog: filter by selected provider
+  const staticForProvider = (staticModels || []).filter((m) => !selectedProvider || m.provider === selectedProvider.id);
+  const filteredStatic = staticForProvider.filter((m) =>
+    !modelSearch || m.name.toLowerCase().includes(modelSearch.toLowerCase()) || m.id.toLowerCase().includes(modelSearch.toLowerCase())
+  );
+
+  function selectStaticModel(m: StaticModelRef) {
+    setSelectedModel({
+      id: m.id,
+      name: m.name,
+      supportsVision: false,
+      supportsTools: false,
+      supportsJson: false,
+      contextWindow: undefined,
+    } as DiscoveredModel);
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -347,9 +373,40 @@ export function ConnectionWizardV2({ providers, initialProviderId, onClose, onCr
                 )}
 
                 {discoveredModels.length === 0 && !discovering && (
-                  <div className="text-center py-8">
-                    <Bot className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Clique em "Buscar modelos" para descobrir os disponíveis.</p>
+                  <div className="space-y-3">
+                    {filteredStatic.length > 0 ? (
+                      <>
+                        <p className="text-xs text-muted-foreground">
+                          Modelos pré-cadastrados para <strong>{selectedProvider?.name}</strong>:
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                          {filteredStatic.map((m) => (
+                            <button
+                              key={m.id}
+                              onClick={() => selectStaticModel(m)}
+                              className={`text-left p-2.5 rounded-lg border transition-all ${selectedModel?.id === m.id ? "border-primary bg-primary/5" : "border-border/30 hover:bg-muted/20"}`}
+                            >
+                              <p className="text-xs font-medium text-foreground truncate">{m.name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate mt-0.5">{m.id}</p>
+                              {m.description && <p className="text-[10px] text-muted-foreground/70 mt-1 line-clamp-2">{m.description}</p>}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground/60 pt-2 border-t border-border/40">
+                          Ou clique em "Buscar modelos" acima para descobrir via API do provedor (requer chave válida).
+                        </p>
+                      </>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Bot className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Nenhum modelo pré-cadastrado para {selectedProvider?.name}.
+                        </p>
+                        <p className="text-xs text-muted-foreground/60 mt-1">
+                          Clique em "Buscar modelos" para descobrir via API.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>

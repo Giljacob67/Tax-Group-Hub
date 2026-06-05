@@ -125,6 +125,37 @@ router.get("/llm/providers", (_req, res) => {
   });
 });
 
+// ─── GET /api/llm/models/static — Static catalog of well-known LLM models ───
+// Public endpoint used by the IA & LLM tab to populate the "Model" dropdown
+// in the wizard even before the user has any connection configured.
+// Mirrors the curated list in settings.ts:GET /settings/models but does
+// NOT require auth.
+router.get("/llm/models/static", async (_req, res) => {
+  const models = [
+    // ─── Google Gemini ────────────────────────────────────────────
+    { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", provider: "google", description: "Rapido e eficiente.", tag: "cloud" },
+    { id: "gemini-3-pro-preview", name: "Gemini 3 Pro", provider: "google", description: "Mais capaz, melhor para analises longas.", tag: "cloud" },
+    { id: "gemini-2.5-pro-preview-05-06", name: "Gemini 2.5 Pro", provider: "google", description: "Excelente raciocinio e contexto longo.", tag: "cloud" },
+    { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", provider: "google", description: "Compacto e economico.", tag: "cloud" },
+    // ─── Ollama Cloud ─────────────────────────────────────────────
+    { id: "minimax-m3:cloud", name: "MiniMax M3 Cloud", provider: "ollama_cloud", description: "Coding & Agentic Frontier, 1M context.", tag: "cloud" },
+    { id: "minimax-m2.7:cloud", name: "Minimax M2.7 Cloud", provider: "ollama_cloud", description: "Coding e workflows agenticos.", tag: "cloud" },
+    { id: "gemma4:cloud", name: "Gemma 4 Cloud", provider: "ollama_cloud", description: "Open-source multimodal ate 31b.", tag: "cloud" },
+    { id: "qwen3.5:cloud", name: "Qwen 3.5 Cloud", provider: "ollama_cloud", description: "Open-source multimodal ate 122b.", tag: "cloud" },
+    { id: "qwen-2.5-coder-32b", name: "Qwen 2.5 Coder 32B", provider: "ollama_cloud", description: "Excelente para codigo.", tag: "cloud" },
+    { id: "glm-5.1:cloud", name: "GLM 5.1 Cloud", provider: "ollama_cloud", description: "Agentic engineering top-tier.", tag: "cloud" },
+    { id: "kimi-k2.6:cloud", name: "Kimi K2.6 Cloud", provider: "ollama_cloud", description: "Long-horizon coding agentico.", tag: "cloud" },
+    { id: "kimi-k2.5:cloud", name: "Kimi K2.5 Cloud", provider: "ollama_cloud", description: "Contexto ultra-longo.", tag: "cloud" },
+    { id: "deepseek-v3.2:cloud", name: "DeepSeek V3.2 Cloud", provider: "ollama_cloud", description: "Eficiencia e raciocinio.", tag: "cloud" },
+    { id: "deepseek-v4-pro:cloud", name: "DeepSeek V4 Pro Cloud", provider: "ollama_cloud", description: "Frontier MoE 1M context, 3 raciocinios.", tag: "cloud" },
+    { id: "deepseek-v4-flash:cloud", name: "DeepSeek V4 Flash Cloud", provider: "ollama_cloud", description: "V4 preview MoE eficiente.", tag: "cloud" },
+    { id: "llama-3.1-70b", name: "LLaMA 3.1 70B", provider: "ollama", description: "Open-source top de linha.", tag: "local" },
+    { id: "llama-3.1-8b", name: "LLaMA 3.1 8B", provider: "ollama", description: "Open-source veloz.", tag: "local" },
+    { id: "qwen3-coder-next:cloud", name: "Qwen3 Coder Next Cloud", provider: "ollama_cloud", description: "Coding-focused agentic.", tag: "cloud" },
+  ];
+  res.json({ models });
+});
+
 // ─── POST /api/llm/validate — Test credentials without saving ─────────────────
 // Used by the Model Hub wizard (ConnectionWizardV2) to give instant feedback
 // before the user commits the connection to the database.
