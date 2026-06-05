@@ -1,13 +1,31 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import {
-  BarChart3, TrendingUp, DollarSign, Activity, Clock,
-  Bot, Zap, AlertCircle, ChevronDown
+  BarChart3,
+  TrendingUp,
+  DollarSign,
+  Activity,
+  Clock,
+  Bot,
+  Zap,
+  AlertCircle,
+  ChevronDown,
 } from "lucide-react";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,10 +46,21 @@ const PERIODS = [
   { id: "90d", label: "90 dias" },
 ];
 
-const COLORS = [CHART_GREEN, CHART_GOLD, CHART_MUTED, "#B8966A", "#5A8A6A", "#9BA8B8", "#7A9A8A"];
+const COLORS = [
+  CHART_GREEN,
+  CHART_GOLD,
+  CHART_MUTED,
+  "#B8966A",
+  "#5A8A6A",
+  "#9BA8B8",
+  "#7A9A8A",
+];
 
 function formatCurrency(cents: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD" }).format(cents / 100);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "USD",
+  }).format(cents / 100);
 }
 
 function formatNumber(n: number) {
@@ -42,17 +71,22 @@ export default function AnalyticsPage() {
   usePageTitle("Analytics");
   const [period, setPeriod] = useState("30d");
 
-  const { data: overview } = useGetAnalyticsOverview({ period });
-  const { data: daily } = useGetAnalyticsDailyUsage({ period });
-  const { data: providers } = useGetAnalyticsProviders({ period });
+  const { data: overview, isError: overviewError } = useGetAnalyticsOverview({ period });
+  const { data: daily, isError: dailyError } = useGetAnalyticsDailyUsage({ period });
+  const { data: providers, isError: providersError } = useGetAnalyticsProviders({ period });
   const { data: models } = useGetAnalyticsModels({ period });
   const { data: costTrend } = useGetAnalyticsCostTrend({ period });
   const { data: recentLogs } = useGetAnalyticsRecentLogs({ limit: 50 });
 
+  const hasError = overviewError || dailyError || providersError;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ov: any = overview || {};
   const dailyData = (daily?.usageByDay || []).map((d: any) => ({
-    day: new Date(d.day).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+    day: new Date(d.day).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+    }),
     tokens: Number(d.tokens),
     promptTokens: Number(d.promptTokens),
     completionTokens: Number(d.completionTokens),
@@ -68,18 +102,39 @@ export default function AnalyticsPage() {
   }));
 
   const costData = (costTrend?.costByDay || []).map((d: any) => ({
-    day: new Date(d.day).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+    day: new Date(d.day).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+    }),
     cost: Number(d.cost) / 100,
   }));
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        {/* Error banner */}
+        {hasError && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 w-fit"
+          >
+            <AlertCircle className="w-4 h-4 text-destructive" />
+            <span className="text-xs font-medium text-destructive">
+              Alguns dados não puderam ser carregados. Verifique sua conexão.
+            </span>
+          </motion.div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Analytics de LLM</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Consumo, custo e performance dos modelos de IA.</p>
+            <h2 className="text-lg font-bold text-foreground">
+              Analytics de LLM
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Consumo, custo e performance dos modelos de IA.
+            </p>
           </div>
           <div className="flex items-center gap-1 bg-muted/20 rounded-lg p-0.5">
             {PERIODS.map((p) => (
@@ -98,10 +153,30 @@ export default function AnalyticsPage() {
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCard icon={Activity} label="Total Tokens" value={formatNumber(ov.totalTokens || 0)} color="text-primary" />
-          <KpiCard icon={TrendingUp} label="Requisições" value={formatNumber(ov.messageCount || 0)} color="text-primary" />
-          <KpiCard icon={DollarSign} label="Custo Estimado" value={formatCurrency(ov.totalCostCents || 0)} color="text-accent" />
-          <KpiCard icon={Clock} label="Latência Média" value={`${ov.avgLatencyMs || 0}ms`} color="text-muted-foreground" />
+          <KpiCard
+            icon={Activity}
+            label="Total Tokens"
+            value={formatNumber(ov.totalTokens || 0)}
+            color="text-primary"
+          />
+          <KpiCard
+            icon={TrendingUp}
+            label="Requisições"
+            value={formatNumber(ov.messageCount || 0)}
+            color="text-primary"
+          />
+          <KpiCard
+            icon={DollarSign}
+            label="Custo Estimado"
+            value={formatCurrency(ov.totalCostCents || 0)}
+            color="text-accent"
+          />
+          <KpiCard
+            icon={Clock}
+            label="Latência Média"
+            value={`${ov.avgLatencyMs || 0}ms`}
+            color="text-muted-foreground"
+          />
         </div>
 
         {/* Charts Row 1 */}
@@ -111,15 +186,49 @@ export default function AnalyticsPage() {
               <AreaChart data={dailyData}>
                 <defs>
                   <linearGradient id="gradTokens" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={CHART_GREEN} stopOpacity={0.2} />
-                    <stop offset="100%" stopColor={CHART_GREEN} stopOpacity={0} />
+                    <stop
+                      offset="0%"
+                      stopColor={CHART_GREEN}
+                      stopOpacity={0.2}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={CHART_GREEN}
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "12px", color: "hsl(var(--foreground))" }} />
-                <Area type="monotone" dataKey="tokens" stroke={CHART_GREEN} strokeWidth={2} fill="url(#gradTokens)" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(var(--border))"
+                />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 11, fill: CHART_MUTED }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: CHART_MUTED }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
+                    fontSize: "12px",
+                    color: "hsl(var(--foreground))",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="tokens"
+                  stroke={CHART_GREEN}
+                  strokeWidth={2}
+                  fill="url(#gradTokens)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -127,10 +236,31 @@ export default function AnalyticsPage() {
           <ChartCard title="Custo por dia" icon={DollarSign}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={costData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "12px", color: "hsl(var(--foreground))" }} formatter={(v: number) => formatCurrency(v * 100)} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(var(--border))"
+                />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 11, fill: CHART_MUTED }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: CHART_MUTED }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
+                    fontSize: "12px",
+                    color: "hsl(var(--foreground))",
+                  }}
+                  formatter={(v: number) => formatCurrency(v * 100)}
+                />
                 <Bar dataKey="cost" fill={CHART_GOLD} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -142,12 +272,30 @@ export default function AnalyticsPage() {
           <ChartCard title="Por provedor" icon={Zap}>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie data={providerData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
+                <Pie
+                  data={providerData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  label={({ name, percent }) =>
+                    `${name}: ${(percent * 100).toFixed(0)}%`
+                  }
+                >
                   {providerData.map((_: any, i: number) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "12px", color: "hsl(var(--foreground))" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
+                    fontSize: "12px",
+                    color: "hsl(var(--foreground))",
+                  }}
+                />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
               </PieChart>
             </ResponsiveContainer>
@@ -158,15 +306,50 @@ export default function AnalyticsPage() {
               <AreaChart data={dailyData}>
                 <defs>
                   <linearGradient id="gradLatency" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={CHART_MUTED} stopOpacity={0.2} />
-                    <stop offset="100%" stopColor={CHART_MUTED} stopOpacity={0} />
+                    <stop
+                      offset="0%"
+                      stopColor={CHART_MUTED}
+                      stopOpacity={0.2}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={CHART_MUTED}
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: CHART_MUTED }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "12px", color: "hsl(var(--foreground))" }} formatter={(v: number) => `${v}ms`} />
-                <Area type="monotone" dataKey="latency" stroke={CHART_MUTED} strokeWidth={2} fill="url(#gradLatency)" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(var(--border))"
+                />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 11, fill: CHART_MUTED }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: CHART_MUTED }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
+                    fontSize: "12px",
+                    color: "hsl(var(--foreground))",
+                  }}
+                  formatter={(v: number) => `${v}ms`}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="latency"
+                  stroke={CHART_MUTED}
+                  strokeWidth={2}
+                  fill="url(#gradLatency)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -180,7 +363,8 @@ export default function AnalyticsPage() {
             </h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full text-xs" aria-label="Uso por modelo de IA">
+              <caption className="sr-only">Uso por modelo de IA</caption>
               <thead>
                 <tr className="text-muted-foreground border-b border-border/30">
                   <th className="text-left px-4 py-2 font-medium">Modelo</th>
@@ -188,23 +372,43 @@ export default function AnalyticsPage() {
                   <th className="text-right px-4 py-2 font-medium">Tokens</th>
                   <th className="text-right px-4 py-2 font-medium">Chamadas</th>
                   <th className="text-right px-4 py-2 font-medium">Custo</th>
-                  <th className="text-right px-4 py-2 font-medium">Latência média</th>
+                  <th className="text-right px-4 py-2 font-medium">
+                    Latência média
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {(models?.modelStats || []).map((m: any, i: number) => (
-                  <tr key={i} className="border-b border-border/20 hover:bg-muted/20">
-                    <td className="px-4 py-2 font-medium text-foreground">{m.model}</td>
-                    <td className="px-4 py-2 text-muted-foreground capitalize">{m.provider}</td>
-                    <td className="px-4 py-2 text-right">{formatNumber(Number(m.totalTokens))}</td>
-                    <td className="px-4 py-2 text-right">{formatNumber(Number(m.calls))}</td>
-                    <td className="px-4 py-2 text-right">{formatCurrency(Number(m.cost))}</td>
-                    <td className="px-4 py-2 text-right">{Math.round(Number(m.avgLatency))}ms</td>
+                  <tr
+                    key={i}
+                    className="border-b border-border/20 hover:bg-muted/20"
+                  >
+                    <td className="px-4 py-2 font-medium text-foreground">
+                      {m.model}
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground capitalize">
+                      {m.provider}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {formatNumber(Number(m.totalTokens))}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {formatNumber(Number(m.calls))}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {formatCurrency(Number(m.cost))}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {Math.round(Number(m.avgLatency))}ms
+                    </td>
                   </tr>
                 ))}
                 {(!models?.modelStats || models.modelStats.length === 0) && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                    <td
+                      colSpan={6}
+                      className="px-4 py-8 text-center text-muted-foreground"
+                    >
                       Nenhum dado disponível para o período selecionado.
                     </td>
                   </tr>
@@ -236,25 +440,51 @@ export default function AnalyticsPage() {
               </thead>
               <tbody>
                 {(recentLogs?.logs || []).map((log: any, i: number) => (
-                  <tr key={i} className="border-b border-border/20 hover:bg-muted/20">
-                    <td className="px-4 py-2 text-muted-foreground">{new Date(log.createdAt).toLocaleString("pt-BR")}</td>
-                    <td className="px-4 py-2 font-medium text-foreground">{log.agentId || "—"}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{log.model}</td>
-                    <td className="px-4 py-2 text-right">{formatNumber(log.totalTokens)}</td>
-                    <td className="px-4 py-2 text-right">{log.cost ? formatCurrency(log.cost) : "—"}</td>
+                  <tr
+                    key={i}
+                    className="border-b border-border/20 hover:bg-muted/20"
+                  >
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {new Date(log.createdAt).toLocaleString("pt-BR")}
+                    </td>
+                    <td className="px-4 py-2 font-medium text-foreground">
+                      {log.agentId || "—"}
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {log.model}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {formatNumber(log.totalTokens)}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {log.cost ? formatCurrency(log.cost) : "—"}
+                    </td>
                     <td className="px-4 py-2 text-right">{log.latencyMs}ms</td>
                     <td className="px-4 py-2 text-center">
                       {log.success ? (
-                        <Badge variant="outline" className="border-emerald-500/20 text-emerald-400 text-[10px]">OK</Badge>
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-500/20 text-emerald-400 text-[10px]"
+                        >
+                          OK
+                        </Badge>
                       ) : (
-                        <Badge variant="outline" className="border-red-500/20 text-red-400 text-[10px]">Erro</Badge>
+                        <Badge
+                          variant="outline"
+                          className="border-red-500/20 text-red-400 text-[10px]"
+                        >
+                          Erro
+                        </Badge>
                       )}
                     </td>
                   </tr>
                 ))}
                 {(!recentLogs?.logs || recentLogs.logs.length === 0) && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                    <td
+                      colSpan={7}
+                      className="px-4 py-8 text-center text-muted-foreground"
+                    >
                       Nenhum log disponível.
                     </td>
                   </tr>
@@ -268,9 +498,22 @@ export default function AnalyticsPage() {
   );
 }
 
-function KpiCard({ icon: Icon, label, value, color }: { icon: typeof Activity; label: string; value: string; color: string }) {
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: typeof Activity;
+  label: string;
+  value: string;
+  color: string;
+}) {
   return (
-    <motion.div whileHover={{ y: -2 }} className="rounded-xl border border-border/40 bg-card/40 p-4">
+    <motion.div
+      whileHover={{ y: -2 }}
+      className="rounded-xl border border-border/40 bg-card/40 p-4"
+    >
       <div className="flex items-center gap-2 mb-2">
         <Icon className={`w-3.5 h-3.5 ${color}`} />
         <span className="text-xs text-muted-foreground">{label}</span>
@@ -280,7 +523,15 @@ function KpiCard({ icon: Icon, label, value, color }: { icon: typeof Activity; l
   );
 }
 
-function ChartCard({ title, icon: Icon, children }: { title: string; icon: typeof BarChart3; children: React.ReactNode }) {
+function ChartCard({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: typeof BarChart3;
+  children: React.ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">

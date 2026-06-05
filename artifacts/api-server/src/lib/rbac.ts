@@ -10,13 +10,16 @@ import { db } from "@workspace/db";
 import { appUserRolesTable } from "@workspace/db";
 import { and, eq, isNull, or, gt, sql } from "drizzle-orm";
 import {
-  APP_ROLES, ROLE_PERMISSIONS, type AppRole, type Permission,
+  APP_ROLES,
+  ROLE_PERMISSIONS,
+  type AppRole,
+  type Permission,
 } from "@workspace/db/crm-constants";
 
 export type UserContext = {
   userId: string;
   roles: AppRole[];
-  permissions: typeof ROLE_PERMISSIONS["admin"];
+  permissions: (typeof ROLE_PERMISSIONS)["admin"];
   authMethod: string;
 };
 
@@ -31,23 +34,37 @@ export async function loadUserRoles(userId: string): Promise<AppRole[]> {
   const rows = await db
     .select({ role: appUserRolesTable.role })
     .from(appUserRolesTable)
-    .where(and(
-      eq(appUserRolesTable.userId, userId),
-      eq(appUserRolesTable.isActive, true),
-      or(
-        isNull(appUserRolesTable.expiresAt),
-        gt(appUserRolesTable.expiresAt, now),
+    .where(
+      and(
+        eq(appUserRolesTable.userId, userId),
+        eq(appUserRolesTable.isActive, true),
+        or(
+          isNull(appUserRolesTable.expiresAt),
+          gt(appUserRolesTable.expiresAt, now),
+        ),
       ),
-    ));
+    );
 
-  const roles = rows.map(r => r.role as AppRole).filter(r => APP_ROLES.includes(r));
+  const roles = rows
+    .map((r) => r.role as AppRole)
+    .filter((r) => APP_ROLES.includes(r));
   return roles.length > 0 ? roles : ["comercial"]; // default
 }
 
-export function mergePermissions(roles: AppRole[]): typeof ROLE_PERMISSIONS["admin"] {
+export function mergePermissions(
+  roles: AppRole[],
+): (typeof ROLE_PERMISSIONS)["admin"] {
   // admin > coordenador > comercial > marketing > leitura (priority order)
-  const priority: AppRole[] = ["admin", "coordenador", "comercial", "marketing", "leitura"];
-  const sorted = [...new Set(roles)].sort((a, b) => priority.indexOf(a) - priority.indexOf(b));
+  const priority: AppRole[] = [
+    "admin",
+    "coordenador",
+    "comercial",
+    "marketing",
+    "leitura",
+  ];
+  const sorted = [...new Set(roles)].sort(
+    (a, b) => priority.indexOf(a) - priority.indexOf(b),
+  );
 
   const merged: any = { ...ROLE_PERMISSIONS.leitura };
   for (const role of sorted) {
@@ -56,13 +73,16 @@ export function mergePermissions(roles: AppRole[]): typeof ROLE_PERMISSIONS["adm
       merged[key] = perms[key] || merged[key];
     }
   }
-  return merged as typeof ROLE_PERMISSIONS["admin"];
+  return merged as (typeof ROLE_PERMISSIONS)["admin"];
 }
 
 /**
  * Cria um UserContext para uso em handlers. Faz cache simples por request.
  */
-export async function buildUserContext(req: { userId?: string; authMethod?: string }): Promise<UserContext> {
+export async function buildUserContext(req: {
+  userId?: string;
+  authMethod?: string;
+}): Promise<UserContext> {
   const userId = req.userId || "system";
   const roles = await loadUserRoles(userId);
   return {

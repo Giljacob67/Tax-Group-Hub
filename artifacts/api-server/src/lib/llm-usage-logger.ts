@@ -20,7 +20,12 @@ export interface LogUsageOptions {
   errorMessage?: string;
 }
 
-function calculateCost(promptTokens: number, completionTokens: number, pricePer1MInput?: number | null, pricePer1MOutput?: number | null): number | null {
+function calculateCost(
+  promptTokens: number,
+  completionTokens: number,
+  pricePer1MInput?: number | null,
+  pricePer1MOutput?: number | null,
+): number | null {
   if (!pricePer1MInput || !pricePer1MOutput) return null;
   // cost in cents
   const inputCost = (promptTokens / 1_000_000) * pricePer1MInput;
@@ -30,7 +35,7 @@ function calculateCost(promptTokens: number, completionTokens: number, pricePer1
 
 export async function logLLMUsage(
   result: LLMResult,
-  opts: LogUsageOptions
+  opts: LogUsageOptions,
 ): Promise<void> {
   try {
     // Try to find connection for pricing
@@ -39,7 +44,10 @@ export async function logLLMUsage(
 
     if (opts.connectionId) {
       const [conn] = await db
-        .select({ pricePer1MInput: llmConnectionsTable.pricePer1MInput, pricePer1MOutput: llmConnectionsTable.pricePer1MOutput })
+        .select({
+          pricePer1MInput: llmConnectionsTable.pricePer1MInput,
+          pricePer1MOutput: llmConnectionsTable.pricePer1MOutput,
+        })
         .from(llmConnectionsTable)
         .where(eq(llmConnectionsTable.id, opts.connectionId))
         .limit(1);
@@ -49,7 +57,12 @@ export async function logLLMUsage(
       }
     }
 
-    const cost = calculateCost(result.promptTokens, result.completionTokens, pricePer1MInput, pricePer1MOutput);
+    const cost = calculateCost(
+      result.promptTokens,
+      result.completionTokens,
+      pricePer1MInput,
+      pricePer1MOutput,
+    );
 
     await db.insert(usageLogsTable).values({
       userId: opts.userId || null,

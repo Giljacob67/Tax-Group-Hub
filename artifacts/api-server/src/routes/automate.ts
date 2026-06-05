@@ -52,12 +52,17 @@ router.post("/automate/execute", async (req, res) => {
     if (variables) {
       for (const [key, value] of Object.entries(variables)) {
         const safeKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        systemPrompt = systemPrompt.replace(new RegExp(`\\{\\{${safeKey}\\}\\}`, "g"), () => value);
+        systemPrompt = systemPrompt.replace(
+          new RegExp(`\\{\\{${safeKey}\\}\\}`, "g"),
+          () => value,
+        );
       }
     }
 
     // Call LLM with optional tools
-    const result = await callLLM(systemPrompt, input, { toolIds: toolIds as any });
+    const result = await callLLM(systemPrompt, input, {
+      toolIds: toolIds as any,
+    });
 
     res.json({
       success: true,
@@ -92,9 +97,12 @@ async function handleReformaTributariaTrigger(_req: any, res: any) {
       return;
     }
 
-    const input = "Gere um insight executivo sobre as últimas atualizações da Reforma Tributária (Lei Complementar 214/2025). Use a ferramenta de busca para verificar notícias e prazos de hoje. Foque em impacto prático para empresas de médio e grande porte. Inclua prazos, ações recomendadas e oportunidades.";
+    const input =
+      "Gere um insight executivo sobre as últimas atualizações da Reforma Tributária (Lei Complementar 214/2025). Use a ferramenta de busca para verificar notícias e prazos de hoje. Foque em impacto prático para empresas de médio e grande porte. Inclua prazos, ações recomendadas e oportunidades.";
 
-    const result = await callLLM(agent.systemPrompt, input, { toolIds: ["webSearch"] });
+    const result = await callLLM(agent.systemPrompt, input, {
+      toolIds: ["webSearch"],
+    });
 
     res.json({
       success: true,
@@ -109,8 +117,14 @@ async function handleReformaTributariaTrigger(_req: any, res: any) {
   }
 }
 
-router.get("/automate/trigger/reforma-tributaria", handleReformaTributariaTrigger);
-router.post("/automate/trigger/reforma-tributaria", handleReformaTributariaTrigger);
+router.get(
+  "/automate/trigger/reforma-tributaria",
+  handleReformaTributariaTrigger,
+);
+router.post(
+  "/automate/trigger/reforma-tributaria",
+  handleReformaTributariaTrigger,
+);
 
 // ─── Execute a pipeline of agents in sequence ─────────────────────────
 // POST /api/automate/pipeline
@@ -119,7 +133,11 @@ router.post("/automate/trigger/reforma-tributaria", handleReformaTributariaTrigg
 router.post("/automate/pipeline", async (req, res) => {
   try {
     const { steps, sharedContext } = req.body as {
-      steps?: Array<{ agentId: string; input: string; variables?: Record<string, string> }>;
+      steps?: Array<{
+        agentId: string;
+        input: string;
+        variables?: Record<string, string>;
+      }>;
       sharedContext?: Record<string, unknown>;
     };
 
@@ -148,7 +166,11 @@ router.post("/automate/pipeline", async (req, res) => {
       const step = steps[i];
       const agent = getAgentById(step.agentId);
       if (!agent) {
-        apiError(res, 404, `Agent '${step.agentId}' not found at step ${i + 1}`);
+        apiError(
+          res,
+          404,
+          `Agent '${step.agentId}' not found at step ${i + 1}`,
+        );
         return;
       }
 
@@ -160,7 +182,10 @@ router.post("/automate/pipeline", async (req, res) => {
       let systemPrompt = agent.systemPrompt;
       if (step.variables) {
         for (const [key, value] of Object.entries(step.variables)) {
-          systemPrompt = systemPrompt.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
+          systemPrompt = systemPrompt.replace(
+            new RegExp(`\\{\\{${key}\\}\\}`, "g"),
+            value,
+          );
         }
       }
 
@@ -181,20 +206,24 @@ router.post("/automate/pipeline", async (req, res) => {
     const totalTimeMs = results.reduce((sum, r) => sum + r.executionTimeMs, 0);
 
     // Persist pipeline execution (fire-and-forget — não bloqueia a resposta)
-    db.insert(pipelineExecutionsTable).values({
-      userId: req.userId ?? null,
-      steps: results.map(r => ({
-        agentId: r.agentId,
-        input: steps[r.step - 1]?.input ?? "",
-        output: r.output,
-        tokensUsed: r.tokensUsed,
-        timeMs: r.executionTimeMs,
-        success: true,
-      })),
-      totalTokens,
-      totalTimeMs,
-      status: "completed",
-    }).catch((err: any) => console.error("[pipeline] Failed to persist execution:", err));
+    db.insert(pipelineExecutionsTable)
+      .values({
+        userId: req.userId ?? null,
+        steps: results.map((r) => ({
+          agentId: r.agentId,
+          input: steps[r.step - 1]?.input ?? "",
+          output: r.output,
+          tokensUsed: r.tokensUsed,
+          timeMs: r.executionTimeMs,
+          success: true,
+        })),
+        totalTokens,
+        totalTimeMs,
+        status: "completed",
+      })
+      .catch((err: any) =>
+        console.error("[pipeline] Failed to persist execution:", err),
+      );
 
     res.json({
       success: true,
@@ -217,8 +246,12 @@ router.post("/automate/pipeline", async (req, res) => {
 router.post("/automate/trigger/new-lead", async (req, res) => {
   try {
     const { name, email, phone, company, source, message } = req.body as {
-      name?: string; email?: string; phone?: string;
-      company?: string; source?: string; message?: string;
+      name?: string;
+      email?: string;
+      phone?: string;
+      company?: string;
+      source?: string;
+      message?: string;
     };
 
     if (!name?.trim() && !email?.trim()) {
@@ -241,7 +274,10 @@ NOVO LEAD RECEBIDO:
       {
         agentId: "prospeccao-tax-group",
         input: `Analise este novo lead e gere um script de abordagem personalizado.\n\n${leadContext}`,
-        variables: { lead_name: name || "Lead", lead_company: company || "Empresa" },
+        variables: {
+          lead_name: name || "Lead",
+          lead_company: company || "Empresa",
+        },
       },
       {
         agentId: "qualificacao-leads-tax-group",
@@ -263,7 +299,10 @@ NOVO LEAD RECEBIDO:
       let systemPrompt = agent.systemPrompt;
       if (step.variables) {
         for (const [key, value] of Object.entries(step.variables)) {
-          systemPrompt = systemPrompt.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
+          systemPrompt = systemPrompt.replace(
+            new RegExp(`\\{\\{${key}\\}\\}`, "g"),
+            value,
+          );
         }
       }
 
@@ -296,11 +335,15 @@ NOVO LEAD RECEBIDO:
 // Auto-runs: Calendário Editorial agent
 router.post("/automate/trigger/editorial-calendar", async (req, res) => {
   try {
-    const { week, channels } = req.body as { week?: string; channels?: string[] };
+    const { week, channels } = req.body as {
+      week?: string;
+      channels?: string[];
+    };
 
     const now = new Date();
     const weekLabel = week || `Semana de ${now.toLocaleDateString("pt-BR")}`;
-    const channelList = channels?.join(", ") || "LinkedIn, Email, WhatsApp, Instagram";
+    const channelList =
+      channels?.join(", ") || "LinkedIn, Email, WhatsApp, Instagram";
 
     const agent = getAgentById("calendario-editorial-tax-group");
     if (!agent) {
@@ -332,7 +375,12 @@ router.post("/automate/trigger/editorial-calendar", async (req, res) => {
 router.post("/automate/trigger/follow-up-check", async (req, res) => {
   try {
     const { leads } = req.body as {
-      leads?: Array<{ name: string; lastContact: string; status: string; notes?: string }>;
+      leads?: Array<{
+        name: string;
+        lastContact: string;
+        status: string;
+        notes?: string;
+      }>;
     };
 
     if (!leads?.length) {
@@ -349,12 +397,14 @@ router.post("/automate/trigger/follow-up-check", async (req, res) => {
     const results = [];
 
     for (const lead of leads) {
-      const lastContactDate = lead.lastContact ? new Date(lead.lastContact) : null;
+      const lastContactDate = lead.lastContact
+        ? new Date(lead.lastContact)
+        : null;
       if (!lastContactDate || Number.isNaN(lastContactDate.getTime())) {
         continue;
       }
       const daysSince = Math.floor(
-        (Date.now() - lastContactDate.getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - lastContactDate.getTime()) / (1000 * 60 * 60 * 24),
       );
 
       const input = `
@@ -395,7 +445,10 @@ Gere uma sequência de follow-up personalizada para este lead.
 router.post("/automate/trigger/content-request", async (req, res) => {
   try {
     const { topic, channel, audience, tone } = req.body as {
-      topic?: string; channel?: string; audience?: string; tone?: string;
+      topic?: string;
+      channel?: string;
+      audience?: string;
+      tone?: string;
     };
 
     if (!topic?.trim()) {
@@ -404,9 +457,10 @@ router.post("/automate/trigger/content-request", async (req, res) => {
     }
 
     const channelLower = (channel || "linkedin").toLowerCase();
-    const agentId = channelLower.includes("instagram") || channelLower.includes("reels")
-      ? "conteudo-video-tax-group"
-      : "conteudo-linkedin-tax-group";
+    const agentId =
+      channelLower.includes("instagram") || channelLower.includes("reels")
+        ? "conteudo-video-tax-group"
+        : "conteudo-linkedin-tax-group";
 
     const agent = getAgentById(agentId);
     if (!agent) {
@@ -451,7 +505,8 @@ router.get("/automate/triggers", (_req, res) => {
         name: "Novo Lead",
         method: "POST",
         path: "/api/automate/trigger/new-lead",
-        description: "Recebe lead do site e executa Prospecção + Qualificação automaticamente",
+        description:
+          "Recebe lead do site e executa Prospecção + Qualificação automaticamente",
         bodySchema: {
           name: "string (required)",
           email: "string (required)",
@@ -466,10 +521,12 @@ router.get("/automate/triggers", (_req, res) => {
         name: "Calendário Editorial Semanal",
         method: "POST",
         path: "/api/automate/trigger/editorial-calendar",
-        description: "Gera calendário editorial para a semana em todos os canais",
+        description:
+          "Gera calendário editorial para a semana em todos os canais",
         bodySchema: {
           week: "string (optional — default: current week)",
-          channels: "string[] (optional — default: LinkedIn, Email, WhatsApp, Instagram)",
+          channels:
+            "string[] (optional — default: LinkedIn, Email, WhatsApp, Instagram)",
         },
       },
       {
@@ -485,7 +542,8 @@ router.get("/automate/triggers", (_req, res) => {
         name: "Verificação de Follow-Up",
         method: "POST",
         path: "/api/automate/trigger/follow-up-check",
-        description: "Verifica leads sem contato recente e gera sequências de follow-up",
+        description:
+          "Verifica leads sem contato recente e gera sequências de follow-up",
         bodySchema: {
           leads: "array of { name, lastContact, status, notes }",
         },
@@ -542,7 +600,12 @@ router.post("/automate/broadcast-whatsapp", async (req, res) => {
       inputTemplate,
     } = req.body as {
       channelId?: number;
-      filters?: { minScore?: number; maxScore?: number; status?: string[]; tags?: string[] };
+      filters?: {
+        minScore?: number;
+        maxScore?: number;
+        status?: string[];
+        tags?: string[];
+      };
       agentId?: string;
       inputTemplate?: string;
     };
@@ -572,7 +635,12 @@ router.post("/automate/broadcast-whatsapp", async (req, res) => {
     const [channel] = await db
       .select()
       .from(channelConfigsTable)
-      .where(and(eq(channelConfigsTable.id, Number(channelId)), eq(channelConfigsTable.platform, "whatsapp")))
+      .where(
+        and(
+          eq(channelConfigsTable.id, Number(channelId)),
+          eq(channelConfigsTable.platform, "whatsapp"),
+        ),
+      )
       .limit(1);
 
     if (!channel) {
@@ -585,7 +653,11 @@ router.post("/automate/broadcast-whatsapp", async (req, res) => {
     const phoneNumberId = String(configData?.phoneNumberId ?? "");
 
     if (!accessToken || !phoneNumberId) {
-      apiError(res, 422, "WhatsApp channel missing accessToken or phoneNumberId");
+      apiError(
+        res,
+        422,
+        "WhatsApp channel missing accessToken or phoneNumberId",
+      );
       return;
     }
 
@@ -601,13 +673,24 @@ router.post("/automate/broadcast-whatsapp", async (req, res) => {
       contactConditions.push(inArray(crmContactsTable.status, filters.status));
     }
 
-    const contacts = await db.select().from(crmContactsTable).where(and(...contactConditions));
+    const contacts = await db
+      .select()
+      .from(crmContactsTable)
+      .where(and(...contactConditions));
 
     // Only send to contacts with a phone number
-    const eligible = contacts.filter((c: typeof contacts[number]) => c.telefone?.trim());
+    const eligible = contacts.filter((c: (typeof contacts)[number]) =>
+      c.telefone?.trim(),
+    );
 
     if (eligible.length === 0) {
-      res.json({ success: true, sent: 0, skipped: 0, failed: 0, message: "No eligible contacts with phone numbers" });
+      res.json({
+        success: true,
+        sent: 0,
+        skipped: 0,
+        failed: 0,
+        message: "No eligible contacts with phone numbers",
+      });
       return;
     }
 
@@ -627,7 +710,10 @@ router.post("/automate/broadcast-whatsapp", async (req, res) => {
         try {
           // Build personalized input
           const personalizedInput = inputTemplate
-            .replace(/\{\{contact_name\}\}/g, contact.razaoSocial || contact.cnpj)
+            .replace(
+              /\{\{contact_name\}\}/g,
+              contact.razaoSocial || contact.cnpj,
+            )
             .replace(/\{\{razao_social\}\}/g, contact.razaoSocial || "")
             .replace(/\{\{cnpj\}\}/g, contact.cnpj)
             .replace(/\{\{product\}\}/g, contact.aiRecommendedProduct || "")
@@ -635,23 +721,34 @@ router.post("/automate/broadcast-whatsapp", async (req, res) => {
             .replace(/\{\{regime\}\}/g, contact.regimeTributario || "");
 
           // Generate personalized message with agent
-          const llmResult = await callLLM(agent.systemPrompt, personalizedInput);
+          const llmResult = await callLLM(
+            agent.systemPrompt,
+            personalizedInput,
+          );
 
           // Send via WhatsApp
           const phone = contact.telefone!.replace(/\D/g, "");
-          await sendWhatsAppMessage(phone, llmResult.output, phoneNumberId, accessToken);
+          await sendWhatsAppMessage(
+            phone,
+            llmResult.output,
+            phoneNumberId,
+            accessToken,
+          );
 
           // Log activity
-          await db.insert(crmActivitiesTable).values({
-            userId,
-            contactId: contact.id,
-            type: "whatsapp",
-            direction: "outbound",
-            subject: "Broadcast WhatsApp",
-            content: llmResult.output,
-            completedAt: new Date(),
-            agentId,
-          }).catch(() => {});
+          await db
+            .insert(crmActivitiesTable)
+            .values({
+              userId,
+              contactId: contact.id,
+              type: "whatsapp",
+              direction: "outbound",
+              subject: "Broadcast WhatsApp",
+              content: llmResult.output,
+              completedAt: new Date(),
+              agentId,
+            })
+            .catch(() => {});
 
           sent++;
           console.log(`[Broadcast] Sent to contact ${contact.id} (${phone})`);
@@ -678,7 +775,8 @@ router.get("/automate/enrollments", async (req, res) => {
     const status = req.query.status as string | undefined;
 
     const conditions = [eq(sequenceEnrollmentsTable.userId, userId)];
-    if (contactId && !isNaN(contactId)) conditions.push(eq(sequenceEnrollmentsTable.contactId, contactId));
+    if (contactId && !isNaN(contactId))
+      conditions.push(eq(sequenceEnrollmentsTable.contactId, contactId));
     if (status) conditions.push(eq(sequenceEnrollmentsTable.status, status));
 
     const enrollments = await db
@@ -696,7 +794,10 @@ router.get("/automate/enrollments", async (req, res) => {
         totalSteps: automationSequencesTable.steps,
       })
       .from(sequenceEnrollmentsTable)
-      .leftJoin(automationSequencesTable, eq(sequenceEnrollmentsTable.sequenceId, automationSequencesTable.id))
+      .leftJoin(
+        automationSequencesTable,
+        eq(sequenceEnrollmentsTable.sequenceId, automationSequencesTable.id),
+      )
       .where(and(...conditions))
       .orderBy(sequenceEnrollmentsTable.enrolledAt);
 
@@ -739,13 +840,29 @@ router.post("/automate/sequences", async (req, res) => {
       isActive?: boolean;
     };
 
-    if (!name?.trim()) { apiError(res, 400, "name is required"); return; }
-    if (!trigger?.trim()) { apiError(res, 400, "trigger is required"); return; }
-    if (!Array.isArray(steps) || steps.length === 0) { apiError(res, 400, "steps[] is required"); return; }
+    if (!name?.trim()) {
+      apiError(res, 400, "name is required");
+      return;
+    }
+    if (!trigger?.trim()) {
+      apiError(res, 400, "trigger is required");
+      return;
+    }
+    if (!Array.isArray(steps) || steps.length === 0) {
+      apiError(res, 400, "steps[] is required");
+      return;
+    }
 
     const [seq] = await db
       .insert(automationSequencesTable)
-      .values({ userId, name, trigger, triggerValue: triggerValue ?? null, steps, isActive: isActive ?? true })
+      .values({
+        userId,
+        name,
+        trigger,
+        triggerValue: triggerValue ?? null,
+        steps,
+        isActive: isActive ?? true,
+      })
       .returning();
 
     res.status(201).json({ success: true, sequence: seq });
@@ -759,19 +876,41 @@ router.put("/automate/sequences/:id", async (req, res) => {
   try {
     const userId = req.userId ?? "system";
     const id = Number(req.params.id);
-    if (isNaN(id)) { apiError(res, 400, "Invalid sequence id"); return; }
+    if (isNaN(id)) {
+      apiError(res, 400, "Invalid sequence id");
+      return;
+    }
 
     const { name, trigger, triggerValue, steps, isActive } = req.body as {
-      name?: string; trigger?: string; triggerValue?: string; steps?: SequenceStep[]; isActive?: boolean;
+      name?: string;
+      trigger?: string;
+      triggerValue?: string;
+      steps?: SequenceStep[];
+      isActive?: boolean;
     };
 
     const [updated] = await db
       .update(automationSequencesTable)
-      .set({ name, trigger, triggerValue, steps, isActive, updatedAt: new Date() })
-      .where(and(eq(automationSequencesTable.id, id), eq(automationSequencesTable.userId, userId)))
+      .set({
+        name,
+        trigger,
+        triggerValue,
+        steps,
+        isActive,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(automationSequencesTable.id, id),
+          eq(automationSequencesTable.userId, userId),
+        ),
+      )
       .returning();
 
-    if (!updated) { apiError(res, 404, "Sequence not found"); return; }
+    if (!updated) {
+      apiError(res, 404, "Sequence not found");
+      return;
+    }
     res.json({ success: true, sequence: updated });
   } catch (err) {
     console.error("[Sequences] update error:", err);
@@ -783,11 +922,19 @@ router.delete("/automate/sequences/:id", async (req, res) => {
   try {
     const userId = req.userId ?? "system";
     const id = Number(req.params.id);
-    if (isNaN(id)) { apiError(res, 400, "Invalid sequence id"); return; }
+    if (isNaN(id)) {
+      apiError(res, 400, "Invalid sequence id");
+      return;
+    }
 
     await db
       .delete(automationSequencesTable)
-      .where(and(eq(automationSequencesTable.id, id), eq(automationSequencesTable.userId, userId)));
+      .where(
+        and(
+          eq(automationSequencesTable.id, id),
+          eq(automationSequencesTable.userId, userId),
+        ),
+      );
     res.json({ success: true });
   } catch (err) {
     console.error("[Sequences] delete error:", err);
@@ -804,17 +951,34 @@ router.post("/automate/sequences/:id/enroll", async (req, res) => {
     const seqId = Number(req.params.id);
     const { contactId } = req.body as { contactId?: number };
 
-    if (isNaN(seqId)) { apiError(res, 400, "Invalid sequence id"); return; }
-    if (!contactId || isNaN(Number(contactId))) { apiError(res, 400, "contactId is required"); return; }
+    if (isNaN(seqId)) {
+      apiError(res, 400, "Invalid sequence id");
+      return;
+    }
+    if (!contactId || isNaN(Number(contactId))) {
+      apiError(res, 400, "contactId is required");
+      return;
+    }
 
     const [seq] = await db
       .select()
       .from(automationSequencesTable)
-      .where(and(eq(automationSequencesTable.id, seqId), eq(automationSequencesTable.userId, userId)))
+      .where(
+        and(
+          eq(automationSequencesTable.id, seqId),
+          eq(automationSequencesTable.userId, userId),
+        ),
+      )
       .limit(1);
 
-    if (!seq) { apiError(res, 404, "Sequence not found"); return; }
-    if (!seq.steps?.length) { apiError(res, 422, "Sequence has no steps"); return; }
+    if (!seq) {
+      apiError(res, 404, "Sequence not found");
+      return;
+    }
+    if (!seq.steps?.length) {
+      apiError(res, 422, "Sequence has no steps");
+      return;
+    }
 
     // nextSendAt = now + first step's delay in days
     const firstStep = seq.steps[0];
@@ -822,11 +986,20 @@ router.post("/automate/sequences/:id/enroll", async (req, res) => {
       apiError(res, 422, "Sequence first step is invalid");
       return;
     }
-    const nextSendAt = new Date(Date.now() + firstStep.day * 24 * 60 * 60 * 1000);
+    const nextSendAt = new Date(
+      Date.now() + firstStep.day * 24 * 60 * 60 * 1000,
+    );
 
     const [enrollment] = await db
       .insert(sequenceEnrollmentsTable)
-      .values({ sequenceId: seqId, contactId: Number(contactId), userId, currentStep: 0, nextSendAt, status: "active" })
+      .values({
+        sequenceId: seqId,
+        contactId: Number(contactId),
+        userId,
+        currentStep: 0,
+        nextSendAt,
+        status: "active",
+      })
       .returning();
 
     res.status(201).json({ success: true, enrollment });
@@ -868,7 +1041,12 @@ async function handleProcessSequences(req: any, res: any) {
     const due = await db
       .select()
       .from(sequenceEnrollmentsTable)
-      .where(and(eq(sequenceEnrollmentsTable.status, "active"), lte(sequenceEnrollmentsTable.nextSendAt, new Date())));
+      .where(
+        and(
+          eq(sequenceEnrollmentsTable.status, "active"),
+          lte(sequenceEnrollmentsTable.nextSendAt, new Date()),
+        ),
+      );
 
     for (const enrollment of due) {
       try {
@@ -883,7 +1061,8 @@ async function handleProcessSequences(req: any, res: any) {
         const step = seq.steps[enrollment.currentStep];
         if (!step) {
           // All steps done — mark completed
-          await db.update(sequenceEnrollmentsTable)
+          await db
+            .update(sequenceEnrollmentsTable)
             .set({ status: "completed", completedAt: new Date() })
             .where(eq(sequenceEnrollmentsTable.id, enrollment.id));
           continue;
@@ -896,7 +1075,8 @@ async function handleProcessSequences(req: any, res: any) {
           .limit(1);
 
         if (!contact) {
-          await db.update(sequenceEnrollmentsTable)
+          await db
+            .update(sequenceEnrollmentsTable)
             .set({ status: "cancelled" })
             .where(eq(sequenceEnrollmentsTable.id, enrollment.id));
           continue;
@@ -904,7 +1084,10 @@ async function handleProcessSequences(req: any, res: any) {
 
         // Build personalized input
         if (!step.inputTemplate || typeof step.inputTemplate !== "string") {
-          console.error("[Sequences] step missing inputTemplate for enrollment", enrollment.id);
+          console.error(
+            "[Sequences] step missing inputTemplate for enrollment",
+            enrollment.id,
+          );
           failed++;
           continue;
         }
@@ -927,7 +1110,12 @@ async function handleProcessSequences(req: any, res: any) {
           const [waChannel] = await db
             .select()
             .from(channelConfigsTable)
-            .where(and(eq(channelConfigsTable.userId, enrollment.userId), eq(channelConfigsTable.platform, "whatsapp")))
+            .where(
+              and(
+                eq(channelConfigsTable.userId, enrollment.userId),
+                eq(channelConfigsTable.platform, "whatsapp"),
+              ),
+            )
             .limit(1);
 
           if (waChannel) {
@@ -936,34 +1124,46 @@ async function handleProcessSequences(req: any, res: any) {
             const phoneNumberId = String(cfg?.phoneNumberId ?? "");
             if (accessToken && phoneNumberId) {
               const phone = contact.telefone.replace(/\D/g, "");
-              await sendWhatsAppMessage(phone, llmResult.output, phoneNumberId, accessToken);
+              await sendWhatsAppMessage(
+                phone,
+                llmResult.output,
+                phoneNumberId,
+                accessToken,
+              );
             }
           }
         }
 
         // Log activity regardless of channel
-        await db.insert(crmActivitiesTable).values({
-          userId: enrollment.userId,
-          contactId: contact.id,
-          type: step.channel === "whatsapp" ? "whatsapp" : "note",
-          direction: "outbound",
-          subject: `Sequência: ${seq.name} — Passo ${enrollment.currentStep + 1}`,
-          content: llmResult.output,
-          completedAt: new Date(),
-          agentId: step.agentId,
-        }).catch(() => {});
+        await db
+          .insert(crmActivitiesTable)
+          .values({
+            userId: enrollment.userId,
+            contactId: contact.id,
+            type: step.channel === "whatsapp" ? "whatsapp" : "note",
+            direction: "outbound",
+            subject: `Sequência: ${seq.name} — Passo ${enrollment.currentStep + 1}`,
+            content: llmResult.output,
+            completedAt: new Date(),
+            agentId: step.agentId,
+          })
+          .catch(() => {});
 
         // Advance to next step
         const nextStepIndex = enrollment.currentStep + 1;
         const nextStep = seq.steps[nextStepIndex];
 
         if (nextStep) {
-          const nextSendAt = new Date(Date.now() + nextStep.day * 24 * 60 * 60 * 1000);
-          await db.update(sequenceEnrollmentsTable)
+          const nextSendAt = new Date(
+            Date.now() + nextStep.day * 24 * 60 * 60 * 1000,
+          );
+          await db
+            .update(sequenceEnrollmentsTable)
             .set({ currentStep: nextStepIndex, nextSendAt })
             .where(eq(sequenceEnrollmentsTable.id, enrollment.id));
         } else {
-          await db.update(sequenceEnrollmentsTable)
+          await db
+            .update(sequenceEnrollmentsTable)
             .set({ status: "completed", completedAt: new Date() })
             .where(eq(sequenceEnrollmentsTable.id, enrollment.id));
         }
@@ -971,13 +1171,23 @@ async function handleProcessSequences(req: any, res: any) {
         sent++;
       } catch (stepErr) {
         failed++;
-        console.error("[Sequences] step failed for enrollment", enrollment.id, stepErr);
+        console.error(
+          "[Sequences] step failed for enrollment",
+          enrollment.id,
+          stepErr,
+        );
       }
 
       processed++;
     }
 
-    res.json({ success: true, processed, sent, failed, timestamp: new Date().toISOString() });
+    res.json({
+      success: true,
+      processed,
+      sent,
+      failed,
+      timestamp: new Date().toISOString(),
+    });
   } catch (err) {
     console.error("[Sequences] process-sequences error:", err);
     apiError(res, 500, "Failed to process sequences");

@@ -6,7 +6,8 @@ import { PORTE_MAP, REGIME_MAP } from "./client.js";
  * A API não usa um array socios[] — os sócios são chaves "0", "1", "2"...
  */
 function extractSocios(data: EmpresAquiResponse) {
-  const socios: Array<{ nome: string; cpf?: string; participacao?: string }> = [];
+  const socios: Array<{ nome: string; cpf?: string; participacao?: string }> =
+    [];
   let i = 0;
   while (data[String(i)] && typeof data[String(i)] === "object") {
     const s = data[String(i)];
@@ -35,7 +36,9 @@ function buildPhone(ddd?: string, tel?: string): string | null {
  */
 function buildAddress(data: EmpresAquiResponse): string | null {
   const parts = [
-    data.log_tipo && data.log_nome ? `${data.log_tipo} ${data.log_nome}` : data.log_nome,
+    data.log_tipo && data.log_nome
+      ? `${data.log_tipo} ${data.log_nome}`
+      : data.log_nome,
     data.log_num,
     data.log_comp,
   ].filter(Boolean);
@@ -57,21 +60,28 @@ function resolveRegime(data: EmpresAquiResponse): string | null {
 /**
  * Mapeia a resposta bruta da API EmpresAqui para os campos da tabela crm_contacts.
  */
-export function mapEmpresAquiToContact(data: EmpresAquiResponse): Record<string, any> {
+export function mapEmpresAquiToContact(
+  data: EmpresAquiResponse,
+): Record<string, any> {
   // Tornar altamente defensivo: converter para string o que pode vir como número
-  const str = (val: any) => val != null ? String(val).trim() : null;
-  
-  const rawPorte = str(data.porte);
-  const resolvedPorte = rawPorte ? (PORTE_MAP[rawPorte] || rawPorte) : null;
+  const str = (val: any) => (val != null ? String(val).trim() : null);
 
-  const phone = buildPhone(str(data.ddd_1) || undefined, str(data.tel_1) || undefined) || buildPhone(str(data.ddd_2) || undefined, str(data.tel_2) || undefined);
+  const rawPorte = str(data.porte);
+  const resolvedPorte = rawPorte ? PORTE_MAP[rawPorte] || rawPorte : null;
+
+  const phone =
+    buildPhone(str(data.ddd_1) || undefined, str(data.tel_1) || undefined) ||
+    buildPhone(str(data.ddd_2) || undefined, str(data.tel_2) || undefined);
   const address = buildAddress(data);
   const socios = extractSocios(data);
 
   return {
     cnpj: str(data.cnpj)?.replace(/\D/g, "") ?? undefined,
-    razaoSocial: str(data.razao || data.razao_social || data.razaoSocial || data.nome) || null,
-    nomeFantasia: str(data.fantasia || data.nome_fantasia || data.fantasia_nome) || null,
+    razaoSocial:
+      str(data.razao || data.razao_social || data.razaoSocial || data.nome) ||
+      null,
+    nomeFantasia:
+      str(data.fantasia || data.nome_fantasia || data.fantasia_nome) || null,
     regimeTributario: resolveRegime(data),
     cnae: str(data.cnae_principal || data.cnae) || null,
     faturamentoEstimado: str(data.faturamento) || null,
@@ -82,7 +92,11 @@ export function mapEmpresAquiToContact(data: EmpresAquiResponse): Record<string,
     cep: str(data.log_cep || data.cep)?.replace(/\D/g, "") || null,
     telefone: phone,
     email: str(data.email || data.email_principal) || null,
-    website: str(data.site) ? (str(data.site)!.startsWith("http") ? str(data.site) : `https://${data.site}`) : null,
+    website: str(data.site)
+      ? str(data.site)!.startsWith("http")
+        ? str(data.site)
+        : `https://${data.site}`
+      : null,
     socios,
     lastEnrichedAt: new Date(),
     source: "empresaqui",

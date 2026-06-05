@@ -26,7 +26,9 @@ const SENTINEL_LEGACY = "__legacy__";
  * Normaliza um status de contato possivelmente legado para o enum atual.
  * Se não houver mapeamento, devolve null e a UI deve aplicar fallback visual.
  */
-export function normalizeContactStatus(raw: string | null | undefined): ContactStatus | null {
+export function normalizeContactStatus(
+  raw: string | null | undefined,
+): ContactStatus | null {
   if (!raw) return null;
   if (Object.values(LEGACY_CONTACT_STATUS_MAP).includes(raw as ContactStatus)) {
     return raw as ContactStatus;
@@ -38,7 +40,9 @@ export function normalizeContactStatus(raw: string | null | undefined): ContactS
 /**
  * Normaliza um stage de deal possivelmente legado para o enum atual.
  */
-export function normalizeDealStage(raw: string | null | undefined): DealStage | null {
+export function normalizeDealStage(
+  raw: string | null | undefined,
+): DealStage | null {
   if (!raw) return null;
   if (Object.values(LEGACY_DEAL_STAGE_MAP).includes(raw as DealStage)) {
     return raw as DealStage;
@@ -68,14 +72,20 @@ export function isLegacyStage(raw: string | null | undefined): boolean {
  * Wrapper seguro: devolve o status canônico ou a string original marcada
  * como legada. A UI pode usar para exibir diretamente.
  */
-export function safeContactStatus(raw: string | null | undefined): ContactStatus | string {
-  return normalizeContactStatus(raw) || (raw ? `__legacy__:${raw}` : "nao_iniciado");
+export function safeContactStatus(
+  raw: string | null | undefined,
+): ContactStatus | string {
+  return (
+    normalizeContactStatus(raw) || (raw ? `__legacy__:${raw}` : "nao_iniciado")
+  );
 }
 
 /**
  * Wrapper seguro: devolve o stage canônico ou a string original marcada
  * como legada.
  */
-export function safeDealStage(raw: string | null | undefined): DealStage | string {
+export function safeDealStage(
+  raw: string | null | undefined,
+): DealStage | string {
   return normalizeDealStage(raw) || (raw ? `__legacy__:${raw}` : "lead_novo");
 }

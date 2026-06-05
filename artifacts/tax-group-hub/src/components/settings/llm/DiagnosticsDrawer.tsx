@@ -1,5 +1,14 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle2, AlertCircle, Clock, ChevronDown, ChevronUp, Copy, RefreshCw } from "lucide-react";
+import {
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import type { LlmConnection, DiagnosticResult } from "./types";
@@ -23,7 +32,9 @@ function StageRow({ result }: { result: DiagnosticResult }) {
   };
 
   return (
-    <div className={`rounded-lg border p-3 ${result.ok ? "border-emerald-500/20 bg-emerald-500/5" : "border-red-500/20 bg-red-500/5"}`}>
+    <div
+      className={`rounded-lg border p-3 ${result.ok ? "border-emerald-500/20 bg-emerald-500/5" : "border-red-500/20 bg-red-500/5"}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           {result.ok ? (
@@ -32,8 +43,14 @@ function StageRow({ result }: { result: DiagnosticResult }) {
             <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
           )}
           <div>
-            <p className="text-sm font-medium text-foreground">{stageLabels[result.stage] || result.stage}</p>
-            <p className={`text-xs mt-0.5 ${result.ok ? "text-emerald-400/80" : "text-red-400/80"}`}>{result.message}</p>
+            <p className="text-sm font-medium text-foreground">
+              {stageLabels[result.stage] || result.stage}
+            </p>
+            <p
+              className={`text-xs mt-0.5 ${result.ok ? "text-emerald-400/80" : "text-red-400/80"}`}
+            >
+              {result.message}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -42,8 +59,15 @@ function StageRow({ result }: { result: DiagnosticResult }) {
             {result.latencyMs}ms
           </span>
           {result.technicalDetails && (
-            <button onClick={() => setShowDetails(!showDetails)} className="text-muted-foreground hover:text-foreground">
-              {showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              {showDetails ? (
+                <ChevronUp className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
             </button>
           )}
         </div>
@@ -79,14 +103,22 @@ function StageRow({ result }: { result: DiagnosticResult }) {
   );
 }
 
-export function DiagnosticsDrawer({ connection, diagnostics, onClose, onRetest }: DiagnosticsDrawerProps) {
+export function DiagnosticsDrawer({
+  connection,
+  diagnostics,
+  onClose,
+  onRetest,
+}: DiagnosticsDrawerProps) {
   const [copied, setCopied] = useState(false);
 
   if (!connection || !diagnostics) return null;
 
   const handleCopy = () => {
     const text = diagnostics.results
-      .map((r) => `[${r.ok ? "OK" : "FAIL"}] ${r.stage}: ${r.message}\n${r.userMessage || ""}\n${r.howToFix || ""}`)
+      .map(
+        (r) =>
+          `[${r.ok ? "OK" : "FAIL"}] ${r.stage}: ${r.message}\n${r.userMessage || ""}\n${r.howToFix || ""}`,
+      )
       .join("\n\n");
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -110,26 +142,45 @@ export function DiagnosticsDrawer({ connection, diagnostics, onClose, onRetest }
       >
         <div className="sticky top-0 bg-background/95 backdrop-blur border-b border-border/50 p-4 flex items-center justify-between z-10">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Diagnóstico</h3>
+            <h3 className="text-sm font-semibold text-foreground">
+              Diagnóstico
+            </h3>
             <p className="text-xs text-muted-foreground">{connection.name}</p>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={handleCopy}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={handleCopy}
+            >
               <Copy className="w-3 h-3" />
               {copied ? "Copiado" : "Copiar"}
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => onRetest(connection)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={() => onRetest(connection)}
+            >
               <RefreshCw className="w-3 h-3" />
               Retestar
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onClose}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={onClose}
+            >
               <X className="w-4 h-4" />
             </Button>
           </div>
         </div>
 
         <div className="p-4 space-y-3">
-          <div className={`rounded-lg border p-3 ${diagnostics.overall === "ok" ? "border-emerald-500/20 bg-emerald-500/5" : diagnostics.overall === "warning" ? "border-amber-500/20 bg-amber-500/5" : "border-red-500/20 bg-red-500/5"}`}>
+          <div
+            className={`rounded-lg border p-3 ${diagnostics.overall === "ok" ? "border-emerald-500/20 bg-emerald-500/5" : diagnostics.overall === "warning" ? "border-amber-500/20 bg-amber-500/5" : "border-red-500/20 bg-red-500/5"}`}
+          >
             <div className="flex items-center gap-2">
               {diagnostics.overall === "ok" ? (
                 <CheckCircle2 className="w-5 h-5 text-emerald-400" />
@@ -138,10 +189,15 @@ export function DiagnosticsDrawer({ connection, diagnostics, onClose, onRetest }
               )}
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  {diagnostics.overall === "ok" ? "Tudo certo" : diagnostics.overall === "warning" ? "Atenção necessária" : "Problemas encontrados"}
+                  {diagnostics.overall === "ok"
+                    ? "Tudo certo"
+                    : diagnostics.overall === "warning"
+                      ? "Atenção necessária"
+                      : "Problemas encontrados"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {diagnostics.results.filter((r) => r.ok).length} de {diagnostics.results.length} etapas OK
+                  {diagnostics.results.filter((r) => r.ok).length} de{" "}
+                  {diagnostics.results.length} etapas OK
                 </p>
               </div>
             </div>

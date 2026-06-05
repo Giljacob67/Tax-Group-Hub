@@ -44,12 +44,21 @@ router.post("/ai-quality/feedback", async (req, res) => {
     const parsed = feedbackSchema.safeParse(req.body);
     if (!parsed.success) return apiError(res, 400, "Invalid feedback payload");
 
-    const { messageId, conversationId, agentId, rating, reason, comment } = parsed.data;
+    const { messageId, conversationId, agentId, rating, reason, comment } =
+      parsed.data;
     const userId = req.userId;
 
     const [saved] = await db
       .insert(aiResponseFeedbackTable)
-      .values({ messageId, conversationId, agentId, userId: userId || null, rating, reason: reason || null, comment: comment || null })
+      .values({
+        messageId,
+        conversationId,
+        agentId,
+        userId: userId || null,
+        rating,
+        reason: reason || null,
+        comment: comment || null,
+      })
       .returning();
 
     res.json({ ok: true, id: saved.id });
@@ -72,7 +81,9 @@ router.get("/ai-quality/summary", async (req, res) => {
         successCount: sql<number>`SUM(CASE WHEN ${usageLogsTable.success} THEN 1 ELSE 0 END)`,
       })
       .from(usageLogsTable)
-      .where(isRealUser(userId) ? eq(usageLogsTable.userId, userId) : sql`TRUE`);
+      .where(
+        isRealUser(userId) ? eq(usageLogsTable.userId, userId) : sql`TRUE`,
+      );
 
     const [feedbackSummary] = await db
       .select({
@@ -81,20 +92,30 @@ router.get("/ai-quality/summary", async (req, res) => {
         negativeCount: sql<number>`SUM(CASE WHEN ${aiResponseFeedbackTable.rating} = -1 THEN 1 ELSE 0 END)`,
       })
       .from(aiResponseFeedbackTable)
-      .where(isRealUser(userId) ? eq(aiResponseFeedbackTable.userId, userId) : sql`TRUE`);
+      .where(
+        isRealUser(userId)
+          ? eq(aiResponseFeedbackTable.userId, userId)
+          : sql`TRUE`,
+      );
 
     const totalFeedback = Number(feedbackSummary.totalFeedback) || 0;
     const positive = Number(feedbackSummary.positiveCount) || 0;
-    const satisfactionRate = totalFeedback > 0 ? Math.round((positive / totalFeedback) * 100) : null;
+    const satisfactionRate =
+      totalFeedback > 0 ? Math.round((positive / totalFeedback) * 100) : null;
 
     const totalRequests = Number(usageSummary.totalRequests) || 0;
     const successCount = Number(usageSummary.successCount) || 0;
-    const successRate = totalRequests > 0 ? Math.round((successCount / totalRequests) * 100) : 100;
+    const successRate =
+      totalRequests > 0
+        ? Math.round((successCount / totalRequests) * 100)
+        : 100;
 
     res.json({
       totalRequests,
       totalTokens: Number(usageSummary.totalTokens) || 0,
-      avgLatencyMs: usageSummary.avgLatency ? Math.round(Number(usageSummary.avgLatency)) : null,
+      avgLatencyMs: usageSummary.avgLatency
+        ? Math.round(Number(usageSummary.avgLatency))
+        : null,
       successRate,
       totalFeedback,
       satisfactionRate,
@@ -125,7 +146,9 @@ router.get("/ai-quality/runs", async (req, res) => {
     const [{ total }] = await db
       .select({ total: count() })
       .from(usageLogsTable)
-      .where(isRealUser(userId) ? eq(usageLogsTable.userId, userId) : sql`TRUE`);
+      .where(
+        isRealUser(userId) ? eq(usageLogsTable.userId, userId) : sql`TRUE`,
+      );
 
     res.json({ runs: rows, total: Number(total), limit, offset });
   } catch (err) {
@@ -141,8 +164,10 @@ router.get("/ai-quality/test-cases", async (req, res) => {
     const { agentId } = req.query;
 
     const conditions: any[] = [];
-    if (agentId && typeof agentId === "string") conditions.push(eq(aiTestCasesTable.agentId, agentId));
-    if (isRealUser(userId)) conditions.push(eq(aiTestCasesTable.userId, userId));
+    if (agentId && typeof agentId === "string")
+      conditions.push(eq(aiTestCasesTable.agentId, agentId));
+    if (isRealUser(userId))
+      conditions.push(eq(aiTestCasesTable.userId, userId));
 
     const rows = await db
       .select()
@@ -164,7 +189,14 @@ router.post("/ai-quality/test-cases", async (req, res) => {
     if (!parsed.success) return apiError(res, 400, "Invalid test case payload");
 
     const userId = req.userId;
-    const { name, agentId, question, expectedAnswer, expectedSources, criteria } = parsed.data;
+    const {
+      name,
+      agentId,
+      question,
+      expectedAnswer,
+      expectedSources,
+      criteria,
+    } = parsed.data;
 
     const [saved] = await db
       .insert(aiTestCasesTable)
@@ -206,11 +238,15 @@ router.post("/ai-quality/test-cases/:id/run", async (req, res) => {
     const id = validateIdParam(req.params.id);
     if (!id) return apiError(res, 400, "Invalid id");
 
-    const [testCase] = await db.select().from(aiTestCasesTable).where(eq(aiTestCasesTable.id, id));
+    const [testCase] = await db
+      .select()
+      .from(aiTestCasesTable)
+      .where(eq(aiTestCasesTable.id, id));
     if (!testCase) return apiError(res, 404, "Test case not found");
 
     const agent = getAgentById(testCase.agentId);
-    if (!agent) return apiError(res, 400, `Agent '${testCase.agentId}' not found`);
+    if (!agent)
+      return apiError(res, 400, `Agent '${testCase.agentId}' not found`);
 
     const activeProviderDb = await getConfigValue("ACTIVE_LLM_PROVIDER");
     const activeLlmModel = await getConfigValue("ACTIVE_LLM_MODEL");
@@ -235,21 +271,37 @@ router.post("/ai-quality/test-cases/:id/run", async (req, res) => {
       let ragSources: string[] = [];
 
       try {
-        const { embeddings: [queryEmbedding] } = await generateEmbeddings([testCase.question]);
+        const {
+          embeddings: [queryEmbedding],
+        } = await generateEmbeddings([testCase.question]);
         const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
         const results = await db
-          .select({ content: knowledgeChunksTable.content, score: similarity, filename: knowledgeDocumentsTable.filename })
+          .select({
+            content: knowledgeChunksTable.content,
+            score: similarity,
+            filename: knowledgeDocumentsTable.filename,
+          })
           .from(knowledgeChunksTable)
-          .innerJoin(knowledgeDocumentsTable, eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id))
-          .where(sql`${knowledgeDocumentsTable.agentId} = ${testCase.agentId} OR ${knowledgeDocumentsTable.agentId} = 'global'`)
+          .innerJoin(
+            knowledgeDocumentsTable,
+            eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id),
+          )
+          .where(
+            sql`${knowledgeDocumentsTable.agentId} = ${testCase.agentId} OR ${knowledgeDocumentsTable.agentId} = 'global'`,
+          )
           .orderBy((t: any) => desc(t.score))
           .limit(5);
 
-        const relevant = results.filter(r => r.score > 0.3);
+        const relevant = results.filter((r) => r.score > 0.3);
         if (relevant.length > 0) {
-          systemPrompt += `\n\n--- CONTEXTO REFERÊNCIA ---\n${relevant.map(c => `[Doc: ${c.filename}]\n${c.content}`).join("\n\n")}`;
+          systemPrompt += `\n\n--- CONTEXTO REFERÊNCIA ---\n${relevant.map((c) => `[Doc: ${c.filename}]\n${c.content}`).join("\n\n")}`;
           const seen = new Set<string>();
-          for (const c of relevant) { if (!seen.has(c.filename)) { seen.add(c.filename); ragSources.push(c.filename); } }
+          for (const c of relevant) {
+            if (!seen.has(c.filename)) {
+              seen.add(c.filename);
+              ragSources.push(c.filename);
+            }
+          }
         }
       } catch (ragErr) {
         console.error("[ai-quality] test run RAG error:", ragErr);
@@ -263,26 +315,38 @@ router.post("/ai-quality/test-cases/:id/run", async (req, res) => {
 
       const latencyMs = Date.now() - startMs;
 
-      await db.update(aiTestRunsTable).set({
-        status: "passed",
-        response: result.output,
-        ragSources,
-        latencyMs,
-        tokensUsed: result.tokensUsed,
-        model: result.model,
-        provider: result.provider,
-      }).where(eq(aiTestRunsTable.id, run.id));
+      await db
+        .update(aiTestRunsTable)
+        .set({
+          status: "passed",
+          response: result.output,
+          ragSources,
+          latencyMs,
+          tokensUsed: result.tokensUsed,
+          model: result.model,
+          provider: result.provider,
+        })
+        .where(eq(aiTestRunsTable.id, run.id));
 
-      const [updated] = await db.select().from(aiTestRunsTable).where(eq(aiTestRunsTable.id, run.id));
+      const [updated] = await db
+        .select()
+        .from(aiTestRunsTable)
+        .where(eq(aiTestRunsTable.id, run.id));
       res.json({ run: updated });
     } catch (llmErr: any) {
-      await db.update(aiTestRunsTable).set({
-        status: "error",
-        notes: llmErr?.message || "LLM error",
-        latencyMs: Date.now() - startMs,
-      }).where(eq(aiTestRunsTable.id, run.id));
+      await db
+        .update(aiTestRunsTable)
+        .set({
+          status: "error",
+          notes: llmErr?.message || "LLM error",
+          latencyMs: Date.now() - startMs,
+        })
+        .where(eq(aiTestRunsTable.id, run.id));
 
-      const [updated] = await db.select().from(aiTestRunsTable).where(eq(aiTestRunsTable.id, run.id));
+      const [updated] = await db
+        .select()
+        .from(aiTestRunsTable)
+        .where(eq(aiTestRunsTable.id, run.id));
       res.json({ run: updated });
     }
   } catch (err) {

@@ -1,5 +1,10 @@
 import { Router, type IRouter } from "express";
-import { db, llmConnectionsTable, llmProfilesTable, appConfigTable } from "@workspace/db";
+import {
+  db,
+  llmConnectionsTable,
+  llmProfilesTable,
+  appConfigTable,
+} from "@workspace/db";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { encrypt, decrypt } from "../lib/crypto.js";
 import { apiError } from "../lib/api-response.js";
@@ -7,20 +12,35 @@ import { isRealUser } from "../middlewares/auth.js";
 import { discoverModels } from "../lib/model-discovery.js";
 import { callLLM } from "../lib/llm-client.js";
 import { healthCheckConnections } from "../lib/llm-router.js";
-import { validateIdParam, validateSafeUrl, validateWhitelist } from "../lib/validation.js";
-import { runDiagnostics, validateCredentials, testCapability } from "../lib/llm-diagnostics.js";
+import {
+  validateIdParam,
+  validateSafeUrl,
+  validateWhitelist,
+} from "../lib/validation.js";
+import {
+  runDiagnostics,
+  validateCredentials,
+  testCapability,
+} from "../lib/llm-diagnostics.js";
 
 const PROVIDER_IDS = [
-  "openai", "anthropic", "google", "openrouter",
-  "ollama", "ollama_cloud", "custom_openai",
+  "openai",
+  "anthropic",
+  "google",
+  "openrouter",
+  "ollama",
+  "ollama_cloud",
+  "custom_openai",
 ] as const;
-type ProviderId = typeof PROVIDER_IDS[number];
+type ProviderId = (typeof PROVIDER_IDS)[number];
 
 const router: IRouter = Router();
 
 // ─── Helper: scoped query filter ──────────────────────────────────────────────
 function scopeByUser(userId: string | undefined) {
-  return isRealUser(userId) ? eq(llmConnectionsTable.userId, userId) : undefined;
+  return isRealUser(userId)
+    ? eq(llmConnectionsTable.userId, userId)
+    : undefined;
 }
 
 // ─── GET /api/llm/providers — List supported providers with metadata ──────────
@@ -133,25 +153,133 @@ router.get("/llm/providers", (_req, res) => {
 router.get("/llm/models/static", async (_req, res) => {
   const models = [
     // ─── Google Gemini ────────────────────────────────────────────
-    { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", provider: "google", description: "Rapido e eficiente.", tag: "cloud" },
-    { id: "gemini-3-pro-preview", name: "Gemini 3 Pro", provider: "google", description: "Mais capaz, melhor para analises longas.", tag: "cloud" },
-    { id: "gemini-2.5-pro-preview-05-06", name: "Gemini 2.5 Pro", provider: "google", description: "Excelente raciocinio e contexto longo.", tag: "cloud" },
-    { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", provider: "google", description: "Compacto e economico.", tag: "cloud" },
+    {
+      id: "gemini-3-flash-preview",
+      name: "Gemini 3 Flash",
+      provider: "google",
+      description: "Rapido e eficiente.",
+      tag: "cloud",
+    },
+    {
+      id: "gemini-3-pro-preview",
+      name: "Gemini 3 Pro",
+      provider: "google",
+      description: "Mais capaz, melhor para analises longas.",
+      tag: "cloud",
+    },
+    {
+      id: "gemini-2.5-pro-preview-05-06",
+      name: "Gemini 2.5 Pro",
+      provider: "google",
+      description: "Excelente raciocinio e contexto longo.",
+      tag: "cloud",
+    },
+    {
+      id: "gemini-2.0-flash-lite",
+      name: "Gemini 2.0 Flash Lite",
+      provider: "google",
+      description: "Compacto e economico.",
+      tag: "cloud",
+    },
     // ─── Ollama Cloud ─────────────────────────────────────────────
-    { id: "minimax-m3:cloud", name: "MiniMax M3 Cloud", provider: "ollama_cloud", description: "Coding & Agentic Frontier, 1M context.", tag: "cloud" },
-    { id: "minimax-m2.7:cloud", name: "Minimax M2.7 Cloud", provider: "ollama_cloud", description: "Coding e workflows agenticos.", tag: "cloud" },
-    { id: "gemma4:cloud", name: "Gemma 4 Cloud", provider: "ollama_cloud", description: "Open-source multimodal ate 31b.", tag: "cloud" },
-    { id: "qwen3.5:cloud", name: "Qwen 3.5 Cloud", provider: "ollama_cloud", description: "Open-source multimodal ate 122b.", tag: "cloud" },
-    { id: "qwen-2.5-coder-32b", name: "Qwen 2.5 Coder 32B", provider: "ollama_cloud", description: "Excelente para codigo.", tag: "cloud" },
-    { id: "glm-5.1:cloud", name: "GLM 5.1 Cloud", provider: "ollama_cloud", description: "Agentic engineering top-tier.", tag: "cloud" },
-    { id: "kimi-k2.6:cloud", name: "Kimi K2.6 Cloud", provider: "ollama_cloud", description: "Long-horizon coding agentico.", tag: "cloud" },
-    { id: "kimi-k2.5:cloud", name: "Kimi K2.5 Cloud", provider: "ollama_cloud", description: "Contexto ultra-longo.", tag: "cloud" },
-    { id: "deepseek-v3.2:cloud", name: "DeepSeek V3.2 Cloud", provider: "ollama_cloud", description: "Eficiencia e raciocinio.", tag: "cloud" },
-    { id: "deepseek-v4-pro:cloud", name: "DeepSeek V4 Pro Cloud", provider: "ollama_cloud", description: "Frontier MoE 1M context, 3 raciocinios.", tag: "cloud" },
-    { id: "deepseek-v4-flash:cloud", name: "DeepSeek V4 Flash Cloud", provider: "ollama_cloud", description: "V4 preview MoE eficiente.", tag: "cloud" },
-    { id: "llama-3.1-70b", name: "LLaMA 3.1 70B", provider: "ollama", description: "Open-source top de linha.", tag: "local" },
-    { id: "llama-3.1-8b", name: "LLaMA 3.1 8B", provider: "ollama", description: "Open-source veloz.", tag: "local" },
-    { id: "qwen3-coder-next:cloud", name: "Qwen3 Coder Next Cloud", provider: "ollama_cloud", description: "Coding-focused agentic.", tag: "cloud" },
+    {
+      id: "minimax-m3:cloud",
+      name: "MiniMax M3 Cloud",
+      provider: "ollama_cloud",
+      description: "Coding & Agentic Frontier, 1M context.",
+      tag: "cloud",
+    },
+    {
+      id: "minimax-m2.7:cloud",
+      name: "Minimax M2.7 Cloud",
+      provider: "ollama_cloud",
+      description: "Coding e workflows agenticos.",
+      tag: "cloud",
+    },
+    {
+      id: "gemma4:cloud",
+      name: "Gemma 4 Cloud",
+      provider: "ollama_cloud",
+      description: "Open-source multimodal ate 31b.",
+      tag: "cloud",
+    },
+    {
+      id: "qwen3.5:cloud",
+      name: "Qwen 3.5 Cloud",
+      provider: "ollama_cloud",
+      description: "Open-source multimodal ate 122b.",
+      tag: "cloud",
+    },
+    {
+      id: "qwen-2.5-coder-32b",
+      name: "Qwen 2.5 Coder 32B",
+      provider: "ollama_cloud",
+      description: "Excelente para codigo.",
+      tag: "cloud",
+    },
+    {
+      id: "glm-5.1:cloud",
+      name: "GLM 5.1 Cloud",
+      provider: "ollama_cloud",
+      description: "Agentic engineering top-tier.",
+      tag: "cloud",
+    },
+    {
+      id: "kimi-k2.6:cloud",
+      name: "Kimi K2.6 Cloud",
+      provider: "ollama_cloud",
+      description: "Long-horizon coding agentico.",
+      tag: "cloud",
+    },
+    {
+      id: "kimi-k2.5:cloud",
+      name: "Kimi K2.5 Cloud",
+      provider: "ollama_cloud",
+      description: "Contexto ultra-longo.",
+      tag: "cloud",
+    },
+    {
+      id: "deepseek-v3.2:cloud",
+      name: "DeepSeek V3.2 Cloud",
+      provider: "ollama_cloud",
+      description: "Eficiencia e raciocinio.",
+      tag: "cloud",
+    },
+    {
+      id: "deepseek-v4-pro:cloud",
+      name: "DeepSeek V4 Pro Cloud",
+      provider: "ollama_cloud",
+      description: "Frontier MoE 1M context, 3 raciocinios.",
+      tag: "cloud",
+    },
+    {
+      id: "deepseek-v4-flash:cloud",
+      name: "DeepSeek V4 Flash Cloud",
+      provider: "ollama_cloud",
+      description: "V4 preview MoE eficiente.",
+      tag: "cloud",
+    },
+    {
+      id: "llama-3.1-70b",
+      name: "LLaMA 3.1 70B",
+      provider: "ollama",
+      description: "Open-source top de linha.",
+      tag: "local",
+    },
+    {
+      id: "llama-3.1-8b",
+      name: "LLaMA 3.1 8B",
+      provider: "ollama",
+      description: "Open-source veloz.",
+      tag: "local",
+    },
+    {
+      id: "qwen3-coder-next:cloud",
+      name: "Qwen3 Coder Next Cloud",
+      provider: "ollama_cloud",
+      description: "Coding-focused agentic.",
+      tag: "cloud",
+    },
   ];
   res.json({ models });
 });
@@ -161,7 +289,12 @@ router.get("/llm/models/static", async (_req, res) => {
 // before the user commits the connection to the database.
 router.post("/llm/validate", async (req, res) => {
   try {
-    const body = req.body as { provider?: string; apiKey?: string; baseUrl?: string; modelId?: string };
+    const body = req.body as {
+      provider?: string;
+      apiKey?: string;
+      baseUrl?: string;
+      modelId?: string;
+    };
     const provider = validateWhitelist(body.provider, PROVIDER_IDS);
     if (!provider) {
       apiError(res, 400, "provider inválido.");
@@ -176,11 +309,19 @@ router.post("/llm/validate", async (req, res) => {
     if (body.baseUrl) {
       const safe = await validateSafeUrl(body.baseUrl.trim());
       if (!safe) {
-        apiError(res, 400, "baseUrl inválida ou aponta para rede privada/metadata (SSRF protection).");
+        apiError(
+          res,
+          400,
+          "baseUrl inválida ou aponta para rede privada/metadata (SSRF protection).",
+        );
         return;
       }
       baseUrl = safe;
-    } else if (provider === "ollama" || provider === "ollama_cloud" || provider === "custom_openai") {
+    } else if (
+      provider === "ollama" ||
+      provider === "ollama_cloud" ||
+      provider === "custom_openai"
+    ) {
       apiError(res, 400, "baseUrl é obrigatório para este provedor.");
       return;
     }
@@ -197,7 +338,11 @@ router.post("/llm/validate", async (req, res) => {
 // ─── POST /api/llm/discover — Fetch available models from a provider ──────────
 router.post("/llm/discover", async (req, res) => {
   try {
-    const body = req.body as { provider?: string; apiKey?: string; baseUrl?: string };
+    const body = req.body as {
+      provider?: string;
+      apiKey?: string;
+      baseUrl?: string;
+    };
     const provider = validateWhitelist(body.provider, PROVIDER_IDS);
     if (!provider || !body.apiKey) {
       apiError(res, 400, "provider and apiKey are required");
@@ -207,7 +352,11 @@ router.post("/llm/discover", async (req, res) => {
     if (body.baseUrl) {
       const safe = await validateSafeUrl(body.baseUrl);
       if (!safe) {
-        apiError(res, 400, "baseUrl inválida ou aponta para rede privada/metadata.");
+        apiError(
+          res,
+          400,
+          "baseUrl inválida ou aponta para rede privada/metadata.",
+        );
         return;
       }
       baseUrl = safe;
@@ -224,7 +373,7 @@ router.post("/llm/discover", async (req, res) => {
 router.get("/llm/connections", async (req, res) => {
   try {
     const userId = req.userId;
-    const connections: typeof llmConnectionsTable.$inferSelect[] = await db
+    const connections: (typeof llmConnectionsTable.$inferSelect)[] = await db
       .select()
       .from(llmConnectionsTable)
       .where(scopeByUser(userId))
@@ -232,10 +381,12 @@ router.get("/llm/connections", async (req, res) => {
 
     // Decrypt keys before sending? NO — never send API keys to frontend.
     // Strip sensitive fields.
-    const safe = connections.map((c: typeof llmConnectionsTable.$inferSelect) => {
-      const { apiKey: _, ...rest } = c;
-      return { ...rest, hasKey: !!c.apiKey };
-    });
+    const safe = connections.map(
+      (c: typeof llmConnectionsTable.$inferSelect) => {
+        const { apiKey: _, ...rest } = c;
+        return { ...rest, hasKey: !!c.apiKey };
+      },
+    );
 
     res.json({ success: true, connections: safe });
   } catch (err) {
@@ -279,11 +430,19 @@ router.post("/llm/connections", async (req, res) => {
     if (body.baseUrl) {
       const safe = await validateSafeUrl(body.baseUrl);
       if (!safe) {
-        apiError(res, 400, "baseUrl inválida ou aponta para rede privada/metadata.");
+        apiError(
+          res,
+          400,
+          "baseUrl inválida ou aponta para rede privada/metadata.",
+        );
         return;
       }
       baseUrl = safe;
-    } else if (provider === "ollama" || provider === "ollama_cloud" || provider === "custom_openai") {
+    } else if (
+      provider === "ollama" ||
+      provider === "ollama_cloud" ||
+      provider === "custom_openai"
+    ) {
       apiError(res, 400, "baseUrl é obrigatório para este provedor.");
       return;
     }
@@ -298,8 +457,8 @@ router.post("/llm/connections", async (req, res) => {
       .where(
         and(
           eq(llmConnectionsTable.usageType, effectiveUsageType),
-          scopeByUser(userId) as any
-        )
+          scopeByUser(userId) as any,
+        ),
       );
 
     const [conn] = await db
@@ -327,7 +486,9 @@ router.post("/llm/connections", async (req, res) => {
       .returning();
 
     const { apiKey: _, ...safe } = conn;
-    res.status(201).json({ success: true, connection: { ...safe, hasKey: true } });
+    res
+      .status(201)
+      .json({ success: true, connection: { ...safe, hasKey: true } });
   } catch (err) {
     console.error("[LLM] create connection error:", err);
     apiError(res, 500, "Failed to create connection");
@@ -339,7 +500,10 @@ router.put("/llm/connections/:id", async (req, res) => {
   try {
     const userId = req.userId;
     const id = Number(req.params.id);
-    if (isNaN(id)) { apiError(res, 400, "Invalid connection id"); return; }
+    if (isNaN(id)) {
+      apiError(res, 400, "Invalid connection id");
+      return;
+    }
 
     const body = req.body as Partial<{
       name: string;
@@ -363,7 +527,10 @@ router.put("/llm/connections/:id", async (req, res) => {
     const updateData: Record<string, any> = { updatedAt: new Date() };
     if (body.provider !== undefined) {
       const wp = validateWhitelist(body.provider, PROVIDER_IDS);
-      if (!wp) { apiError(res, 400, "provider inválido."); return; }
+      if (!wp) {
+        apiError(res, 400, "provider inválido.");
+        return;
+      }
       updateData.provider = wp;
     }
     if (body.name !== undefined) updateData.name = body.name;
@@ -372,21 +539,32 @@ router.put("/llm/connections/:id", async (req, res) => {
         updateData.baseUrl = null;
       } else {
         const safe = await validateSafeUrl(body.baseUrl);
-        if (!safe) { apiError(res, 400, "baseUrl inválida ou privada."); return; }
+        if (!safe) {
+          apiError(res, 400, "baseUrl inválida ou privada.");
+          return;
+        }
         updateData.baseUrl = safe;
       }
     }
-    if (body.apiKey !== undefined) updateData.apiKey = encrypt(body.apiKey.trim());
+    if (body.apiKey !== undefined)
+      updateData.apiKey = encrypt(body.apiKey.trim());
     if (body.modelId !== undefined) updateData.modelId = body.modelId;
     if (body.modelName !== undefined) updateData.modelName = body.modelName;
-    if (body.contextWindow !== undefined) updateData.contextWindow = body.contextWindow;
+    if (body.contextWindow !== undefined)
+      updateData.contextWindow = body.contextWindow;
     if (body.maxTokens !== undefined) updateData.maxTokens = body.maxTokens;
-    if (body.supportsVision !== undefined) updateData.supportsVision = body.supportsVision;
-    if (body.supportsTools !== undefined) updateData.supportsTools = body.supportsTools;
-    if (body.supportsJson !== undefined) updateData.supportsJson = body.supportsJson;
-    if (body.priceInput !== undefined) updateData.priceInput = body.priceInput || null;
-    if (body.priceOutput !== undefined) updateData.priceOutput = body.priceOutput || null;
-    if (body.providerMetadata !== undefined) updateData.providerMetadata = body.providerMetadata;
+    if (body.supportsVision !== undefined)
+      updateData.supportsVision = body.supportsVision;
+    if (body.supportsTools !== undefined)
+      updateData.supportsTools = body.supportsTools;
+    if (body.supportsJson !== undefined)
+      updateData.supportsJson = body.supportsJson;
+    if (body.priceInput !== undefined)
+      updateData.priceInput = body.priceInput || null;
+    if (body.priceOutput !== undefined)
+      updateData.priceOutput = body.priceOutput || null;
+    if (body.providerMetadata !== undefined)
+      updateData.providerMetadata = body.providerMetadata;
     if (body.usageType !== undefined) updateData.usageType = body.usageType;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
 
@@ -400,7 +578,10 @@ router.put("/llm/connections/:id", async (req, res) => {
       .where(and(...conditions))
       .returning();
 
-    if (!updated) { apiError(res, 404, "Connection not found"); return; }
+    if (!updated) {
+      apiError(res, 404, "Connection not found");
+      return;
+    }
 
     const { apiKey: _, ...safe } = updated;
     res.json({ success: true, connection: { ...safe, hasKey: true } });
@@ -415,7 +596,10 @@ router.delete("/llm/connections/:id", async (req, res) => {
   try {
     const userId = req.userId;
     const id = Number(req.params.id);
-    if (isNaN(id)) { apiError(res, 400, "Invalid connection id"); return; }
+    if (isNaN(id)) {
+      apiError(res, 400, "Invalid connection id");
+      return;
+    }
 
     const conditions = [eq(llmConnectionsTable.id, id)];
     const userScope = scopeByUser(userId);
@@ -434,7 +618,10 @@ router.post("/llm/connections/:id/test", async (req, res) => {
   try {
     const userId = req.userId;
     const id = Number(req.params.id);
-    if (isNaN(id)) { apiError(res, 400, "Invalid connection id"); return; }
+    if (isNaN(id)) {
+      apiError(res, 400, "Invalid connection id");
+      return;
+    }
 
     const conditions = [eq(llmConnectionsTable.id, id)];
     const userScope = scopeByUser(userId);
@@ -446,7 +633,10 @@ router.post("/llm/connections/:id/test", async (req, res) => {
       .where(and(...conditions))
       .limit(1);
 
-    if (!conn) { apiError(res, 404, "Connection not found"); return; }
+    if (!conn) {
+      apiError(res, 404, "Connection not found");
+      return;
+    }
 
     const apiKey = decrypt(conn.apiKey);
     const start = Date.now();
@@ -458,8 +648,14 @@ router.post("/llm/connections/:id/test", async (req, res) => {
       if (provider === "custom_openai") provider = "openrouter"; // hack: custom_openai uses openai-sdk with custom baseURL
 
       // Warn about localhost URLs when backend is in the cloud
-      if (customUrl && /^(http:\/\/localhost|http:\/\/127\.)/i.test(customUrl) && process.env.VERCEL) {
-        throw new Error("URLs localhost (http://localhost:11434) não são acessíveis quando o backend roda na nuvem. Use um Ollama remoto com HTTPS ou rode o backend localmente.");
+      if (
+        customUrl &&
+        /^(http:\/\/localhost|http:\/\/127\.)/i.test(customUrl) &&
+        process.env.VERCEL
+      ) {
+        throw new Error(
+          "URLs localhost (http://localhost:11434) não são acessíveis quando o backend roda na nuvem. Use um Ollama remoto com HTTPS ou rode o backend localmente.",
+        );
       }
 
       const result = await callLLM(
@@ -470,7 +666,7 @@ router.post("/llm/connections/:id/test", async (req, res) => {
           model: conn.modelId,
           customUrl,
           userId,
-        }
+        },
       );
 
       const ok = result.output.toLowerCase().includes("ok");
@@ -480,7 +676,9 @@ router.post("/llm/connections/:id/test", async (req, res) => {
         .set({
           lastTestedAt: new Date(),
           lastTestStatus: ok ? "ok" : "error",
-          lastError: ok ? null : `Unexpected response: ${result.output.slice(0, 200)}`,
+          lastError: ok
+            ? null
+            : `Unexpected response: ${result.output.slice(0, 200)}`,
         })
         .where(eq(llmConnectionsTable.id, id));
 
@@ -503,7 +701,12 @@ router.post("/llm/connections/:id/test", async (req, res) => {
         })
         .where(eq(llmConnectionsTable.id, id));
 
-      res.json({ success: true, ok: false, error: err.message, executionTimeMs: Date.now() - start });
+      res.json({
+        success: true,
+        ok: false,
+        error: err.message,
+        executionTimeMs: Date.now() - start,
+      });
     }
   } catch (err) {
     console.error("[LLM] test connection error:", err);
@@ -516,7 +719,10 @@ router.post("/llm/connections/:id/activate", async (req, res) => {
   try {
     const userId = req.userId;
     const id = Number(req.params.id);
-    if (isNaN(id)) { apiError(res, 400, "Invalid connection id"); return; }
+    if (isNaN(id)) {
+      apiError(res, 400, "Invalid connection id");
+      return;
+    }
 
     const conditions = [eq(llmConnectionsTable.id, id)];
     const userScope = scopeByUser(userId);
@@ -528,7 +734,10 @@ router.post("/llm/connections/:id/activate", async (req, res) => {
       .where(and(...conditions))
       .limit(1);
 
-    if (!conn) { apiError(res, 404, "Connection not found"); return; }
+    if (!conn) {
+      apiError(res, 404, "Connection not found");
+      return;
+    }
 
     // Clear previous default for this usageType
     const clearConditions = [
@@ -562,7 +771,9 @@ router.get("/llm/profiles", async (req, res) => {
     const profiles = await db
       .select()
       .from(llmProfilesTable)
-      .where(isRealUser(userId) ? eq(llmProfilesTable.userId, userId) : undefined)
+      .where(
+        isRealUser(userId) ? eq(llmProfilesTable.userId, userId) : undefined,
+      )
       .orderBy(desc(llmProfilesTable.createdAt));
 
     res.json({ success: true, profiles });
@@ -588,7 +799,10 @@ router.post("/llm/profiles", async (req, res) => {
       transcriptionConnectionId?: number;
     };
 
-    if (!body.name?.trim()) { apiError(res, 400, "name is required"); return; }
+    if (!body.name?.trim()) {
+      apiError(res, 400, "name is required");
+      return;
+    }
 
     // Validate connectionIds exist and belong to user
     const connectionIds = [
@@ -608,8 +822,10 @@ router.post("/llm/profiles", async (req, res) => {
         .where(
           and(
             inArray(llmConnectionsTable.id, connectionIds),
-            isRealUser(userId) ? eq(llmConnectionsTable.userId, userId) : undefined
-          )
+            isRealUser(userId)
+              ? eq(llmConnectionsTable.userId, userId)
+              : undefined,
+          ),
         );
       const ownedIds = new Set(owned.map((c) => c.id));
       const missing = connectionIds.filter((id) => !ownedIds.has(id));
@@ -624,7 +840,9 @@ router.post("/llm/profiles", async (req, res) => {
     await db
       .update(llmProfilesTable)
       .set({ isDefault: false })
-      .where(isRealUser(userId) ? eq(llmProfilesTable.userId, userId) : undefined);
+      .where(
+        isRealUser(userId) ? eq(llmProfilesTable.userId, userId) : undefined,
+      );
 
     const [profile] = await db
       .insert(llmProfilesTable)
@@ -655,7 +873,10 @@ router.put("/llm/profiles/:id", async (req, res) => {
   try {
     const userId = req.userId;
     const id = validateIdParam(req.params.id);
-    if (id === null) { apiError(res, 400, "Invalid profile id"); return; }
+    if (id === null) {
+      apiError(res, 400, "Invalid profile id");
+      return;
+    }
 
     const body = req.body as Partial<{
       name: string;
@@ -688,8 +909,10 @@ router.put("/llm/profiles/:id", async (req, res) => {
         .where(
           and(
             inArray(llmConnectionsTable.id, connectionIds),
-            isRealUser(userId) ? eq(llmConnectionsTable.userId, userId) : undefined
-          )
+            isRealUser(userId)
+              ? eq(llmConnectionsTable.userId, userId)
+              : undefined,
+          ),
         );
       const ownedIds = new Set(owned.map((c) => c.id));
       const missing = connectionIds.filter((id) => !ownedIds.has(id));
@@ -701,17 +924,26 @@ router.put("/llm/profiles/:id", async (req, res) => {
 
     const updateData: Record<string, any> = { updatedAt: new Date() };
     if (body.name !== undefined) updateData.name = body.name;
-    if (body.description !== undefined) updateData.description = body.description || null;
-    if (body.chatConnectionId !== undefined) updateData.chatConnectionId = body.chatConnectionId;
-    if (body.fastConnectionId !== undefined) updateData.fastConnectionId = body.fastConnectionId;
-    if (body.reasoningConnectionId !== undefined) updateData.reasoningConnectionId = body.reasoningConnectionId;
-    if (body.visionConnectionId !== undefined) updateData.visionConnectionId = body.visionConnectionId;
-    if (body.embeddingConnectionId !== undefined) updateData.embeddingConnectionId = body.embeddingConnectionId;
-    if (body.imageConnectionId !== undefined) updateData.imageConnectionId = body.imageConnectionId;
-    if (body.transcriptionConnectionId !== undefined) updateData.transcriptionConnectionId = body.transcriptionConnectionId;
+    if (body.description !== undefined)
+      updateData.description = body.description || null;
+    if (body.chatConnectionId !== undefined)
+      updateData.chatConnectionId = body.chatConnectionId;
+    if (body.fastConnectionId !== undefined)
+      updateData.fastConnectionId = body.fastConnectionId;
+    if (body.reasoningConnectionId !== undefined)
+      updateData.reasoningConnectionId = body.reasoningConnectionId;
+    if (body.visionConnectionId !== undefined)
+      updateData.visionConnectionId = body.visionConnectionId;
+    if (body.embeddingConnectionId !== undefined)
+      updateData.embeddingConnectionId = body.embeddingConnectionId;
+    if (body.imageConnectionId !== undefined)
+      updateData.imageConnectionId = body.imageConnectionId;
+    if (body.transcriptionConnectionId !== undefined)
+      updateData.transcriptionConnectionId = body.transcriptionConnectionId;
 
     const conditions = [eq(llmProfilesTable.id, id)];
-    if (isRealUser(userId)) conditions.push(eq(llmProfilesTable.userId, userId));
+    if (isRealUser(userId))
+      conditions.push(eq(llmProfilesTable.userId, userId));
 
     const [updated] = await db
       .update(llmProfilesTable)
@@ -719,7 +951,10 @@ router.put("/llm/profiles/:id", async (req, res) => {
       .where(and(...conditions))
       .returning();
 
-    if (!updated) { apiError(res, 404, "Profile not found"); return; }
+    if (!updated) {
+      apiError(res, 404, "Profile not found");
+      return;
+    }
 
     // Handle isDefault separately to ensure only one default
     if (body.isDefault) {
@@ -745,10 +980,14 @@ router.delete("/llm/profiles/:id", async (req, res) => {
   try {
     const userId = req.userId;
     const id = Number(req.params.id);
-    if (isNaN(id)) { apiError(res, 400, "Invalid profile id"); return; }
+    if (isNaN(id)) {
+      apiError(res, 400, "Invalid profile id");
+      return;
+    }
 
     const conditions = [eq(llmProfilesTable.id, id)];
-    if (isRealUser(userId)) conditions.push(eq(llmProfilesTable.userId, userId));
+    if (isRealUser(userId))
+      conditions.push(eq(llmProfilesTable.userId, userId));
 
     await db.delete(llmProfilesTable).where(and(...conditions));
     res.json({ success: true });
@@ -763,10 +1002,14 @@ router.post("/llm/profiles/:id/activate", async (req, res) => {
   try {
     const userId = req.userId;
     const id = Number(req.params.id);
-    if (isNaN(id)) { apiError(res, 400, "Invalid profile id"); return; }
+    if (isNaN(id)) {
+      apiError(res, 400, "Invalid profile id");
+      return;
+    }
 
     const conditions = [eq(llmProfilesTable.id, id)];
-    if (isRealUser(userId)) conditions.push(eq(llmProfilesTable.userId, userId));
+    if (isRealUser(userId))
+      conditions.push(eq(llmProfilesTable.userId, userId));
 
     const [profile] = await db
       .select()
@@ -774,7 +1017,10 @@ router.post("/llm/profiles/:id/activate", async (req, res) => {
       .where(and(...conditions))
       .limit(1);
 
-    if (!profile) { apiError(res, 404, "Profile not found"); return; }
+    if (!profile) {
+      apiError(res, 404, "Profile not found");
+      return;
+    }
 
     await db
       .update(llmProfilesTable)
@@ -798,7 +1044,10 @@ router.get("/llm/active-profile", async (req, res) => {
   try {
     const userId = req.userId;
     const conditions = isRealUser(userId)
-      ? and(eq(llmProfilesTable.userId, userId), eq(llmProfilesTable.isActive, true))
+      ? and(
+          eq(llmProfilesTable.userId, userId),
+          eq(llmProfilesTable.isActive, true),
+        )
       : eq(llmProfilesTable.isActive, true);
 
     const [profile] = await db
@@ -823,18 +1072,22 @@ router.get("/llm/active-profile", async (req, res) => {
       profile.transcriptionConnectionId,
     ].filter(Boolean) as number[];
 
-    const resolved: typeof llmConnectionsTable.$inferSelect[] = connIds.length
+    const resolved: (typeof llmConnectionsTable.$inferSelect)[] = connIds.length
       ? await db
           .select()
           .from(llmConnectionsTable)
           .where(
             and(
               inArray(llmConnectionsTable.id, connIds),
-              isRealUser(userId) ? eq(llmConnectionsTable.userId, userId) : undefined
-            )
+              isRealUser(userId)
+                ? eq(llmConnectionsTable.userId, userId)
+                : undefined,
+            ),
           )
       : [];
-    const connMap = new Map(resolved.map((c: typeof llmConnectionsTable.$inferSelect) => [c.id, c]));
+    const connMap = new Map(
+      resolved.map((c: typeof llmConnectionsTable.$inferSelect) => [c.id, c]),
+    );
 
     const stripKey = (c: typeof llmConnectionsTable.$inferSelect) => {
       const { apiKey: _, ...rest } = c;
@@ -845,13 +1098,27 @@ router.get("/llm/active-profile", async (req, res) => {
       success: true,
       profile: {
         ...profile,
-        chatConnection: profile.chatConnectionId ? stripKey(connMap.get(profile.chatConnectionId)!) : null,
-        fastConnection: profile.fastConnectionId ? stripKey(connMap.get(profile.fastConnectionId)!) : null,
-        reasoningConnection: profile.reasoningConnectionId ? stripKey(connMap.get(profile.reasoningConnectionId)!) : null,
-        visionConnection: profile.visionConnectionId ? stripKey(connMap.get(profile.visionConnectionId)!) : null,
-        embeddingConnection: profile.embeddingConnectionId ? stripKey(connMap.get(profile.embeddingConnectionId)!) : null,
-        imageConnection: profile.imageConnectionId ? stripKey(connMap.get(profile.imageConnectionId)!) : null,
-        transcriptionConnection: profile.transcriptionConnectionId ? stripKey(connMap.get(profile.transcriptionConnectionId)!) : null,
+        chatConnection: profile.chatConnectionId
+          ? stripKey(connMap.get(profile.chatConnectionId)!)
+          : null,
+        fastConnection: profile.fastConnectionId
+          ? stripKey(connMap.get(profile.fastConnectionId)!)
+          : null,
+        reasoningConnection: profile.reasoningConnectionId
+          ? stripKey(connMap.get(profile.reasoningConnectionId)!)
+          : null,
+        visionConnection: profile.visionConnectionId
+          ? stripKey(connMap.get(profile.visionConnectionId)!)
+          : null,
+        embeddingConnection: profile.embeddingConnectionId
+          ? stripKey(connMap.get(profile.embeddingConnectionId)!)
+          : null,
+        imageConnection: profile.imageConnectionId
+          ? stripKey(connMap.get(profile.imageConnectionId)!)
+          : null,
+        transcriptionConnection: profile.transcriptionConnectionId
+          ? stripKey(connMap.get(profile.transcriptionConnectionId)!)
+          : null,
       },
     });
   } catch (err) {
@@ -879,14 +1146,32 @@ async function handleHealthCheck(req: any, res: any) {
         try {
           const apiKey = decrypt(conn.apiKey);
           const diagnostics = await runDiagnostics(
-            { id: conn.id, provider: conn.provider, modelId: conn.modelId, baseUrl: conn.baseUrl, supportsJson: conn.supportsJson ?? undefined, supportsTools: conn.supportsTools ?? undefined, apiKey },
-            userId
+            {
+              id: conn.id,
+              provider: conn.provider,
+              modelId: conn.modelId,
+              baseUrl: conn.baseUrl,
+              supportsJson: conn.supportsJson ?? undefined,
+              supportsTools: conn.supportsTools ?? undefined,
+              apiKey,
+            },
+            userId,
           );
-          return { connectionId: conn.id, name: conn.name, provider: conn.provider, diagnostics };
+          return {
+            connectionId: conn.id,
+            name: conn.name,
+            provider: conn.provider,
+            diagnostics,
+          };
         } catch (err: any) {
-          return { connectionId: conn.id, name: conn.name, provider: conn.provider, error: err.message };
+          return {
+            connectionId: conn.id,
+            name: conn.name,
+            provider: conn.provider,
+            error: err.message,
+          };
         }
-      })
+      }),
     );
 
     res.json({ success: true, results });

@@ -2,8 +2,15 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  AlertCircle, Loader2, Check, RefreshCw, Bell, BellOff, ChevronDown,
-  ChevronUp, ExternalLink,
+  AlertCircle,
+  Loader2,
+  Check,
+  RefreshCw,
+  Bell,
+  BellOff,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,17 +23,37 @@ import {
   useRefreshCrmAlerts,
 } from "@workspace/api-client-react";
 
-const SEVERITY_STYLES: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  info:     { bg: "bg-blue-500/10",    text: "text-blue-400",    border: "border-blue-500/30",    label: "Info" },
-  warning:  { bg: "bg-amber-500/10",   text: "text-amber-400",   border: "border-amber-500/30",   label: "Atenção" },
-  critical: { bg: "bg-red-500/10",     text: "text-red-400",     border: "border-red-500/30",     label: "Crítico" },
+const SEVERITY_STYLES: Record<
+  string,
+  { bg: string; text: string; border: string; label: string }
+> = {
+  info: {
+    bg: "bg-blue-500/10",
+    text: "text-blue-400",
+    border: "border-blue-500/30",
+    label: "Info",
+  },
+  warning: {
+    bg: "bg-amber-500/10",
+    text: "text-amber-400",
+    border: "border-amber-500/30",
+    label: "Atenção",
+  },
+  critical: {
+    bg: "bg-red-500/10",
+    text: "text-red-400",
+    border: "border-red-500/30",
+    label: "Crítico",
+  },
 };
 
 export default function AlertsPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showResolved, setShowResolved] = useState(false);
-  const [filter, setFilter] = useState<"all" | "critical" | "warning" | "info">("all");
+  const [filter, setFilter] = useState<"all" | "critical" | "warning" | "info">(
+    "all",
+  );
 
   const { data, isLoading, refetch } = useListCrmAlerts(
     {
@@ -52,7 +79,8 @@ export default function AlertsPanel() {
         queryClient.invalidateQueries({ queryKey: ["/api/crm/tasks"] });
         toast({ title: "Tarefa criada a partir do alerta" });
       },
-      onError: () => toast({ title: "Erro ao converter alerta", variant: "destructive" }),
+      onError: () =>
+        toast({ title: "Erro ao converter alerta", variant: "destructive" }),
     },
   });
 
@@ -61,21 +89,23 @@ export default function AlertsPanel() {
       onSuccess: (data: any) => {
         queryClient.invalidateQueries({ queryKey: ["/api/crm/alerts"] });
         toast({
-          title: data?.automationsFired > 0
-            ? `Alertas atualizados · ${data.created} novos · ${data.automationsFired} automações disparadas`
-            : `Alertas atualizados · ${data?.created || 0} novos`,
+          title:
+            data?.automationsFired > 0
+              ? `Alertas atualizados · ${data.created} novos · ${data.automationsFired} automações disparadas`
+              : `Alertas atualizados · ${data?.created || 0} novos`,
         });
       },
-      onError: () => toast({ title: "Erro ao atualizar alertas", variant: "destructive" }),
+      onError: () =>
+        toast({ title: "Erro ao atualizar alertas", variant: "destructive" }),
     },
   });
 
   const alerts: any[] = (data as any)?.alerts || [];
   const total = alerts.length;
   const counts = {
-    critical: alerts.filter(a => a.severity === "critical").length,
-    warning:  alerts.filter(a => a.severity === "warning").length,
-    info:     alerts.filter(a => a.severity === "info").length,
+    critical: alerts.filter((a) => a.severity === "critical").length,
+    warning: alerts.filter((a) => a.severity === "warning").length,
+    info: alerts.filter((a) => a.severity === "info").length,
   };
 
   return (
@@ -91,7 +121,7 @@ export default function AlertsPanel() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1">
-            {(["all", "critical", "warning", "info"] as const).map(f => (
+            {(["all", "critical", "warning", "info"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -102,27 +132,43 @@ export default function AlertsPanel() {
                 }`}
               >
                 {f === "all" ? "Todos" : SEVERITY_STYLES[f]?.label}
-                {f === "critical" && counts.critical > 0 && <span className="ml-1 font-bold">{counts.critical}</span>}
-                {f === "warning" && counts.warning > 0 && <span className="ml-1 font-bold">{counts.warning}</span>}
-                {f === "info" && counts.info > 0 && <span className="ml-1 font-bold">{counts.info}</span>}
+                {f === "critical" && counts.critical > 0 && (
+                  <span className="ml-1 font-bold">{counts.critical}</span>
+                )}
+                {f === "warning" && counts.warning > 0 && (
+                  <span className="ml-1 font-bold">{counts.warning}</span>
+                )}
+                {f === "info" && counts.info > 0 && (
+                  <span className="ml-1 font-bold">{counts.info}</span>
+                )}
               </button>
             ))}
           </div>
           <Button
-            variant="outline" size="sm" className="gap-1.5 text-xs"
-            onClick={() => setShowResolved(v => !v)}
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => setShowResolved((v) => !v)}
           >
-            {showResolved ? <BellOff className="w-3 h-3" /> : <Bell className="w-3 h-3" />}
+            {showResolved ? (
+              <BellOff className="w-3 h-3" />
+            ) : (
+              <Bell className="w-3 h-3" />
+            )}
             {showResolved ? "Ocultar resolvidos" : "Ver resolvidos"}
           </Button>
           <Button
-            variant="outline" size="sm" className="gap-1.5 text-xs"
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
             onClick={() => refreshMutation.mutate(undefined as any)}
             disabled={refreshMutation.isPending}
           >
-            {refreshMutation.isPending
-              ? <Loader2 className="w-3 h-3 animate-spin" />
-              : <RefreshCw className="w-3 h-3" />}
+            {refreshMutation.isPending ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3 h-3" />
+            )}
             Atualizar
           </Button>
         </div>
@@ -136,16 +182,20 @@ export default function AlertsPanel() {
         ) : total === 0 ? (
           <div className="text-center py-16">
             <Check className="w-10 h-10 text-emerald-400/40 mx-auto mb-3" />
-            <p className="text-sm font-medium text-foreground">Nenhum alerta pendente</p>
+            <p className="text-sm font-medium text-foreground">
+              Nenhum alerta pendente
+            </p>
             <p className="text-xs text-muted-foreground mt-1">
-              O sistema está monitorando follow-ups, Matriz e oportunidades automaticamente.
+              O sistema está monitorando follow-ups, Matriz e oportunidades
+              automaticamente.
             </p>
           </div>
         ) : (
           <div className="space-y-2">
             <AnimatePresence>
-              {alerts.map(alert => {
-                const sev = SEVERITY_STYLES[alert.severity] || SEVERITY_STYLES.info;
+              {alerts.map((alert) => {
+                const sev =
+                  SEVERITY_STYLES[alert.severity] || SEVERITY_STYLES.info;
                 const meta = alert.meta;
                 return (
                   <motion.div
@@ -157,33 +207,52 @@ export default function AlertsPanel() {
                     className={`p-3.5 rounded-lg border ${sev.bg} ${sev.border}`}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-lg leading-none mt-0.5">{meta?.icon || "🔔"}</span>
+                      <span className="text-lg leading-none mt-0.5">
+                        {meta?.icon || "🔔"}
+                      </span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${sev.text} bg-background/40`}>
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${sev.text} bg-background/40`}
+                          >
                             {sev.label}
                           </span>
-                          <h4 className="text-sm font-semibold text-foreground">{alert.title}</h4>
+                          <h4 className="text-sm font-semibold text-foreground">
+                            {alert.title}
+                          </h4>
                         </div>
                         {alert.description && (
-                          <p className="text-xs text-muted-foreground mt-1">{alert.description}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {alert.description}
+                          </p>
                         )}
                         <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
                           {alert.contact?.razaoSocial && (
                             <span>📞 {alert.contact.razaoSocial}</span>
                           )}
-                          <span>· {new Date(alert.createdAt).toLocaleString("pt-BR")}</span>
+                          <span>
+                            ·{" "}
+                            {new Date(alert.createdAt).toLocaleString("pt-BR")}
+                          </span>
                           {alert.context?.diasAtraso && (
-                            <span className="text-red-400 font-semibold">{alert.context.diasAtraso}d atraso</span>
+                            <span className="text-red-400 font-semibold">
+                              {alert.context.diasAtraso}d atraso
+                            </span>
                           )}
                           {alert.context?.diasSemAtividade && (
-                            <span className="text-amber-400">{alert.context.diasSemAtividade}d sem atividade</span>
+                            <span className="text-amber-400">
+                              {alert.context.diasSemAtividade}d sem atividade
+                            </span>
                           )}
                           {alert.context?.diasSemRetorno && (
-                            <span className="text-amber-400">{alert.context.diasSemRetorno}d sem retorno</span>
+                            <span className="text-amber-400">
+                              {alert.context.diasSemRetorno}d sem retorno
+                            </span>
                           )}
                           {alert.context?.diasParada && (
-                            <span className="text-red-400">{alert.context.diasParada}d parada</span>
+                            <span className="text-red-400">
+                              {alert.context.diasParada}d parada
+                            </span>
                           )}
                         </div>
                       </div>
@@ -191,15 +260,23 @@ export default function AlertsPanel() {
                         {!alert.isResolved && (
                           <>
                             <Button
-                              variant="outline" size="sm" className="text-xs h-7"
-                              onClick={() => convertMutation.mutate({ id: alert.id })}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() =>
+                                convertMutation.mutate({ id: alert.id })
+                              }
                               disabled={convertMutation.isPending}
                             >
                               Criar Tarefa
                             </Button>
                             <Button
-                              variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground"
-                              onClick={() => resolveMutation.mutate({ id: alert.id })}
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7 text-muted-foreground"
+                              onClick={() =>
+                                resolveMutation.mutate({ id: alert.id })
+                              }
                               disabled={resolveMutation.isPending}
                             >
                               <Check className="w-3 h-3" />

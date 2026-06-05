@@ -1,5 +1,9 @@
 import { Router, type IRouter } from "express";
-import { db, knowledgeDocumentsTable, embeddingCacheTable } from "@workspace/db";
+import {
+  db,
+  knowledgeDocumentsTable,
+  embeddingCacheTable,
+} from "@workspace/db";
 import { eq, inArray, lt, and } from "drizzle-orm";
 import fs from "node:fs";
 import path from "node:path";
@@ -29,47 +33,74 @@ router.post("/system/jobs/retry", async (req, res) => {
 
     // Enforce admin/system level restriction here if needed
     // For now, allow retry on user's own docs or any doc if global admin.
-    
-    const conditions = [inArray(knowledgeDocumentsTable.status, ["error", "pending"])];
-    
+
+    const conditions = [
+      inArray(knowledgeDocumentsTable.status, ["error", "pending"]),
+    ];
+
     if (docIds && docIds.length > 0) {
       conditions.push(inArray(knowledgeDocumentsTable.id, docIds));
     }
-    
+
     // Strict tenancy: regular users can only retry their own jobs
     if (userId && userId !== "system" && userId !== "dev-user") {
       conditions.push(eq(knowledgeDocumentsTable.userId, userId));
     }
 
-    const stuckDocs = await db.select().from(knowledgeDocumentsTable).where(and(...conditions));
+    const stuckDocs = await db
+      .select()
+      .from(knowledgeDocumentsTable)
+      .where(and(...conditions));
 
     if (stuckDocs.length === 0) {
-      res.json({ success: true, message: "No stuck or failed documents found to retry.", retriedCount: 0 });
+      res.json({
+        success: true,
+        message: "No stuck or failed documents found to retry.",
+        retriedCount: 0,
+      });
       return;
     }
 
     let retriedCount = 0;
-    const errors: Array<{ id: number; error: string; path?: string | null }> = [];
+    const errors: Array<{ id: number; error: string; path?: string | null }> =
+      [];
 
     for (const doc of stuckDocs) {
       try {
-        if (!doc.storageKey || !isAllowedStoragePath(doc.storageKey) || !fs.existsSync(doc.storageKey)) {
-           errors.push({ id: doc.id, error: "Arquivo físico não encontrado ou caminho inválido.", path: doc.storageKey });
-           continue;
+        if (
+          !doc.storageKey ||
+          !isAllowedStoragePath(doc.storageKey) ||
+          !fs.existsSync(doc.storageKey)
+        ) {
+          errors.push({
+            id: doc.id,
+            error: "Arquivo físico não encontrado ou caminho inválido.",
+            path: doc.storageKey,
+          });
+          continue;
         }
 
         const fileBuffer = fs.readFileSync(doc.storageKey);
-        
+
         // Fire and forget
         setImmediate(() => {
-          processDocumentAsync(doc.id, fileBuffer, doc.fileType, doc.filename).catch((err: Error) => {
-            console.error("[Knowledge] processDocumentAsync failed for doc", doc.id, err);
+          processDocumentAsync(
+            doc.id,
+            fileBuffer,
+            doc.fileType,
+            doc.filename,
+          ).catch((err: Error) => {
+            console.error(
+              "[Knowledge] processDocumentAsync failed for doc",
+              doc.id,
+              err,
+            );
           });
         });
 
         retriedCount++;
       } catch (err) {
-         errors.push({ id: doc.id, error: (err as Error).message });
+        errors.push({ id: doc.id, error: (err as Error).message });
       }
     }
 
@@ -77,9 +108,8 @@ router.post("/system/jobs/retry", async (req, res) => {
       success: true,
       message: `${retriedCount} documents queued for retry.`,
       retriedCount,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors : undefined,
     });
-
   } catch (err) {
     console.error("Jobs retry error:", err);
     apiError(res, 500, "Failed to trigger job retries");
@@ -101,7 +131,11 @@ router.delete("/system/cache/embeddings", async (req, res) => {
       .where(lt(embeddingCacheTable.createdAt, cutoff))
       .returning({ id: embeddingCacheTable.id });
 
-    res.json({ success: true, deleted: deleted.length, cutoffDate: cutoff.toISOString() });
+    res.json({
+      success: true,
+      deleted: deleted.length,
+      cutoffDate: cutoff.toISOString(),
+    });
   } catch (err) {
     console.error("Embedding cache purge error:", err);
     apiError(res, 500, "Failed to purge embedding cache");

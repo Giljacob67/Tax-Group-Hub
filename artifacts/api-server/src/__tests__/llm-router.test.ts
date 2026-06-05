@@ -45,7 +45,10 @@ vi.mock("../lib/logger.js", () => ({
   default: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
 }));
 
-import { callLLMViaConnection, healthCheckConnections } from "../lib/llm-router.js";
+import {
+  callLLMViaConnection,
+  healthCheckConnections,
+} from "../lib/llm-router.js";
 import { callLLM } from "../lib/llm-client.js";
 import { db } from "@workspace/db";
 
@@ -98,56 +101,93 @@ describe("callLLMViaConnection", () => {
     // resolveConnection: no connId → skip; usageType → profile query (no match);
     // then default connection query (no match)
     (db.select as any)
-      .mockReturnValueOnce(chainWithLimit([]))   // profile query
-      .mockReturnValueOnce(chainWithLimit([]));  // default conn query
+      .mockReturnValueOnce(chainWithLimit([])) // profile query
+      .mockReturnValueOnce(chainWithLimit([])); // default conn query
 
     await expect(
-      callLLMViaConnection("system", "hello", { usageType: "chat", userId: "u1" })
+      callLLMViaConnection("system", "hello", {
+        usageType: "chat",
+        userId: "u1",
+      }),
     ).rejects.toThrow(/Nenhuma conex/);
   });
 
   it("calls LLM with the resolved connection and returns result", async () => {
     const conn = {
-      id: 1, userId: "u1", provider: "openai", modelId: "gpt-4o",
-      baseUrl: null, apiKey: "enc-key", usageType: "chat", isDefault: true,
-      isActive: true, name: "Primary", lastTestStatus: "ok", lastError: null,
+      id: 1,
+      userId: "u1",
+      provider: "openai",
+      modelId: "gpt-4o",
+      baseUrl: null,
+      apiKey: "enc-key",
+      usageType: "chat",
+      isDefault: true,
+      isActive: true,
+      name: "Primary",
+      lastTestStatus: "ok",
+      lastError: null,
     };
 
     // resolveConnection: profile query → []; default conn query → [conn]
     // buildFallbackChain: → [conn]
     (db.select as any)
-      .mockReturnValueOnce(chainWithLimit([]))   // profile query
+      .mockReturnValueOnce(chainWithLimit([])) // profile query
       .mockReturnValueOnce(chainWithLimit([conn])) // default conn query
-      .mockReturnValueOnce(chainNoLimit([conn]));  // fallback chain
+      .mockReturnValueOnce(chainNoLimit([conn])); // fallback chain
 
     (callLLM as any).mockResolvedValue({
-      output: "Hello!", tokensUsed: 10, promptTokens: 5, completionTokens: 5,
-      executionTimeMs: 100, model: "gpt-4o", provider: "OpenAI",
+      output: "Hello!",
+      tokensUsed: 10,
+      promptTokens: 5,
+      completionTokens: 5,
+      executionTimeMs: 100,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const result = await callLLMViaConnection("system", "hello", {
-      usageType: "chat", userId: "u1",
+      usageType: "chat",
+      userId: "u1",
     });
 
     expect(result.output).toBe("Hello!");
     expect(result.connectionUsed).toBe(1);
     expect(result.fallbackTriggered).toBe(false);
     expect(callLLM).toHaveBeenCalledWith(
-      "system", "hello",
-      expect.objectContaining({ provider: "openai", model: "gpt-4o" })
+      "system",
+      "hello",
+      expect.objectContaining({ provider: "openai", model: "gpt-4o" }),
     );
   });
 
   it("triggers fallback when primary connection fails", async () => {
     const conn1 = {
-      id: 1, userId: "u1", provider: "openai", modelId: "gpt-4o",
-      baseUrl: null, apiKey: "enc-1", usageType: "chat", isDefault: true,
-      isActive: true, name: "Primary", lastTestStatus: "ok", lastError: null,
+      id: 1,
+      userId: "u1",
+      provider: "openai",
+      modelId: "gpt-4o",
+      baseUrl: null,
+      apiKey: "enc-1",
+      usageType: "chat",
+      isDefault: true,
+      isActive: true,
+      name: "Primary",
+      lastTestStatus: "ok",
+      lastError: null,
     };
     const conn2 = {
-      id: 2, userId: null, provider: "google", modelId: "gemini-flash",
-      baseUrl: null, apiKey: "enc-2", usageType: "chat", isDefault: false,
-      isActive: true, name: "Fallback", lastTestStatus: "ok", lastError: null,
+      id: 2,
+      userId: null,
+      provider: "google",
+      modelId: "gemini-flash",
+      baseUrl: null,
+      apiKey: "enc-2",
+      usageType: "chat",
+      isDefault: false,
+      isActive: true,
+      name: "Fallback",
+      lastTestStatus: "ok",
+      lastError: null,
     };
 
     (db.select as any)
@@ -160,12 +200,18 @@ describe("callLLMViaConnection", () => {
     (callLLM as any)
       .mockRejectedValueOnce(new Error("OpenAI down"))
       .mockResolvedValueOnce({
-        output: "Fallback works", tokensUsed: 5, promptTokens: 2, completionTokens: 3,
-        executionTimeMs: 50, model: "gemini-flash", provider: "Google",
+        output: "Fallback works",
+        tokensUsed: 5,
+        promptTokens: 2,
+        completionTokens: 3,
+        executionTimeMs: 50,
+        model: "gemini-flash",
+        provider: "Google",
       });
 
     const result = await callLLMViaConnection("system", "hello", {
-      usageType: "chat", userId: "u1",
+      usageType: "chat",
+      userId: "u1",
     });
 
     expect(result.output).toBe("Fallback works");
@@ -176,8 +222,34 @@ describe("callLLMViaConnection", () => {
 
   it("throws after exhausting all fallbacks", async () => {
     const conns = [
-      { id: 1, userId: "u1", provider: "openai", modelId: "gpt-4o", baseUrl: null, apiKey: "e1", usageType: "chat", isDefault: true, isActive: true, name: "A", lastTestStatus: "ok", lastError: null },
-      { id: 2, userId: "u1", provider: "google", modelId: "gemini", baseUrl: null, apiKey: "e2", usageType: "chat", isDefault: false, isActive: true, name: "B", lastTestStatus: "ok", lastError: null },
+      {
+        id: 1,
+        userId: "u1",
+        provider: "openai",
+        modelId: "gpt-4o",
+        baseUrl: null,
+        apiKey: "e1",
+        usageType: "chat",
+        isDefault: true,
+        isActive: true,
+        name: "A",
+        lastTestStatus: "ok",
+        lastError: null,
+      },
+      {
+        id: 2,
+        userId: "u1",
+        provider: "google",
+        modelId: "gemini",
+        baseUrl: null,
+        apiKey: "e2",
+        usageType: "chat",
+        isDefault: false,
+        isActive: true,
+        name: "B",
+        lastTestStatus: "ok",
+        lastError: null,
+      },
     ];
 
     (db.select as any)
@@ -191,16 +263,57 @@ describe("callLLMViaConnection", () => {
 
     await expect(
       callLLMViaConnection("system", "hello", {
-        usageType: "chat", userId: "u1", maxRetries: 1,
-      })
+        usageType: "chat",
+        userId: "u1",
+        maxRetries: 1,
+      }),
     ).rejects.toThrow("Todos os provedores de LLM falharam");
   });
 
   it("respects custom maxRetries", async () => {
     const conns = [
-      { id: 1, userId: "u1", provider: "openai", modelId: "gpt", baseUrl: null, apiKey: "e1", usageType: "chat", isDefault: true, isActive: true, name: "A", lastTestStatus: "ok", lastError: null },
-      { id: 2, userId: "u1", provider: "google", modelId: "gem", baseUrl: null, apiKey: "e2", usageType: "chat", isDefault: false, isActive: true, name: "B", lastTestStatus: "ok", lastError: null },
-      { id: 3, userId: "u1", provider: "anthropic", modelId: "claude", baseUrl: null, apiKey: "e3", usageType: "chat", isDefault: false, isActive: true, name: "C", lastTestStatus: "ok", lastError: null },
+      {
+        id: 1,
+        userId: "u1",
+        provider: "openai",
+        modelId: "gpt",
+        baseUrl: null,
+        apiKey: "e1",
+        usageType: "chat",
+        isDefault: true,
+        isActive: true,
+        name: "A",
+        lastTestStatus: "ok",
+        lastError: null,
+      },
+      {
+        id: 2,
+        userId: "u1",
+        provider: "google",
+        modelId: "gem",
+        baseUrl: null,
+        apiKey: "e2",
+        usageType: "chat",
+        isDefault: false,
+        isActive: true,
+        name: "B",
+        lastTestStatus: "ok",
+        lastError: null,
+      },
+      {
+        id: 3,
+        userId: "u1",
+        provider: "anthropic",
+        modelId: "claude",
+        baseUrl: null,
+        apiKey: "e3",
+        usageType: "chat",
+        isDefault: false,
+        isActive: true,
+        name: "C",
+        lastTestStatus: "ok",
+        lastError: null,
+      },
     ];
 
     (db.select as any)
@@ -214,8 +327,10 @@ describe("callLLMViaConnection", () => {
 
     await expect(
       callLLMViaConnection("system", "hello", {
-        usageType: "chat", userId: "u1", maxRetries: 0,
-      })
+        usageType: "chat",
+        userId: "u1",
+        maxRetries: 0,
+      }),
     ).rejects.toThrow("Todos os provedores");
 
     expect(callLLM).toHaveBeenCalledTimes(1);
@@ -223,42 +338,87 @@ describe("callLLMViaConnection", () => {
 
   it("fallback chain sorts ok > untested > error", async () => {
     const conn = {
-      id: 1, userId: "u1", provider: "openai", modelId: "gpt", baseUrl: null, apiKey: "e1",
-      usageType: "chat", isDefault: true, isActive: true, name: "Primary",
-      lastTestStatus: "error", lastError: "previous error",
+      id: 1,
+      userId: "u1",
+      provider: "openai",
+      modelId: "gpt",
+      baseUrl: null,
+      apiKey: "e1",
+      usageType: "chat",
+      isDefault: true,
+      isActive: true,
+      name: "Primary",
+      lastTestStatus: "error",
+      lastError: "previous error",
     };
     const fallbackOk = {
-      id: 2, userId: null, provider: "google", modelId: "gem", baseUrl: null, apiKey: "e2",
-      usageType: "chat", isDefault: false, isActive: true, name: "OkConn",
-      lastTestStatus: "ok", lastError: null,
+      id: 2,
+      userId: null,
+      provider: "google",
+      modelId: "gem",
+      baseUrl: null,
+      apiKey: "e2",
+      usageType: "chat",
+      isDefault: false,
+      isActive: true,
+      name: "OkConn",
+      lastTestStatus: "ok",
+      lastError: null,
     };
     const fallbackUntested = {
-      id: 3, userId: null, provider: "anthropic", modelId: "claude", baseUrl: null, apiKey: "e3",
-      usageType: "chat", isDefault: false, isActive: true, name: "Untested",
-      lastTestStatus: "untested", lastError: null,
+      id: 3,
+      userId: null,
+      provider: "anthropic",
+      modelId: "claude",
+      baseUrl: null,
+      apiKey: "e3",
+      usageType: "chat",
+      isDefault: false,
+      isActive: true,
+      name: "Untested",
+      lastTestStatus: "untested",
+      lastError: null,
     };
     const fallbackError = {
-      id: 4, userId: null, provider: "openai", modelId: "gpt2", baseUrl: null, apiKey: "e4",
-      usageType: "chat", isDefault: false, isActive: true, name: "ErrConn",
-      lastTestStatus: "error", lastError: "timeout",
+      id: 4,
+      userId: null,
+      provider: "openai",
+      modelId: "gpt2",
+      baseUrl: null,
+      apiKey: "e4",
+      usageType: "chat",
+      isDefault: false,
+      isActive: true,
+      name: "ErrConn",
+      lastTestStatus: "error",
+      lastError: "timeout",
     };
 
     (db.select as any)
       .mockReturnValueOnce(chainWithLimit([]))
       .mockReturnValueOnce(chainWithLimit([conn]))
-      .mockReturnValueOnce(chainNoLimit([conn, fallbackOk, fallbackUntested, fallbackError]));
+      .mockReturnValueOnce(
+        chainNoLimit([conn, fallbackOk, fallbackUntested, fallbackError]),
+      );
 
     (db as any).update = vi.fn().mockReturnValue(updateChain());
 
     (callLLM as any)
       .mockRejectedValueOnce(new Error("primary down"))
       .mockResolvedValueOnce({
-        output: "ok response", tokensUsed: 5, promptTokens: 2, completionTokens: 3,
-        executionTimeMs: 50, model: "gem", provider: "Google",
+        output: "ok response",
+        tokensUsed: 5,
+        promptTokens: 2,
+        completionTokens: 3,
+        executionTimeMs: 50,
+        model: "gem",
+        provider: "Google",
       });
 
     const result = await callLLMViaConnection("system", "hello", {
-      usageType: "chat", userId: "u1", maxRetries: 2,
+      usageType: "chat",
+      userId: "u1",
+      maxRetries: 2,
     });
 
     expect(result.output).toBe("ok response");
@@ -268,9 +428,18 @@ describe("callLLMViaConnection", () => {
 
   it("passes baseUrl as customUrl to callLLM", async () => {
     const conn = {
-      id: 1, userId: "u1", provider: "custom_openai", modelId: "local-model",
-      baseUrl: "http://my-server:8080", apiKey: "enc-key", usageType: "chat",
-      isDefault: true, isActive: true, name: "Custom", lastTestStatus: "ok", lastError: null,
+      id: 1,
+      userId: "u1",
+      provider: "custom_openai",
+      modelId: "local-model",
+      baseUrl: "http://my-server:8080",
+      apiKey: "enc-key",
+      usageType: "chat",
+      isDefault: true,
+      isActive: true,
+      name: "Custom",
+      lastTestStatus: "ok",
+      lastError: null,
     };
 
     (db.select as any)
@@ -279,17 +448,24 @@ describe("callLLMViaConnection", () => {
       .mockReturnValueOnce(chainNoLimit([conn]));
 
     (callLLM as any).mockResolvedValue({
-      output: "custom", tokensUsed: 0, promptTokens: 0, completionTokens: 0,
-      executionTimeMs: 10, model: "local-model", provider: "Custom",
+      output: "custom",
+      tokensUsed: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      executionTimeMs: 10,
+      model: "local-model",
+      provider: "Custom",
     });
 
     await callLLMViaConnection("system", "hello", {
-      usageType: "chat", userId: "u1",
+      usageType: "chat",
+      userId: "u1",
     });
 
     expect(callLLM).toHaveBeenCalledWith(
-      "system", "hello",
-      expect.objectContaining({ customUrl: "http://my-server:8080" })
+      "system",
+      "hello",
+      expect.objectContaining({ customUrl: "http://my-server:8080" }),
     );
   });
 });
@@ -309,15 +485,25 @@ describe("healthCheckConnections", () => {
 
   it("returns ok status for healthy connections", async () => {
     const conn = {
-      id: 1, userId: "u1", provider: "openai", modelId: "gpt-4o",
-      baseUrl: null, name: "Primary", usageType: "chat",
+      id: 1,
+      userId: "u1",
+      provider: "openai",
+      modelId: "gpt-4o",
+      baseUrl: null,
+      name: "Primary",
+      usageType: "chat",
     };
 
     setupHealthCheck([conn]);
 
     (callLLM as any).mockResolvedValue({
-      output: "OK", tokensUsed: 2, promptTokens: 1, completionTokens: 1,
-      executionTimeMs: 50, model: "gpt-4o", provider: "OpenAI",
+      output: "OK",
+      tokensUsed: 2,
+      promptTokens: 1,
+      completionTokens: 1,
+      executionTimeMs: 50,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const results = await healthCheckConnections("u1");
@@ -328,8 +514,13 @@ describe("healthCheckConnections", () => {
 
   it("returns error status for failing connections", async () => {
     const conn = {
-      id: 2, userId: "u1", provider: "openai", modelId: "gpt-4o",
-      baseUrl: null, name: "Broken", usageType: "chat",
+      id: 2,
+      userId: "u1",
+      provider: "openai",
+      modelId: "gpt-4o",
+      baseUrl: null,
+      name: "Broken",
+      usageType: "chat",
     };
 
     setupHealthCheck([conn]);
@@ -351,14 +542,38 @@ describe("healthCheckConnections", () => {
 
   it("health-checks multiple connections", async () => {
     const conns = [
-      { id: 1, userId: "u1", provider: "openai", modelId: "gpt", baseUrl: null, name: "A", usageType: "chat" },
-      { id: 2, userId: "u1", provider: "google", modelId: "gem", baseUrl: null, name: "B", usageType: "chat" },
+      {
+        id: 1,
+        userId: "u1",
+        provider: "openai",
+        modelId: "gpt",
+        baseUrl: null,
+        name: "A",
+        usageType: "chat",
+      },
+      {
+        id: 2,
+        userId: "u1",
+        provider: "google",
+        modelId: "gem",
+        baseUrl: null,
+        name: "B",
+        usageType: "chat",
+      },
     ];
 
     setupHealthCheck(conns);
 
     (callLLM as any)
-      .mockResolvedValueOnce({ output: "OK", tokensUsed: 0, promptTokens: 0, completionTokens: 0, executionTimeMs: 10, model: "gpt", provider: "OpenAI" })
+      .mockResolvedValueOnce({
+        output: "OK",
+        tokensUsed: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        executionTimeMs: 10,
+        model: "gpt",
+        provider: "OpenAI",
+      })
       .mockRejectedValueOnce(new Error("timeout"));
 
     const results = await healthCheckConnections("u1");

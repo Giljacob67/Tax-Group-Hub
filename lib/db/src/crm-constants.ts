@@ -238,7 +238,9 @@ export const MATRIX_STATUS_COLORS: Record<MatrixStatus, string> = {
  * When a contact status changes, suggests the corresponding deal stage.
  * A deal is only created when the contact reaches "qualificado" or later.
  */
-export const CONTACT_STATUS_TO_DEAL_STAGE: Partial<Record<ContactStatus, DealStage>> = {
+export const CONTACT_STATUS_TO_DEAL_STAGE: Partial<
+  Record<ContactStatus, DealStage>
+> = {
   nao_iniciado: "lead_novo",
   em_abordagem: "lead_novo",
   respondeu: "lead_novo",
@@ -260,7 +262,9 @@ export const CONTACT_STATUS_TO_DEAL_STAGE: Partial<Record<ContactStatus, DealSta
 /**
  * When a deal stage changes, suggests the corresponding contact status.
  */
-export const DEAL_STAGE_TO_CONTACT_STATUS: Partial<Record<DealStage, ContactStatus>> = {
+export const DEAL_STAGE_TO_CONTACT_STATUS: Partial<
+  Record<DealStage, ContactStatus>
+> = {
   lead_novo: "nao_iniciado",
   reuniao_agendada: "reuniao_agendada",
   qualificacao_comercial: "qualificado",
@@ -307,7 +311,10 @@ export const DEAL_STAGE_TO_CONTACT_STATUS: Partial<Record<DealStage, ContactStat
  *   pos_venda_expansao              → pos_venda_expansao
  *   encerrado                       → encerrado
  */
-export const PIPELINE_TO_DEAL_STAGE: Record<PipelineStage, DealStage | DealStage[]> = {
+export const PIPELINE_TO_DEAL_STAGE: Record<
+  PipelineStage,
+  DealStage | DealStage[]
+> = {
   lead_novo: "lead_novo",
   qualificacao_comercial: "qualificacao_comercial",
   reuniao_agendada: "reuniao_agendada",
@@ -354,18 +361,18 @@ export const LEGACY_DEAL_STAGE_MAP: Record<string, DealStage> = {
   won: "fechado_ganho",
   lost: "perdido",
   // pt-br legado (labels humanos)
-  "prospecção": "lead_novo",
+  prospecção: "lead_novo",
   "contato inicial": "reuniao_agendada",
-  "qualificação": "qualificacao_comercial",
-  "descoberta": "diagnostico_comercial",
-  "proposta": "proposta_em_preparacao",
-  "negociação": "em_negociacao",
-  "fechamento": "em_negociacao",
-  "ganhos": "fechado_ganho",
-  "perdidos": "perdido",
-  "onboarding": "onboarding_cliente",
+  qualificação: "qualificacao_comercial",
+  descoberta: "diagnostico_comercial",
+  proposta: "proposta_em_preparacao",
+  negociação: "em_negociacao",
+  fechamento: "em_negociacao",
+  ganhos: "fechado_ganho",
+  perdidos: "perdido",
+  onboarding: "onboarding_cliente",
   "pós-venda": "pos_venda_expansao",
-  "renovação": "pos_venda_expansao",
+  renovação: "pos_venda_expansao",
 };
 
 // ─── Origem Lead ─────────────────────────────────────────────────────────────
@@ -690,7 +697,12 @@ export const SYSTEM_VIEW_CATEGORIES = [
 export const QUALIFICATION_TIERS = ["A", "B", "C", "D"] as const;
 export type QualificationTier = (typeof QUALIFICATION_TIERS)[number];
 
-export const TEMPERATURA_SUGERIDA = ["frio", "morno", "quente", "burning"] as const;
+export const TEMPERATURA_SUGERIDA = [
+  "frio",
+  "morno",
+  "quente",
+  "burning",
+] as const;
 export type TemperaturaSugerida = (typeof TEMPERATURA_SUGERIDA)[number];
 
 export const MATURIDADE_NIVEIS = ["baixa", "media", "alta"] as const;
@@ -709,13 +721,13 @@ export type InsightItem = {
 };
 
 export type QualificationResult = {
-  score: number;            // 0-100
+  score: number; // 0-100
   tier: QualificationTier;
   temperatura_sugerida: TemperaturaSugerida;
   setor_inferido: string | null;
   segmento_inferido: string | null;
-  potencial_comercial: string | null;   // ex: "R$ 20-50k"
-  produto_recomendado: string | null;    // ex: "AFD", "RTI"
+  potencial_comercial: string | null; // ex: "R$ 20-50k"
+  produto_recomendado: string | null; // ex: "AFD", "RTI"
   sinais_oportunidade: string[];
   dores_percebidas: string[];
   maturidade: MaturidadeNivel;
@@ -725,11 +737,11 @@ export type QualificationResult = {
   observacoes_reuniao: string[];
   alerta_matriz: boolean;
   depende_validacao_matriz: boolean;
-  confidence: number;        // 0-100
+  confidence: number; // 0-100
   facts: InsightItem[];
   inferences: InsightItem[];
   hypotheses: InsightItem[];
-  reasoning: string;         // resumo em texto livre
+  reasoning: string; // resumo em texto livre
 };
 
 // ─── Próximo Passo Recomendado ───────────────────────────────────────────────
@@ -773,7 +785,12 @@ export const NEXT_STEP_LABELS: Record<NextStepAction, string> = {
   sem_acao_no_momento: "Sem ação no momento",
 };
 
-export const NEXT_STEP_PRIORITIES = ["baixa", "media", "alta", "urgente"] as const;
+export const NEXT_STEP_PRIORITIES = [
+  "baixa",
+  "media",
+  "alta",
+  "urgente",
+] as const;
 export type NextStepPriority = (typeof NEXT_STEP_PRIORITIES)[number];
 
 export type NextStepRecommendation = {
@@ -855,15 +872,39 @@ export const MATRIZ_BRIEFING_CHECKLIST = [
   { id: "porte", label: "Porte da empresa", required: true },
   { id: "setor", label: "Setor de atuação", required: true },
   { id: "produto_interesse", label: "Produto de interesse", required: true },
-  { id: "faturamento_estimado", label: "Faturamento estimado", required: false },
+  {
+    id: "faturamento_estimado",
+    label: "Faturamento estimado",
+    required: false,
+  },
   { id: "decisor", label: "Decisor (nome e cargo)", required: true },
-  { id: "contato_decisor", label: "Contato do decisor (telefone/e-mail)", required: true },
+  {
+    id: "contato_decisor",
+    label: "Contato do decisor (telefone/e-mail)",
+    required: true,
+  },
   { id: "dor_comercial", label: "Dor comercial percebida", required: false },
-  { id: "resumo_diagnostico", label: "Resumo do diagnóstico comercial", required: true },
-  { id: "expectativa_cliente", label: "Expectativa do cliente", required: false },
-  { id: "prazo_desejado", label: "Prazo desejado pelo cliente", required: false },
+  {
+    id: "resumo_diagnostico",
+    label: "Resumo do diagnóstico comercial",
+    required: true,
+  },
+  {
+    id: "expectativa_cliente",
+    label: "Expectativa do cliente",
+    required: false,
+  },
+  {
+    id: "prazo_desejado",
+    label: "Prazo desejado pelo cliente",
+    required: false,
+  },
   { id: "concorrencia", label: "Concorrência / comparação", required: false },
-  { id: "documentos_relevantes", label: "Documentos relevantes anexados", required: false },
+  {
+    id: "documentos_relevantes",
+    label: "Documentos relevantes anexados",
+    required: false,
+  },
 ] as const;
 
 // ─── Trigger Types (expandido) ──────────────────────────────────────────────
@@ -885,21 +926,22 @@ export const AUTOMATION_TRIGGER_TYPES = [
 ] as const;
 export type AutomationTriggerType = (typeof AUTOMATION_TRIGGER_TYPES)[number];
 
-export const AUTOMATION_TRIGGER_LABELS: Record<AutomationTriggerType, string> = {
-  status_changed: "Status do contato mudar para...",
-  score_above: "Score de IA maior ou igual a...",
-  score_below: "Score de IA menor ou igual a...",
-  deal_stage_changed: "Etapa do deal mudar para...",
-  followup_vencido: "Follow-up vencido",
-  sem_atividade_7d: "Sem atividade há 7+ dias",
-  sem_atividade_14d: "Sem atividade há 14+ dias",
-  matriz_enviado: "Deal enviado para Matriz",
-  matriz_aguardando: "Deal aguardando retorno da Matriz",
-  matriz_pendencia: "Pendência documental na Matriz",
-  proposta_pronta: "Proposta ficou pronta",
-  proposta_enviada: "Proposta foi enviada",
-  proposta_sem_retorno_7d: "Proposta sem retorno há 7+ dias",
-};
+export const AUTOMATION_TRIGGER_LABELS: Record<AutomationTriggerType, string> =
+  {
+    status_changed: "Status do contato mudar para...",
+    score_above: "Score de IA maior ou igual a...",
+    score_below: "Score de IA menor ou igual a...",
+    deal_stage_changed: "Etapa do deal mudar para...",
+    followup_vencido: "Follow-up vencido",
+    sem_atividade_7d: "Sem atividade há 7+ dias",
+    sem_atividade_14d: "Sem atividade há 14+ dias",
+    matriz_enviado: "Deal enviado para Matriz",
+    matriz_aguardando: "Deal aguardando retorno da Matriz",
+    matriz_pendencia: "Pendência documental na Matriz",
+    proposta_pronta: "Proposta ficou pronta",
+    proposta_enviada: "Proposta foi enviada",
+    proposta_sem_retorno_7d: "Proposta sem retorno há 7+ dias",
+  };
 
 // ─── Action Types (expandido) ───────────────────────────────────────────────
 
@@ -929,12 +971,23 @@ export const AUTOMATION_ACTION_LABELS: Record<AutomationActionType, string> = {
 // ─── Prioridade Comercial — Score Composto ──────────────────────────────────
 // Combina IA score + temperatura + urgência + atividade + etapa
 
-export const PRIORIDADE_COMERCIAL_NIVEIS = ["baixa", "media", "alta", "critica"] as const;
-export type PrioridadeComercialNivel = (typeof PRIORIDADE_COMERCIAL_NIVEIS)[number];
+export const PRIORIDADE_COMERCIAL_NIVEIS = [
+  "baixa",
+  "media",
+  "alta",
+  "critica",
+] as const;
+export type PrioridadeComercialNivel =
+  (typeof PRIORIDADE_COMERCIAL_NIVEIS)[number];
 
 // ─── Task Source (origem da tarefa) ─────────────────────────────────────────
 
-export const TASK_SOURCES = ["manual", "automation", "ai_suggestion", "next_step"] as const;
+export const TASK_SOURCES = [
+  "manual",
+  "automation",
+  "ai_suggestion",
+  "next_step",
+] as const;
 export type TaskSource = (typeof TASK_SOURCES)[number];
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -943,23 +996,30 @@ export type TaskSource = (typeof TASK_SOURCES)[number];
 
 // ─── Perfis (RBAC) ────────────────────────────────────────────────────────────
 
-export const APP_ROLES = ["admin", "coordenador", "comercial", "marketing", "leitura"] as const;
+export const APP_ROLES = [
+  "admin",
+  "coordenador",
+  "comercial",
+  "marketing",
+  "leitura",
+] as const;
 export type AppRole = (typeof APP_ROLES)[number];
 
 export const APP_ROLE_LABELS: Record<AppRole, string> = {
-  admin:       "Administrador",
+  admin: "Administrador",
   coordenador: "Coordenação",
-  comercial:   "Comercial",
-  marketing:   "Marketing",
-  leitura:     "Leitura / Consulta",
+  comercial: "Comercial",
+  marketing: "Marketing",
+  leitura: "Leitura / Consulta",
 };
 
 export const APP_ROLE_DESCRIPTIONS: Record<AppRole, string> = {
-  admin:       "Acesso total. Gerencia usuários, configurações e dados.",
-  coordenador: "Visualiza dashboards executivos, gerencia equipe, edita leads/deals/automations.",
-  comercial:   "Edita leads, deals, tarefas e listas. Não gerencia equipe.",
-  marketing:   "Visualiza dados para campanhas. Cria listas. Não edita pipeline.",
-  leitura:     "Apenas leitura. Não edita nada.",
+  admin: "Acesso total. Gerencia usuários, configurações e dados.",
+  coordenador:
+    "Visualiza dashboards executivos, gerencia equipe, edita leads/deals/automations.",
+  comercial: "Edita leads, deals, tarefas e listas. Não gerencia equipe.",
+  marketing: "Visualiza dados para campanhas. Cria listas. Não edita pipeline.",
+  leitura: "Apenas leitura. Não edita nada.",
 };
 
 /**
@@ -1054,22 +1114,48 @@ export const ROLE_PERMISSIONS = {
   },
 } as const;
 
-export type Permission = keyof typeof ROLE_PERMISSIONS["admin"];
+export type Permission = keyof (typeof ROLE_PERMISSIONS)["admin"];
 
 // ─── Audit Log ─────────────────────────────────────────────────────────────────
 
 export const AUDIT_ENTITY_TYPES = [
-  "contact", "deal", "task", "view", "automation", "sequence", "alert",
+  "contact",
+  "deal",
+  "task",
+  "view",
+  "automation",
+  "sequence",
+  "alert",
 ] as const;
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
 
 export const AUDIT_ACTIONS = [
-  "create", "update", "delete", "status_change", "stage_change", "assign",
-  "qualify", "enrich", "bulk_update", "send_to_matriz", "matriz_return",
-  "proposal_create", "proposal_send", "proposal_present", "win", "loss",
-  "onboard_start", "pos_venda_start", "automation_fired", "task_auto_created",
-  "task_completed", "alert_created", "alert_resolved", "view_saved",
-  "view_deleted", "export",
+  "create",
+  "update",
+  "delete",
+  "status_change",
+  "stage_change",
+  "assign",
+  "qualify",
+  "enrich",
+  "bulk_update",
+  "send_to_matriz",
+  "matriz_return",
+  "proposal_create",
+  "proposal_send",
+  "proposal_present",
+  "win",
+  "loss",
+  "onboard_start",
+  "pos_venda_start",
+  "automation_fired",
+  "task_auto_created",
+  "task_completed",
+  "alert_created",
+  "alert_resolved",
+  "view_saved",
+  "view_deleted",
+  "export",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -1102,7 +1188,13 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   export: "Exportação",
 };
 
-export const AUDIT_ACTOR_TYPES = ["user", "ia", "automation", "integration", "service"] as const;
+export const AUDIT_ACTOR_TYPES = [
+  "user",
+  "ia",
+  "automation",
+  "integration",
+  "service",
+] as const;
 export type AuditActorType = (typeof AUDIT_ACTOR_TYPES)[number];
 
 export const AUDIT_ACTOR_LABELS: Record<AuditActorType, string> = {
@@ -1115,19 +1207,28 @@ export const AUDIT_ACTOR_LABELS: Record<AuditActorType, string> = {
 
 // ─── Dashboards ───────────────────────────────────────────────────────────────
 
-export const DASHBOARD_PERIODS = ["7d", "30d", "90d", "this_month", "all"] as const;
+export const DASHBOARD_PERIODS = [
+  "7d",
+  "30d",
+  "90d",
+  "this_month",
+  "all",
+] as const;
 export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];
 
 export const DASHBOARD_PERIOD_LABELS: Record<DashboardPeriod, string> = {
   "7d": "Últimos 7 dias",
   "30d": "Últimos 30 dias",
   "90d": "Últimos 90 dias",
-  "this_month": "Este mês",
-  "all": "Todo o período",
+  this_month: "Este mês",
+  all: "Todo o período",
 };
 
 export const DASHBOARD_PERSONAS = [
-  "executive", "coordenador", "operacional", "pos_venda",
+  "executive",
+  "coordenador",
+  "operacional",
+  "pos_venda",
 ] as const;
 export type DashboardPersona = (typeof DASHBOARD_PERSONAS)[number];
 
@@ -1141,8 +1242,15 @@ export const DASHBOARD_PERSONA_LABELS: Record<DashboardPersona, string> = {
 // ─── Queues (filas) ────────────────────────────────────────────────────────────
 
 export const QUEUE_TYPES = [
-  "my_accounts", "my_deals", "team", "no_responsible", "matriz_waiting",
-  "matriz_overdue", "no_followup", "hot_leads", "needs_attention",
+  "my_accounts",
+  "my_deals",
+  "team",
+  "no_responsible",
+  "matriz_waiting",
+  "matriz_overdue",
+  "no_followup",
+  "hot_leads",
+  "needs_attention",
 ] as const;
 export type QueueType = (typeof QUEUE_TYPES)[number];
 
@@ -1191,7 +1299,10 @@ export const QUALITY_RULE_LABELS: Record<QualityRule, string> = {
   perda_no_motivo: "Perda sem motivo registrado",
 };
 
-export const QUALITY_SEVERITIES: Record<QualityRule, "info" | "warning" | "critical"> = {
+export const QUALITY_SEVERITIES: Record<
+  QualityRule,
+  "info" | "warning" | "critical"
+> = {
   missing_cnpj: "critical",
   missing_razao_social: "critical",
   missing_contato: "critical",

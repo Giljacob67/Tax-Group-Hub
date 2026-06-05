@@ -26,16 +26,27 @@ const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt", ".md"];
 
 const BLOB_RW_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 
-function withTimeout<T>(promise: Promise<T>, ms: number, context: string): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  context: string,
+): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Timeout: ${context} excedeu ${ms}ms`)), ms)
+      setTimeout(
+        () => reject(new Error(`Timeout: ${context} excedeu ${ms}ms`)),
+        ms,
+      ),
     ),
   ]);
 }
 
-export async function extractTextContent(buffer: Buffer, fileType: string, filename: string): Promise<string> {
+export async function extractTextContent(
+  buffer: Buffer,
+  fileType: string,
+  filename: string,
+): Promise<string> {
   const lower = (fileType + filename).toLowerCase();
   if (lower.includes("pdf")) {
     return withTimeout(
@@ -49,7 +60,9 @@ export async function extractTextContent(buffer: Buffer, fileType: string, filen
             reject(new Error(`PDF parse error: ${e}`));
           }
         });
-        parser.on("pdfParser_dataError", (err: any) => reject(new Error(`PDF data error: ${err?.message || err}`)));
+        parser.on("pdfParser_dataError", (err: any) =>
+          reject(new Error(`PDF data error: ${err?.message || err}`)),
+        );
         try {
           parser.parseBuffer(buffer);
         } catch (e) {
@@ -57,18 +70,27 @@ export async function extractTextContent(buffer: Buffer, fileType: string, filen
         }
       }),
       15000,
-      "Extração de texto do PDF"
+      "Extração de texto do PDF",
     );
   }
-  if (lower.includes("docx") || lower.includes("word") || lower.includes("officedocument")) {
+  if (
+    lower.includes("docx") ||
+    lower.includes("word") ||
+    lower.includes("officedocument")
+  ) {
     const result = await withTimeout(
       mammoth.extractRawText({ buffer }),
       15000,
-      "Extração de texto do DOCX"
+      "Extração de texto do DOCX",
     );
     return result.value || "";
   }
-  if (lower.includes("markdown") || lower.includes("text") || filename.endsWith(".md") || filename.endsWith(".txt")) {
+  if (
+    lower.includes("markdown") ||
+    lower.includes("text") ||
+    filename.endsWith(".md") ||
+    filename.endsWith(".txt")
+  ) {
     return buffer.toString("utf-8");
   }
   return "";
@@ -104,7 +126,8 @@ function mapDoc(d: any) {
     retries: d.retries ?? 0,
     errorLog: d.errorLog ?? null,
     embeddingModel: d.embeddingModel ?? null,
-    createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt,
+    createdAt:
+      d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt,
   };
 }
 
@@ -117,10 +140,17 @@ export async function processDocumentAsync(
   try {
     await db
       .update(knowledgeDocumentsTable)
-      .set({ status: "processing", retries: sql`${knowledgeDocumentsTable.retries} + 1` })
+      .set({
+        status: "processing",
+        retries: sql`${knowledgeDocumentsTable.retries} + 1`,
+      })
       .where(eq(knowledgeDocumentsTable.id, docId));
 
-    const extractedContent = await extractTextContent(buffer, fileType, filename);
+    const extractedContent = await extractTextContent(
+      buffer,
+      fileType,
+      filename,
+    );
 
     await db
       .update(knowledgeDocumentsTable)
@@ -148,10 +178,18 @@ export async function processDocumentAsync(
 
     await db
       .update(knowledgeDocumentsTable)
-      .set({ status: "processed", processed: true, errorLog: null, chunkCount: chunks.length, embeddingModel })
+      .set({
+        status: "processed",
+        processed: true,
+        errorLog: null,
+        chunkCount: chunks.length,
+        embeddingModel,
+      })
       .where(eq(knowledgeDocumentsTable.id, docId));
 
-    console.log(`[Knowledge] Doc ${docId} (${filename}) OK — ${chunks.length} chunks`);
+    console.log(
+      `[Knowledge] Doc ${docId} (${filename}) OK — ${chunks.length} chunks`,
+    );
   } catch (err) {
     const msg = (err as Error).message || String(err);
     console.error(`[Knowledge] Doc ${docId} failed:`, msg);
@@ -168,9 +206,10 @@ export async function processDocumentAsync(
 router.get("/knowledge/health", async (req, res) => {
   try {
     const userId = req.userId;
-    const userFilter = userId && userId !== "default" && userId !== "dev-user"
-      ? eq(knowledgeDocumentsTable.userId, userId)
-      : undefined;
+    const userFilter =
+      userId && userId !== "default" && userId !== "dev-user"
+        ? eq(knowledgeDocumentsTable.userId, userId)
+        : undefined;
 
     const [stats] = await db
       .select({
@@ -205,8 +244,14 @@ router.get("/knowledge/health", async (req, res) => {
       pending: Number(stats?.pending ?? 0),
       errors: Number(stats?.errors ?? 0),
       totalChunks: Number(stats?.totalChunks ?? 0),
-      lastSync: lastDoc?.createdAt instanceof Date ? lastDoc.createdAt.toISOString() : (lastDoc?.createdAt ?? null),
-      sources: origins.map((o) => ({ origin: o.origin ?? "upload", count: Number(o.cnt) })),
+      lastSync:
+        lastDoc?.createdAt instanceof Date
+          ? lastDoc.createdAt.toISOString()
+          : (lastDoc?.createdAt ?? null),
+      sources: origins.map((o) => ({
+        origin: o.origin ?? "upload",
+        count: Number(o.cnt),
+      })),
     });
   } catch (err) {
     console.error("Knowledge health error:", err);
@@ -220,16 +265,21 @@ router.get("/knowledge", async (req, res) => {
   try {
     const { agentId } = req.query;
     const userId = req.userId;
-    const userFilter = userId && userId !== "default" && userId !== "dev-user"
-      ? eq(knowledgeDocumentsTable.userId, userId)
-      : undefined;
+    const userFilter =
+      userId && userId !== "default" && userId !== "dev-user"
+        ? eq(knowledgeDocumentsTable.userId, userId)
+        : undefined;
 
     let documents;
     if (agentId && typeof agentId === "string") {
       documents = await db
         .select()
         .from(knowledgeDocumentsTable)
-        .where(userFilter ? and(eq(knowledgeDocumentsTable.agentId, agentId), userFilter) : eq(knowledgeDocumentsTable.agentId, agentId))
+        .where(
+          userFilter
+            ? and(eq(knowledgeDocumentsTable.agentId, agentId), userFilter)
+            : eq(knowledgeDocumentsTable.agentId, agentId),
+        )
         .orderBy(desc(knowledgeDocumentsTable.createdAt));
     } else {
       documents = await db
@@ -259,9 +309,10 @@ router.post("/knowledge/upload-token", async (req, res) => {
       return;
     }
     const { filename } = req.body ?? {};
-    const safeName = typeof filename === "string" && filename.trim()
-      ? filename.trim().replace(/[^a-zA-Z0-9._-]/g, "_")
-      : `file-${Date.now()}`;
+    const safeName =
+      typeof filename === "string" && filename.trim()
+        ? filename.trim().replace(/[^a-zA-Z0-9._-]/g, "_")
+        : `file-${Date.now()}`;
     const pathname = `knowledge/${Date.now()}-${safeName}`;
     const token = await generateClientTokenFromReadWriteToken({
       token: BLOB_RW_TOKEN,
@@ -316,14 +367,25 @@ async function downloadBlob(url: string): Promise<Buffer> {
     : {};
   const response = await fetch(url, { headers });
   if (!response.ok) {
-    throw new Error(`Falha ao baixar do Blob: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Falha ao baixar do Blob: ${response.status} ${response.statusText}`,
+    );
   }
   return Buffer.from(await response.arrayBuffer());
 }
 
 router.post("/knowledge/upload", async (req, res) => {
   try {
-    const { blobUrl, filename, mimetype, agentId, category, product, origin, tags } = req.body ?? {};
+    const {
+      blobUrl,
+      filename,
+      mimetype,
+      agentId,
+      category,
+      product,
+      origin,
+      tags,
+    } = req.body ?? {};
 
     if (!blobUrl || typeof blobUrl !== "string") {
       apiError(res, 400, "Campo blobUrl obrigatório.");
@@ -339,20 +401,33 @@ router.post("/knowledge/upload", async (req, res) => {
     const mimeOk = ALLOWED_MIME_TYPES.includes(mimeType);
     const extOk = ALLOWED_EXTENSIONS.includes(ext);
     if (!mimeOk && !extOk) {
-      apiError(res, 400, `Tipo não permitido. Aceitos: ${ALLOWED_EXTENSIONS.join(", ")}`);
+      apiError(
+        res,
+        400,
+        `Tipo não permitido. Aceitos: ${ALLOWED_EXTENSIONS.join(", ")}`,
+      );
       return;
     }
 
     const userId = req.userId;
     const parsedTags = tags
-      ? (typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()).filter(Boolean) : tags)
+      ? typeof tags === "string"
+        ? tags
+            .split(",")
+            .map((t: string) => t.trim())
+            .filter(Boolean)
+        : tags
       : [];
 
     // Download file from Blob to get size
     console.log("[Upload] downloading from Blob:", blobUrl);
     let buffer: Buffer;
     try {
-      buffer = await withTimeout(downloadBlob(blobUrl), 15000, "Download do Blob");
+      buffer = await withTimeout(
+        downloadBlob(blobUrl),
+        15000,
+        "Download do Blob",
+      );
     } catch (e: any) {
       console.error("[Upload] download error:", e.message);
       apiError(res, 500, "Falha ao baixar arquivo do storage.");
@@ -391,7 +466,7 @@ router.post("/knowledge/upload", async (req, res) => {
         await withTimeout(
           processDocumentAsync(doc.id, buffer, mimeType, filename),
           25000,
-          `Processamento rápido do documento ${doc.id}`
+          `Processamento rápido do documento ${doc.id}`,
         );
         const [updatedDoc] = await db
           .select()
@@ -406,7 +481,10 @@ router.post("/knowledge/upload", async (req, res) => {
         return;
       } catch (procErr: any) {
         const msg = procErr?.message || String(procErr);
-        console.error(`[Upload] doc ${doc.id} falha no processamento rápido:`, msg);
+        console.error(
+          `[Upload] doc ${doc.id} falha no processamento rápido:`,
+          msg,
+        );
         await db
           .update(knowledgeDocumentsTable)
           .set({ status: "pending", errorLog: msg })
@@ -432,9 +510,10 @@ router.post("/knowledge/upload", async (req, res) => {
 router.get("/knowledge/sources", async (req, res) => {
   try {
     const userId = req.userId;
-    const userFilter = userId && userId !== "default" && userId !== "dev-user"
-      ? eq(knowledgeDocumentsTable.userId, userId)
-      : undefined;
+    const userFilter =
+      userId && userId !== "default" && userId !== "dev-user"
+        ? eq(knowledgeDocumentsTable.userId, userId)
+        : undefined;
 
     const origins = await db
       .select({
@@ -448,9 +527,19 @@ router.get("/knowledge/sources", async (req, res) => {
       .groupBy(knowledgeDocumentsTable.origin);
 
     const sources = [
-      { id: "upload", label: "Upload Manual", status: "active", icon: "upload" },
+      {
+        id: "upload",
+        label: "Upload Manual",
+        status: "active",
+        icon: "upload",
+      },
       { id: "drive", label: "Google Drive", status: "planned", icon: "drive" },
-      { id: "internal", label: "Base Interna", status: "planned", icon: "database" },
+      {
+        id: "internal",
+        label: "Base Interna",
+        status: "planned",
+        icon: "database",
+      },
       { id: "system", label: "Sistema", status: "active", icon: "cpu" },
     ].map((s) => {
       const stats = origins.find((o) => (o.origin ?? "upload") === s.id);
@@ -487,7 +576,9 @@ router.post("/knowledge/search", async (req, res) => {
     }
 
     try {
-      const { embeddings: [queryEmbedding] } = await generateEmbeddings([query]);
+      const {
+        embeddings: [queryEmbedding],
+      } = await generateEmbeddings([query]);
       const userId = req.userId;
 
       const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
@@ -514,27 +605,36 @@ router.post("/knowledge/search", async (req, res) => {
           createdAt: knowledgeDocumentsTable.createdAt,
         })
         .from(knowledgeChunksTable)
-        .innerJoin(knowledgeDocumentsTable, eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id))
+        .innerJoin(
+          knowledgeDocumentsTable,
+          eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id),
+        )
         .where(and(...filters))
         .orderBy(desc(similarity))
         .limit(limit || 8);
 
       res.json({
         query,
-        results: results.filter((r) => r.score > 0.25).map((r) => ({
-          ...r,
-          documentId: String(r.documentId),
-          chunkId: String(r.chunkId),
-          score: Math.round(r.score * 1000) / 1000,
-          createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
-        })),
+        results: results
+          .filter((r) => r.score > 0.25)
+          .map((r) => ({
+            ...r,
+            documentId: String(r.documentId),
+            chunkId: String(r.chunkId),
+            score: Math.round(r.score * 1000) / 1000,
+            createdAt:
+              r.createdAt instanceof Date
+                ? r.createdAt.toISOString()
+                : r.createdAt,
+          })),
       });
     } catch (embErr) {
       console.error("Vector search error:", embErr);
       // Fallback: text search if embeddings unavailable
-      const userFilter = req.userId && req.userId !== "default" && req.userId !== "dev-user"
-        ? eq(knowledgeDocumentsTable.userId, req.userId)
-        : undefined;
+      const userFilter =
+        req.userId && req.userId !== "default" && req.userId !== "dev-user"
+          ? eq(knowledgeDocumentsTable.userId, req.userId)
+          : undefined;
 
       const docs = await db
         .select()
@@ -550,7 +650,8 @@ router.post("/knowledge/search", async (req, res) => {
       res.json({
         query,
         fallback: true,
-        embeddingError: "Embeddings indisponíveis — busca textual usada como fallback.",
+        embeddingError:
+          "Embeddings indisponíveis — busca textual usada como fallback.",
         results: docs.map((d) => ({
           documentId: String(d.id),
           chunkId: null,
@@ -560,7 +661,10 @@ router.post("/knowledge/search", async (req, res) => {
           category: d.category,
           product: d.product,
           origin: d.origin,
-          createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt,
+          createdAt:
+            d.createdAt instanceof Date
+              ? d.createdAt.toISOString()
+              : d.createdAt,
         })),
       });
     }
@@ -581,11 +685,17 @@ router.get("/knowledge/:id/chunks", async (req, res) => {
     }
 
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
-    const pageSize = Math.min(50, parseInt(String(req.query.pageSize ?? "20"), 10));
+    const pageSize = Math.min(
+      50,
+      parseInt(String(req.query.pageSize ?? "20"), 10),
+    );
     const offset = (page - 1) * pageSize;
 
     const [doc] = await db
-      .select({ id: knowledgeDocumentsTable.id, filename: knowledgeDocumentsTable.filename })
+      .select({
+        id: knowledgeDocumentsTable.id,
+        filename: knowledgeDocumentsTable.filename,
+      })
       .from(knowledgeDocumentsTable)
       .where(eq(knowledgeDocumentsTable.id, id));
 
@@ -623,7 +733,8 @@ router.get("/knowledge/:id/chunks", async (req, res) => {
         content: c.content,
         tokens: Math.ceil(c.content.split(/\s+/).length * 1.3),
         hasEmbedding: true,
-        createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+        createdAt:
+          c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
       })),
     });
   } catch (err) {
@@ -653,12 +764,19 @@ router.post("/knowledge/:id/reindex", async (req, res) => {
     }
 
     // Delete existing chunks
-    await db.delete(knowledgeChunksTable).where(eq(knowledgeChunksTable.documentId, id));
+    await db
+      .delete(knowledgeChunksTable)
+      .where(eq(knowledgeChunksTable.documentId, id));
 
     // Mark as pending
     await db
       .update(knowledgeDocumentsTable)
-      .set({ status: "pending", processed: false, chunkCount: 0, errorLog: null })
+      .set({
+        status: "pending",
+        processed: false,
+        chunkCount: 0,
+        errorLog: null,
+      })
       .where(eq(knowledgeDocumentsTable.id, id));
 
     res.json({ success: true, message: "Reindexação iniciada." });
@@ -686,14 +804,21 @@ router.delete("/knowledge/:id", async (req, res) => {
       const [doc] = await db
         .select()
         .from(knowledgeDocumentsTable)
-        .where(and(eq(knowledgeDocumentsTable.id, id), eq(knowledgeDocumentsTable.userId, userId)));
+        .where(
+          and(
+            eq(knowledgeDocumentsTable.id, id),
+            eq(knowledgeDocumentsTable.userId, userId),
+          ),
+        );
       if (!doc) {
         apiError(res, 404, "Documento não encontrado ou acesso negado");
         return;
       }
     }
 
-    await db.delete(knowledgeDocumentsTable).where(eq(knowledgeDocumentsTable.id, id));
+    await db
+      .delete(knowledgeDocumentsTable)
+      .where(eq(knowledgeDocumentsTable.id, id));
     res.json({ success: true });
   } catch (err) {
     console.error("Knowledge delete error:", err);
@@ -736,9 +861,9 @@ async function handleProcessQueue(req: any, res: any) {
           eq(knowledgeDocumentsTable.status, "pending"),
           and(
             eq(knowledgeDocumentsTable.status, "error"),
-            lt(knowledgeDocumentsTable.retries, 3)
-          )
-        )
+            lt(knowledgeDocumentsTable.retries, 3),
+          ),
+        ),
       )
       .orderBy(knowledgeDocumentsTable.createdAt)
       .limit(5);
@@ -754,15 +879,25 @@ async function handleProcessQueue(req: any, res: any) {
       // Prefer blobUrl (Vercel Blob) over fileData (legacy base64)
       if (doc.blobUrl) {
         try {
-          buffer = await withTimeout(downloadBlob(doc.blobUrl), 15000, `Download Blob doc ${doc.id}`);
+          buffer = await withTimeout(
+            downloadBlob(doc.blobUrl),
+            15000,
+            `Download Blob doc ${doc.id}`,
+          );
         } catch (e: any) {
-          console.error(`[Cron KB] Doc ${doc.id} falha ao baixar do Blob:`, e.message);
+          console.error(
+            `[Cron KB] Doc ${doc.id} falha ao baixar do Blob:`,
+            e.message,
+          );
         }
       } else if (doc.fileData) {
         try {
           buffer = Buffer.from(doc.fileData, "base64");
         } catch (e: any) {
-          console.error(`[Cron KB] Doc ${doc.id} fileData inválido:`, e.message);
+          console.error(
+            `[Cron KB] Doc ${doc.id} fileData inválido:`,
+            e.message,
+          );
         }
       }
 
@@ -770,7 +905,11 @@ async function handleProcessQueue(req: any, res: any) {
         console.log(`[Cron KB] Doc ${doc.id} sem arquivo disponível — pulando`);
         await db
           .update(knowledgeDocumentsTable)
-          .set({ status: "error", errorLog: "Arquivo original não encontrado (sem Blob URL nem base64)." })
+          .set({
+            status: "error",
+            errorLog:
+              "Arquivo original não encontrado (sem Blob URL nem base64).",
+          })
           .where(eq(knowledgeDocumentsTable.id, doc.id));
         failed++;
         continue;
@@ -780,7 +919,10 @@ async function handleProcessQueue(req: any, res: any) {
         await processDocumentAsync(doc.id, buffer, doc.fileType, doc.filename);
         processed++;
       } catch (err: any) {
-        console.error(`[Cron KB] Doc ${doc.id} falha no processamento:`, err.message);
+        console.error(
+          `[Cron KB] Doc ${doc.id} falha no processamento:`,
+          err.message,
+        );
         failed++;
       }
     }

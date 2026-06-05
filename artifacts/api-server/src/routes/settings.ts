@@ -1,5 +1,10 @@
 import { Router, type IRouter } from "express";
-import { db, appConfigTable, channelConfigsTable, apiKeysTable } from "@workspace/db";
+import {
+  db,
+  appConfigTable,
+  channelConfigsTable,
+  apiKeysTable,
+} from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { encrypt, decrypt } from "../lib/crypto.js";
 import { validateWhitelist, validateSafeUrl } from "../lib/validation.js";
@@ -10,24 +15,62 @@ const router: IRouter = Router();
 router.get("/settings", (_req, res) => {
   res.json({
     endpoints: [
-      { method: "GET", path: "/api/settings/integrations", description: "List configured integrations" },
-      { method: "GET", path: "/api/settings/models", description: "List available AI models" },
-      { method: "GET", path: "/api/settings/keys", description: "List BYOK API Keys" },
-      { method: "POST", path: "/api/settings/keys", description: "Set BYOK API Key" },
-      { method: "DELETE", path: "/api/settings/keys/:provider", description: "Delete BYOK API Key" },
-      { method: "GET", path: "/api/settings/ollama", description: "Get Ollama configuration" },
-      { method: "PUT", path: "/api/settings/ollama", description: "Update Ollama configuration" },
-      { method: "POST", path: "/api/settings/ollama/test", description: "Test Ollama connection" },
+      {
+        method: "GET",
+        path: "/api/settings/integrations",
+        description: "List configured integrations",
+      },
+      {
+        method: "GET",
+        path: "/api/settings/models",
+        description: "List available AI models",
+      },
+      {
+        method: "GET",
+        path: "/api/settings/keys",
+        description: "List BYOK API Keys",
+      },
+      {
+        method: "POST",
+        path: "/api/settings/keys",
+        description: "Set BYOK API Key",
+      },
+      {
+        method: "DELETE",
+        path: "/api/settings/keys/:provider",
+        description: "Delete BYOK API Key",
+      },
+      {
+        method: "GET",
+        path: "/api/settings/ollama",
+        description: "Get Ollama configuration",
+      },
+      {
+        method: "PUT",
+        path: "/api/settings/ollama",
+        description: "Update Ollama configuration",
+      },
+      {
+        method: "POST",
+        path: "/api/settings/ollama/test",
+        description: "Test Ollama connection",
+      },
     ],
   });
 });
 
 export async function getConfigValue(key: string): Promise<string | null> {
-  const [row] = await db.select().from(appConfigTable).where(eq(appConfigTable.key, key));
+  const [row] = await db
+    .select()
+    .from(appConfigTable)
+    .where(eq(appConfigTable.key, key));
   return row?.value ?? null;
 }
 
-export async function getEffectiveOllamaUrl(): Promise<{ url: string | null; source: "db" | "env" | null }> {
+export async function getEffectiveOllamaUrl(): Promise<{
+  url: string | null;
+  source: "db" | "env" | null;
+}> {
   const dbVal = await getConfigValue("OLLAMA_URL");
   if (dbVal) return { url: dbVal, source: "db" };
   const envVal = process.env.OLLAMA_URL || null;
@@ -68,9 +111,9 @@ router.get("/settings/integrations", async (req, res) => {
       .select({ provider: apiKeysTable.provider })
       .from(apiKeysTable)
       .where(isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined);
-    
+
     // Convert to easy lookup set
-    const hasDbKey = new Set(userKeys.map(k => k.provider));
+    const hasDbKey = new Set(userKeys.map((k) => k.provider));
 
     const checkStatus = (providerId: string, envKey?: string) => {
       if (hasDbKey.has(providerId)) return "connected";
@@ -78,7 +121,8 @@ router.get("/settings/integrations", async (req, res) => {
       return "disconnected";
     };
 
-    const isConnected = (providerId: string, envKey?: string) => checkStatus(providerId, envKey) === "connected";
+    const isConnected = (providerId: string, envKey?: string) =>
+      checkStatus(providerId, envKey) === "connected";
 
     const integrations: IntegrationStatus[] = [
       {
@@ -116,18 +160,24 @@ router.get("/settings/integrations", async (req, res) => {
       {
         id: "ollama_cloud",
         name: "Ollama Cloud",
-        status: (isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY") || !!activeLlmUrl) ? "connected" : "disconnected",
+        status:
+          isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY") || !!activeLlmUrl
+            ? "connected"
+            : "disconnected",
         description: "Instância gerenciada de Ollama em Nuvem (Hosted Ollama)",
         icon: "☁️",
-        configured: isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY") || !!activeLlmUrl,
-        active: isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY") || !!activeLlmUrl,
+        configured:
+          isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY") || !!activeLlmUrl,
+        active:
+          isConnected("ollama_cloud", "OLLAMA_CLOUD_API_KEY") || !!activeLlmUrl,
         category: "llm",
       },
       {
         id: "openrouter",
         name: "OpenRouter",
         status: checkStatus("openrouter", "OPENROUTER_API_KEY"),
-        description: "Acesso a LLaMA, Mistral, Qwen e muito mais via OpenRouter",
+        description:
+          "Acesso a LLaMA, Mistral, Qwen e muito mais via OpenRouter",
         icon: "🌌",
         envVar: "OPENROUTER_API_KEY",
         configured: isConnected("openrouter", "OPENROUTER_API_KEY"),
@@ -183,7 +233,9 @@ router.get("/settings/integrations", async (req, res) => {
     let activeLLM: string | null = null;
     if (activeProviderDb && activeProviderDb !== "auto") {
       const label = PROVIDER_LABELS[activeProviderDb] || activeProviderDb;
-      const modelLabel = activeLlmModelDb || (activeProviderDb === "ollama" ? ollamaModel : null);
+      const modelLabel =
+        activeLlmModelDb ||
+        (activeProviderDb === "ollama" ? ollamaModel : null);
       activeLLM = modelLabel ? `${label} · ${modelLabel}` : label;
     } else if (ollamaUrl) {
       activeLLM = `Ollama Local · ${ollamaModel}`;
@@ -212,24 +264,36 @@ router.get("/settings/keys", async (req, res) => {
   try {
     const userId = req.userId;
     const userKeys = await db
-      .select({ provider: apiKeysTable.provider, createdAt: apiKeysTable.createdAt })
+      .select({
+        provider: apiKeysTable.provider,
+        createdAt: apiKeysTable.createdAt,
+      })
       .from(apiKeysTable)
       .where(isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined);
-    
+
     res.json({ keys: userKeys });
   } catch (err) {
     apiError(res, 500, "Failed to list API keys");
   }
 });
 
-const ALLOWED_PROVIDERS = ["openai", "anthropic", "google", "openrouter", "ollama", "ollama_cloud", "custom_openai", "auto"] as const;
+const ALLOWED_PROVIDERS = [
+  "openai",
+  "anthropic",
+  "google",
+  "openrouter",
+  "ollama",
+  "ollama_cloud",
+  "custom_openai",
+  "auto",
+] as const;
 
 // POST /settings/keys — Set a custom BYOK key
 router.post("/settings/keys", async (req, res) => {
   try {
     const userId = req.userId;
     const { provider, key } = req.body;
-    
+
     if (!provider || !key) {
       apiError(res, 400, "Provider and key are required");
       return;
@@ -249,13 +313,14 @@ router.post("/settings/keys", async (req, res) => {
       .where(
         and(
           eq(apiKeysTable.provider, validProvider),
-          isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined
-        )
+          isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined,
+        ),
       )
       .limit(1);
 
     if (existing) {
-      await db.update(apiKeysTable)
+      await db
+        .update(apiKeysTable)
         .set({ key: encryptedKey, updatedAt: new Date() })
         .where(eq(apiKeysTable.id, existing.id));
     } else {
@@ -280,14 +345,15 @@ router.delete("/settings/keys/:provider", async (req, res) => {
     const userId = req.userId;
     const provider = req.params.provider;
 
-    await db.delete(apiKeysTable)
+    await db
+      .delete(apiKeysTable)
       .where(
         and(
           eq(apiKeysTable.provider, provider),
-          isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined
-        )
+          isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined,
+        ),
       );
-    
+
     res.json({ success: true });
   } catch (err) {
     apiError(res, 500, "Failed to delete API key");
@@ -301,7 +367,11 @@ router.get("/settings/active-provider", async (_req, res) => {
     const provider = await getConfigValue("ACTIVE_LLM_PROVIDER");
     const customUrl = await getConfigValue("ACTIVE_LLM_URL");
     const model = await getConfigValue("ACTIVE_LLM_MODEL");
-    res.json({ provider: provider || "auto", customUrl: customUrl || null, model: model || null });
+    res.json({
+      provider: provider || "auto",
+      customUrl: customUrl || null,
+      model: model || null,
+    });
   } catch (err) {
     apiError(res, 500, "Failed to get active provider");
   }
@@ -311,10 +381,15 @@ router.get("/settings/active-provider", async (_req, res) => {
 // body: { provider: "ollama_cloud" | "openrouter" | "google" | "openai" | "anthropic" | "ollama" | "auto", customUrl?: string, model?: string }
 router.put("/settings/active-provider", async (req, res) => {
   try {
-    const { provider, customUrl, model } = req.body as { provider: string; customUrl?: string; model?: string };
+    const { provider, customUrl, model } = req.body as {
+      provider: string;
+      customUrl?: string;
+      model?: string;
+    };
 
     if (!provider) {
-      apiError(res, 400, "provider é obrigatório."); return;
+      apiError(res, 400, "provider é obrigatório.");
+      return;
     }
 
     const validProvider = validateWhitelist(provider, ALLOWED_PROVIDERS);
@@ -323,33 +398,73 @@ router.put("/settings/active-provider", async (req, res) => {
       return;
     }
 
-    await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_PROVIDER", value: validProvider, updatedAt: new Date() })
-      .onConflictDoUpdate({ target: appConfigTable.key, set: { value: validProvider, updatedAt: new Date() } });
+    await db
+      .insert(appConfigTable)
+      .values({
+        key: "ACTIVE_LLM_PROVIDER",
+        value: validProvider,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: appConfigTable.key,
+        set: { value: validProvider, updatedAt: new Date() },
+      });
 
     if (customUrl !== undefined) {
       if (customUrl) {
         const safeCustomUrl = await validateSafeUrl(customUrl.trim());
         if (!safeCustomUrl) {
-          apiError(res, 400, "URL inválida ou aponta para endereço privado/interno.");
+          apiError(
+            res,
+            400,
+            "URL inválida ou aponta para endereço privado/interno.",
+          );
           return;
         }
-        await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_URL", value: safeCustomUrl, updatedAt: new Date() })
-          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: safeCustomUrl, updatedAt: new Date() } });
+        await db
+          .insert(appConfigTable)
+          .values({
+            key: "ACTIVE_LLM_URL",
+            value: safeCustomUrl,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: appConfigTable.key,
+            set: { value: safeCustomUrl, updatedAt: new Date() },
+          });
       } else {
-        await db.delete(appConfigTable).where(eq(appConfigTable.key, "ACTIVE_LLM_URL"));
+        await db
+          .delete(appConfigTable)
+          .where(eq(appConfigTable.key, "ACTIVE_LLM_URL"));
       }
     }
 
     if (model !== undefined) {
       if (model) {
-        await db.insert(appConfigTable).values({ key: "ACTIVE_LLM_MODEL", value: model.trim(), updatedAt: new Date() })
-          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: model.trim(), updatedAt: new Date() } });
+        await db
+          .insert(appConfigTable)
+          .values({
+            key: "ACTIVE_LLM_MODEL",
+            value: model.trim(),
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: appConfigTable.key,
+            set: { value: model.trim(), updatedAt: new Date() },
+          });
       } else {
-        await db.delete(appConfigTable).where(eq(appConfigTable.key, "ACTIVE_LLM_MODEL"));
+        await db
+          .delete(appConfigTable)
+          .where(eq(appConfigTable.key, "ACTIVE_LLM_MODEL"));
       }
     }
 
-    res.json({ success: true, provider, customUrl: customUrl || null, model: model || null });
+    res.json({
+      success: true,
+      provider,
+      customUrl: customUrl || null,
+      model: model || null,
+    });
   } catch (err: any) {
     apiError(res, 500, "Failed to set active provider");
   }
@@ -358,7 +473,11 @@ router.put("/settings/active-provider", async (req, res) => {
 // POST /settings/active-provider/test — Test a specific provider (or current active if none specified)
 router.post("/settings/active-provider/test", async (req, res) => {
   try {
-    const { provider, customUrl, model } = req.body as { provider?: string; customUrl?: string; model?: string };
+    const { provider, customUrl, model } = req.body as {
+      provider?: string;
+      customUrl?: string;
+      model?: string;
+    };
     if (provider) {
       const validProvider = validateWhitelist(provider, ALLOWED_PROVIDERS);
       if (!validProvider) {
@@ -371,7 +490,7 @@ router.post("/settings/active-provider/test", async (req, res) => {
     const result = await callLLM(
       "You are a connectivity test assistant. Be concise.",
       "Reply with exactly: 'OK · <your model name>'",
-      { provider, model, customUrl }
+      { provider, model, customUrl },
     );
     res.json({
       success: true,
@@ -393,8 +512,10 @@ router.get("/settings/channels", async (req, res) => {
     const channels = await db
       .select()
       .from(channelConfigsTable)
-      .where(isRealUser(userId) ? eq(channelConfigsTable.userId, userId) : undefined);
-    
+      .where(
+        isRealUser(userId) ? eq(channelConfigsTable.userId, userId) : undefined,
+      );
+
     res.json({ channels });
   } catch (err) {
     console.error("Error listing channels:", err);
@@ -429,24 +550,24 @@ router.post("/settings/channels", async (req, res) => {
       .limit(1);
 
     if (existing) {
-       const [updated] = await db
-         .update(channelConfigsTable)
-         .set({ agentId, config: config || {}, updatedAt: new Date() })
-         .where(eq(channelConfigsTable.id, existing.id))
-         .returning();
-       res.json({ success: true, channel: updated });
+      const [updated] = await db
+        .update(channelConfigsTable)
+        .set({ agentId, config: config || {}, updatedAt: new Date() })
+        .where(eq(channelConfigsTable.id, existing.id))
+        .returning();
+      res.json({ success: true, channel: updated });
     } else {
-       const [newChan] = await db
-         .insert(channelConfigsTable)
-         .values({
-           platform,
-           externalId,
-           agentId,
-           userId: userId || null,
-           config: config || {},
-         })
-         .returning();
-       res.json({ success: true, channel: newChan });
+      const [newChan] = await db
+        .insert(channelConfigsTable)
+        .values({
+          platform,
+          externalId,
+          agentId,
+          userId: userId || null,
+          config: config || {},
+        })
+        .returning();
+      res.json({ success: true, channel: newChan });
     }
   } catch (err) {
     console.error("Error saving channel config:", err);
@@ -467,8 +588,11 @@ router.delete("/settings/channels/:id", async (req, res) => {
       .delete(channelConfigsTable)
       .where(
         isRealUser(userId)
-          ? and(eq(channelConfigsTable.id, id), eq(channelConfigsTable.userId, userId))
-          : eq(channelConfigsTable.id, id)
+          ? and(
+              eq(channelConfigsTable.id, id),
+              eq(channelConfigsTable.userId, userId),
+            )
+          : eq(channelConfigsTable.id, id),
       )
       .returning();
     if (!deleted) {
@@ -494,31 +618,116 @@ router.get("/settings/models", async (_req, res) => {
 
     const models: ModelOption[] = [
       // ─── Google Gemini (via Gemini API ou Ollama Cloud) ─────────────────
-      { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", description: "Rapido e eficiente. Recomendado para tarefas gerais e respostas ageis. (Ollama Cloud)" },
-      { id: "gemini-3-pro-preview", name: "Gemini 3 Pro", description: "Mais capaz. Melhor para analises complexas e textos longos. (Ollama Cloud)" },
-      { id: "gemini-2.5-pro-preview-05-06", name: "Gemini 2.5 Pro", description: "Alta performance. Excelente raciocinio e contexto longo." },
-      { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite", description: "Versao compacta. Otimo custo-beneficio para tarefas simples." },
+      {
+        id: "gemini-3-flash-preview",
+        name: "Gemini 3 Flash",
+        description:
+          "Rapido e eficiente. Recomendado para tarefas gerais e respostas ageis. (Ollama Cloud)",
+      },
+      {
+        id: "gemini-3-pro-preview",
+        name: "Gemini 3 Pro",
+        description:
+          "Mais capaz. Melhor para analises complexas e textos longos. (Ollama Cloud)",
+      },
+      {
+        id: "gemini-2.5-pro-preview-05-06",
+        name: "Gemini 2.5 Pro",
+        description: "Alta performance. Excelente raciocinio e contexto longo.",
+      },
+      {
+        id: "gemini-2.0-flash-lite",
+        name: "Gemini 2.0 Flash Lite",
+        description:
+          "Versao compacta. Otimo custo-beneficio para tarefas simples.",
+      },
       // ─── Ollama Cloud (open-source) ──────────────────────────────────────
-      { id: "minimax-m3:cloud", name: "MiniMax M3 Cloud", description: "Coding & Agentic Frontier. 1M context. Native Multimodality." },
-      { id: "minimax-m2.7:cloud", name: "Minimax M2.7 Cloud", description: "Otimizado para raciocínio em múltiplos cenários (Ollama Cloud)." },
-      { id: "gemma4:cloud", name: "Gemma 4 Cloud", description: "Frontier-level multimodal open-source (ate 31b)." },
-      { id: "qwen3.5:cloud", name: "Qwen 3.5 Cloud", description: "Open-source multimodal com utilidade e performance excepcionais (ate 122b)." },
-      { id: "qwen-2.5-coder-32b", name: "Qwen 2.5 Coder 32B", description: "Excepcional para codigo na nuvem corporativa." },
-      { id: "glm-5.1:cloud", name: "GLM 5.1 Cloud", description: "Next-gen flagship da Z.ai para agentic engineering e SWE-Bench Pro." },
-      { id: "kimi-k2.6:cloud", name: "Kimi K2.6 Cloud", description: "Open-source multimodal agentic, long-horizon coding." },
-      { id: "kimi-k2.5:cloud", name: "Kimi K2.5 Cloud", description: "Leitor avancado de contexto ultra-longo na nuvem." },
-      { id: "deepseek-v3.2:cloud", name: "DeepSeek V3.2 Cloud", description: "Equilibrio entre eficiencia computacional e raciocinio." },
-      { id: "deepseek-v4-pro:cloud", name: "DeepSeek V4 Pro Cloud", description: "Frontier MoE com 1M context window, 3 modos de raciocinio." },
-      { id: "deepseek-v4-flash:cloud", name: "DeepSeek V4 Flash Cloud", description: "V4 preview MoE eficiente com 1M context." },
-      { id: "llama-3.1-70b", name: "LLaMA 3.1 70B (Ollama Cloud)", description: "Modelo open-source top de linha (Ollama Cloud / OpenRouter)." },
-      { id: "llama-3.1-8b", name: "LLaMA 3.1 8B (Ollama Cloud)", description: "Modelo veloz open-source (Ollama Cloud / OpenRouter)." },
-      { id: "qwen3-coder-next:cloud", name: "Qwen3 Coder Next Cloud", description: "Coding-focused agentic workflows." },
+      {
+        id: "minimax-m3:cloud",
+        name: "MiniMax M3 Cloud",
+        description:
+          "Coding & Agentic Frontier. 1M context. Native Multimodality.",
+      },
+      {
+        id: "minimax-m2.7:cloud",
+        name: "Minimax M2.7 Cloud",
+        description:
+          "Otimizado para raciocínio em múltiplos cenários (Ollama Cloud).",
+      },
+      {
+        id: "gemma4:cloud",
+        name: "Gemma 4 Cloud",
+        description: "Frontier-level multimodal open-source (ate 31b).",
+      },
+      {
+        id: "qwen3.5:cloud",
+        name: "Qwen 3.5 Cloud",
+        description:
+          "Open-source multimodal com utilidade e performance excepcionais (ate 122b).",
+      },
+      {
+        id: "qwen-2.5-coder-32b",
+        name: "Qwen 2.5 Coder 32B",
+        description: "Excepcional para codigo na nuvem corporativa.",
+      },
+      {
+        id: "glm-5.1:cloud",
+        name: "GLM 5.1 Cloud",
+        description:
+          "Next-gen flagship da Z.ai para agentic engineering e SWE-Bench Pro.",
+      },
+      {
+        id: "kimi-k2.6:cloud",
+        name: "Kimi K2.6 Cloud",
+        description: "Open-source multimodal agentic, long-horizon coding.",
+      },
+      {
+        id: "kimi-k2.5:cloud",
+        name: "Kimi K2.5 Cloud",
+        description: "Leitor avancado de contexto ultra-longo na nuvem.",
+      },
+      {
+        id: "deepseek-v3.2:cloud",
+        name: "DeepSeek V3.2 Cloud",
+        description: "Equilibrio entre eficiencia computacional e raciocinio.",
+      },
+      {
+        id: "deepseek-v4-pro:cloud",
+        name: "DeepSeek V4 Pro Cloud",
+        description:
+          "Frontier MoE com 1M context window, 3 modos de raciocinio.",
+      },
+      {
+        id: "deepseek-v4-flash:cloud",
+        name: "DeepSeek V4 Flash Cloud",
+        description: "V4 preview MoE eficiente com 1M context.",
+      },
+      {
+        id: "llama-3.1-70b",
+        name: "LLaMA 3.1 70B (Ollama Cloud)",
+        description:
+          "Modelo open-source top de linha (Ollama Cloud / OpenRouter).",
+      },
+      {
+        id: "llama-3.1-8b",
+        name: "LLaMA 3.1 8B (Ollama Cloud)",
+        description: "Modelo veloz open-source (Ollama Cloud / OpenRouter).",
+      },
+      {
+        id: "qwen3-coder-next:cloud",
+        name: "Qwen3 Coder Next Cloud",
+        description: "Coding-focused agentic workflows.",
+      },
     ];
 
     res.json({
       models,
       defaultModel: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-      provider: ollamaUrl ? "ollama" : process.env.GEMINI_API_KEY ? "gemini" : null,
+      provider: ollamaUrl
+        ? "ollama"
+        : process.env.GEMINI_API_KEY
+          ? "gemini"
+          : null,
     });
   } catch (err) {
     console.error("Error fetching models:", err);
@@ -546,33 +755,37 @@ router.put("/settings/ollama", async (req, res) => {
         if (u.protocol !== "http:" && u.protocol !== "https:") {
           throw new Error("Protocolo invalido");
         }
-        
+
         const host = u.hostname.toLowerCase();
-        const isPrivate = 
-          host === "localhost" || 
-          host === "127.0.0.1" || 
-          host === "::1" || 
-          host.startsWith("192.168.") || 
-          host.startsWith("10.") || 
-          host.startsWith("172.16.") || 
-          host.startsWith("172.17.") || 
-          host.startsWith("172.18.") || 
-          host.startsWith("172.19.") || 
-          host.startsWith("172.20.") || 
-          host.startsWith("172.21.") || 
-          host.startsWith("172.22.") || 
-          host.startsWith("172.23.") || 
-          host.startsWith("172.24.") || 
-          host.startsWith("172.25.") || 
-          host.startsWith("172.26.") || 
-          host.startsWith("172.27.") || 
-          host.startsWith("172.28.") || 
-          host.startsWith("172.29.") || 
-          host.startsWith("172.30.") || 
+        const isPrivate =
+          host === "localhost" ||
+          host === "127.0.0.1" ||
+          host === "::1" ||
+          host.startsWith("192.168.") ||
+          host.startsWith("10.") ||
+          host.startsWith("172.16.") ||
+          host.startsWith("172.17.") ||
+          host.startsWith("172.18.") ||
+          host.startsWith("172.19.") ||
+          host.startsWith("172.20.") ||
+          host.startsWith("172.21.") ||
+          host.startsWith("172.22.") ||
+          host.startsWith("172.23.") ||
+          host.startsWith("172.24.") ||
+          host.startsWith("172.25.") ||
+          host.startsWith("172.26.") ||
+          host.startsWith("172.27.") ||
+          host.startsWith("172.28.") ||
+          host.startsWith("172.29.") ||
+          host.startsWith("172.30.") ||
           host.startsWith("172.31.");
 
         if (isPrivate && process.env.ALLOW_PRIVATE_OLLAMA !== "true") {
-          apiError(res, 400, "Seguranca: URLs de rede privada/local nao sao permitidas por padrao.");
+          apiError(
+            res,
+            400,
+            "Seguranca: URLs de rede privada/local nao sao permitidas por padrao.",
+          );
           return;
         }
       } catch {
@@ -583,19 +796,33 @@ router.put("/settings/ollama", async (req, res) => {
       await db
         .insert(appConfigTable)
         .values({ key: "OLLAMA_URL", value: cleanUrl, updatedAt: new Date() })
-        .onConflictDoUpdate({ target: appConfigTable.key, set: { value: cleanUrl, updatedAt: new Date() } });
+        .onConflictDoUpdate({
+          target: appConfigTable.key,
+          set: { value: cleanUrl, updatedAt: new Date() },
+        });
     } else if (url === "" || url === null) {
-      await db.delete(appConfigTable).where(eq(appConfigTable.key, "OLLAMA_URL"));
+      await db
+        .delete(appConfigTable)
+        .where(eq(appConfigTable.key, "OLLAMA_URL"));
     }
     if (model !== undefined) {
       const trimmed = model.trim();
       if (trimmed) {
         await db
           .insert(appConfigTable)
-          .values({ key: "OLLAMA_MODEL", value: trimmed, updatedAt: new Date() })
-          .onConflictDoUpdate({ target: appConfigTable.key, set: { value: trimmed, updatedAt: new Date() } });
+          .values({
+            key: "OLLAMA_MODEL",
+            value: trimmed,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: appConfigTable.key,
+            set: { value: trimmed, updatedAt: new Date() },
+          });
       } else {
-        await db.delete(appConfigTable).where(eq(appConfigTable.key, "OLLAMA_MODEL"));
+        await db
+          .delete(appConfigTable)
+          .where(eq(appConfigTable.key, "OLLAMA_MODEL"));
       }
     }
     const { url: newUrl, source } = await getEffectiveOllamaUrl();
@@ -615,7 +842,11 @@ router.post("/settings/ollama/test", async (req, res) => {
     if (url) {
       const safeUrl = await validateSafeUrl(url.trim());
       if (!safeUrl) {
-        apiError(res, 400, "URL inválida ou aponta para endereço privado/interno. Use o formato: http://host:porta");
+        apiError(
+          res,
+          400,
+          "URL inválida ou aponta para endereço privado/interno. Use o formato: http://host:porta",
+        );
         return;
       }
       testUrl = safeUrl.replace(/\/+$/, "");
@@ -632,27 +863,41 @@ router.post("/settings/ollama/test", async (req, res) => {
     const timeout = setTimeout(() => controller.abort(), 8000);
 
     try {
-      const response = await fetch(`${testUrl}/api/tags`, { signal: controller.signal });
+      const response = await fetch(`${testUrl}/api/tags`, {
+        signal: controller.signal,
+      });
       clearTimeout(timeout);
 
       if (!response.ok) {
-        res.json({ success: false, error: `Ollama respondeu com status ${response.status}` });
+        res.json({
+          success: false,
+          error: `Ollama respondeu com status ${response.status}`,
+        });
         return;
       }
 
-      const data = await response.json() as { models?: Array<{ name: string; size: number; modified_at: string }> };
-      const models = (data.models || []).map((m: { name: string; size: number; modified_at: string }) => ({
-        name: m.name,
-        size: m.size,
-        modifiedAt: m.modified_at,
-      }));
+      const data = (await response.json()) as {
+        models?: Array<{ name: string; size: number; modified_at: string }>;
+      };
+      const models = (data.models || []).map(
+        (m: { name: string; size: number; modified_at: string }) => ({
+          name: m.name,
+          size: m.size,
+          modifiedAt: m.modified_at,
+        }),
+      );
 
       res.json({ success: true, models, url: testUrl });
     } catch (fetchErr: unknown) {
       clearTimeout(timeout);
-      const errMsg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      const errMsg =
+        fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
       if (errMsg.includes("abort")) {
-        apiError(res, 500, "Timeout: Ollama nao respondeu em 8 segundos. Verifique se o servico esta rodando e acessivel.");
+        apiError(
+          res,
+          500,
+          "Timeout: Ollama nao respondeu em 8 segundos. Verifique se o servico esta rodando e acessivel.",
+        );
       } else {
         res.json({ success: false, error: `Erro ao conectar: ${errMsg}` });
       }

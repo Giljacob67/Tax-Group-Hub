@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import "dotenv/config";
 import { EmpresAquiClient } from "./lib/integrations/empresaqui/src/client.js";
 
 async function testar() {

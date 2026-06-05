@@ -8,7 +8,9 @@
  */
 
 import {
-  ALERT_LABELS, ALERT_SEVERITY_MAP, ALERT_ICONS,
+  ALERT_LABELS,
+  ALERT_SEVERITY_MAP,
+  ALERT_ICONS,
   type AlertType,
 } from "@workspace/db/crm-constants";
 
@@ -63,13 +65,15 @@ export function evaluateAlerts(
   now: Date = new Date(),
 ): AlertCandidate[] {
   const alerts: AlertCandidate[] = [];
-  const contactById = new Map(contacts.map(c => [c.id, c]));
+  const contactById = new Map(contacts.map((c) => [c.id, c]));
 
   for (const c of contacts) {
     // ── Follow-up vencido ──
-    if (c.proximoFollowup
-        && new Date(c.proximoFollowup) < now
-        && !FINALIZADOS.has(c.status)) {
+    if (
+      c.proximoFollowup &&
+      new Date(c.proximoFollowup) < now &&
+      !FINALIZADOS.has(c.status)
+    ) {
       const dias = Math.ceil(daysSince(c.proximoFollowup, now));
       alerts.push({
         type: "followup_vencido",
@@ -90,7 +94,8 @@ export function evaluateAlerts(
           contactId: c.id,
           dealId: null,
           title: `Sem atividade há ${Math.floor(semAtividade)}d`,
-          description: "Contato parado há mais de 14 dias. Reativar ou reciclar.",
+          description:
+            "Contato parado há mais de 14 dias. Reativar ou reciclar.",
           context: { diasSemAtividade: Math.floor(semAtividade) },
         });
       } else if (semAtividade >= 7) {
@@ -106,15 +111,18 @@ export function evaluateAlerts(
     }
 
     // ── Lead quente sem responsável ──
-    if ((c.temperatura === "quente" || c.temperatura === "burning")
-        && !c.responsavelUnidade
-        && !FINALIZADOS.has(c.status)) {
+    if (
+      (c.temperatura === "quente" || c.temperatura === "burning") &&
+      !c.responsavelUnidade &&
+      !FINALIZADOS.has(c.status)
+    ) {
       alerts.push({
         type: "lead_quente_sem_responsavel",
         contactId: c.id,
         dealId: null,
         title: "Lead quente sem responsável",
-        description: "Atribua um responsável para garantir sequência comercial.",
+        description:
+          "Atribua um responsável para garantir sequência comercial.",
         context: { temperatura: c.temperatura },
       });
     }
@@ -125,10 +133,12 @@ export function evaluateAlerts(
     if (!contact) continue;
 
     // ── Matriz acima do prazo ──
-    if ((d.statusMatriz === "enviado" || d.statusMatriz === "aguardando")
-        && d.prazoRetornoMatriz
-        && new Date(d.prazoRetornoMatriz) < now
-        && !d.dataRetornoMatriz) {
+    if (
+      (d.statusMatriz === "enviado" || d.statusMatriz === "aguardando") &&
+      d.prazoRetornoMatriz &&
+      new Date(d.prazoRetornoMatriz) < now &&
+      !d.dataRetornoMatriz
+    ) {
       const dias = Math.ceil(daysSince(d.prazoRetornoMatriz, now));
       alerts.push({
         type: "matriz_acima_prazo",
@@ -149,14 +159,18 @@ export function evaluateAlerts(
           contactId: d.contactId,
           dealId: d.id,
           title: `Pendência documental parada há ${dias}d`,
-          description: "Cliente pode ter esquecido. Acione-o com cópia da lista de documentos.",
+          description:
+            "Cliente pode ter esquecido. Acione-o com cópia da lista de documentos.",
           context: { diasParada: dias },
         });
       }
     }
 
     // ── Proposta sem retorno (>7 dias após envio) ──
-    if (d.statusMatriz === "proposta_liberada" || d.stage === "proposta_enviada") {
+    if (
+      d.statusMatriz === "proposta_liberada" ||
+      d.stage === "proposta_enviada"
+    ) {
       const dias = Math.ceil(daysSince(d.updatedAt, now));
       if (dias >= 7) {
         alerts.push({
@@ -164,7 +178,8 @@ export function evaluateAlerts(
           contactId: d.contactId,
           dealId: d.id,
           title: `Proposta sem retorno há ${dias}d`,
-          description: "Faça follow-up para verificar leitura, dúvidas e próximos passos.",
+          description:
+            "Faça follow-up para verificar leitura, dúvidas e próximos passos.",
           context: { diasSemRetorno: dias },
         });
       }
@@ -179,14 +194,18 @@ export function evaluateAlerts(
           contactId: d.contactId,
           dealId: d.id,
           title: `Negociação parada há ${dias}d`,
-          description: "Estágio não evolui. Avalie se há bloqueio ou perda de interesse.",
+          description:
+            "Estágio não evolui. Avalie se há bloqueio ou perda de interesse.",
           context: { diasParada: dias },
         });
       }
     }
 
     // ── Onboarding sem avanço (>14 dias) ──
-    if (d.stage === "onboarding_cliente" || d.stage === "execucao_pela_matriz") {
+    if (
+      d.stage === "onboarding_cliente" ||
+      d.stage === "execucao_pela_matriz"
+    ) {
       const dias = Math.ceil(daysSince(d.updatedAt, now));
       if (dias >= 14) {
         alerts.push({
@@ -194,7 +213,8 @@ export function evaluateAlerts(
           contactId: d.contactId,
           dealId: d.id,
           title: `Onboarding sem avanço há ${dias}d`,
-          description: "Cliente pode estar travado no setup. Verificar status com a Matriz.",
+          description:
+            "Cliente pode estar travado no setup. Verificar status com a Matriz.",
           context: { diasSemAvanco: dias },
         });
       }
@@ -209,7 +229,8 @@ export function evaluateAlerts(
           contactId: d.contactId,
           dealId: d.id,
           title: "Cliente sem ação recente",
-          description: "Cliente ativo sem follow-up há 30+ dias. Avalie oportunidades de expansão.",
+          description:
+            "Cliente ativo sem follow-up há 30+ dias. Avalie oportunidades de expansão.",
           context: { diasSemAcao: dias },
         });
       }

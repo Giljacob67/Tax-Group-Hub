@@ -1,6 +1,20 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Star, Loader2, CheckCircle2, Trash2, Save, Cpu, Zap, Brain, Eye, Paperclip, Palette, Mic } from "lucide-react";
+import {
+  Plus,
+  Star,
+  Loader2,
+  CheckCircle2,
+  Trash2,
+  Save,
+  Cpu,
+  Zap,
+  Brain,
+  Eye,
+  Paperclip,
+  Palette,
+  Mic,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,19 +34,39 @@ interface Props {
 const TYPE_META: Record<string, { label: string; icon: React.ReactNode }> = {
   chat: { label: "Chat Geral", icon: <Cpu className="w-3.5 h-3.5" /> },
   fast: { label: "Respostas Rápidas", icon: <Zap className="w-3.5 h-3.5" /> },
-  reasoning: { label: "Raciocínio Complexo", icon: <Brain className="w-3.5 h-3.5" /> },
+  reasoning: {
+    label: "Raciocínio Complexo",
+    icon: <Brain className="w-3.5 h-3.5" />,
+  },
   vision: { label: "Análise de Imagem", icon: <Eye className="w-3.5 h-3.5" /> },
-  embedding: { label: "Embeddings", icon: <Paperclip className="w-3.5 h-3.5" /> },
-  image: { label: "Geração de Imagem", icon: <Palette className="w-3.5 h-3.5" /> },
-  transcription: { label: "Transcrição", icon: <Mic className="w-3.5 h-3.5" /> },
+  embedding: {
+    label: "Embeddings",
+    icon: <Paperclip className="w-3.5 h-3.5" />,
+  },
+  image: {
+    label: "Geração de Imagem",
+    icon: <Palette className="w-3.5 h-3.5" />,
+  },
+  transcription: {
+    label: "Transcrição",
+    icon: <Mic className="w-3.5 h-3.5" />,
+  },
 };
 
-export default function ProfileManager({ profiles, connections, onRefresh }: Props) {
+export default function ProfileManager({
+  profiles,
+  connections,
+  onRefresh,
+}: Props) {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", description: "" });
-  const [assignments, setAssignments] = useState<Record<string, number | undefined>>({});
+  const [assignments, setAssignments] = useState<
+    Record<string, number | undefined>
+  >({});
 
-  const connectionOptions = connections.filter((c) => c.lastTestStatus === "ok" || c.lastTestStatus === "untested");
+  const connectionOptions = connections.filter(
+    (c) => c.lastTestStatus === "ok" || c.lastTestStatus === "untested",
+  );
 
   const createProfileMutate = useCreateLlmProfile({
     mutation: {
@@ -86,10 +120,22 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold">Perfis de Uso</h3>
-          <p className="text-xs text-muted-foreground">Defina qual modelo usar para cada tipo de tarefa.</p>
+          <p className="text-xs text-muted-foreground">
+            Defina qual modelo usar para cada tipo de tarefa.
+          </p>
         </div>
-        <Button size="sm" variant="outline" onClick={() => setCreating((v) => !v)}>
-          {creating ? "Cancelar" : <><Plus className="w-3.5 h-3.5 mr-1" /> Novo Perfil</>}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setCreating((v) => !v)}
+        >
+          {creating ? (
+            "Cancelar"
+          ) : (
+            <>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Novo Perfil
+            </>
+          )}
         </Button>
       </div>
 
@@ -104,12 +150,30 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
             <div className="bg-card/50 border border-border/40 rounded-xl p-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1 block">Nome</Label>
-                  <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Ex: Econômico" className="text-xs" />
+                  <Label className="text-xs text-muted-foreground mb-1 block">
+                    Nome
+                  </Label>
+                  <Input
+                    value={form.name}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, name: e.target.value }))
+                    }
+                    placeholder="Ex: Econômico"
+                    className="text-xs"
+                  />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground mb-1 block">Descrição</Label>
-                  <Input value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Opcional" className="text-xs" />
+                  <Label className="text-xs text-muted-foreground mb-1 block">
+                    Descrição
+                  </Label>
+                  <Input
+                    value={form.description}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, description: e.target.value }))
+                    }
+                    placeholder="Opcional"
+                    className="text-xs"
+                  />
                 </div>
               </div>
 
@@ -128,7 +192,9 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
                         onChange={(e) =>
                           setAssignments((prev) => ({
                             ...prev,
-                            [field]: e.target.value ? Number(e.target.value) : undefined,
+                            [field]: e.target.value
+                              ? Number(e.target.value)
+                              : undefined,
                           }))
                         }
                       >
@@ -145,11 +211,23 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button size="sm" variant="outline" onClick={() => setCreating(false)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCreating(false)}
+                >
                   Cancelar
                 </Button>
-                <Button size="sm" onClick={handleCreate} disabled={createProfileMutate.isPending || !form.name.trim()}>
-                  {createProfileMutate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+                <Button
+                  size="sm"
+                  onClick={handleCreate}
+                  disabled={createProfileMutate.isPending || !form.name.trim()}
+                >
+                  {createProfileMutate.isPending ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5 mr-1" />
+                  )}
                   Salvar Perfil
                 </Button>
               </div>
@@ -163,11 +241,15 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
           <div
             key={profile.id}
             className={`flex items-center gap-3 bg-card/50 border rounded-xl px-4 py-3 transition-all ${
-              profile.isActive ? "border-primary/30 ring-1 ring-primary/10" : "border-border/40"
+              profile.isActive
+                ? "border-primary/30 ring-1 ring-primary/10"
+                : "border-border/40"
             }`}
           >
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Star className={`w-4 h-4 ${profile.isActive ? "text-primary" : "text-muted-foreground"}`} />
+              <Star
+                className={`w-4 h-4 ${profile.isActive ? "text-primary" : "text-muted-foreground"}`}
+              />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -178,19 +260,30 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
                   </span>
                 )}
                 {profile.isDefault && !profile.isActive && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted border border-border/30">Padrão</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted border border-border/30">
+                    Padrão
+                  </span>
                 )}
               </div>
-              {profile.description && <p className="text-[11px] text-muted-foreground truncate">{profile.description}</p>}
+              {profile.description && (
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {profile.description}
+                </p>
+              )}
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
                 {Object.entries(TYPE_META).map(([key, meta]) => {
                   const connId = (profile as any)[`${key}ConnectionId`];
                   const conn = connections.find((c) => c.id === connId);
                   if (!conn) return null;
                   return (
-                    <div key={key} className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <div
+                      key={key}
+                      className="flex items-center gap-1 text-xs text-muted-foreground"
+                    >
                       {meta.icon}
-                      <span className="truncate max-w-[120px]">{conn.name}</span>
+                      <span className="truncate max-w-[120px]">
+                        {conn.name}
+                      </span>
                     </div>
                   );
                 })}
@@ -204,7 +297,11 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
                   onClick={() => handleActivate(profile.id)}
                   disabled={activateProfileMutate.isPending}
                 >
-                  {activateProfileMutate.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                  {activateProfileMutate.isPending ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                  )}
                   Ativar
                 </Button>
               )}
@@ -215,7 +312,11 @@ export default function ProfileManager({ profiles, connections, onRefresh }: Pro
                 onClick={() => handleDelete(profile.id)}
                 disabled={deleteProfileMutate.isPending}
               >
-                {deleteProfileMutate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                {deleteProfileMutate.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
               </Button>
             </div>
           </div>

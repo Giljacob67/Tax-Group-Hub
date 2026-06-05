@@ -44,7 +44,9 @@ import { db } from "@workspace/db";
 // ═══════════════════════════════════════════════════════════════════════════════
 describe("maskUrl", () => {
   it("strips query params and auth tokens", () => {
-    const masked = maskUrl("https://api.example.com/v1/users?token=secret123&page=1");
+    const masked = maskUrl(
+      "https://api.example.com/v1/users?token=secret123&page=1",
+    );
     expect(masked).toBe("https://api.example.com/v1/users");
   });
 

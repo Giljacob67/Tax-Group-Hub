@@ -67,21 +67,33 @@ describe("authMiddleware", () => {
   it("passes GET /agents/:id without credentials", () => {
     process.env.API_KEY = "secret";
     const next = vi.fn() as NextFunction;
-    authMiddleware(makeReq({ path: "/agents/123", method: "GET" }), makeRes(), next);
+    authMiddleware(
+      makeReq({ path: "/agents/123", method: "GET" }),
+      makeRes(),
+      next,
+    );
     expect(next).toHaveBeenCalledOnce();
   });
 
   it("passes GET /settings/integrations without credentials", () => {
     process.env.API_KEY = "secret";
     const next = vi.fn() as NextFunction;
-    authMiddleware(makeReq({ path: "/settings/integrations", method: "GET" }), makeRes(), next);
+    authMiddleware(
+      makeReq({ path: "/settings/integrations", method: "GET" }),
+      makeRes(),
+      next,
+    );
     expect(next).toHaveBeenCalledOnce();
   });
 
   it("passes GET /settings/active-provider without credentials", () => {
     process.env.API_KEY = "secret";
     const next = vi.fn() as NextFunction;
-    authMiddleware(makeReq({ path: "/settings/active-provider", method: "GET" }), makeRes(), next);
+    authMiddleware(
+      makeReq({ path: "/settings/active-provider", method: "GET" }),
+      makeRes(),
+      next,
+    );
     expect(next).toHaveBeenCalledOnce();
   });
 
@@ -91,7 +103,11 @@ describe("authMiddleware", () => {
     process.env.API_KEY = "secret";
     const res = makeRes();
     const next = vi.fn() as NextFunction;
-    authMiddleware(makeReq({ path: "/settings/keys", method: "POST" }), res, next);
+    authMiddleware(
+      makeReq({ path: "/settings/keys", method: "POST" }),
+      res,
+      next,
+    );
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
   });
@@ -100,7 +116,11 @@ describe("authMiddleware", () => {
     process.env.API_KEY = "secret";
     const res = makeRes();
     const next = vi.fn() as NextFunction;
-    authMiddleware(makeReq({ path: "/settings/active-provider", method: "PUT" }), res, next);
+    authMiddleware(
+      makeReq({ path: "/settings/active-provider", method: "PUT" }),
+      res,
+      next,
+    );
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
   });
@@ -109,7 +129,11 @@ describe("authMiddleware", () => {
     process.env.API_KEY = "secret";
     const res = makeRes();
     const next = vi.fn() as NextFunction;
-    authMiddleware(makeReq({ path: "/settings/keys/openai", method: "DELETE" }), res, next);
+    authMiddleware(
+      makeReq({ path: "/settings/keys/openai", method: "DELETE" }),
+      res,
+      next,
+    );
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
   });
@@ -118,7 +142,11 @@ describe("authMiddleware", () => {
     process.env.API_KEY = "secret";
     const res = makeRes();
     const next = vi.fn() as NextFunction;
-    authMiddleware(makeReq({ path: "/settings/channels", method: "GET" }), res, next);
+    authMiddleware(
+      makeReq({ path: "/settings/channels", method: "GET" }),
+      res,
+      next,
+    );
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
   });
@@ -145,7 +173,10 @@ describe("authMiddleware", () => {
     const res = makeRes();
     const next = vi.fn() as NextFunction;
     authMiddleware(
-      makeReq({ path: "/automate/execute", headers: { "x-webhook-secret": "wrong" } }),
+      makeReq({
+        path: "/automate/execute",
+        headers: { "x-webhook-secret": "wrong" },
+      }),
       res,
       next,
     );
@@ -179,7 +210,9 @@ describe("authMiddleware", () => {
     jwt = (await import("jsonwebtoken")).default as unknown as typeof jwt;
     ({ authMiddleware } = await import("../middlewares/auth.js"));
 
-    jwt.verify.mockImplementationOnce(() => { throw new Error("invalid signature"); });
+    jwt.verify.mockImplementationOnce(() => {
+      throw new Error("invalid signature");
+    });
 
     const req = makeReq({
       headers: { authorization: "Bearer api-key-123" },
@@ -198,7 +231,9 @@ describe("authMiddleware", () => {
     jwt = (await import("jsonwebtoken")).default as unknown as typeof jwt;
     ({ authMiddleware } = await import("../middlewares/auth.js"));
 
-    jwt.verify.mockImplementationOnce(() => { throw new Error("invalid signature"); });
+    jwt.verify.mockImplementationOnce(() => {
+      throw new Error("invalid signature");
+    });
 
     const res = makeRes();
     const next = vi.fn() as NextFunction;

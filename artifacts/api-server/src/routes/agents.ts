@@ -12,25 +12,30 @@ router.get("/agents", (_req, res) => {
 
 // Search/filter agents
 router.get("/agents/search", (req, res) => {
-  const q = (req.query.q as string || "").toLowerCase().trim();
-  const block = (req.query.block as string || "").trim();
+  const q = ((req.query.q as string) || "").toLowerCase().trim();
+  const block = ((req.query.block as string) || "").trim();
 
   if (!q && !block) {
-    apiError(res, 400, "Provide 'q' (search query) or 'block' (block filter) parameter");
+    apiError(
+      res,
+      400,
+      "Provide 'q' (search query) or 'block' (block filter) parameter",
+    );
     return;
   }
 
   let agents = AGENTS;
 
   if (block) {
-    agents = agents.filter(a => a.block === block);
+    agents = agents.filter((a) => a.block === block);
   }
 
   if (q) {
-    agents = agents.filter(a =>
-      a.name.toLowerCase().includes(q) ||
-      a.description.toLowerCase().includes(q) ||
-      a.id.toLowerCase().includes(q)
+    agents = agents.filter(
+      (a) =>
+        a.name.toLowerCase().includes(q) ||
+        a.description.toLowerCase().includes(q) ||
+        a.id.toLowerCase().includes(q),
     );
   }
 
@@ -46,7 +51,9 @@ router.get("/agents/:agentId", (req, res) => {
   if (apiKey) {
     const authHeader = req.headers.authorization;
     const headerKey = req.headers["x-api-key"] as string;
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
     if (token !== apiKey && headerKey !== apiKey) {
       // Return agent without systemPrompt if not authenticated
       const agent = getAgentById(req.params.agentId);
@@ -55,7 +62,10 @@ router.get("/agents/:agentId", (req, res) => {
         return;
       }
       const { systemPrompt: _, ...safe } = agent;
-      res.json({ ...safe, systemPrompt: "[REDACTED — provide API key to view]" });
+      res.json({
+        ...safe,
+        systemPrompt: "[REDACTED — provide API key to view]",
+      });
       return;
     }
   }

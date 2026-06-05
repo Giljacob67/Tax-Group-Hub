@@ -23,7 +23,13 @@ declare global {
     interface Request {
       userId?: string;
       isCron?: boolean;
-      authMethod?: "jwt" | "api-key" | "webhook" | "cron" | "dev-fallback" | "service-key";
+      authMethod?:
+        | "jwt"
+        | "api-key"
+        | "webhook"
+        | "cron"
+        | "dev-fallback"
+        | "service-key";
     }
   }
 }
@@ -42,7 +48,10 @@ declare global {
 export function isRealUser(userId?: string | null): userId is string {
   if (typeof userId !== "string") return false;
   if (userId.trim() === "") return false;
-  if (["default", "dev-user", "demo-user", "system", "service"].includes(userId)) return false;
+  if (
+    ["default", "dev-user", "demo-user", "system", "service"].includes(userId)
+  )
+    return false;
   return true;
 }
 
@@ -119,7 +128,11 @@ function bearerToken(req: Request): string | null {
  * together with the system API key allowed impersonation — that vector
  * is closed.
  */
-export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+export function authMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
   const jwtSecret = process.env.JWT_SECRET;
   const systemApiKey = process.env.API_KEY;
   const webhookSecret = process.env.WEBHOOK_SECRET;
@@ -133,9 +146,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     // Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`. The legacy
     // x-cron-secret header is also accepted for non-Vercel callers.
     const provided =
-      typeof headerSecret === "string"
-        ? headerSecret
-        : authToken ?? null;
+      typeof headerSecret === "string" ? headerSecret : (authToken ?? null);
     if (provided && safeCompare(provided, cronSecret)) {
       req.userId = "service";
       req.isCron = true;
@@ -163,7 +174,10 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   const token = bearerToken(req);
   if (token && jwtSecret) {
     try {
-      const decoded = jwt.verify(token, jwtSecret) as { sub?: string; userId?: string };
+      const decoded = jwt.verify(token, jwtSecret) as {
+        sub?: string;
+        userId?: string;
+      };
       const uid = decoded.userId || decoded.sub;
       if (uid && isRealUser(uid)) {
         req.userId = uid;
@@ -186,7 +200,11 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
   // 4. x-api-key header — same service key.
   const headerKey = req.headers["x-api-key"];
-  if (systemApiKey && typeof headerKey === "string" && safeCompare(headerKey, systemApiKey)) {
+  if (
+    systemApiKey &&
+    typeof headerKey === "string" &&
+    safeCompare(headerKey, systemApiKey)
+  ) {
     req.userId = serviceUserId;
     req.authMethod = "api-key";
     next();
@@ -195,7 +213,11 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
   // 5. Webhook secret → service identity (channel routing is per-token in handlers).
   const webhookProvided = req.headers["x-webhook-secret"];
-  if (webhookSecret && typeof webhookProvided === "string" && safeCompare(webhookProvided, webhookSecret)) {
+  if (
+    webhookSecret &&
+    typeof webhookProvided === "string" &&
+    safeCompare(webhookProvided, webhookSecret)
+  ) {
     req.userId = "service";
     req.authMethod = "webhook";
     next();
@@ -212,7 +234,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
   res.status(401).json({
     error: "Unauthorized",
-    message: "Acesso negado. Credenciais inválidas ou não fornecidas (JWT ou API Key necessária).",
+    message:
+      "Acesso negado. Credenciais inválidas ou não fornecidas (JWT ou API Key necessária).",
   });
 }
 
@@ -224,7 +247,9 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 export function requireUserId(req: Request): string {
   const uid = req.userId;
   if (!isRealUser(uid)) {
-    const err = new Error("Autenticação obrigatória (userId inválido ou ausente).");
+    const err = new Error(
+      "Autenticação obrigatória (userId inválido ou ausente).",
+    );
     (err as any).statusCode = 401;
     (err as any).status = 401;
     throw err;

@@ -11,9 +11,13 @@ interface BrandingContextType {
   isLoading: boolean;
 }
 
-const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
+const BrandingContext = createContext<BrandingContextType | undefined>(
+  undefined,
+);
 
-export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [branding, setBranding] = useState<BrandingData>({
     companyName: "Tax Group Hub",
     logoStorageKey: null,
@@ -25,7 +29,9 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     async function resolveBranding() {
       try {
         const hostname = window.location.hostname;
-        const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/branding/resolve?domain=${hostname}`);
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL || ""}/api/branding/resolve?domain=${hostname}`,
+        );
         if (res.ok) {
           const data = await res.json();
           setBranding({
@@ -36,9 +42,15 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           // Inject CSS Variable for Tailwind (Phase 10)
           if (data.primaryColor) {
-            document.documentElement.style.setProperty("--primary-color", data.primaryColor);
+            document.documentElement.style.setProperty(
+              "--primary-color",
+              data.primaryColor,
+            );
             // Optionally set absolute primary for older tailwind plugins if needed
-            document.documentElement.style.setProperty("--primary", data.primaryColor);
+            document.documentElement.style.setProperty(
+              "--primary",
+              data.primaryColor,
+            );
           }
         }
       } catch (err) {
@@ -60,6 +72,7 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
 export const useBranding = () => {
   const context = useContext(BrandingContext);
-  if (!context) throw new Error("useBranding must be used within BrandingProvider");
+  if (!context)
+    throw new Error("useBranding must be used within BrandingProvider");
   return context;
 };

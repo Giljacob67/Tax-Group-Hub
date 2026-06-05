@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Activity, Zap, Trash2, Edit2, TestTube, Star,
-  AlertCircle, CheckCircle2, Clock, Loader2,
-  Search, X
+  Activity,
+  Zap,
+  Trash2,
+  Edit2,
+  TestTube,
+  Star,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Search,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,12 +33,42 @@ interface ConnectionTableProps {
   onShowDiagnostics: (conn: LlmConnection) => void;
 }
 
-function StatusBadge({ status, error }: { status: string; error: string | null }) {
+function StatusBadge({
+  status,
+  error,
+}: {
+  status: string;
+  error: string | null;
+}) {
   if (status === "ok")
-    return <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 gap-1"><CheckCircle2 className="w-3 h-3" />OK</Badge>;
+    return (
+      <Badge
+        variant="outline"
+        className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 gap-1"
+      >
+        <CheckCircle2 className="w-3 h-3" />
+        OK
+      </Badge>
+    );
   if (status === "error")
-    return <Badge variant="outline" className="border-red-500/30 text-red-400 bg-red-500/10 gap-1"><AlertCircle className="w-3 h-3" />Erro</Badge>;
-  return <Badge variant="outline" className="border-muted text-muted-foreground bg-muted/20 gap-1"><Clock className="w-3 h-3" />Não testado</Badge>;
+    return (
+      <Badge
+        variant="outline"
+        className="border-red-500/30 text-red-400 bg-red-500/10 gap-1"
+      >
+        <AlertCircle className="w-3 h-3" />
+        Erro
+      </Badge>
+    );
+  return (
+    <Badge
+      variant="outline"
+      className="border-muted text-muted-foreground bg-muted/20 gap-1"
+    >
+      <Clock className="w-3 h-3" />
+      Não testado
+    </Badge>
+  );
 }
 
 export function ConnectionTable({
@@ -64,9 +103,13 @@ export function ConnectionTable({
           <Activity className="w-5 h-5 text-muted-foreground" />
         </div>
         <p className="text-sm text-muted-foreground">
-          {selectedProvider ? "Nenhuma conexão para este provedor." : "Nenhuma conexão configurada ainda."}
+          {selectedProvider
+            ? "Nenhuma conexão para este provedor."
+            : "Nenhuma conexão configurada ainda."}
         </p>
-        <p className="text-xs text-muted-foreground/60 mt-1">Clique em "Conectar" em um provedor para começar.</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">
+          Clique em "Conectar" em um provedor para começar.
+        </p>
       </div>
     );
   }
@@ -82,7 +125,10 @@ export function ConnectionTable({
           className="pl-8 h-8 text-sm bg-background"
         />
         {search && (
-          <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+          <button
+            onClick={() => setSearch("")}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         )}
@@ -106,13 +152,22 @@ export function ConnectionTable({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-base">{provider?.icon || "🤖"}</span>
-                    <h4 className="text-sm font-semibold text-foreground truncate">{conn.name}</h4>
+                    <h4 className="text-sm font-semibold text-foreground truncate">
+                      {conn.name}
+                    </h4>
                     {conn.isDefault && (
-                      <Badge variant="outline" className="border-primary/30 text-primary bg-primary/10 gap-1 text-[10px]">
-                        <Star className="w-2.5 h-2.5" />Padrão
+                      <Badge
+                        variant="outline"
+                        className="border-primary/30 text-primary bg-primary/10 gap-1 text-[10px]"
+                      >
+                        <Star className="w-2.5 h-2.5" />
+                        Padrão
                       </Badge>
                     )}
-                    <StatusBadge status={conn.lastTestStatus} error={conn.lastError} />
+                    <StatusBadge
+                      status={conn.lastTestStatus}
+                      error={conn.lastError}
+                    />
                   </div>
 
                   <div className="mt-1.5 flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
@@ -122,7 +177,10 @@ export function ConnectionTable({
                     {conn.contextWindow && (
                       <>
                         <span>·</span>
-                        <CapabilityBadge type="context" value={`${(conn.contextWindow / 1000).toFixed(0)}k`} />
+                        <CapabilityBadge
+                          type="context"
+                          value={`${(conn.contextWindow / 1000).toFixed(0)}k`}
+                        />
                       </>
                     )}
                     {conn.supportsTools && <CapabilityBadge type="tools" />}
@@ -136,30 +194,61 @@ export function ConnectionTable({
                       className="mt-2 text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
                     >
                       <AlertCircle className="w-3 h-3" />
-                      {diag.results.find((r) => !r.ok)?.userMessage || "Problemas detectados"}
+                      {diag.results.find((r) => !r.ok)?.userMessage ||
+                        "Problemas detectados"}
                     </button>
                   )}
 
                   {conn.lastTestedAt && (
                     <p className="mt-1 text-[11px] text-muted-foreground/60">
-                      Último teste: {new Date(conn.lastTestedAt).toLocaleString("pt-BR")}
+                      Último teste:{" "}
+                      {new Date(conn.lastTestedAt).toLocaleString("pt-BR")}
                     </p>
                   )}
                 </div>
 
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onTest(conn)} disabled={isTesting} title="Testar">
-                    {isTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TestTube className="w-3.5 h-3.5" />}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => onTest(conn)}
+                    disabled={isTesting}
+                    title="Testar"
+                  >
+                    {isTesting ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <TestTube className="w-3.5 h-3.5" />
+                    )}
                   </Button>
                   {!conn.isDefault && (
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onActivate(conn)} title="Ativar como padrão">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => onActivate(conn)}
+                      title="Ativar como padrão"
+                    >
                       <Star className="w-3.5 h-3.5" />
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onEdit(conn)} title="Editar">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => onEdit(conn)}
+                    title="Editar"
+                  >
                     <Edit2 className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => onDelete(conn)} title="Remover">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                    onClick={() => onDelete(conn)}
+                    title="Remover"
+                  >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>

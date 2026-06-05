@@ -1,4 +1,9 @@
-import { db, crmContactsTable, crmDealsTable, crmEnrichmentLogTable } from "@workspace/db";
+import {
+  db,
+  crmContactsTable,
+  crmDealsTable,
+  crmEnrichmentLogTable,
+} from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { callLLM } from "./llm-client.js";
 import { getAgentById } from "./agents-data.js";
@@ -11,9 +16,16 @@ interface EnrichmentResult {
   dealCreated: boolean;
 }
 
-function parseEnrichmentOutput(output: string): Pick<EnrichmentResult, "score" | "classificacao" | "produtoRecomendado" | "creditoEstimado"> {
+function parseEnrichmentOutput(
+  output: string,
+): Pick<
+  EnrichmentResult,
+  "score" | "classificacao" | "produtoRecomendado" | "creditoEstimado"
+> {
   // Try to extract the JSON block appended at the end of the agent output
-  const jsonMatch = output.match(/```json\s*([\s\S]*?)```/i) || output.match(/\{[\s\S]*"score"[\s\S]*\}/);
+  const jsonMatch =
+    output.match(/```json\s*([\s\S]*?)```/i) ||
+    output.match(/\{[\s\S]*"score"[\s\S]*\}/);
   if (jsonMatch) {
     try {
       const raw = JSON.parse(jsonMatch[1] ?? jsonMatch[0]);
@@ -35,7 +47,9 @@ function parseEnrichmentOutput(output: string): Pick<EnrichmentResult, "score" |
 
   return {
     score: scoreMatch ? Math.min(100, Number(scoreMatch[1])) : 0,
-    classificacao: (classMatch?.[1]?.toUpperCase() as EnrichmentResult["classificacao"]) ?? "COLD",
+    classificacao:
+      (classMatch?.[1]?.toUpperCase() as EnrichmentResult["classificacao"]) ??
+      "COLD",
     produtoRecomendado: produtoMatch?.[1] ?? "",
     creditoEstimado: "",
   };
@@ -45,7 +59,10 @@ function parseEnrichmentOutput(output: string): Pick<EnrichmentResult, "score" |
  * Runs diagnostico-cnpj-tax-group for a contact, updates aiScore/aiRecommendedProduct,
  * logs to crmEnrichmentLogTable, and auto-creates a deal if score >= 60.
  */
-export async function enrichContact(contactId: number, userId: string): Promise<EnrichmentResult | null> {
+export async function enrichContact(
+  contactId: number,
+  userId: string,
+): Promise<EnrichmentResult | null> {
   const agent = getAgentById("diagnostico-cnpj-tax-group");
   if (!agent) {
     console.error("[Enrichment] diagnostico-cnpj-tax-group agent not found");
@@ -55,7 +72,12 @@ export async function enrichContact(contactId: number, userId: string): Promise<
   const [contact] = await db
     .select()
     .from(crmContactsTable)
-    .where(and(eq(crmContactsTable.id, contactId), eq(crmContactsTable.userId, userId)))
+    .where(
+      and(
+        eq(crmContactsTable.id, contactId),
+        eq(crmContactsTable.userId, userId),
+      ),
+    )
     .limit(1);
 
   if (!contact) {
@@ -112,10 +134,21 @@ Realize o diagnóstico completo e ao final inclua obrigatoriamente um bloco JSON
     .values({
       contactId,
       source: "diagnostico-ia",
-      rawData: { score: parsed.score, classificacao: parsed.classificacao, produtoRecomendado: parsed.produtoRecomendado },
-      fieldsUpdated: ["aiScore", "aiScoreDetails", "aiRecommendedProduct", "lastEnrichedAt"],
+      rawData: {
+        score: parsed.score,
+        classificacao: parsed.classificacao,
+        produtoRecomendado: parsed.produtoRecomendado,
+      },
+      fieldsUpdated: [
+        "aiScore",
+        "aiScoreDetails",
+        "aiRecommendedProduct",
+        "lastEnrichedAt",
+      ],
     })
-    .catch((err: Error) => console.error("[Enrichment] Log insert failed:", err));
+    .catch((err: Error) =>
+      console.error("[Enrichment] Log insert failed:", err),
+    );
 
   // Auto-create deal if score >= 60 and no active deal exists
   let dealCreated = false;
@@ -123,7 +156,12 @@ Realize o diagnóstico completo e ao final inclua obrigatoriamente um bloco JSON
     const existingDeals = await db
       .select({ id: crmDealsTable.id })
       .from(crmDealsTable)
-      .where(and(eq(crmDealsTable.contactId, contactId), eq(crmDealsTable.userId, userId)))
+      .where(
+        and(
+          eq(crmDealsTable.contactId, contactId),
+          eq(crmDealsTable.userId, userId),
+        ),
+      )
       .limit(1);
 
     if (existingDeals.length === 0) {
@@ -137,10 +175,14 @@ Realize o diagnóstico completo e ao final inclua obrigatoriamente um bloco JSON
         value: "0",
       });
       dealCreated = true;
-      console.log(`[Enrichment] Auto-created deal for contact ${contactId} (score: ${parsed.score})`);
+      console.log(
+        `[Enrichment] Auto-created deal for contact ${contactId} (score: ${parsed.score})`,
+      );
     }
   }
 
-  console.log(`[Enrichment] Contact ${contactId} scored ${parsed.score} (${parsed.classificacao}), product: ${parsed.produtoRecomendado}`);
+  console.log(
+    `[Enrichment] Contact ${contactId} scored ${parsed.score} (${parsed.classificacao}), product: ${parsed.produtoRecomendado}`,
+  );
   return { ...parsed, dealCreated };
 }

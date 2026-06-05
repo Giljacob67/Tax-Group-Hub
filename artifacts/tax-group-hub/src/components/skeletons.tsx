@@ -59,7 +59,9 @@ export function SkeletonChatMessage({ isUser = false }: { isUser?: boolean }) {
   return (
     <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
       <Skeleton className="w-8 h-8 rounded-full shrink-0" />
-      <div className={`space-y-2 max-w-[80%] ${isUser ? "items-end flex flex-col" : ""}`}>
+      <div
+        className={`space-y-2 max-w-[80%] ${isUser ? "items-end flex flex-col" : ""}`}
+      >
         <Skeleton className="w-24 h-3" />
         <Skeleton className="w-64 h-16 rounded-2xl" />
       </div>
@@ -125,7 +127,11 @@ export function SkeletonTableRow({ cols = 4 }: { cols?: number }) {
   return (
     <div className="flex items-center gap-3 py-3 px-4 border-b border-border/30">
       {Array.from({ length: cols }).map((_, i) => (
-        <Skeleton key={i} className="h-4 rounded" style={{ width: `${20 + Math.random() * 40}%` }} />
+        <Skeleton
+          key={i}
+          className="h-4 rounded"
+          style={{ width: `${20 + Math.random() * 40}%` }}
+        />
       ))}
     </div>
   );

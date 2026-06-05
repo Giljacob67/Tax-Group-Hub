@@ -12,8 +12,11 @@
  */
 
 import {
-  NEXT_STEP_ACTIONS, NEXT_STEP_LABELS, NEXT_STEP_PRIORITIES,
-  type NextStepAction, type NextStepRecommendation,
+  NEXT_STEP_ACTIONS,
+  NEXT_STEP_LABELS,
+  NEXT_STEP_PRIORITIES,
+  type NextStepAction,
+  type NextStepRecommendation,
 } from "@workspace/db/crm-constants";
 
 export type ContactSnapshot = {
@@ -71,17 +74,27 @@ export function recommendNextStep(input: RecInput): NextStepRecommendation {
 
   // ─── 1. Lead nunca contatado ─────────────────────────────────────────────
   if (contact.status === "nao_iniciado" && !contact.ultimaInteracao) {
-    return mk("primeiro_contato", "Lead ainda não foi contatado. Faça o primeiro contato.", "alta", {
-      title: `Primeiro contato — ${contact.status}`,
-      type: "whatsapp",
-      dueInDays: 1,
-    });
+    return mk(
+      "primeiro_contato",
+      "Lead ainda não foi contatado. Faça o primeiro contato.",
+      "alta",
+      {
+        title: `Primeiro contato — ${contact.status}`,
+        type: "whatsapp",
+        dueInDays: 1,
+      },
+    );
   }
 
   // ─── 2. Aguardando Matriz (deal) ──────────────────────────────────────────
-  if (deal && (deal.statusMatriz === "enviado" || deal.statusMatriz === "aguardando")) {
+  if (
+    deal &&
+    (deal.statusMatriz === "enviado" || deal.statusMatriz === "aguardando")
+  ) {
     const prazoVencido = isOverdue(deal.prazoRetornoMatriz, now);
-    const diasAtraso = prazoVencido ? Math.ceil(daysSince(deal.prazoRetornoMatriz, now)) : 0;
+    const diasAtraso = prazoVencido
+      ? Math.ceil(daysSince(deal.prazoRetornoMatriz, now))
+      : 0;
     if (prazoVencido) {
       return mk(
         "cobrar_retorno",
@@ -109,7 +122,11 @@ export function recommendNextStep(input: RecInput): NextStepRecommendation {
   }
 
   // ─── 4. Proposta enviada sem retorno ──────────────────────────────────────
-  if (deal && (deal.statusMatriz === "proposta_liberada" || deal.stage === "proposta_enviada")) {
+  if (
+    deal &&
+    (deal.statusMatriz === "proposta_liberada" ||
+      deal.stage === "proposta_enviada")
+  ) {
     return mk(
       "follow_up_proposta",
       "Proposta enviada. Fazer follow-up para verificar leitura e dúvidas.",
@@ -119,13 +136,21 @@ export function recommendNextStep(input: RecInput): NextStepRecommendation {
   }
 
   // ─── 5. Proposta pronta para apresentar ──────────────────────────────────
-  if (deal && (deal.stage === "proposta_pronta" || deal.statusProposta === "proposta_pronta")) {
+  if (
+    deal &&
+    (deal.stage === "proposta_pronta" ||
+      deal.statusProposta === "proposta_pronta")
+  ) {
     if (!hasOpenTasks) {
       return mk(
         "apresentar_proposta",
         "Proposta pronta. Agendar/apresentar ao cliente.",
         "alta",
-        { title: "Apresentar proposta ao cliente", type: "meeting", dueInDays: 2 },
+        {
+          title: "Apresentar proposta ao cliente",
+          type: "meeting",
+          dueInDays: 2,
+        },
       );
     }
   }
@@ -157,7 +182,11 @@ export function recommendNextStep(input: RecInput): NextStepRecommendation {
       "cobrar_retorno",
       `Follow-up vencido há ${diasAtraso} dia(s).`,
       diasAtraso > 3 ? "urgente" : "alta",
-      { title: "Cobrar retorno / retomar contato", type: "whatsapp", dueInDays: 0 },
+      {
+        title: "Cobrar retorno / retomar contato",
+        type: "whatsapp",
+        dueInDays: 0,
+      },
     );
   }
 
@@ -173,18 +202,27 @@ export function recommendNextStep(input: RecInput): NextStepRecommendation {
   }
 
   // ─── 10. Lead quente sem responsável ─────────────────────────────────────
-  if ((contact.temperatura === "quente" || contact.temperatura === "burning")
-      && !contact.responsavelUnidade) {
+  if (
+    (contact.temperatura === "quente" || contact.temperatura === "burning") &&
+    !contact.responsavelUnidade
+  ) {
     return mk(
       "atualizar_dados",
       "Lead quente sem responsável atribuído. Atribuir e dar sequência.",
       "alta",
-      { title: "Atribuir responsável ao lead quente", type: "note", dueInDays: 0 },
+      {
+        title: "Atribuir responsável ao lead quente",
+        type: "note",
+        dueInDays: 0,
+      },
     );
   }
 
   // ─── 11. Status "respondeu" / "em_abordagem" sem follow-up ──────────────
-  if (["em_abordagem", "respondeu"].includes(contact.status) && !contact.proximoFollowup) {
+  if (
+    ["em_abordagem", "respondeu"].includes(contact.status) &&
+    !contact.proximoFollowup
+  ) {
     return mk(
       "agendar_reuniao",
       "Lead respondeu mas não tem próximo follow-up. Agendar reunião.",
@@ -213,10 +251,20 @@ export function recommendNextStep(input: RecInput): NextStepRecommendation {
         { title: "Avaliar expansão / pós-venda", type: "note", dueInDays: 14 },
       );
     }
-    return mk("sem_acao_no_momento", `Contato em estado final (${contact.status}).`, "baixa", null);
+    return mk(
+      "sem_acao_no_momento",
+      `Contato em estado final (${contact.status}).`,
+      "baixa",
+      null,
+    );
   }
 
-  return mk("sem_acao_no_momento", "Sem ação urgente no momento. Manter rotina de follow-up.", "baixa", null);
+  return mk(
+    "sem_acao_no_momento",
+    "Sem ação urgente no momento. Manter rotina de follow-up.",
+    "baixa",
+    null,
+  );
 }
 
 function mk(

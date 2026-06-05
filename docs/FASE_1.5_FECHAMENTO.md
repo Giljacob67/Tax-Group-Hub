@@ -10,16 +10,16 @@
 
 ### 1.1 Onde estava faltando
 
-| Item | Estado antes da Fase 1.5 |
-|---|---|
-| **Pipeline legado** | `SUGGESTED_STAGES` em `PipelineManager.tsx` continha 12 valores hardcoded (Prospecção, Contato Inicial, Qualificação, …, Renovação). `DEFAULT_PIPELINE` no mesmo arquivo usava chaves em inglês (`prospecting`, `discovery`, `proposal`, `negotiation`, `closing`, `won`, `lost`) em vez das 16 etapas Tax Group. |
-| **Campos Matriz no DEAL** | Schema `crmDealsTable` já tinha `motivoPerda`, `statusProposta`, `dataEnvioMatriz`, `prazoRetornoMatriz`, `dataRetornoMatriz`, `retornoMatriz`, `documentosEnviados`, `responsavelEnvioMatriz`, `pendenciasMatriz`, mas o form `DealEditModal` ignorava todos esses campos, e `allowedDealFields` na rota rejeitava `motivoPerda`, `dataRetornoMatriz`, `retornoMatriz`, `pendenciasMatriz`. |
-| **Campos CONTATO** | Schema já tinha `valorPotencial`, `pendenciasCliente`, `pendenciasUnidade`, `pendenciasMatriz`, `responsavelUnidade`, `proximoFollowup`, mas o `AddLeadDialog` enviava só o payload antigo. `allowedContactFields` rejeitava `pendenciasCliente`, `pendenciasUnidade`, `pendenciasMatriz`, `proximoFollowup`. |
-| **Etapas deal vs contato** | Pipeline Tax Group do contato tinha 16 etapas; `DEAL_STAGES` só 12. Pós-fechamento (onboarding, execução, acompanhamento, pós-venda, encerrado) ficavam sem etapa correspondente no deal. |
-| **Migração legada** | `LEGACY_CONTACT_STATUS_MAP` e `LEGACY_DEAL_STAGE_MAP` estavam definidos em `crm-constants.ts` mas nunca eram aplicados nem em runtime nem em migração SQL. |
-| **Eventos de timeline Matriz** | Rota de update do deal disparava `evaluateEventAutomations` para `matriz_aguardando`, `matriz_pendencia`, `proposta_pronta`, `proposta_enviada`, mas **não gravava entradas na timeline** com o tipo semântico esperado. A Fase 1 pediu rastreamento de envio/retorno, mas o histórico ficava disperso. |
-| **Comparações de status_proposta** | Backend comparava `deal.statusProposta === "proposta_enviada"` (formato antigo), enquanto o `PROPOSTA_STATUS` recém-corrigido usa `enviada` direto — gerando queries que nunca batiam. |
-| **Comparações de stage em inglês** | Backend ainda comparava `stage === "won"` / `stage === "lost"` em vários endpoints, ignorando os valores canônicos `fechado_ganho` / `perdido`. |
+| Item                               | Estado antes da Fase 1.5                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pipeline legado**                | `SUGGESTED_STAGES` em `PipelineManager.tsx` continha 12 valores hardcoded (Prospecção, Contato Inicial, Qualificação, …, Renovação). `DEFAULT_PIPELINE` no mesmo arquivo usava chaves em inglês (`prospecting`, `discovery`, `proposal`, `negotiation`, `closing`, `won`, `lost`) em vez das 16 etapas Tax Group.                                                                            |
+| **Campos Matriz no DEAL**          | Schema `crmDealsTable` já tinha `motivoPerda`, `statusProposta`, `dataEnvioMatriz`, `prazoRetornoMatriz`, `dataRetornoMatriz`, `retornoMatriz`, `documentosEnviados`, `responsavelEnvioMatriz`, `pendenciasMatriz`, mas o form `DealEditModal` ignorava todos esses campos, e `allowedDealFields` na rota rejeitava `motivoPerda`, `dataRetornoMatriz`, `retornoMatriz`, `pendenciasMatriz`. |
+| **Campos CONTATO**                 | Schema já tinha `valorPotencial`, `pendenciasCliente`, `pendenciasUnidade`, `pendenciasMatriz`, `responsavelUnidade`, `proximoFollowup`, mas o `AddLeadDialog` enviava só o payload antigo. `allowedContactFields` rejeitava `pendenciasCliente`, `pendenciasUnidade`, `pendenciasMatriz`, `proximoFollowup`.                                                                                |
+| **Etapas deal vs contato**         | Pipeline Tax Group do contato tinha 16 etapas; `DEAL_STAGES` só 12. Pós-fechamento (onboarding, execução, acompanhamento, pós-venda, encerrado) ficavam sem etapa correspondente no deal.                                                                                                                                                                                                    |
+| **Migração legada**                | `LEGACY_CONTACT_STATUS_MAP` e `LEGACY_DEAL_STAGE_MAP` estavam definidos em `crm-constants.ts` mas nunca eram aplicados nem em runtime nem em migração SQL.                                                                                                                                                                                                                                   |
+| **Eventos de timeline Matriz**     | Rota de update do deal disparava `evaluateEventAutomations` para `matriz_aguardando`, `matriz_pendencia`, `proposta_pronta`, `proposta_enviada`, mas **não gravava entradas na timeline** com o tipo semântico esperado. A Fase 1 pediu rastreamento de envio/retorno, mas o histórico ficava disperso.                                                                                      |
+| **Comparações de status_proposta** | Backend comparava `deal.statusProposta === "proposta_enviada"` (formato antigo), enquanto o `PROPOSTA_STATUS` recém-corrigido usa `enviada` direto — gerando queries que nunca batiam.                                                                                                                                                                                                       |
+| **Comparações de stage em inglês** | Backend ainda comparava `stage === "won"` / `stage === "lost"` em vários endpoints, ignorando os valores canônicos `fechado_ganho` / `perdido`.                                                                                                                                                                                                                                              |
 
 ### 1.2 O que foi corrigido
 
@@ -35,11 +35,11 @@
 
 ### 1.3 O que ficou como item futuro
 
-| Item | Por que ficou para frente |
-|---|---|
-| Filtro dedicado para `motivoPerda` | O escopo da Fase 1.5 diz: "se não houver, não criar filtros novos nesta fase". O campo é persistido e exibido, mas não há view específica de "Motivos de Perda" como há para `statusMatriz`. |
+| Item                                   | Por que ficou para frente                                                                                                                                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Filtro dedicado para `motivoPerda`     | O escopo da Fase 1.5 diz: "se não houver, não criar filtros novos nesta fase". O campo é persistido e exibido, mas não há view específica de "Motivos de Perda" como há para `statusMatriz`.                  |
 | View "Histórico de Matriz" consolidada | Os eventos já caem na timeline global (`/api/crm/activities` + `useListCrmActivities`), mas uma view consolidada (timeline lateral dedicada a Matriz) depende de redesign de UX. Foi documentado para Fase 2. |
-| Auditoria explícita de campos legados | A coluna `statusOriginal` / `stageOriginal` foi adicionada na resposta da API quando o valor é desconhecido, mas o registro formal em `crm_audit_log` é item natural da Fase 2. |
+| Auditoria explícita de campos legados  | A coluna `statusOriginal` / `stageOriginal` foi adicionada na resposta da API quando o valor é desconhecido, mas o registro formal em `crm_audit_log` é item natural da Fase 2.                               |
 
 ---
 
@@ -65,17 +65,17 @@
 
 Novos campos exibidos com regras de visibilidade:
 
-| Campo | Aparece quando |
-|---|---|
-| `statusProposta` | sempre (opcional) |
-| `responsavelEnvioMatriz` | sempre (opcional) |
-| `dataEnvioMatriz` | `statusMatriz` em `[enviado, aguardando, pendencia_documental, retorno_recebido, proposta_liberada]` |
-| `prazoRetornoMatriz` | idem |
-| `documentosEnviados` | idem (input de texto → array CSV) |
-| `dataRetornoMatriz` | `statusMatriz` em `[retorno_recebido, proposta_liberada]` |
-| `retornoMatriz` | idem (textarea) |
-| `pendenciasMatriz` | `statusMatriz === "pendencia_documental"` |
-| `motivoPerda` | `stage === "perdido"` (textarea) |
+| Campo                    | Aparece quando                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `statusProposta`         | sempre (opcional)                                                                                    |
+| `responsavelEnvioMatriz` | sempre (opcional)                                                                                    |
+| `dataEnvioMatriz`        | `statusMatriz` em `[enviado, aguardando, pendencia_documental, retorno_recebido, proposta_liberada]` |
+| `prazoRetornoMatriz`     | idem                                                                                                 |
+| `documentosEnviados`     | idem (input de texto → array CSV)                                                                    |
+| `dataRetornoMatriz`      | `statusMatriz` em `[retorno_recebido, proposta_liberada]`                                            |
+| `retornoMatriz`          | idem (textarea)                                                                                      |
+| `pendenciasMatriz`       | `statusMatriz === "pendencia_documental"`                                                            |
+| `motivoPerda`            | `stage === "perdido"` (textarea)                                                                     |
 
 **Tipo `Deal`:** atualizado em `crm.tsx` para incluir os 9 campos.
 
@@ -141,12 +141,12 @@ Funções exportadas:
 
 Quatro eventos semânticos gravados em `crm_activities` quando o `statusMatriz` transita:
 
-| Evento | Transição | Subject (timeline) |
-|---|---|---|
-| `deal_enviado_matriz` | `→ enviado` ou `→ aguardando` | `📤 Deal enviado para a Matriz` / `⏳ Deal aguardando retorno da Matriz` |
-| `deal_retorno_matriz_recebido` | `→ retorno_recebido` | `📥 Retorno da Matriz recebido` |
-| `deal_pendencia_matriz` | `→ pendencia_documental` | `📑 Pendência documental na Matriz` |
-| `deal_proposta_liberada_matriz` | `→ proposta_liberada` | `✅ Proposta liberada pela Matriz` |
+| Evento                          | Transição                     | Subject (timeline)                                                       |
+| ------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
+| `deal_enviado_matriz`           | `→ enviado` ou `→ aguardando` | `📤 Deal enviado para a Matriz` / `⏳ Deal aguardando retorno da Matriz` |
+| `deal_retorno_matriz_recebido`  | `→ retorno_recebido`          | `📥 Retorno da Matriz recebido`                                          |
+| `deal_pendencia_matriz`         | `→ pendencia_documental`      | `📑 Pendência documental na Matriz`                                      |
+| `deal_proposta_liberada_matriz` | `→ proposta_liberada`         | `✅ Proposta liberada pela Matriz`                                       |
 
 Mais um evento genérico disparado em qualquer mudança de `statusProposta`.
 
@@ -167,41 +167,41 @@ Todos gravam `type: "matriz_event"` na timeline, registrando subject + content (
 
 ### Frontend
 
-| Arquivo | Mudança |
-|---|---|
-| `artifacts/tax-group-hub/src/components/crm/PipelineManager.tsx` | Removido pipeline legado; badge explicativo adicionado; `SUGGESTED_STAGES` agora vem de `PIPELINE_TAX_GROUP_STAGES`. |
-| `artifacts/tax-group-hub/src/components/crm/GlobalTimeline.tsx` | Adicionado ícone `Briefcase` para `matriz_event`. |
-| `artifacts/tax-group-hub/src/pages/crm.tsx` | (1) `DealEditModal` ganha 9 campos com regras de visibilidade. (2) `AddLeadDialog` ganha 6 campos. (3) Detalhe do contato exibe bloco de Pendências e campos novos. (4) `STAGE_DICT` estendido. (5) `Deal` e `Contact` types atualizados. (6) `ACTIVITY_ICONS` com `matriz_event`. (7) Comparações antigas `proposta_enviada` migradas para `enviada`/etc. |
+| Arquivo                                                          | Mudança                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `artifacts/tax-group-hub/src/components/crm/PipelineManager.tsx` | Removido pipeline legado; badge explicativo adicionado; `SUGGESTED_STAGES` agora vem de `PIPELINE_TAX_GROUP_STAGES`.                                                                                                                                                                                                                                       |
+| `artifacts/tax-group-hub/src/components/crm/GlobalTimeline.tsx`  | Adicionado ícone `Briefcase` para `matriz_event`.                                                                                                                                                                                                                                                                                                          |
+| `artifacts/tax-group-hub/src/pages/crm.tsx`                      | (1) `DealEditModal` ganha 9 campos com regras de visibilidade. (2) `AddLeadDialog` ganha 6 campos. (3) Detalhe do contato exibe bloco de Pendências e campos novos. (4) `STAGE_DICT` estendido. (5) `Deal` e `Contact` types atualizados. (6) `ACTIVITY_ICONS` com `matriz_event`. (7) Comparações antigas `proposta_enviada` migradas para `enviada`/etc. |
 
 ### Backend
 
-| Arquivo | Mudança |
-|---|---|
+| Arquivo                                  | Mudança                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `artifacts/api-server/src/routes/crm.ts` | (1) `allowedDealFields` (POST + PUT) com campos Matriz + Proposta + Perda. (2) `allowedContactFields` (POST + PUT) com pendências + follow-up. (3) Eventos de timeline Matriz em PUT /deals/:id. (4) Normalização de status/stage legado em GET /contacts, GET /deals, GET /deals/pipeline. (5) Comparações antigas corrigidas (`won` → `fechado_ganho`, `lost` → `perdido`, `proposta_enviada` → `enviada`). |
 
 ### Schema / constants
 
-| Arquivo | Mudança |
-|---|---|
-| `lib/db/src/crm-constants.ts` | (1) `DEAL_STAGES` expandido para 19. (2) `DEAL_STAGE_LABELS` e `DEAL_STAGE_COLORS` estendidos. (3) `PIPELINE_TO_DEAL_STAGE` documentado. (4) `LEGACY_DEAL_STAGE_MAP` ganha mapeamentos PT-BR. (5) `CONTACT_STATUS_TO_DEAL_STAGE` cobre 14 status. (6) `DEAL_STAGE_TO_CONTACT_STATUS` cobre 19 deal stages. (7) `PROPOSTA_STATUS` reformatado para o escopo da Fase 1.5 (`em_preparacao`, `pronta`, `enviada`, `apresentada`, `aceita`, `recusada`, `em_renegociacao`). |
-| `lib/db/src/schema/crm.ts` | Comentário de `crmActivitiesTable.type` inclui `matriz_event`. |
-| `lib/db/src/legacy-migration.ts` | **Novo.** Helpers runtime. |
-| `lib/db/src/index.ts` | Re-exporta `./legacy-migration`. |
-| `lib/db/package.json` | Export `./legacy-migration`. |
-| `lib/db/migrations/002_fase1_5_legacy_migration.sql` | **Novo.** Migração SQL + queries de verificação. |
+| Arquivo                                              | Mudança                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/db/src/crm-constants.ts`                        | (1) `DEAL_STAGES` expandido para 19. (2) `DEAL_STAGE_LABELS` e `DEAL_STAGE_COLORS` estendidos. (3) `PIPELINE_TO_DEAL_STAGE` documentado. (4) `LEGACY_DEAL_STAGE_MAP` ganha mapeamentos PT-BR. (5) `CONTACT_STATUS_TO_DEAL_STAGE` cobre 14 status. (6) `DEAL_STAGE_TO_CONTACT_STATUS` cobre 19 deal stages. (7) `PROPOSTA_STATUS` reformatado para o escopo da Fase 1.5 (`em_preparacao`, `pronta`, `enviada`, `apresentada`, `aceita`, `recusada`, `em_renegociacao`). |
+| `lib/db/src/schema/crm.ts`                           | Comentário de `crmActivitiesTable.type` inclui `matriz_event`.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `lib/db/src/legacy-migration.ts`                     | **Novo.** Helpers runtime.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `lib/db/src/index.ts`                                | Re-exporta `./legacy-migration`.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `lib/db/package.json`                                | Export `./legacy-migration`.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `lib/db/migrations/002_fase1_5_legacy_migration.sql` | **Novo.** Migração SQL + queries de verificação.                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ---
 
 ## 4. Critério de aceite
 
-| Critério | Status |
-|---|---|
+| Critério                              | Status                                                                                                                                   |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Pipeline legado não é mais utilizável | ✅ `SUGGESTED_STAGES` agora só tem as 16 etapas Tax Group; `DEFAULT_PIPELINE` usa `DEFAULT_PIPELINE_NAME` e `PIPELINE_TAX_GROUP_STAGES`. |
-| Todos os campos novos são persistidos | ✅ Backend aceita via `allowedDealFields` e `allowedContactFields`. Formulário envia. |
-| Etapas do deal e do contato coerentes | ✅ `PIPELINE_TO_DEAL_STAGE` documenta equivalências; deal cobre 16 + 3 sub-etapas de proposta. |
-| Registros antigos não quebram a UI | ✅ Normalização runtime em todos os GETs; SQL migration aplica mapeamentos; `safeContactStatus` / `safeDealStage` garantem fallback. |
-| Evento de timeline Matriz existe | ✅ 4 eventos semânticos gravados em `crm_activities` com `type: "matriz_event"`. Mais um genérico para mudança de `statusProposta`. |
-| Typecheck passa | ✅ `tax-group-hub`, `api-server`, `api-zod`, `api-client-react` passam. |
+| Todos os campos novos são persistidos | ✅ Backend aceita via `allowedDealFields` e `allowedContactFields`. Formulário envia.                                                    |
+| Etapas do deal e do contato coerentes | ✅ `PIPELINE_TO_DEAL_STAGE` documenta equivalências; deal cobre 16 + 3 sub-etapas de proposta.                                           |
+| Registros antigos não quebram a UI    | ✅ Normalização runtime em todos os GETs; SQL migration aplica mapeamentos; `safeContactStatus` / `safeDealStage` garantem fallback.     |
+| Evento de timeline Matriz existe      | ✅ 4 eventos semânticos gravados em `crm_activities` com `type: "matriz_event"`. Mais um genérico para mudança de `statusProposta`.      |
+| Typecheck passa                       | ✅ `tax-group-hub`, `api-server`, `api-zod`, `api-client-react` passam.                                                                  |
 
 ---
 

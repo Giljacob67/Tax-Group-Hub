@@ -56,6 +56,12 @@ function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider style={style} defaultOpen={true}>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-lg focus:text-sm focus:font-medium"
+      >
+        Pular para o conteúdo principal
+      </a>
       <div className="flex h-screen w-full bg-background overflow-hidden selection:bg-primary/30">
         <AppSidebar />
         <div className="flex flex-col flex-1 relative w-full min-w-0">
@@ -63,7 +69,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger />
             <span className="text-sm font-medium text-foreground">Menu</span>
           </div>
-          <main className="flex-1 overflow-hidden flex flex-col w-full h-full">
+          <main id="main-content" className="flex-1 overflow-hidden flex flex-col w-full h-full">
             {children}
           </main>
         </div>
@@ -191,7 +197,7 @@ function App() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const toggle = () => setTheme(t => t === "dark" ? "light" : "dark");
+  const toggle = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
   return (
     <ErrorBoundary>

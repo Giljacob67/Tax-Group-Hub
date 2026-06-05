@@ -1,10 +1,21 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Wifi, Loader2, CheckCircle2, Eye, EyeOff, Save } from "lucide-react";
+import {
+  X,
+  Wifi,
+  Loader2,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Save,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { LlmConnection, ProviderMeta } from "./types";
-import { useDiscoverLlmModels, useUpdateLlmConnection } from "@workspace/api-client-react";
+import {
+  useDiscoverLlmModels,
+  useUpdateLlmConnection,
+} from "@workspace/api-client-react";
 
 interface Props {
   connection: LlmConnection;
@@ -22,14 +33,21 @@ interface DiscoveredModel {
   supportsJson?: boolean;
 }
 
-export default function EditConnectionModal({ connection, providers, onClose, onSaved }: Props) {
+export default function EditConnectionModal({
+  connection,
+  providers,
+  onClose,
+  onSaved,
+}: Props) {
   const provider = providers.find((p) => p.id === connection.provider);
 
   const [baseUrl, setBaseUrl] = useState(connection.baseUrl || "");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [models, setModels] = useState<DiscoveredModel[]>([]);
-  const [selectedModel, setSelectedModel] = useState<DiscoveredModel | null>(null);
+  const [selectedModel, setSelectedModel] = useState<DiscoveredModel | null>(
+    null,
+  );
   const [discovering, setDiscovering] = useState(false);
   const [discoverError, setDiscoverError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -60,7 +78,8 @@ export default function EditConnectionModal({ connection, providers, onClose, on
       });
       if ((data as any).success) {
         setModels((data as any).models);
-        if ((data as any).models.length === 0) setDiscoverError("Nenhum modelo encontrado.");
+        if ((data as any).models.length === 0)
+          setDiscoverError("Nenhum modelo encontrado.");
       } else {
         setDiscoverError((data as any).error || "Falha na descoberta");
       }
@@ -85,7 +104,8 @@ export default function EditConnectionModal({ connection, providers, onClose, on
         supportsTools: selectedModel.supportsTools,
         supportsJson: selectedModel.supportsJson,
       };
-      if (baseUrl !== (connection.baseUrl || "")) body.baseUrl = baseUrl || null;
+      if (baseUrl !== (connection.baseUrl || ""))
+        body.baseUrl = baseUrl || null;
       if (apiKey.trim()) body.apiKey = apiKey.trim();
 
       await updateConnMutate.mutateAsync({
@@ -102,7 +122,10 @@ export default function EditConnectionModal({ connection, providers, onClose, on
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -116,10 +139,15 @@ export default function EditConnectionModal({ connection, providers, onClose, on
             <span className="text-lg">{provider?.icon || "◈"}</span>
             <div>
               <div className="text-sm font-semibold">Editar Conexão</div>
-              <div className="text-[11px] text-muted-foreground">{connection.name}</div>
+              <div className="text-[11px] text-muted-foreground">
+                {connection.name}
+              </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -129,27 +157,47 @@ export default function EditConnectionModal({ connection, providers, onClose, on
           {/* Credentials */}
           {provider?.needsBaseUrl && (
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">URL do Servidor</label>
-              <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={provider.baseUrlPlaceholder} className="text-xs" />
+              <label className="text-xs text-muted-foreground">
+                URL do Servidor
+              </label>
+              <Input
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder={provider.baseUrlPlaceholder}
+                className="text-xs"
+              />
             </div>
           )}
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">{provider?.keyLabel || "API Key"}</label>
+            <label className="text-xs text-muted-foreground">
+              {provider?.keyLabel || "API Key"}
+            </label>
             <div className="flex gap-2">
               <div className="flex-1 relative">
                 <Input
                   type={showKey ? "text" : "password"}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={apiKey ? "" : "•••••••• (preencha apenas se quiser alterar)"}
+                  placeholder={
+                    apiKey ? "" : "•••••••• (preencha apenas se quiser alterar)"
+                  }
                   className="text-xs font-mono pr-9"
                 />
-                <button onClick={() => setShowKey((v) => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                <button
+                  onClick={() => setShowKey((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showKey ? (
+                    <EyeOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground">Deixe em branco para manter a chave atual.</p>
+            <p className="text-[11px] text-muted-foreground">
+              Deixe em branco para manter a chave atual.
+            </p>
           </div>
 
           {/* Discover */}
@@ -161,17 +209,30 @@ export default function EditConnectionModal({ connection, providers, onClose, on
               disabled={discovering || (provider?.needsBaseUrl && !baseUrl)}
               className="text-xs"
             >
-              {discovering ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Wifi className="w-3.5 h-3.5 mr-1.5" />}
+              {discovering ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+              ) : (
+                <Wifi className="w-3.5 h-3.5 mr-1.5" />
+              )}
               Buscar Modelos
             </Button>
-            {discoverError && <span className="text-xs text-red-400">{discoverError}</span>}
+            {discoverError && (
+              <span className="text-xs text-red-400">{discoverError}</span>
+            )}
           </div>
 
           {/* Models */}
           <AnimatePresence>
             {models.length > 0 && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">{models.length} modelo(s) encontrado(s)</div>
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-2"
+              >
+                <div className="text-xs font-medium text-muted-foreground">
+                  {models.length} modelo(s) encontrado(s)
+                </div>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 border border-border/30 rounded-xl p-2">
                   {models.map((m) => (
                     <button
@@ -185,12 +246,26 @@ export default function EditConnectionModal({ connection, providers, onClose, on
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium truncate">{m.name}</span>
-                        {selectedModel?.id === m.id && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                        {selectedModel?.id === m.id && (
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        )}
                       </div>
                       <div className="flex gap-1.5 mt-1">
-                        {m.supportsVision && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1 rounded">vision</span>}
-                        {m.supportsTools && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-1 rounded">tools</span>}
-                        {m.contextWindow && <span className="text-[10px] bg-muted px-1 rounded">{Math.round(m.contextWindow / 1000)}k ctx</span>}
+                        {m.supportsVision && (
+                          <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1 rounded">
+                            vision
+                          </span>
+                        )}
+                        {m.supportsTools && (
+                          <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-1 rounded">
+                            tools
+                          </span>
+                        )}
+                        {m.contextWindow && (
+                          <span className="text-[10px] bg-muted px-1 rounded">
+                            {Math.round(m.contextWindow / 1000)}k ctx
+                          </span>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -199,19 +274,34 @@ export default function EditConnectionModal({ connection, providers, onClose, on
             )}
           </AnimatePresence>
 
-          {saveError && <div className="text-xs text-red-400 bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2">{saveError}</div>}
+          {saveError && (
+            <div className="text-xs text-red-400 bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2">
+              {saveError}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border/30">
-          <Button variant="outline" size="sm" onClick={onClose} className="text-xs">Cancelar</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            className="text-xs"
+          >
+            Cancelar
+          </Button>
           <Button
             size="sm"
             onClick={handleSave}
             disabled={saving || !selectedModel}
             className="text-xs"
           >
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+            {saving ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+            ) : (
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+            )}
             Salvar Alterações
           </Button>
         </div>

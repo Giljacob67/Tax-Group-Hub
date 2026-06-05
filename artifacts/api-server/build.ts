@@ -52,7 +52,7 @@ async function buildAll() {
   const externals = allDeps.filter(
     (dep) =>
       !allowlist.includes(dep) &&
-      !(pkg.dependencies?.[dep]?.startsWith("workspace:")),
+      !pkg.dependencies?.[dep]?.startsWith("workspace:"),
   );
 
   const sharedOptions = {

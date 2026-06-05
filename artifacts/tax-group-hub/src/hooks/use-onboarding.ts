@@ -22,7 +22,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Navegação",
     description:
       "Acesse todas as áreas do hub: Command Center, CRM, Agentes, Automações, Base de Conhecimento e Configurações.",
-    target: "[data-tour=\"sidebar\"]",
+    target: '[data-tour="sidebar"]',
     placement: "right",
   },
   {
@@ -30,7 +30,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Command Center",
     description:
       "Visualize métricas em tempo real, atividade semanal e acesse seus agentes de IA com um clique.",
-    target: "[data-tour=\"dashboard\"]",
+    target: '[data-tour="dashboard"]',
     placement: "bottom",
   },
   {
@@ -38,7 +38,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: "CRM Inteligente",
     description:
       "Gerencie leads, deals, tarefas e pipelines. Qualificação automática por IA e enriquecimento de dados.",
-    target: "[data-tour=\"crm\"]",
+    target: '[data-tour="crm"]',
     placement: "bottom",
   },
   {
@@ -46,7 +46,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Chat com Agentes",
     description:
       "Converse com agentes especializados em prospecção, marketing e gestão. Eles têm acesso à sua base de conhecimento.",
-    target: "[data-tour=\"chat\"]",
+    target: '[data-tour="chat"]',
     placement: "bottom",
   },
   {
@@ -54,7 +54,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Configurações",
     description:
       "Conecte modelos LLM (OpenAI, Anthropic, Google, Ollama), configure WhatsApp e personalize sua marca.",
-    target: "[data-tour=\"settings\"]",
+    target: '[data-tour="settings"]',
     placement: "top",
   },
 ];

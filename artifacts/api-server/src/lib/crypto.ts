@@ -20,7 +20,9 @@ const ENCRYPTED_FORMAT = /^[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/i;
 
 export class DecryptionError extends Error {
   constructor(public readonly cause?: unknown) {
-    super("Decryption failed — value may be tampered or ENCRYPTION_KEY has changed.");
+    super(
+      "Decryption failed — value may be tampered or ENCRYPTION_KEY has changed.",
+    );
     this.name = "DecryptionError";
   }
 }
@@ -30,11 +32,13 @@ function getMasterKey(): Buffer {
   if (!hex) {
     throw new Error(
       "[Crypto] ENCRYPTION_KEY ausente. Defina uma chave de 64 caracteres hex (32 bytes). " +
-        "Gere com: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+        "Gere com: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
     );
   }
   if (hex.length !== 64 || !/^[0-9a-f]+$/i.test(hex)) {
-    throw new Error("[Crypto] ENCRYPTION_KEY inválida. Deve ter exatamente 64 caracteres hex (0-9, a-f).");
+    throw new Error(
+      "[Crypto] ENCRYPTION_KEY inválida. Deve ter exatamente 64 caracteres hex (0-9, a-f).",
+    );
   }
   return Buffer.from(hex, "hex");
 }
@@ -49,7 +53,9 @@ export function encrypt(plaintext: string): string {
   }
   const key = getMasterKey();
   const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
+  const cipher = createCipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
 
   let encrypted = cipher.update(plaintext, "utf8", "hex");
   encrypted += cipher.final("hex");
@@ -71,7 +77,9 @@ export function decrypt(encryptedValue: string): string {
   }
   if (!ENCRYPTED_FORMAT.test(encryptedValue)) {
     // Looks like a legacy plaintext or corrupted value — refuse rather than echo.
-    throw new DecryptionError(new Error("value is not in encrypted format iv:tag:cipher"));
+    throw new DecryptionError(
+      new Error("value is not in encrypted format iv:tag:cipher"),
+    );
   }
 
   const key = getMasterKey();
@@ -79,7 +87,9 @@ export function decrypt(encryptedValue: string): string {
   try {
     const iv = Buffer.from(ivHex, "hex");
     const authTag = Buffer.from(authTagHex, "hex");
-    const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
+    const decipher = createDecipheriv(ALGORITHM, key, iv, {
+      authTagLength: AUTH_TAG_LENGTH,
+    });
     decipher.setAuthTag(authTag);
 
     let decrypted = decipher.update(ciphertext, "hex", "utf8");
@@ -104,7 +114,7 @@ export function decryptTolerant(encryptedValue: string): string {
     if (process.env.NODE_ENV !== "test") {
       console.warn(
         "[Crypto] decryptTolerant: legacy plaintext value detected. " +
-          "Re-save the secret to encrypt it."
+          "Re-save the secret to encrypt it.",
       );
     }
     return encryptedValue;

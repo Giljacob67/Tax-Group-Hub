@@ -3,7 +3,11 @@ import { Loader2, CheckCircle2, XCircle, FileText, Send } from "lucide-react";
 import { useGetCrmContactBriefingChecklist } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 
-export default function BriefingChecklist({ contactId }: { contactId: number }) {
+export default function BriefingChecklist({
+  contactId,
+}: {
+  contactId: number;
+}) {
   const { data, isLoading } = useGetCrmContactBriefingChecklist(contactId, {
     query: { enabled: !!contactId },
   } as any);
@@ -39,7 +43,9 @@ export default function BriefingChecklist({ contactId }: { contactId: number }) 
               style={{ width: `${completionPct}%` }}
             />
           </div>
-          <span className="text-xs font-mono text-muted-foreground">{completionPct}%</span>
+          <span className="text-xs font-mono text-muted-foreground">
+            {completionPct}%
+          </span>
         </div>
       </div>
 
@@ -47,14 +53,16 @@ export default function BriefingChecklist({ contactId }: { contactId: number }) 
         <div className="flex items-center gap-2 p-2.5 rounded-md bg-emerald-500/10 border border-emerald-500/20">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           <span className="text-xs text-emerald-300 font-medium">
-            Pronto para enviar à Matriz. Todos os campos obrigatórios preenchidos.
+            Pronto para enviar à Matriz. Todos os campos obrigatórios
+            preenchidos.
           </span>
         </div>
       ) : (
         <div className="flex items-center gap-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/20">
           <XCircle className="w-4 h-4 text-amber-400" />
           <span className="text-xs text-amber-300">
-            Faltam {missing.length} campo(s) obrigatório(s) antes de enviar à Matriz.
+            Faltam {missing.length} campo(s) obrigatório(s) antes de enviar à
+            Matriz.
           </span>
         </div>
       )}
@@ -65,14 +73,22 @@ export default function BriefingChecklist({ contactId }: { contactId: number }) 
             {item.present ? (
               <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
             ) : (
-              <XCircle className={`w-3 h-3 flex-shrink-0 ${item.required ? "text-red-400" : "text-muted-foreground/50"}`} />
+              <XCircle
+                className={`w-3 h-3 flex-shrink-0 ${item.required ? "text-red-400" : "text-muted-foreground/50"}`}
+              />
             )}
-            <span className={`flex-1 ${item.present ? "text-foreground" : item.required ? "text-muted-foreground" : "text-muted-foreground/60"}`}>
+            <span
+              className={`flex-1 ${item.present ? "text-foreground" : item.required ? "text-muted-foreground" : "text-muted-foreground/60"}`}
+            >
               {item.label}
-              {item.required && !item.present && <span className="text-red-400 ml-1">*</span>}
+              {item.required && !item.present && (
+                <span className="text-red-400 ml-1">*</span>
+              )}
             </span>
             {item.present && item.value && (
-              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{item.value}</span>
+              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+                {item.value}
+              </span>
             )}
           </div>
         ))}

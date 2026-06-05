@@ -18,6 +18,7 @@ A arquitetura usa design **Multi-Tenant**, onde os dados pertencem a um usuário
 ## 🚀 Setup de Desenvolvimento (Local)
 
 ### 1. Pré-requisitos
+
 - [Node.js](https://nodejs.org/en/) (v20 ou superior recomendado)
 - [pnpm](https://pnpm.io/) (`npm i -g pnpm`)
 - Banco de dados PostgreSQL (Ex: [Neon](https://neon.tech/), Supabase ou banco local)
@@ -27,6 +28,7 @@ A arquitetura usa design **Multi-Tenant**, onde os dados pertencem a um usuário
 Crie os arquivos `.env` na raiz dos respectivos aplicativos conforme o documento `.env.example`:
 
 1. No root ou em `artifacts/api-server/.env`:
+
 ```env
 # Banco de dados Drizzle
 DATABASE_URL=postgresql://user:pass@host:5432/db_name
@@ -44,6 +46,7 @@ ENCRYPTION_KEY=sua_chave_aes_hex  # Chave de 32 bytes (64 chars hex) para cifrar
 ```
 
 2. No `artifacts/tax-group-hub/.env`:
+
 ```env
 VITE_API_URL=http://localhost:3000
 ```
@@ -64,6 +67,7 @@ pnpm run dev
 ## 🎨 Identidade Visual
 
 O Command Center utiliza um tema dark corporativo premium:
+
 - **Primary:** `#107EC2` (Tax Group Blue)
 - **Background:** `#07111F`
 - **Surface/Card:** `#0B1220` / `#111827`
@@ -77,7 +81,8 @@ A estética segue padrões SaaS B2B/fintech, com hierarquia visual clara, menos 
 ## 🔒 Segurança (Fatores Importantes)
 
 - **Auth Bypass:** O ambiente só ignora autenticação localmente se o `NODE_ENV` for diferente de `production` e `DEV_BYPASS_AUTH` ser `true`. No servidor de deploy (Vercel), você precisa expor o `API_KEY`.
-- **Read-Only FS na Vercel:** Os uploads de mídia, extração de pdfs e armazenamento persistentes operam na partição provisória `/tmp/uploads` para contornar limitações "Read Only" do ambiente *Serverless*.
+- **Read-Only FS na Vercel:** Os uploads de mídia, extração de pdfs e armazenamento persistentes operam na partição provisória `/tmp/uploads` para contornar limitações "Read Only" do ambiente _Serverless_.
 
 ## Documentação Extra
+
 - Referencie `docs/AUTOMACAO_MAKE.md` para lidar com configurações do Webhook do sistema no Make.com e automações agendadas do Telegram.

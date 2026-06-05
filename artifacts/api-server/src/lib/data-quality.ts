@@ -11,11 +11,12 @@
  */
 
 import { db } from "@workspace/db";
-import {
-  crmContactsTable, crmDealsTable,
-} from "@workspace/db";
+import { crmContactsTable, crmDealsTable } from "@workspace/db";
 import { eq, and, isNull, sql, ne, or } from "drizzle-orm";
-import { QUALITY_SEVERITIES, type QualityRule } from "@workspace/db/crm-constants";
+import {
+  QUALITY_SEVERITIES,
+  type QualityRule,
+} from "@workspace/db/crm-constants";
 
 export type QualityIssue = {
   rule: QualityRule;
@@ -28,14 +29,19 @@ export type QualityIssue = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export async function evaluateDataQuality(userId: string): Promise<QualityIssue[]> {
+export async function evaluateDataQuality(
+  userId: string,
+): Promise<QualityIssue[]> {
   const [contacts, deals] = await Promise.all([
-    db.select().from(crmContactsTable).where(eq(crmContactsTable.userId, userId)),
+    db
+      .select()
+      .from(crmContactsTable)
+      .where(eq(crmContactsTable.userId, userId)),
     db.select().from(crmDealsTable).where(eq(crmDealsTable.userId, userId)),
   ]);
 
   const issues: QualityIssue[] = [];
-  const dealByContact = new Map<number, typeof deals[number]>();
+  const dealByContact = new Map<number, (typeof deals)[number]>();
 
   for (const d of deals) {
     const existing = dealByContact.get(d.contactId);
@@ -48,7 +54,9 @@ export async function evaluateDataQuality(userId: string): Promise<QualityIssue[
     const label = c.razaoSocial || c.nomeFantasia || c.cnpj;
 
     if (!c.razaoSocial) {
-      issues.push(mk("missing_razao_social", "contact", c.id, label, { cnpj: c.cnpj }));
+      issues.push(
+        mk("missing_razao_social", "contact", c.id, label, { cnpj: c.cnpj }),
+      );
     }
     if (!c.setor) {
       issues.push(mk("missing_setor", "contact", c.id, label, {}));
@@ -62,12 +70,17 @@ export async function evaluateDataQuality(userId: string): Promise<QualityIssue[
     if (!c.nomeDecissor && c.status === "qualificado") {
       issues.push(mk("missing_decisor", "contact", c.id, label, {}));
     }
-    if (!c.responsavelUnidade && !["nao_iniciado", "perdido", "stand_by"].includes(c.status)) {
+    if (
+      !c.responsavelUnidade &&
+      !["nao_iniciado", "perdido", "stand_by"].includes(c.status)
+    ) {
       issues.push(mk("no_responsavel", "contact", c.id, label, {}));
     }
-    if (!c.proximoFollowup
-        && !["cliente", "perdido", "stand_by", "encerrado"].includes(c.status)
-        && new Date(c.createdAt).getTime() < Date.now() - 7 * DAY_MS) {
+    if (
+      !c.proximoFollowup &&
+      !["cliente", "perdido", "stand_by", "encerrado"].includes(c.status) &&
+      new Date(c.createdAt).getTime() < Date.now() - 7 * DAY_MS
+    ) {
       issues.push(mk("no_followup", "contact", c.id, label, {}));
     }
 
@@ -77,17 +90,27 @@ export async function evaluateDataQuality(userId: string): Promise<QualityIssue[
     }
 
     if (deal) {
-      if ((deal.statusMatriz === "enviado" || deal.statusMatriz === "aguardando")
-          && (!deal.briefingMatriz || deal.briefingMatriz.trim().length < 10)) {
-        issues.push(mk("matriz_no_briefing", "deal", deal.id, label, {
-          contactId: c.id, statusMatriz: deal.statusMatriz,
-        }));
+      if (
+        (deal.statusMatriz === "enviado" ||
+          deal.statusMatriz === "aguardando") &&
+        (!deal.briefingMatriz || deal.briefingMatriz.trim().length < 10)
+      ) {
+        issues.push(
+          mk("matriz_no_briefing", "deal", deal.id, label, {
+            contactId: c.id,
+            statusMatriz: deal.statusMatriz,
+          }),
+        );
       }
       if (deal.stage === "proposta_enviada" && !deal.statusProposta) {
-        issues.push(mk("proposta_no_status", "deal", deal.id, label, { contactId: c.id }));
+        issues.push(
+          mk("proposta_no_status", "deal", deal.id, label, { contactId: c.id }),
+        );
       }
       if (deal.stage === "perdido" && !deal.motivoPerda) {
-        issues.push(mk("perda_no_motivo", "deal", deal.id, label, { contactId: c.id }));
+        issues.push(
+          mk("perda_no_motivo", "deal", deal.id, label, { contactId: c.id }),
+        );
       }
     }
   }
@@ -102,7 +125,14 @@ function mk(
   entityLabel: string,
   context: Record<string, any>,
 ): QualityIssue {
-  return { rule, severity: QUALITY_SEVERITIES[rule], entityType, entityId, entityLabel, context };
+  return {
+    rule,
+    severity: QUALITY_SEVERITIES[rule],
+    entityType,
+    entityId,
+    entityLabel,
+    context,
+  };
 }
 
 export type DuplicateCandidate = {
@@ -117,8 +147,15 @@ export type DuplicateCandidate = {
  * - CNPJ: match exato após normalização
  * - Razão social: match após lowercase + trim
  */
-export async function findDuplicates(userId: string): Promise<DuplicateCandidate[]> {
-  const contacts = await db.select({ id: crmContactsTable.id, cnpj: crmContactsTable.cnpj, razaoSocial: crmContactsTable.razaoSocial })
+export async function findDuplicates(
+  userId: string,
+): Promise<DuplicateCandidate[]> {
+  const contacts = await db
+    .select({
+      id: crmContactsTable.id,
+      cnpj: crmContactsTable.cnpj,
+      razaoSocial: crmContactsTable.razaoSocial,
+    })
     .from(crmContactsTable)
     .where(eq(crmContactsTable.userId, userId));
 
@@ -151,9 +188,12 @@ export async function findDuplicates(userId: string): Promise<DuplicateCandidate
   }
   for (const [value, { ids, labels }] of byName) {
     if (ids.length > 1) {
-      const alreadyAdded = result.some(d => d.field === "razao_social"
-        && d.contactIds.length === ids.length
-        && d.contactIds.every(id => ids.includes(id)));
+      const alreadyAdded = result.some(
+        (d) =>
+          d.field === "razao_social" &&
+          d.contactIds.length === ids.length &&
+          d.contactIds.every((id) => ids.includes(id)),
+      );
       if (!alreadyAdded) {
         result.push({ field: "razao_social", value, contactIds: ids, labels });
       }
@@ -183,18 +223,23 @@ export async function computeHealth(userId: string): Promise<CrmHealth> {
     findDuplicates(userId),
   ]);
 
-  const contacts = await db.select({
-    id: crmContactsTable.id,
-    responsavelUnidade: crmContactsTable.responsavelUnidade,
-    proximoFollowup: crmContactsTable.proximoFollowup,
-  }).from(crmContactsTable).where(eq(crmContactsTable.userId, userId));
+  const contacts = await db
+    .select({
+      id: crmContactsTable.id,
+      responsavelUnidade: crmContactsTable.responsavelUnidade,
+      proximoFollowup: crmContactsTable.proximoFollowup,
+    })
+    .from(crmContactsTable)
+    .where(eq(crmContactsTable.userId, userId));
 
   const totalContacts = contacts.length;
-  const withResp = contacts.filter(c => c.responsavelUnidade).length;
-  const withFollowup = contacts.filter(c => c.proximoFollowup).length;
+  const withResp = contacts.filter((c) => c.responsavelUnidade).length;
+  const withFollowup = contacts.filter((c) => c.proximoFollowup).length;
 
-  const deals = await db.select({ id: crmDealsTable.id })
-    .from(crmDealsTable).where(eq(crmDealsTable.userId, userId));
+  const deals = await db
+    .select({ id: crmDealsTable.id })
+    .from(crmDealsTable)
+    .where(eq(crmDealsTable.userId, userId));
 
   const ruleCount = new Map<QualityRule, number>();
   for (const i of issues) {
@@ -208,15 +253,18 @@ export async function computeHealth(userId: string): Promise<CrmHealth> {
   return {
     totalContacts,
     totalDeals: deals.length,
-    completenessPct: totalContacts > 0
-      ? Math.round(((withResp + withFollowup) / (2 * totalContacts)) * 100)
-      : 0,
-    withResponsiblePct: totalContacts > 0 ? Math.round((withResp / totalContacts) * 100) : 0,
-    withFollowupPct: totalContacts > 0 ? Math.round((withFollowup / totalContacts) * 100) : 0,
+    completenessPct:
+      totalContacts > 0
+        ? Math.round(((withResp + withFollowup) / (2 * totalContacts)) * 100)
+        : 0,
+    withResponsiblePct:
+      totalContacts > 0 ? Math.round((withResp / totalContacts) * 100) : 0,
+    withFollowupPct:
+      totalContacts > 0 ? Math.round((withFollowup / totalContacts) * 100) : 0,
     duplicates: duplicates.length,
-    criticalIssues: issues.filter(i => i.severity === "critical").length,
-    warningIssues: issues.filter(i => i.severity === "warning").length,
-    infoIssues: issues.filter(i => i.severity === "info").length,
+    criticalIssues: issues.filter((i) => i.severity === "critical").length,
+    warningIssues: issues.filter((i) => i.severity === "warning").length,
+    infoIssues: issues.filter((i) => i.severity === "info").length,
     issues: issues.slice(0, 100),
     topRules,
   };

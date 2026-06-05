@@ -11,7 +11,14 @@ import logger from "./logger.js";
 export interface RouterOptions {
   connectionId?: number;
   profileId?: number;
-  usageType?: "chat" | "fast" | "reasoning" | "vision" | "embedding" | "image" | "transcription";
+  usageType?:
+    | "chat"
+    | "fast"
+    | "reasoning"
+    | "vision"
+    | "embedding"
+    | "image"
+    | "transcription";
   userId?: string;
 }
 
@@ -22,12 +29,15 @@ export interface RouterOptions {
  * 3. Default connection for usageType
  */
 async function resolveConnection(
-  opts: RouterOptions
+  opts: RouterOptions,
 ): Promise<typeof llmConnectionsTable.$inferSelect | null> {
   // 1. Direct connectionId — allow user-owned OR global (userId IS NULL) connections
   if (opts.connectionId) {
     const tenancyFilter = opts.userId
-      ? or(eq(llmConnectionsTable.userId, opts.userId), isNull(llmConnectionsTable.userId))
+      ? or(
+          eq(llmConnectionsTable.userId, opts.userId),
+          isNull(llmConnectionsTable.userId),
+        )
       : isNull(llmConnectionsTable.userId);
     const [conn] = await db
       .select()
@@ -84,8 +94,8 @@ async function resolveConnection(
       and(
         eq(llmConnectionsTable.usageType, opts.usageType || "chat"),
         eq(llmConnectionsTable.isDefault, true),
-        eq(llmConnectionsTable.isActive, true)
-      )
+        eq(llmConnectionsTable.isActive, true),
+      ),
     )
     .limit(1);
 
@@ -103,24 +113,29 @@ async function resolveConnection(
  */
 async function buildFallbackChain(
   primary: typeof llmConnectionsTable.$inferSelect,
-  userId?: string
-): Promise<typeof llmConnectionsTable.$inferSelect[]> {
+  userId?: string,
+): Promise<(typeof llmConnectionsTable.$inferSelect)[]> {
   const tenancyClause = userId
-    ? or(eq(llmConnectionsTable.userId, userId), isNull(llmConnectionsTable.userId))
+    ? or(
+        eq(llmConnectionsTable.userId, userId),
+        isNull(llmConnectionsTable.userId),
+      )
     : isNull(llmConnectionsTable.userId);
 
-  const all: typeof llmConnectionsTable.$inferSelect[] = await db
+  const all: (typeof llmConnectionsTable.$inferSelect)[] = await db
     .select()
     .from(llmConnectionsTable)
     .where(
       and(
         eq(llmConnectionsTable.usageType, primary.usageType),
         eq(llmConnectionsTable.isActive, true),
-        tenancyClause
-      )
+        tenancyClause,
+      ),
     );
 
-  const filtered = all.filter((c: typeof llmConnectionsTable.$inferSelect) => c.id !== primary.id);
+  const filtered = all.filter(
+    (c: typeof llmConnectionsTable.$inferSelect) => c.id !== primary.id,
+  );
 
   // Sort: tested-ok first, then untested, then errors
   const score = (c: typeof llmConnectionsTable.$inferSelect) => {
@@ -129,7 +144,12 @@ async function buildFallbackChain(
     return 1;
   };
 
-  filtered.sort((a: typeof llmConnectionsTable.$inferSelect, b: typeof llmConnectionsTable.$inferSelect) => score(b) - score(a));
+  filtered.sort(
+    (
+      a: typeof llmConnectionsTable.$inferSelect,
+      b: typeof llmConnectionsTable.$inferSelect,
+    ) => score(b) - score(a),
+  );
   return [primary, ...filtered];
 }
 
@@ -143,12 +163,14 @@ export async function callLLMViaConnection(
     jsonMode?: boolean;
     toolIds?: string[];
     maxRetries?: number;
-  }
-): Promise<LLMResult & { connectionUsed?: number; fallbackTriggered?: boolean }> {
+  },
+): Promise<
+  LLMResult & { connectionUsed?: number; fallbackTriggered?: boolean }
+> {
   const connection = await resolveConnection(opts);
   if (!connection) {
     throw new Error(
-      `Nenhuma conexão LLM encontrada para usageType='${opts.usageType || "chat"}'. Configure um modelo em Configurações > IA & LLM.`
+      `Nenhuma conexão LLM encontrada para usageType='${opts.usageType || "chat"}'. Configure um modelo em Configurações > IA & LLM.`,
     );
   }
 
@@ -181,8 +203,13 @@ export async function callLLMViaConnection(
       };
     } catch (err: any) {
       logger.warn(
-        { connectionId: conn.id, provider: conn.provider, model: conn.modelId, error: err.message },
-        "LLM call failed, trying fallback"
+        {
+          connectionId: conn.id,
+          provider: conn.provider,
+          model: conn.modelId,
+          error: err.message,
+        },
+        "LLM call failed, trying fallback",
       );
       errors.push(`[${conn.name}] ${err.message}`);
 
@@ -196,7 +223,7 @@ export async function callLLMViaConnection(
   }
 
   throw new Error(
-    `Todos os provedores de LLM falharam (${errors.length} tentativas):\n${errors.join("\n")}`
+    `Todos os provedores de LLM falharam (${errors.length} tentativas):\n${errors.join("\n")}`,
   );
 }
 
@@ -204,7 +231,9 @@ export async function callLLMViaConnection(
  * Health check all active connections and update their status.
  * Can be called from a cron job or background task.
  */
-export async function healthCheckConnections(userId?: string): Promise<
+export async function healthCheckConnections(
+  userId?: string,
+): Promise<
   Array<{ id: number; name: string; status: string; error?: string }>
 > {
   const conditions = [eq(llmConnectionsTable.isActive, true)];
@@ -226,19 +255,32 @@ export async function healthCheckConnections(userId?: string): Promise<
           model: conn.modelId,
           customUrl: conn.baseUrl || undefined,
           userId: conn.userId || undefined,
-        }
+        },
       );
       await db
         .update(llmConnectionsTable)
-        .set({ lastTestedAt: new Date(), lastTestStatus: "ok", lastError: null })
+        .set({
+          lastTestedAt: new Date(),
+          lastTestStatus: "ok",
+          lastError: null,
+        })
         .where(eq(llmConnectionsTable.id, conn.id));
       results.push({ id: conn.id, name: conn.name, status: "ok" });
     } catch (err: any) {
       await db
         .update(llmConnectionsTable)
-        .set({ lastTestedAt: new Date(), lastTestStatus: "error", lastError: err.message?.slice(0, 500) })
+        .set({
+          lastTestedAt: new Date(),
+          lastTestStatus: "error",
+          lastError: err.message?.slice(0, 500),
+        })
         .where(eq(llmConnectionsTable.id, conn.id));
-      results.push({ id: conn.id, name: conn.name, status: "error", error: err.message });
+      results.push({
+        id: conn.id,
+        name: conn.name,
+        status: "error",
+        error: err.message,
+      });
     }
   }
   return results;

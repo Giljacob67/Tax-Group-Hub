@@ -1,4 +1,8 @@
-export type IntegrationStatus = "connected" | "available" | "coming_soon" | "error";
+export type IntegrationStatus =
+  | "connected"
+  | "available"
+  | "coming_soon"
+  | "error";
 
 export type IntegrationCategory =
   | "Comunicação"
@@ -62,7 +66,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "whatsapp",
     name: "WhatsApp Business",
-    description: "Envie mensagens, receba leads e automatize conversas com a API oficial do WhatsApp Business.",
+    description:
+      "Envie mensagens, receba leads e automatize conversas com a API oficial do WhatsApp Business.",
     category: "Comunicação",
     status: "connected",
     emoji: "💬",
@@ -73,7 +78,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "telegram",
     name: "Telegram",
-    description: "Bot do Telegram para receber notificações, interagir com agentes e disparar fluxos automáticos.",
+    description:
+      "Bot do Telegram para receber notificações, interagir com agentes e disparar fluxos automáticos.",
     category: "Comunicação",
     status: "connected",
     emoji: "✈️",
@@ -83,7 +89,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "gmail",
     name: "Gmail",
-    description: "Leia e envie e-mails diretamente da plataforma. Dispare sequências de e-mail por eventos de CRM.",
+    description:
+      "Leia e envie e-mails diretamente da plataforma. Dispare sequências de e-mail por eventos de CRM.",
     category: "Comunicação",
     status: "coming_soon",
     emoji: "📧",
@@ -93,7 +100,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "slack",
     name: "Slack",
-    description: "Receba alertas de novos deals, tarefas vencidas e mudanças de estágio diretamente no Slack.",
+    description:
+      "Receba alertas de novos deals, tarefas vencidas e mudanças de estágio diretamente no Slack.",
     category: "Comunicação",
     status: "coming_soon",
     emoji: "🟣",
@@ -104,7 +112,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "empresaqui",
     name: "EmpresaQui",
-    description: "Enriquecimento automático de dados empresariais via CNPJ. Conecte contatos a dados da Receita Federal.",
+    description:
+      "Enriquecimento automático de dados empresariais via CNPJ. Conecte contatos a dados da Receita Federal.",
     category: "CRM & Comercial",
     status: "connected",
     emoji: "🏢",
@@ -115,7 +124,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "hubspot",
     name: "HubSpot",
-    description: "Sincronize contatos, deals e atividades bidirecionalmente com o HubSpot CRM.",
+    description:
+      "Sincronize contatos, deals e atividades bidirecionalmente com o HubSpot CRM.",
     category: "CRM & Comercial",
     status: "available",
     emoji: "🟠",
@@ -126,7 +136,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "pipedrive",
     name: "Pipedrive",
-    description: "Exporte e importe negociações do Pipedrive. Mantenha pipelines sincronizados.",
+    description:
+      "Exporte e importe negociações do Pipedrive. Mantenha pipelines sincronizados.",
     category: "CRM & Comercial",
     status: "coming_soon",
     emoji: "🔵",
@@ -136,7 +147,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "rdstation",
     name: "RD Station",
-    description: "Capture leads do RD Station automaticamente e qualifique com IA antes de enviar ao time comercial.",
+    description:
+      "Capture leads do RD Station automaticamente e qualifique com IA antes de enviar ao time comercial.",
     category: "CRM & Comercial",
     status: "coming_soon",
     emoji: "🟢",
@@ -148,7 +160,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "make",
     name: "Make (Integromat)",
-    description: "Construa cenários visuais de automação que conectam o Tax Group Hub a qualquer app via Make.",
+    description:
+      "Construa cenários visuais de automação que conectam o Tax Group Hub a qualquer app via Make.",
     category: "Automação",
     status: "available",
     emoji: "⚙️",
@@ -159,7 +172,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "zapier",
     name: "Zapier",
-    description: "Conecte mais de 6.000 apps ao Tax Group Hub com zaps prontos para uso.",
+    description:
+      "Conecte mais de 6.000 apps ao Tax Group Hub com zaps prontos para uso.",
     category: "Automação",
     status: "coming_soon",
     emoji: "⚡",
@@ -169,7 +183,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "n8n",
     name: "n8n",
-    description: "Workflows self-hosted de automação. Ideal para dados sensíveis e fluxos complexos.",
+    description:
+      "Workflows self-hosted de automação. Ideal para dados sensíveis e fluxos complexos.",
     category: "Automação",
     status: "coming_soon",
     emoji: "🔄",
@@ -179,7 +194,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "power-automate",
     name: "Power Automate",
-    description: "Integração com o ecossistema Microsoft via Power Automate para empresas que usam Microsoft 365.",
+    description:
+      "Integração com o ecossistema Microsoft via Power Automate para empresas que usam Microsoft 365.",
     category: "Automação",
     status: "coming_soon",
     emoji: "🔷",
@@ -190,7 +206,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "canva",
     name: "Canva",
-    description: "Abra templates profissionais pré-configurados para o contexto tributário: propostas, apresentações, posts.",
+    description:
+      "Abra templates profissionais pré-configurados para o contexto tributário: propostas, apresentações, posts.",
     category: "Conteúdo & Design",
     status: "connected",
     emoji: "🎨",
@@ -201,7 +218,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "google-drive",
     name: "Google Drive",
-    description: "Salve documentos gerados, propostas e relatórios diretamente em pastas organizadas do Drive.",
+    description:
+      "Salve documentos gerados, propostas e relatórios diretamente em pastas organizadas do Drive.",
     category: "Conteúdo & Design",
     status: "available",
     emoji: "📁",
@@ -211,7 +229,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "notion",
     name: "Notion",
-    description: "Sincronize bases de conhecimento e documentação tributária com workspaces do Notion.",
+    description:
+      "Sincronize bases de conhecimento e documentação tributária com workspaces do Notion.",
     category: "Conteúdo & Design",
     status: "coming_soon",
     emoji: "📝",
@@ -221,7 +240,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "figma",
     name: "Figma",
-    description: "Exporte assets e protótipos de relatórios diretamente do Figma para o fluxo de documentos.",
+    description:
+      "Exporte assets e protótipos de relatórios diretamente do Figma para o fluxo de documentos.",
     category: "Conteúdo & Design",
     status: "coming_soon",
     emoji: "🖌️",
@@ -232,7 +252,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "google-sheets",
     name: "Google Sheets",
-    description: "Exporte relatórios de CRM, analytics e dados financeiros para planilhas do Google Sheets.",
+    description:
+      "Exporte relatórios de CRM, analytics e dados financeiros para planilhas do Google Sheets.",
     category: "Dados & Documentos",
     status: "coming_soon",
     emoji: "📊",
@@ -243,7 +264,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "airtable",
     name: "Airtable",
-    description: "Sincronize bases de dados de clientes e projetos com o Airtable para relatórios customizados.",
+    description:
+      "Sincronize bases de dados de clientes e projetos com o Airtable para relatórios customizados.",
     category: "Dados & Documentos",
     status: "coming_soon",
     emoji: "🗃️",
@@ -253,7 +275,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "dropbox",
     name: "Dropbox",
-    description: "Faça backup automático de documentos fiscais e certidões no Dropbox Business.",
+    description:
+      "Faça backup automático de documentos fiscais e certidões no Dropbox Business.",
     category: "Dados & Documentos",
     status: "coming_soon",
     emoji: "📦",
@@ -263,7 +286,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "onedrive",
     name: "OneDrive",
-    description: "Integração com OneDrive para empresas no ecossistema Microsoft 365.",
+    description:
+      "Integração com OneDrive para empresas no ecossistema Microsoft 365.",
     category: "Dados & Documentos",
     status: "coming_soon",
     emoji: "☁️",
@@ -274,7 +298,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "google-gemini",
     name: "Google Gemini",
-    description: "Modelos Gemini Pro e Flash para geração de texto, análise de documentos e imagens.",
+    description:
+      "Modelos Gemini Pro e Flash para geração de texto, análise de documentos e imagens.",
     category: "IA & Modelos",
     status: "connected",
     emoji: "✨",
@@ -285,7 +310,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "openai",
     name: "OpenAI",
-    description: "GPT-4o e modelos da OpenAI para agentes conversacionais e análise tributária avançada.",
+    description:
+      "GPT-4o e modelos da OpenAI para agentes conversacionais e análise tributária avançada.",
     category: "IA & Modelos",
     status: "available",
     emoji: "🤖",
@@ -295,7 +321,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "anthropic",
     name: "Anthropic Claude",
-    description: "Claude 3.5 Sonnet e Opus para raciocínio complexo e geração de documentos jurídico-tributários.",
+    description:
+      "Claude 3.5 Sonnet e Opus para raciocínio complexo e geração de documentos jurídico-tributários.",
     category: "IA & Modelos",
     status: "available",
     emoji: "🧠",
@@ -305,7 +332,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "groq",
     name: "Groq",
-    description: "Inferência ultra-rápida via Groq Cloud com modelos Llama e Mixtral para respostas em tempo real.",
+    description:
+      "Inferência ultra-rápida via Groq Cloud com modelos Llama e Mixtral para respostas em tempo real.",
     category: "IA & Modelos",
     status: "available",
     emoji: "⚡",
@@ -315,7 +343,8 @@ export const INTEGRATIONS_CATALOG: IntegrationCatalogEntry[] = [
   {
     id: "ollama",
     name: "Ollama (Local)",
-    description: "Rode modelos locais com Ollama para máxima privacidade. Dados sensíveis nunca saem do servidor.",
+    description:
+      "Rode modelos locais com Ollama para máxima privacidade. Dados sensíveis nunca saem do servidor.",
     category: "IA & Modelos",
     status: "available",
     emoji: "🦙",
@@ -330,7 +359,8 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
     name: "Boas-vindas automáticas",
     trigger: "Novo contato criado",
     action: "Enviar mensagem WhatsApp",
-    description: "Quando um novo contato é adicionado ao CRM, envia mensagem de boas-vindas personalizada via WhatsApp.",
+    description:
+      "Quando um novo contato é adicionado ao CRM, envia mensagem de boas-vindas personalizada via WhatsApp.",
     status: "active",
     emoji: "👋",
   },
@@ -339,7 +369,8 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
     name: "Score alto → Proposta",
     trigger: "Score IA ≥ 70",
     action: "Criar tarefa de proposta",
-    description: "Quando o score IA de um contato ultrapassa 70, cria automaticamente uma tarefa para enviar proposta.",
+    description:
+      "Quando o score IA de um contato ultrapassa 70, cria automaticamente uma tarefa para enviar proposta.",
     status: "active",
     emoji: "🎯",
   },
@@ -348,7 +379,8 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
     name: "Deal ganho → Drive",
     trigger: "Deal movido para 'Ganho'",
     action: "Criar pasta no Drive",
-    description: "Ao fechar um deal, cria automaticamente uma pasta de cliente organizada no Google Drive.",
+    description:
+      "Ao fechar um deal, cria automaticamente uma pasta de cliente organizada no Google Drive.",
     status: "coming_soon",
     emoji: "🏆",
   },
@@ -357,7 +389,8 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
     name: "Mudança de estágio",
     trigger: "Stage do deal alterado",
     action: "Notificar no Telegram",
-    description: "Envia notificação ao grupo de vendas no Telegram quando um deal muda de estágio.",
+    description:
+      "Envia notificação ao grupo de vendas no Telegram quando um deal muda de estágio.",
     status: "inactive",
     emoji: "🔔",
   },
@@ -366,7 +399,8 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
     name: "Tarefa vencida",
     trigger: "Tarefa atrasada há 1 dia",
     action: "Criar nova tarefa de follow-up",
-    description: "Gera automaticamente uma tarefa de follow-up para tarefas que passaram da data sem conclusão.",
+    description:
+      "Gera automaticamente uma tarefa de follow-up para tarefas que passaram da data sem conclusão.",
     status: "active",
     emoji: "⏰",
   },
@@ -375,23 +409,56 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
     name: "Lead novo → Qualificação IA",
     trigger: "Contato importado via webhook",
     action: "Executar score de IA",
-    description: "Quando um lead chega via webhook (site, formulário), aciona imediatamente o score de qualificação por IA.",
+    description:
+      "Quando um lead chega via webhook (site, formulário), aciona imediatamente o score de qualificação por IA.",
     status: "coming_soon",
     emoji: "🤖",
   },
 ];
 
 export const WEBHOOK_EVENTS: WebhookEvent[] = [
-  { id: "contact.created", name: "contact.created", description: "Novo contato adicionado ao CRM" },
-  { id: "contact.updated", name: "contact.updated", description: "Dados de contato atualizados" },
-  { id: "contact.scored", name: "contact.scored", description: "Score IA calculado ou recalculado" },
+  {
+    id: "contact.created",
+    name: "contact.created",
+    description: "Novo contato adicionado ao CRM",
+  },
+  {
+    id: "contact.updated",
+    name: "contact.updated",
+    description: "Dados de contato atualizados",
+  },
+  {
+    id: "contact.scored",
+    name: "contact.scored",
+    description: "Score IA calculado ou recalculado",
+  },
   { id: "deal.created", name: "deal.created", description: "Novo deal criado" },
-  { id: "deal.stage_changed", name: "deal.stage_changed", description: "Deal mudou de estágio no pipeline" },
+  {
+    id: "deal.stage_changed",
+    name: "deal.stage_changed",
+    description: "Deal mudou de estágio no pipeline",
+  },
   { id: "deal.won", name: "deal.won", description: "Deal marcado como ganho" },
-  { id: "deal.lost", name: "deal.lost", description: "Deal marcado como perdido" },
-  { id: "task.created", name: "task.created", description: "Nova tarefa criada" },
-  { id: "task.completed", name: "task.completed", description: "Tarefa concluída" },
-  { id: "message.received", name: "message.received", description: "Mensagem recebida via WhatsApp/Telegram" },
+  {
+    id: "deal.lost",
+    name: "deal.lost",
+    description: "Deal marcado como perdido",
+  },
+  {
+    id: "task.created",
+    name: "task.created",
+    description: "Nova tarefa criada",
+  },
+  {
+    id: "task.completed",
+    name: "task.completed",
+    description: "Tarefa concluída",
+  },
+  {
+    id: "message.received",
+    name: "message.received",
+    description: "Mensagem recebida via WhatsApp/Telegram",
+  },
 ];
 
 export const DEMO_LOGS: LogEntry[] = [
@@ -458,19 +525,85 @@ export const DEMO_LOGS: LogEntry[] = [
 ];
 
 export const IMAGE_PRESETS = [
-  { id: "linkedin_post", label: "Post LinkedIn", width: 1200, height: 628, style: "professional" },
-  { id: "apresentacao", label: "Apresentação", width: 1280, height: 720, style: "corporate" },
-  { id: "banner_site", label: "Banner Site", width: 1920, height: 600, style: "modern" },
-  { id: "post_instagram", label: "Post Instagram", width: 1080, height: 1080, style: "creative" },
-  { id: "capa_relatorio", label: "Capa Relatório", width: 1240, height: 1754, style: "formal" },
-  { id: "personalizado", label: "Personalizado", width: 1024, height: 1024, style: "corporate" },
+  {
+    id: "linkedin_post",
+    label: "Post LinkedIn",
+    width: 1200,
+    height: 628,
+    style: "professional",
+  },
+  {
+    id: "apresentacao",
+    label: "Apresentação",
+    width: 1280,
+    height: 720,
+    style: "corporate",
+  },
+  {
+    id: "banner_site",
+    label: "Banner Site",
+    width: 1920,
+    height: 600,
+    style: "modern",
+  },
+  {
+    id: "post_instagram",
+    label: "Post Instagram",
+    width: 1080,
+    height: 1080,
+    style: "creative",
+  },
+  {
+    id: "capa_relatorio",
+    label: "Capa Relatório",
+    width: 1240,
+    height: 1754,
+    style: "formal",
+  },
+  {
+    id: "personalizado",
+    label: "Personalizado",
+    width: 1024,
+    height: 1024,
+    style: "corporate",
+  },
 ] as const;
 
 export const CANVA_TEMPLATES = [
-  { id: "presentation", label: "Apresentação", emoji: "📊", description: "Slides profissionais para clientes" },
-  { id: "proposal", label: "Proposta Comercial", emoji: "📋", description: "Proposta tributária estruturada" },
-  { id: "social_post", label: "Post Tributário", emoji: "📱", description: "Post sobre legislação e tributos" },
-  { id: "report", label: "Relatório", emoji: "📈", description: "Relatório de compliance tributário" },
-  { id: "flyer", label: "Panfleto", emoji: "📄", description: "Material de divulgação de serviços" },
-  { id: "document", label: "Documento", emoji: "📝", description: "Documento tributário formal" },
+  {
+    id: "presentation",
+    label: "Apresentação",
+    emoji: "📊",
+    description: "Slides profissionais para clientes",
+  },
+  {
+    id: "proposal",
+    label: "Proposta Comercial",
+    emoji: "📋",
+    description: "Proposta tributária estruturada",
+  },
+  {
+    id: "social_post",
+    label: "Post Tributário",
+    emoji: "📱",
+    description: "Post sobre legislação e tributos",
+  },
+  {
+    id: "report",
+    label: "Relatório",
+    emoji: "📈",
+    description: "Relatório de compliance tributário",
+  },
+  {
+    id: "flyer",
+    label: "Panfleto",
+    emoji: "📄",
+    description: "Material de divulgação de serviços",
+  },
+  {
+    id: "document",
+    label: "Documento",
+    emoji: "📝",
+    description: "Documento tributário formal",
+  },
 ] as const;

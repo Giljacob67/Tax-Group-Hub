@@ -1,28 +1,57 @@
 import { Link, useLocation } from "wouter";
 import { motion, useScroll, useTransform } from "framer-motion";
 import {
-  ArrowRight, BarChart3, Bot, Briefcase, Building2,
-  CheckCircle2, ChevronRight, Crown, FileText, Flame,
-  Globe, Layers, Lightbulb, Megaphone, MessageSquare,
-  Rocket, Search, Settings2, ShieldCheck, Target, TrendingUp,
-  Users, Zap, Compass, Crosshair, Handshake, Route,
-  Sparkles, Cpu, BookOpen, ArrowUpRight
+  ArrowRight,
+  BarChart3,
+  Bot,
+  Briefcase,
+  Building2,
+  CheckCircle2,
+  ChevronRight,
+  Crown,
+  FileText,
+  Flame,
+  Globe,
+  Layers,
+  Lightbulb,
+  Megaphone,
+  MessageSquare,
+  Rocket,
+  Search,
+  Settings2,
+  ShieldCheck,
+  Target,
+  TrendingUp,
+  Users,
+  Zap,
+  Compass,
+  Crosshair,
+  Handshake,
+  Route,
+  Sparkles,
+  Cpu,
+  BookOpen,
+  ArrowUpRight,
 } from "lucide-react";
 import { useBranding } from "@/contexts/BrandingContext";
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.08 } }
+  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
 };
 
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" as const } }
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: "easeOut" as const },
+  },
 };
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
 function AnimatedDivider() {
@@ -43,32 +72,38 @@ const VALUE_CARDS = [
   {
     icon: Target,
     title: "Empresas-alvo priorizadas",
-    description: "Mapeamento de CNPJs, segmentos e regimes tributários com pontuação inteligente.",
+    description:
+      "Mapeamento de CNPJs, segmentos e regimes tributários com pontuação inteligente.",
   },
   {
     icon: Bot,
     title: "Agentes especializados por etapa",
-    description: "Estratégia, prospecção, diagnóstico, marketing e gestão operacional automatizados.",
+    description:
+      "Estratégia, prospecção, diagnóstico, marketing e gestão operacional automatizados.",
   },
   {
     icon: BarChart3,
     title: "Pipeline tributário orientado por dados",
-    description: "Acompanhamento visual de oportunidades desde a descoberta até o contrato.",
+    description:
+      "Acompanhamento visual de oportunidades desde a descoberta até o contrato.",
   },
   {
     icon: BookOpen,
     title: "Base de conhecimento conectada",
-    description: "Legislação, pareceres e modelos alimentam respostas precisas dos agentes.",
+    description:
+      "Legislação, pareceres e modelos alimentam respostas precisas dos agentes.",
   },
   {
     icon: FileText,
     title: "Diagnósticos e propostas com rastreabilidade",
-    description: "Cada etapa documentada, desde o primeiro contato até a proposta formal.",
+    description:
+      "Cada etapa documentada, desde o primeiro contato até a proposta formal.",
   },
   {
     icon: ShieldCheck,
     title: "Execução comercial com método",
-    description: "Campanhas, follow-up e automações que mantêm o pipeline sempre em movimento.",
+    description:
+      "Campanhas, follow-up e automações que mantêm o pipeline sempre em movimento.",
   },
 ];
 
@@ -77,42 +112,79 @@ const JOURNEY_STEPS = [
     step: 1,
     icon: Compass,
     title: "Mapear empresas-alvo",
-    description: "Centralize CNPJs, segmentos, regimes e sinais de oportunidade tributária.",
+    description:
+      "Centralize CNPJs, segmentos, regimes e sinais de oportunidade tributária.",
   },
   {
     step: 2,
     icon: Lightbulb,
     title: "Priorizar com inteligência tributária",
-    description: "Use score IA, contexto fiscal e potencial comercial para ordenar as melhores contas.",
+    description:
+      "Use score IA, contexto fiscal e potencial comercial para ordenar as melhores contas.",
   },
   {
     step: 3,
     icon: Rocket,
     title: "Acionar agentes especializados",
-    description: "Distribua tarefas para agentes de prospecção, diagnóstico, proposta, marketing e follow-up.",
+    description:
+      "Distribua tarefas para agentes de prospecção, diagnóstico, proposta, marketing e follow-up.",
   },
   {
     step: 4,
     icon: Handshake,
     title: "Converter em contrato",
-    description: "Acompanhe o pipeline até diagnóstico, proposta, negociação e fechamento.",
+    description:
+      "Acompanhe o pipeline até diagnóstico, proposta, negociação e fechamento.",
   },
 ];
 
 const AGENT_BLOCKS = [
-  { id: "estrategia", title: "Estratégia e Inteligência", icon: Crown, desc: "Orquestra campanhas, define prioridades e distribui tarefas estratégicas." },
-  { id: "prospeccao", title: "Prospecção Comercial", icon: Briefcase, desc: "Abordagem, qualificação, deals e follow-up comercial contínuo." },
-  { id: "diagnostico", title: "Diagnóstico Tributário", icon: Search, desc: "Análise fiscal profunda, identificação de créditos e oportunidades de economia." },
-  { id: "marketing", title: "Marketing e Conteúdo", icon: Megaphone, desc: "LinkedIn, e-mail, vídeo, WhatsApp e calendário editorial automatizado." },
-  { id: "gestao", title: "Gestão e Operação Interna", icon: Settings2, desc: "Pipeline, propostas, relatórios, treinamento e operação do escritório." },
+  {
+    id: "estrategia",
+    title: "Estratégia e Inteligência",
+    icon: Crown,
+    desc: "Orquestra campanhas, define prioridades e distribui tarefas estratégicas.",
+  },
+  {
+    id: "prospeccao",
+    title: "Prospecção Comercial",
+    icon: Briefcase,
+    desc: "Abordagem, qualificação, deals e follow-up comercial contínuo.",
+  },
+  {
+    id: "diagnostico",
+    title: "Diagnóstico Tributário",
+    icon: Search,
+    desc: "Análise fiscal profunda, identificação de créditos e oportunidades de economia.",
+  },
+  {
+    id: "marketing",
+    title: "Marketing e Conteúdo",
+    icon: Megaphone,
+    desc: "LinkedIn, e-mail, vídeo, WhatsApp e calendário editorial automatizado.",
+  },
+  {
+    id: "gestao",
+    title: "Gestão e Operação Interna",
+    icon: Settings2,
+    desc: "Pipeline, propostas, relatórios, treinamento e operação do escritório.",
+  },
 ];
 
 const FLOW_STEPS = [
-  { icon: Building2, label: "Empresa-alvo", desc: "Mapeamento e enriquecimento" },
+  {
+    icon: Building2,
+    label: "Empresa-alvo",
+    desc: "Mapeamento e enriquecimento",
+  },
   { icon: TrendingUp, label: "Score IA", desc: "Priorização inteligente" },
   { icon: Search, label: "Diagnóstico", desc: "Análise tributária profunda" },
   { icon: FileText, label: "Proposta", desc: "Documentação e apresentação" },
-  { icon: MessageSquare, label: "Follow-up", desc: "Nurturing e acompanhamento" },
+  {
+    icon: MessageSquare,
+    label: "Follow-up",
+    desc: "Nurturing e acompanhamento",
+  },
   { icon: CheckCircle2, label: "Contrato", desc: "Fechamento e ativação" },
 ];
 
@@ -131,9 +203,15 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/15 ring-1 ring-primary/30 flex items-center justify-center">
-              <img src={logoUrl} alt={branding.companyName} className="w-5 h-5 object-contain" />
+              <img
+                src={logoUrl}
+                alt={branding.companyName}
+                className="w-5 h-5 object-contain"
+              />
             </div>
-            <span className="font-bold text-sm tracking-tight">{branding.companyName}</span>
+            <span className="font-bold text-sm tracking-tight">
+              {branding.companyName}
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/?demo=1">
@@ -164,7 +242,10 @@ export default function LandingPage() {
             animate="show"
             className="max-w-3xl"
           >
-            <motion.div variants={itemVariants} className="flex items-center gap-2 mb-5">
+            <motion.div
+              variants={itemVariants}
+              className="flex items-center gap-2 mb-5"
+            >
               <span className="inline-flex h-2 w-2 rounded-full bg-primary animate-pulse" />
               <span className="text-[11px] font-semibold uppercase tracking-widest text-primary/80">
                 Plataforma operacional da Tax Group
@@ -175,18 +256,23 @@ export default function LandingPage() {
               variants={itemVariants}
               className="text-3xl md:text-5xl font-bold tracking-tight text-foreground leading-[1.15]"
             >
-              Inteligência tributária operacional para transformar dados em oportunidades, diagnósticos e contratos.
+              Inteligência tributária operacional para transformar dados em
+              oportunidades, diagnósticos e contratos.
             </motion.h1>
 
             <motion.p
               variants={itemVariants}
               className="text-base md:text-lg text-muted-foreground mt-5 leading-relaxed max-w-2xl"
             >
-              O Tax Group Command Center conecta CRM, agentes de IA, automações e base de conhecimento
-              para priorizar empresas, acionar especialistas e conduzir o pipeline comercial com método.
+              O Tax Group Command Center conecta CRM, agentes de IA, automações
+              e base de conhecimento para priorizar empresas, acionar
+              especialistas e conduzir o pipeline comercial com método.
             </motion.p>
 
-            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-8">
+            <motion.div
+              variants={itemVariants}
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-8"
+            >
               <Link href="/command-center">
                 <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/10">
                   <Target className="w-4 h-4" />
@@ -215,9 +301,12 @@ export default function LandingPage() {
             transition={{ duration: 0.4 }}
             className="mb-10"
           >
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight">O que o Command Center entrega</h2>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+              O que o Command Center entrega
+            </h2>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-xl">
-              Uma operação comercial tributária integrada, da prospecção ao contrato.
+              Uma operação comercial tributária integrada, da prospecção ao
+              contrato.
             </p>
           </motion.div>
 
@@ -239,8 +328,12 @@ export default function LandingPage() {
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 ring-1 ring-primary/20">
                   <card.icon className="w-5 h-5 text-primary" />
                 </div>
-                <h3 className="text-sm font-bold text-foreground mb-1.5">{card.title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
+                <h3 className="text-sm font-bold text-foreground mb-1.5">
+                  {card.title}
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {card.description}
+                </p>
               </motion.div>
             ))}
           </motion.div>
@@ -260,10 +353,13 @@ export default function LandingPage() {
           >
             <div className="flex items-center gap-2 mb-3">
               <Route className="w-4 h-4 text-primary" />
-              <h2 className="text-xl md:text-2xl font-bold tracking-tight">Como o hub gera valor</h2>
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+                Como o hub gera valor
+              </h2>
             </div>
             <p className="text-sm text-muted-foreground max-w-xl">
-              Da empresa-alvo ao contrato: quatro etapas que transformam dados em receita tributária.
+              Da empresa-alvo ao contrato: quatro etapas que transformam dados
+              em receita tributária.
             </p>
           </motion.div>
 
@@ -283,10 +379,16 @@ export default function LandingPage() {
                     <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center ring-1 ring-primary/20">
                       <s.icon className="w-4 h-4 text-primary" />
                     </div>
-                    <span className="text-[11px] font-bold text-primary/70 uppercase tracking-wider">Passo {s.step}</span>
+                    <span className="text-[11px] font-bold text-primary/70 uppercase tracking-wider">
+                      Passo {s.step}
+                    </span>
                   </div>
-                  <h3 className="text-sm font-bold text-foreground mb-1.5">{s.title}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{s.description}</p>
+                  <h3 className="text-sm font-bold text-foreground mb-1.5">
+                    {s.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {s.description}
+                  </p>
                 </div>
                 {idx < JOURNEY_STEPS.length - 1 && (
                   <div className="hidden lg:block absolute top-1/2 -right-2 w-4 h-px bg-border" />
@@ -308,9 +410,12 @@ export default function LandingPage() {
             transition={{ duration: 0.4 }}
             className="mb-10"
           >
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight">Fluxo da operação</h2>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+              Fluxo da operação
+            </h2>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-xl">
-              Cada etapa do funil comercial tributário, com rastreabilidade e automação.
+              Cada etapa do funil comercial tributário, com rastreabilidade e
+              automação.
             </p>
           </motion.div>
 
@@ -330,8 +435,12 @@ export default function LandingPage() {
                     <step.icon className="w-4 h-4 text-primary" />
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-foreground">{step.label}</div>
-                    <div className="text-[11px] text-muted-foreground">{step.desc}</div>
+                    <div className="text-sm font-bold text-foreground">
+                      {step.label}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {step.desc}
+                    </div>
                   </div>
                 </div>
                 {idx < FLOW_STEPS.length - 1 && (
@@ -356,9 +465,12 @@ export default function LandingPage() {
             transition={{ duration: 0.4 }}
             className="mb-10"
           >
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight">Agentes especializados</h2>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+              Agentes especializados
+            </h2>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-xl">
-              Capacidades organizadas por função, cada uma com objetivo claro e domínio específico.
+              Capacidades organizadas por função, cada uma com objetivo claro e
+              domínio específico.
             </p>
           </motion.div>
 
@@ -380,8 +492,12 @@ export default function LandingPage() {
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 ring-1 ring-primary/20">
                   <block.icon className="w-5 h-5 text-primary" />
                 </div>
-                <h3 className="text-sm font-bold text-foreground mb-1.5">{block.title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{block.desc}</p>
+                <h3 className="text-sm font-bold text-foreground mb-1.5">
+                  {block.title}
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {block.desc}
+                </p>
               </motion.div>
             ))}
           </motion.div>
@@ -406,7 +522,8 @@ export default function LandingPage() {
               Pronto para operar com inteligência tributária?
             </h2>
             <p className="text-sm md:text-base text-muted-foreground mt-3 leading-relaxed">
-              Acesse o Command Center para visualizar oportunidades, acionar agentes e acompanhar o pipeline comercial da Tax Group.
+              Acesse o Command Center para visualizar oportunidades, acionar
+              agentes e acompanhar o pipeline comercial da Tax Group.
             </p>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 mt-8">
               <Link href="/command-center">
@@ -432,7 +549,11 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded bg-primary/15 flex items-center justify-center">
-              <img src={logoUrl} alt={branding.companyName} className="w-3.5 h-3.5 object-contain" />
+              <img
+                src={logoUrl}
+                alt={branding.companyName}
+                className="w-3.5 h-3.5 object-contain"
+              />
             </div>
             <span className="text-xs text-muted-foreground">
               {branding.companyName} — Plataforma operacional interna.

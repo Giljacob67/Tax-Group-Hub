@@ -53,7 +53,7 @@ const upload = multer({
 router.get("/branding/resolve", async (req, res) => {
   try {
     const domain = (req.query.domain as string) || req.hostname;
-    
+
     // 1. Try to find branding for exact domain
     const [branding] = await db
       .select()

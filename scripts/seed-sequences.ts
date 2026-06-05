@@ -182,7 +182,10 @@ async function main() {
           isActive: seq.isActive,
           steps: seq.steps,
         })
-        .returning({ id: automationSequencesTable.id, name: automationSequencesTable.name });
+        .returning({
+          id: automationSequencesTable.id,
+          name: automationSequencesTable.name,
+        });
 
       console.log(`✅ [${inserted.id}] ${inserted.name}`);
     } catch (err: any) {

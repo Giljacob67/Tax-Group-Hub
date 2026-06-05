@@ -37,8 +37,8 @@ const mockAgents = [
 
 vi.mock("../lib/agents-data.js", () => ({
   AGENTS: mockAgents,
-  getAgentById: vi.fn((id: string) =>
-    mockAgents.find((a) => a.id === id) ?? null
+  getAgentById: vi.fn(
+    (id: string) => mockAgents.find((a) => a.id === id) ?? null,
   ),
 }));
 
@@ -93,7 +93,9 @@ describe("Routes: /api/agents", () => {
   // ── GET /api/agents/:agentId ──────────────────────────────────────────────
 
   it("GET /api/agents/:agentId returns agent with systemPrompt", async () => {
-    const res = await supertest(app).get("/api/agents/coordenador-geral-tax-group");
+    const res = await supertest(app).get(
+      "/api/agents/coordenador-geral-tax-group",
+    );
     expect(res.status).toBe(200);
     expect(res.body.id).toBe("coordenador-geral-tax-group");
     expect(res.body.name).toBe("Coordenador Geral");

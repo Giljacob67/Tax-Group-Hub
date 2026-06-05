@@ -1,6 +1,23 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Wifi, WifiOff, Loader2, Trash2, Star, CheckCircle2, AlertCircle, Search, Cpu, Zap, Brain, Eye, Paperclip, Palette, Mic, Pencil } from "lucide-react";
+import {
+  Wifi,
+  WifiOff,
+  Loader2,
+  Trash2,
+  Star,
+  CheckCircle2,
+  AlertCircle,
+  Search,
+  Cpu,
+  Zap,
+  Brain,
+  Eye,
+  Paperclip,
+  Palette,
+  Mic,
+  Pencil,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { LlmConnection, ProviderMeta } from "./types";
@@ -74,7 +91,9 @@ export default function ModelCatalog({
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm">
             <Cpu className="w-8 h-8 mb-2 opacity-30" />
             <p>Nenhuma conexão encontrada.</p>
-            <p className="text-xs mt-1">Clique em "Nova Conexão" para começar.</p>
+            <p className="text-xs mt-1">
+              Clique em "Nova Conexão" para começar.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
@@ -85,8 +104,8 @@ export default function ModelCatalog({
                 conn.lastTestStatus === "ok"
                   ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                   : conn.lastTestStatus === "error"
-                  ? "text-red-400 bg-red-500/10 border-red-500/20"
-                  : "text-amber-400 bg-amber-500/10 border-amber-500/20";
+                    ? "text-red-400 bg-red-500/10 border-red-500/20"
+                    : "text-amber-400 bg-amber-500/10 border-amber-500/20";
 
               return (
                 <motion.div
@@ -95,17 +114,25 @@ export default function ModelCatalog({
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`group bg-card/50 border rounded-xl p-4 transition-all hover:shadow-sm ${
-                    conn.isDefault ? "border-primary/30 ring-1 ring-primary/10" : "border-border/40"
+                    conn.isDefault
+                      ? "border-primary/30 ring-1 ring-primary/10"
+                      : "border-border/40"
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`text-lg shrink-0 ${prov?.color || "text-muted-foreground"}`}>
+                      <span
+                        className={`text-lg shrink-0 ${prov?.color || "text-muted-foreground"}`}
+                      >
                         {prov?.icon || "◈"}
                       </span>
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold truncate">{conn.name}</div>
-                        <div className="text-[11px] text-muted-foreground font-mono truncate">{conn.modelId}</div>
+                        <div className="text-sm font-semibold truncate">
+                          {conn.name}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground font-mono truncate">
+                          {conn.modelId}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -138,17 +165,26 @@ export default function ModelCatalog({
                       </span>
                     )}
                     {conn.supportsVision && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">vision</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        vision
+                      </span>
                     )}
                     {conn.supportsTools && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">tools</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        tools
+                      </span>
                     )}
                     {conn.supportsJson && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">json</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                        json
+                      </span>
                     )}
                     {conn.contextWindow && (
                       <span className="text-xs px-1.5 py-0.5 rounded-full bg-muted border border-border/30">
-                        {conn.contextWindow >= 1000 ? `${Math.round(conn.contextWindow / 1000)}k` : conn.contextWindow} ctx
+                        {conn.contextWindow >= 1000
+                          ? `${Math.round(conn.contextWindow / 1000)}k`
+                          : conn.contextWindow}{" "}
+                        ctx
                       </span>
                     )}
                     {conn.priceInput && (
@@ -160,7 +196,9 @@ export default function ModelCatalog({
 
                   {/* Status & Actions */}
                   <div className="flex items-center justify-between pt-2 border-t border-border/20">
-                    <div className={`flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full border ${statusColor}`}>
+                    <div
+                      className={`flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-full border ${statusColor}`}
+                    >
                       {conn.lastTestStatus === "ok" ? (
                         <Wifi className="w-3 h-3" />
                       ) : conn.lastTestStatus === "error" ? (
@@ -169,7 +207,11 @@ export default function ModelCatalog({
                         <AlertCircle className="w-3 h-3" />
                       )}
                       <span>
-                        {conn.lastTestStatus === "ok" ? "Online" : conn.lastTestStatus === "error" ? "Erro" : "Não testado"}
+                        {conn.lastTestStatus === "ok"
+                          ? "Online"
+                          : conn.lastTestStatus === "error"
+                            ? "Erro"
+                            : "Não testado"}
                       </span>
                     </div>
                     <div className="flex gap-1.5">

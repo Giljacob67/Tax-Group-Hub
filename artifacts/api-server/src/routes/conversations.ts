@@ -1,15 +1,19 @@
 import { Router, type IRouter } from "express";
-import { 
-  db, 
-  conversationsTable, 
-  messagesTable, 
-  knowledgeDocumentsTable, 
+import {
+  db,
+  conversationsTable,
+  messagesTable,
+  knowledgeDocumentsTable,
   knowledgeChunksTable,
-  usageLogsTable 
+  usageLogsTable,
 } from "@workspace/db";
 import { eq, desc, count, and, sql } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
-import { generateEmbeddings, callLLM, getLanguageModel } from "../lib/llm-client.js";
+import {
+  generateEmbeddings,
+  callLLM,
+  getLanguageModel,
+} from "../lib/llm-client.js";
 import { callLLMViaConnection } from "../lib/llm-router.js";
 import { getConfigValue } from "./settings.js";
 import { streamText } from "ai";
@@ -19,7 +23,6 @@ import { apiError } from "../lib/api-response.js";
 import { validateIdParam } from "../lib/validation.js";
 
 const router: IRouter = Router();
-
 
 router.get("/conversations", async (req, res) => {
   try {
@@ -40,20 +43,31 @@ router.get("/conversations", async (req, res) => {
     // Build where clause: filter by agentId and/or userId
     const buildWhere = () => {
       const conditions = [];
-      if (agentId && typeof agentId === "string") conditions.push(eq(conversationsTable.agentId, agentId));
-      if (isRealUser(userId)) conditions.push(eq(conversationsTable.userId, userId));
-      return conditions.length === 1 ? conditions[0] : conditions.length > 1 ? and(...conditions) : undefined;
+      if (agentId && typeof agentId === "string")
+        conditions.push(eq(conversationsTable.agentId, agentId));
+      if (isRealUser(userId))
+        conditions.push(eq(conversationsTable.userId, userId));
+      return conditions.length === 1
+        ? conditions[0]
+        : conditions.length > 1
+          ? and(...conditions)
+          : undefined;
     };
 
     const whereClause = buildWhere();
     const query = db
       .select(baseQuery)
       .from(conversationsTable)
-      .leftJoin(messagesTable, eq(conversationsTable.id, messagesTable.conversationId))
+      .leftJoin(
+        messagesTable,
+        eq(conversationsTable.id, messagesTable.conversationId),
+      )
       .groupBy(conversationsTable.id)
       .orderBy(desc(conversationsTable.updatedAt));
 
-    const conversations = whereClause ? await query.where(whereClause) : await query;
+    const conversations = whereClause
+      ? await query.where(whereClause)
+      : await query;
 
     res.json({
       conversations: conversations.map((c: any) => ({
@@ -72,7 +86,13 @@ router.get("/conversations", async (req, res) => {
 
 router.post("/conversations", async (req, res) => {
   try {
-    const { agentId, title, model, provider, connectionId } = req.body as { agentId?: string; title?: string; model?: string; provider?: string; connectionId?: number };
+    const { agentId, title, model, provider, connectionId } = req.body as {
+      agentId?: string;
+      title?: string;
+      model?: string;
+      provider?: string;
+      connectionId?: number;
+    };
     if (!agentId) {
       apiError(res, 400, "agentId is required");
       return;
@@ -81,7 +101,14 @@ router.post("/conversations", async (req, res) => {
     const userId = req.userId;
     const [conv] = await db
       .insert(conversationsTable)
-      .values({ agentId, title: conversationTitle, model, provider, connectionId: connectionId || null, userId: userId || null })
+      .values({
+        agentId,
+        title: conversationTitle,
+        model,
+        provider,
+        connectionId: connectionId || null,
+        userId: userId || null,
+      })
       .returning();
 
     res.status(201).json({
@@ -107,7 +134,10 @@ router.get("/conversations/:conversationId", async (req, res) => {
       apiError(res, 404, "Conversation not found");
       return;
     }
-    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+    const [conv] = await db
+      .select()
+      .from(conversationsTable)
+      .where(eq(conversationsTable.id, conversationId));
     if (!conv) {
       apiError(res, 404, "Conversation not found");
       return;
@@ -117,7 +147,11 @@ router.get("/conversations/:conversationId", async (req, res) => {
       apiError(res, 403, "Access denied");
       return;
     }
-    const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
+    const messages = await db
+      .select()
+      .from(messagesTable)
+      .where(eq(messagesTable.conversationId, conversationId))
+      .orderBy(messagesTable.createdAt);
     const agent = getAgentById(conv.agentId);
     res.json({
       id: String(conv.id),
@@ -158,7 +192,10 @@ router.patch("/conversations/:conversationId", async (req, res) => {
       return;
     }
     // Tenancy check: verify ownership before mutation
-    const [existing] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+    const [existing] = await db
+      .select()
+      .from(conversationsTable)
+      .where(eq(conversationsTable.id, conversationId));
     if (!existing) {
       apiError(res, 404, "Conversation not found");
       return;
@@ -192,7 +229,10 @@ router.get("/conversations/:conversationId/export", async (req, res) => {
       apiError(res, 404, "Conversation not found");
       return;
     }
-    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+    const [conv] = await db
+      .select()
+      .from(conversationsTable)
+      .where(eq(conversationsTable.id, conversationId));
     if (!conv) {
       apiError(res, 404, "Conversation not found");
       return;
@@ -202,28 +242,34 @@ router.get("/conversations/:conversationId/export", async (req, res) => {
       apiError(res, 403, "Access denied");
       return;
     }
-    const messages = await db.select().from(messagesTable).where(eq(messagesTable.conversationId, conversationId)).orderBy(messagesTable.createdAt);
+    const messages = await db
+      .select()
+      .from(messagesTable)
+      .where(eq(messagesTable.conversationId, conversationId))
+      .orderBy(messagesTable.createdAt);
     const agent = getAgentById(conv.agentId);
 
     let md = `# ${conv.title}\n\n`;
     md += `**Agente:** ${agent?.name || conv.agentId}\n`;
     md += `**Modelo Base:** ${conv.model || "Padrão"}\n`;
     md += `**Data:** ${new Date(conv.createdAt).toLocaleString("pt-BR")}\n\n`;
-    
-    if (agent?.systemPrompt) {
-      md += `### Prompt do Sistema\n> ${agent.systemPrompt.replace(/\n/g, "\n> ")}\n\n`;
-    }
 
     md += `---\n\n`;
 
     for (const msg of messages) {
       const role = msg.role === "user" ? "👤 Usuário" : "🤖 Assistente";
-      const time = new Date(msg.createdAt).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' });
+      const time = new Date(msg.createdAt).toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
       md += `### ${role} (${time})\n\n${msg.content}\n\n---\n\n`;
     }
 
     res.setHeader("Content-Type", "text/markdown; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="conversa-${conversationId}.md"`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="conversa-${conversationId}.md"`,
+    );
     res.send(md);
   } catch (err: any) {
     console.error("Error exporting conversation:", err);
@@ -240,13 +286,19 @@ router.delete("/messages/:messageId", async (req, res) => {
       return;
     }
     // Tenancy check: verify the message belongs to a conversation owned by the user
-    const [msg] = await db.select().from(messagesTable).where(eq(messagesTable.id, messageId));
+    const [msg] = await db
+      .select()
+      .from(messagesTable)
+      .where(eq(messagesTable.id, messageId));
     if (!msg) {
       apiError(res, 404, "Message not found");
       return;
     }
     if (isRealUser(userId)) {
-      const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, msg.conversationId));
+      const [conv] = await db
+        .select()
+        .from(conversationsTable)
+        .where(eq(conversationsTable.id, msg.conversationId));
       if (conv?.userId && conv.userId !== userId) {
         apiError(res, 403, "Access denied");
         return;
@@ -269,7 +321,10 @@ router.delete("/conversations/:conversationId", async (req, res) => {
       return;
     }
     // Tenancy check: verify ownership before deletion
-    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+    const [conv] = await db
+      .select()
+      .from(conversationsTable)
+      .where(eq(conversationsTable.id, conversationId));
     if (!conv) {
       apiError(res, 404, "Conversation not found");
       return;
@@ -278,7 +333,9 @@ router.delete("/conversations/:conversationId", async (req, res) => {
       apiError(res, 403, "Access denied");
       return;
     }
-    await db.delete(conversationsTable).where(eq(conversationsTable.id, conversationId));
+    await db
+      .delete(conversationsTable)
+      .where(eq(conversationsTable.id, conversationId));
     res.json({ success: true, message: "Conversation deleted" });
   } catch (err: any) {
     console.error("Error deleting conversation:", err);
@@ -296,10 +353,20 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
     }
     const parsedBody = SendMessageBody.safeParse(req.body);
     if (!parsedBody.success) {
-      res.status(400).json({ error: "Formato de requisicao invalido", details: parsedBody.error.format() });
+      res.status(400).json({
+        error: "Formato de requisicao invalido",
+        details: parsedBody.error.format(),
+      });
       return;
     }
-    const { content, useKnowledgeBase, customSystemPrompt, model: modelOverride, connectionId, stream: streamOverride } = parsedBody.data;
+    const {
+      content,
+      useKnowledgeBase,
+      customSystemPrompt,
+      model: modelOverride,
+      connectionId,
+      stream: streamOverride,
+    } = parsedBody.data;
     const isStream = streamOverride === true || req.query.stream === "true";
 
     if (!content.trim()) {
@@ -307,7 +374,10 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       return;
     }
 
-    const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, conversationId));
+    const [conv] = await db
+      .select()
+      .from(conversationsTable)
+      .where(eq(conversationsTable.id, conversationId));
     if (!conv) {
       apiError(res, 404, "Conversation not found");
       return;
@@ -324,19 +394,28 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       .values({ conversationId, role: "user", content: content.trim() })
       .returning();
 
-    const existingMessages = (await db
-      .select()
-      .from(messagesTable)
-      .where(eq(messagesTable.conversationId, conversationId))
-      .orderBy(desc(messagesTable.createdAt))
-      .limit(100)
+    const existingMessages = (
+      await db
+        .select()
+        .from(messagesTable)
+        .where(eq(messagesTable.conversationId, conversationId))
+        .orderBy(desc(messagesTable.createdAt))
+        .limit(100)
     ).reverse();
 
-    const userMessageCount = existingMessages.filter(m => m.role === "user").length;
+    const userMessageCount = existingMessages.filter(
+      (m) => m.role === "user",
+    ).length;
     let autoTitle: string | null = null;
     if (userMessageCount === 1) {
-      autoTitle = content.trim().length > 60 ? content.trim().substring(0, 57) + "..." : content.trim();
-      await db.update(conversationsTable).set({ title: autoTitle ?? undefined, updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
+      autoTitle =
+        content.trim().length > 60
+          ? content.trim().substring(0, 57) + "..."
+          : content.trim();
+      await db
+        .update(conversationsTable)
+        .set({ title: autoTitle ?? undefined, updatedAt: new Date() })
+        .where(eq(conversationsTable.id, conversationId));
     }
 
     let systemPrompt = customSystemPrompt
@@ -349,7 +428,9 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
 
     if (useKnowledgeBase !== false) {
       try {
-        const { embeddings: [queryEmbedding] } = await generateEmbeddings([content.trim()]);
+        const {
+          embeddings: [queryEmbedding],
+        } = await generateEmbeddings([content.trim()]);
 
         const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
         const results = await db
@@ -359,19 +440,26 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
             filename: knowledgeDocumentsTable.filename,
           })
           .from(knowledgeChunksTable)
-          .innerJoin(knowledgeDocumentsTable, eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id))
+          .innerJoin(
+            knowledgeDocumentsTable,
+            eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id),
+          )
           .where(
             and(
               sql`${knowledgeDocumentsTable.agentId} = ${conv.agentId} OR ${knowledgeDocumentsTable.agentId} = 'global'`,
-              isRealUser(userId) ? eq(knowledgeDocumentsTable.userId, userId) : sql`TRUE`
-            )
+              isRealUser(userId)
+                ? eq(knowledgeDocumentsTable.userId, userId)
+                : sql`TRUE`,
+            ),
           )
           .orderBy((t: any) => desc(t.score))
           .limit(5);
 
         const relevantChunks = results.filter((r) => r.score > 0.3);
         if (relevantChunks.length > 0) {
-          const contextText = relevantChunks.map(c => `[Doc: ${c.filename}]\n${c.content}`).join("\n\n");
+          const contextText = relevantChunks
+            .map((c) => `[Doc: ${c.filename}]\n${c.content}`)
+            .join("\n\n");
           systemPrompt += `\n\n--- CONTEXTO REFERÊNCIA ---\n${contextText}`;
 
           // Deduplicate sources by filename, keep highest score per file
@@ -380,10 +468,13 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
             const prev = sourceMap.get(chunk.filename) ?? 0;
             if (chunk.score > prev) sourceMap.set(chunk.filename, chunk.score);
           }
-          ragSources = Array.from(sourceMap.entries()).map(([filename, score]) => ({ filename, score }));
+          ragSources = Array.from(sourceMap.entries()).map(
+            ([filename, score]) => ({ filename, score }),
+          );
 
           const topScore = ragSources[0]?.score ?? 0;
-          confidenceLevel = topScore >= 0.75 ? "high" : topScore >= 0.5 ? "medium" : "low";
+          confidenceLevel =
+            topScore >= 0.75 ? "high" : topScore >= 0.5 ? "medium" : "low";
         } else {
           // No relevant context — instruct model to be transparent about uncertainty
           systemPrompt += `\n\n[AVISO INTERNO]: Nenhum documento relevante foi encontrado na base de conhecimento para esta pergunta. Seja transparente sobre as limitações do seu conhecimento e evite inventar informações específicas.`;
@@ -394,19 +485,23 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       }
     }
 
-    const llmMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-      { role: "system", content: systemPrompt },
-    ];
+    const llmMessages: Array<{
+      role: "system" | "user" | "assistant";
+      content: string;
+    }> = [{ role: "system", content: systemPrompt }];
 
     // Sliding Window: Only send the last 14 messages to LLM to preserve tokens/budget
-    const contextHistory = existingMessages.slice(-14); 
+    const contextHistory = existingMessages.slice(-14);
 
     for (const msg of contextHistory) {
       if (msg.role === "user" || msg.role === "assistant") {
-        llmMessages.push({ role: msg.role as "user" | "assistant", content: msg.content });
+        llmMessages.push({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        });
       }
     }
-    // Note: 'content' is already the last message in existingMessages if we just saved it, 
+    // Note: 'content' is already the last message in existingMessages if we just saved it,
     // but the slice(-14) might include it. Let's be careful.
     // userMsg was just inserted, so it's the last element of existingMessages.
     // If userMsg is already in llmMessages via the slice, we don't need to push again.
@@ -431,58 +526,38 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
         res.flushHeaders();
-        
-        res.write(`data: ${JSON.stringify({ type: "start", userMessage: { id: String(userMsg.id), conversationId: String(userMsg.conversationId), role: userMsg.role, content: userMsg.content, createdAt: userMsg.createdAt.toISOString() }, autoTitle })}\n\n`);
+
+        res.write(
+          `data: ${JSON.stringify({ type: "start", userMessage: { id: String(userMsg.id), conversationId: String(userMsg.conversationId), role: userMsg.role, content: userMsg.content, createdAt: userMsg.createdAt.toISOString() }, autoTitle })}\n\n`,
+        );
 
         // Use new LLM router when connectionId is provided (Model Hub)
         // Otherwise fall back to legacy getLanguageModel path
         if (connectionId || conv.connectionId) {
-          const result = await callLLMViaConnection(systemPrompt, content.trim(), {
-            connectionId: connectionId || conv.connectionId || undefined,
-            usageType: "chat",
-            toolIds: ["webSearch", "emailSender"],
-            userId: userId || undefined,
-          });
+          const result = await callLLMViaConnection(
+            systemPrompt,
+            content.trim(),
+            {
+              connectionId: connectionId || conv.connectionId || undefined,
+              usageType: "chat",
+              toolIds: ["webSearch", "emailSender"],
+              userId: userId || undefined,
+            },
+          );
           assistantContent = result.output;
 
           // Simulate streaming by sending word by word
           const words = assistantContent.split(/(\s+)/);
           for (const word of words) {
-            res.write(`data: ${JSON.stringify({ type: "token", text: word })}\n\n`);
+            res.write(
+              `data: ${JSON.stringify({ type: "token", text: word })}\n\n`,
+            );
           }
 
           // Log usage
-          await db.insert(usageLogsTable).values({
-            userId: userId || null,
-            conversationId,
-            agentId: conv.agentId,
-            model: result.model,
-            provider: result.provider,
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: result.tokensUsed,
-            platform: "web"
-          }).catch(() => {});
-        } else {
-          // Special handling for Ollama Cloud (native API, not OpenAI-compatible)
-          // For streaming mode, we simulate streaming by splitting the response into words
-          if (activeProviderDb === "ollama_cloud") {
-            const result = await callLLM(systemPrompt, content.trim(), { 
-              provider: "ollama_cloud",
-              model: modelOverride || activeLlmModel || undefined,
-              customUrl: activeLlmUrl || undefined,
-              toolIds: ["webSearch", "emailSender"],
-              userId: userId || undefined
-            });
-            assistantContent = result.output;
-            
-            // Simulate streaming by sending word by word
-            const words = assistantContent.split(/(\s+)/);
-            for (const word of words) {
-              res.write(`data: ${JSON.stringify({ type: "token", text: word })}\n\n`);
-            }
-            // Log usage
-            await db.insert(usageLogsTable).values({
+          await db
+            .insert(usageLogsTable)
+            .values({
               userId: userId || null,
               conversationId,
               agentId: conv.agentId,
@@ -491,92 +566,155 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
               promptTokens: 0,
               completionTokens: 0,
               totalTokens: result.tokensUsed,
-              platform: "web"
-            }).catch(() => {});
+              platform: "web",
+            })
+            .catch(() => {});
+        } else {
+          // Special handling for Ollama Cloud (native API, not OpenAI-compatible)
+          // For streaming mode, we simulate streaming by splitting the response into words
+          if (activeProviderDb === "ollama_cloud") {
+            const result = await callLLM(systemPrompt, content.trim(), {
+              provider: "ollama_cloud",
+              model: modelOverride || activeLlmModel || undefined,
+              customUrl: activeLlmUrl || undefined,
+              toolIds: ["webSearch", "emailSender"],
+              userId: userId || undefined,
+            });
+            assistantContent = result.output;
+
+            // Simulate streaming by sending word by word
+            const words = assistantContent.split(/(\s+)/);
+            for (const word of words) {
+              res.write(
+                `data: ${JSON.stringify({ type: "token", text: word })}\n\n`,
+              );
+            }
+            // Log usage
+            await db
+              .insert(usageLogsTable)
+              .values({
+                userId: userId || null,
+                conversationId,
+                agentId: conv.agentId,
+                model: result.model,
+                provider: result.provider,
+                promptTokens: 0,
+                completionTokens: 0,
+                totalTokens: result.tokensUsed,
+                platform: "web",
+              })
+              .catch(() => {});
           } else {
-            const { model: aiModel } = await getLanguageModel(undefined, modelOverride);
+            const { model: aiModel } = await getLanguageModel(
+              undefined,
+              modelOverride,
+            );
             const streamResult = await streamText({
               model: aiModel,
               system: systemPrompt,
               messages: llmMessages,
               onFinish: async (finish: any) => {
-               // Log usage
-               await db.insert(usageLogsTable).values({
-                 userId: userId || null,
-                 conversationId,
-                 agentId: conv.agentId,
-                 model: finish.model || finish.response?.modelId || modelOverride || "unknown",
-                 provider: finish.provider || finish.response?.provider || "unknown",
-                 promptTokens: finish.usage?.promptTokens || 0,
-                 completionTokens: finish.usage?.completionTokens || 0,
-                 totalTokens: finish.usage?.totalTokens || 0,
-                 platform: "web"
-               }).catch(e => console.error("Usage log error:", e));
-            }
-          });
+                // Log usage
+                await db
+                  .insert(usageLogsTable)
+                  .values({
+                    userId: userId || null,
+                    conversationId,
+                    agentId: conv.agentId,
+                    model:
+                      finish.model ||
+                      finish.response?.modelId ||
+                      modelOverride ||
+                      "unknown",
+                    provider:
+                      finish.provider || finish.response?.provider || "unknown",
+                    promptTokens: finish.usage?.promptTokens || 0,
+                    completionTokens: finish.usage?.completionTokens || 0,
+                    totalTokens: finish.usage?.totalTokens || 0,
+                    platform: "web",
+                  })
+                  .catch((e) => console.error("Usage log error:", e));
+              },
+            });
 
-          for await (const part of streamResult.fullStream) {
-            if (part.type === 'text-delta') {
-              const textChunk = (part as any).textDelta || (part as any).text || "";
-              assistantContent += textChunk;
-              res.write(`data: ${JSON.stringify({ type: "token", text: textChunk })}\n\n`);
+            for await (const part of streamResult.fullStream) {
+              if (part.type === "text-delta") {
+                const textChunk =
+                  (part as any).textDelta || (part as any).text || "";
+                assistantContent += textChunk;
+                res.write(
+                  `data: ${JSON.stringify({ type: "token", text: textChunk })}\n\n`,
+                );
+              }
             }
-          }
           }
         }
       } else {
         // Use new LLM router when connectionId is provided (Model Hub)
         if (connectionId || conv.connectionId) {
-          const result = await callLLMViaConnection(systemPrompt, content.trim(), {
-            connectionId: connectionId || conv.connectionId || undefined,
-            usageType: "chat",
-            toolIds: ["webSearch", "emailSender"],
-            userId: userId || undefined,
-          });
+          const result = await callLLMViaConnection(
+            systemPrompt,
+            content.trim(),
+            {
+              connectionId: connectionId || conv.connectionId || undefined,
+              usageType: "chat",
+              toolIds: ["webSearch", "emailSender"],
+              userId: userId || undefined,
+            },
+          );
           assistantContent = result.output;
 
           // Log usage
-          await db.insert(usageLogsTable).values({
-            userId: userId || null,
-            conversationId,
-            agentId: conv.agentId,
-            model: result.model,
-            provider: result.provider,
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: result.tokensUsed,
-            latencyMs: result.executionTimeMs,
-            platform: "web"
-          }).catch(() => {});
+          await db
+            .insert(usageLogsTable)
+            .values({
+              userId: userId || null,
+              conversationId,
+              agentId: conv.agentId,
+              model: result.model,
+              provider: result.provider,
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: result.tokensUsed,
+              latencyMs: result.executionTimeMs,
+              platform: "web",
+            })
+            .catch(() => {});
         } else {
-          const result = await callLLM(systemPrompt, content.trim(), { 
+          const result = await callLLM(systemPrompt, content.trim(), {
             provider: activeProviderDb || undefined,
             model: modelOverride || activeLlmModel || undefined,
             customUrl: activeLlmUrl || undefined,
             toolIds: ["webSearch", "emailSender"], // Enabled tools in chat
-            userId: userId || undefined
+            userId: userId || undefined,
           });
           assistantContent = result.output;
 
           // Log usage (standard call)
-          await db.insert(usageLogsTable).values({
-            userId: userId || null,
-            conversationId,
-            agentId: conv.agentId,
-            model: result.model,
-            provider: result.provider,
-            promptTokens: 0, // callLLM only returns totalTokens currently
-            completionTokens: 0,
-            totalTokens: result.tokensUsed,
-            latencyMs: result.executionTimeMs,
-            platform: "web"
-          }).catch(() => {});
+          await db
+            .insert(usageLogsTable)
+            .values({
+              userId: userId || null,
+              conversationId,
+              agentId: conv.agentId,
+              model: result.model,
+              provider: result.provider,
+              promptTokens: 0, // callLLM only returns totalTokens currently
+              completionTokens: 0,
+              totalTokens: result.tokensUsed,
+              latencyMs: result.executionTimeMs,
+              platform: "web",
+            })
+            .catch(() => {});
         }
       }
     } catch (llmErr) {
       console.error("LLM error:", llmErr);
       assistantContent = `Erro ao conectar com a IA. Verifique os logs do servidor.`;
-      if (isStream) res.write(`data: ${JSON.stringify({ type: "token", text: assistantContent })}\n\n`);
+      if (isStream)
+        res.write(
+          `data: ${JSON.stringify({ type: "token", text: assistantContent })}\n\n`,
+        );
     }
 
     const messageMetadata = {
@@ -587,24 +725,34 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
 
     const [assistantMsg] = await db
       .insert(messagesTable)
-      .values({ conversationId, role: "assistant", content: assistantContent, metadata: messageMetadata })
+      .values({
+        conversationId,
+        role: "assistant",
+        content: assistantContent,
+        metadata: messageMetadata,
+      })
       .returning();
 
-    await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conversationId));
+    await db
+      .update(conversationsTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(conversationsTable.id, conversationId));
 
     if (isStream) {
-      res.write(`data: ${JSON.stringify({
-        type: "done",
-        assistantMessage: {
-          id: String(assistantMsg.id),
-          conversationId: String(assistantMsg.conversationId),
-          role: assistantMsg.role,
-          content: assistantMsg.content,
-          createdAt: assistantMsg.createdAt.toISOString(),
-        },
-        ragSources,
-        confidenceLevel,
-      })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          type: "done",
+          assistantMessage: {
+            id: String(assistantMsg.id),
+            conversationId: String(assistantMsg.conversationId),
+            role: assistantMsg.role,
+            content: assistantMsg.content,
+            createdAt: assistantMsg.createdAt.toISOString(),
+          },
+          ragSources,
+          confidenceLevel,
+        })}\n\n`,
+      );
       res.end();
       return;
     }

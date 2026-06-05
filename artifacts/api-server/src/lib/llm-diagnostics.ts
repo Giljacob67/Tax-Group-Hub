@@ -41,76 +41,126 @@ export interface ConnectionDiagnostics {
   overall: "ok" | "warning" | "error";
 }
 
-function mapErrorToUserMessage(err: any, stage: DiagnosticStage, provider: string): { userMessage: string; howToFix?: string; status?: number } {
+function mapErrorToUserMessage(
+  err: any,
+  stage: DiagnosticStage,
+  provider: string,
+): { userMessage: string; howToFix?: string; status?: number } {
   const msg = (err?.message || String(err)).toLowerCase();
   const status = err?.status || err?.statusCode;
 
   // Auth / credential errors
-  if (status === 401 || status === 403 || msg.includes("unauthorized") || msg.includes("invalid api key") || msg.includes("incorrect api key")) {
+  if (
+    status === 401 ||
+    status === 403 ||
+    msg.includes("unauthorized") ||
+    msg.includes("invalid api key") ||
+    msg.includes("incorrect api key")
+  ) {
     return {
       userMessage: `Autenticação falhou para ${provider}. Sua chave API está incorreta, expirada ou não tem permissão para este recurso.`,
-      howToFix: "Verifique se a chave API foi copiada corretamente. Para Google Gemini, confirme que o projeto Cloud tem a API Generative Language ativada. Para OpenAI, verifique se a chave pertence à organização correta.",
+      howToFix:
+        "Verifique se a chave API foi copiada corretamente. Para Google Gemini, confirme que o projeto Cloud tem a API Generative Language ativada. Para OpenAI, verifique se a chave pertence à organização correta.",
       status,
     };
   }
 
   // Not found
-  if (status === 404 || msg.includes("not found") || msg.includes("model not found") || msg.includes("does not exist")) {
+  if (
+    status === 404 ||
+    msg.includes("not found") ||
+    msg.includes("model not found") ||
+    msg.includes("does not exist")
+  ) {
     return {
       userMessage: `Modelo ou endpoint não encontrado no ${provider}. O modelo pode ter sido descontinuado ou o endpoint/base URL está incorreto.`,
-      howToFix: "Verifique se o modelo selecionado existe e está disponível. Para endpoints customizados, confirme a URL base (deve terminar em /v1 para compatíveis com OpenAI).",
+      howToFix:
+        "Verifique se o modelo selecionado existe e está disponível. Para endpoints customizados, confirme a URL base (deve terminar em /v1 para compatíveis com OpenAI).",
       status,
     };
   }
 
   // Rate limit
-  if (status === 429 || msg.includes("rate limit") || msg.includes("too many requests") || msg.includes("quota")) {
+  if (
+    status === 429 ||
+    msg.includes("rate limit") ||
+    msg.includes("too many requests") ||
+    msg.includes("quota")
+  ) {
     return {
       userMessage: `Limite de requisições atingido no ${provider}. Sua conta atingiu o rate limit ou a quota mensal.`,
-      howToFix: "Aguarde alguns minutos e tente novamente. Para OpenAI, verifique o uso e os limites no dashboard da conta. Para Google, verifique a faturação do projeto Cloud.",
+      howToFix:
+        "Aguarde alguns minutos e tente novamente. Para OpenAI, verifique o uso e os limites no dashboard da conta. Para Google, verifique a faturação do projeto Cloud.",
       status,
     };
   }
 
   // Server errors
-  if (status === 500 || status === 502 || status === 503 || msg.includes("internal server error") || msg.includes("bad gateway") || msg.includes("service unavailable")) {
+  if (
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    msg.includes("internal server error") ||
+    msg.includes("bad gateway") ||
+    msg.includes("service unavailable")
+  ) {
     return {
       userMessage: `O provedor ${provider} está temporariamente indisponível. Isso é um problema do lado deles, não da sua configuração.`,
-      howToFix: "Aguarde alguns minutos e tente novamente. Verifique o status page do provedor (status.openai.com, status.anthropic.com, etc.).",
+      howToFix:
+        "Aguarde alguns minutos e tente novamente. Verifique o status page do provedor (status.openai.com, status.anthropic.com, etc.).",
       status,
     };
   }
 
   // Timeout / network
-  if (msg.includes("timeout") || msg.includes("abort") || msg.includes("etimedout") || msg.includes("econnrefused") || msg.includes("network")) {
+  if (
+    msg.includes("timeout") ||
+    msg.includes("abort") ||
+    msg.includes("etimedout") ||
+    msg.includes("econnrefused") ||
+    msg.includes("network")
+  ) {
     if (provider.toLowerCase().includes("ollama")) {
       return {
-        userMessage: "Ollama não respondeu dentro do tempo limite. O serviço pode estar desligado ou inacessível.",
-        howToFix: "Verifique se o Ollama está rodando localmente (ollama serve). Se estiver na nuvem (Vercel), URLs localhost não são acessíveis. Use um endpoint Ollama remoto com HTTPS.",
+        userMessage:
+          "Ollama não respondeu dentro do tempo limite. O serviço pode estar desligado ou inacessível.",
+        howToFix:
+          "Verifique se o Ollama está rodando localmente (ollama serve). Se estiver na nuvem (Vercel), URLs localhost não são acessíveis. Use um endpoint Ollama remoto com HTTPS.",
         status,
       };
     }
     return {
       userMessage: `Tempo de resposta esgotado ao conectar com ${provider}. Pode ser instabilidade de rede ou o endpoint está lento.`,
-      howToFix: "Verifique sua conexão com a internet. Se for um endpoint customizado/local, confirme que ele está acessível e responde em menos de 30 segundos.",
+      howToFix:
+        "Verifique sua conexão com a internet. Se for um endpoint customizado/local, confirme que ele está acessível e responde em menos de 30 segundos.",
       status,
     };
   }
 
   // CORS / frontend
-  if (msg.includes("cors") || msg.includes("blocked") || msg.includes("cross-origin")) {
+  if (
+    msg.includes("cors") ||
+    msg.includes("blocked") ||
+    msg.includes("cross-origin")
+  ) {
     return {
-      userMessage: "Requisição bloqueada por política de CORS. O endpoint não permite chamadas diretas do navegador.",
-      howToFix: "Isso geralmente indica que o endpoint está sendo chamado pelo frontend em vez do servidor. Nossa API roda no servidor, então isso não deveria acontecer. Se persistir, verifique se há um proxy/reverse-proxy mal configurado.",
+      userMessage:
+        "Requisição bloqueada por política de CORS. O endpoint não permite chamadas diretas do navegador.",
+      howToFix:
+        "Isso geralmente indica que o endpoint está sendo chamado pelo frontend em vez do servidor. Nossa API roda no servidor, então isso não deveria acontecer. Se persistir, verifique se há um proxy/reverse-proxy mal configurado.",
       status,
     };
   }
 
   // JSON / Tools unsupported
-  if (stage === "json" && (msg.includes("json") || msg.includes("structured"))) {
+  if (
+    stage === "json" &&
+    (msg.includes("json") || msg.includes("structured"))
+  ) {
     return {
       userMessage: "Este modelo não suporta saída estruturada (JSON mode).",
-      howToFix: "Selecione outro modelo que declare suporte a JSON (ex: GPT-4o, Claude 3.5, Gemini 1.5 Pro).",
+      howToFix:
+        "Selecione outro modelo que declare suporte a JSON (ex: GPT-4o, Claude 3.5, Gemini 1.5 Pro).",
       status,
     };
   }
@@ -118,7 +168,8 @@ function mapErrorToUserMessage(err: any, stage: DiagnosticStage, provider: strin
   if (stage === "tools" && (msg.includes("tool") || msg.includes("function"))) {
     return {
       userMessage: "Este modelo não suporta function calling / tools.",
-      howToFix: "Selecione outro modelo que declare suporte a tools (ex: GPT-4o, Claude 3.5, Gemini 1.5 Pro).",
+      howToFix:
+        "Selecione outro modelo que declare suporte a tools (ex: GPT-4o, Claude 3.5, Gemini 1.5 Pro).",
       status,
     };
   }
@@ -126,7 +177,8 @@ function mapErrorToUserMessage(err: any, stage: DiagnosticStage, provider: strin
   // Generic fallback
   return {
     userMessage: `Falha na etapa '${stage}' com ${provider}. ${err?.message || "Erro desconhecido."}`,
-    howToFix: "Verifique os detalhes técnicos abaixo. Se o problema persistir, tente reconectar o provedor ou entre em contato com o suporte.",
+    howToFix:
+      "Verifique os detalhes técnicos abaixo. Se o problema persistir, tente reconectar o provedor ou entre em contato com o suporte.",
     status,
   };
 }
@@ -134,7 +186,7 @@ function mapErrorToUserMessage(err: any, stage: DiagnosticStage, provider: strin
 async function runStageAuth(
   provider: string,
   apiKey: string,
-  baseUrl?: string
+  baseUrl?: string,
 ): Promise<DiagnosticResult> {
   const start = Date.now();
   try {
@@ -142,7 +194,11 @@ async function runStageAuth(
     const latencyMs = Date.now() - start;
 
     if (!result.success) {
-      const mapped = mapErrorToUserMessage({ message: result.error, statusCode: undefined }, "auth", provider);
+      const mapped = mapErrorToUserMessage(
+        { message: result.error, statusCode: undefined },
+        "auth",
+        provider,
+      );
       return {
         ok: false,
         stage: "auth",
@@ -180,7 +236,7 @@ async function runStageAuth(
 async function runStageModels(
   provider: string,
   apiKey: string,
-  baseUrl?: string
+  baseUrl?: string,
 ): Promise<DiagnosticResult> {
   const start = Date.now();
   try {
@@ -193,8 +249,10 @@ async function runStageModels(
         stage: "models",
         latencyMs,
         message: result.error || "Nenhum modelo encontrado",
-        userMessage: "Não foi possível listar os modelos disponíveis. A autenticação funcionou, mas a listagem falhou.",
-        howToFix: "Para Ollama, verifique se há modelos baixados (ollama list). Para endpoints customizados, confirme que /v1/models está implementado.",
+        userMessage:
+          "Não foi possível listar os modelos disponíveis. A autenticação funcionou, mas a listagem falhou.",
+        howToFix:
+          "Para Ollama, verifique se há modelos baixados (ollama list). Para endpoints customizados, confirme que /v1/models está implementado.",
         technicalDetails: result.error,
       };
     }
@@ -232,7 +290,7 @@ async function runStageChat(
   modelId: string,
   apiKey: string,
   baseUrl?: string,
-  userId?: string
+  userId?: string,
 ): Promise<DiagnosticResult> {
   const start = Date.now();
   try {
@@ -241,14 +299,20 @@ async function runStageChat(
     let customUrl = baseUrl;
     if (provider === "custom_openai") resolvedProvider = "openrouter";
 
-    if (customUrl && /^(http:\/\/localhost|http:\/\/127\.)/i.test(customUrl) && process.env.VERCEL) {
-      throw new Error("URLs localhost não são acessíveis quando o backend roda na nuvem.");
+    if (
+      customUrl &&
+      /^(http:\/\/localhost|http:\/\/127\.)/i.test(customUrl) &&
+      process.env.VERCEL
+    ) {
+      throw new Error(
+        "URLs localhost não são acessíveis quando o backend roda na nuvem.",
+      );
     }
 
     const result = await callLLM(
       "You are a connectivity test assistant. Reply with exactly: 'OK · <model-name>'",
       "Reply with exactly: 'OK · <your model name>'",
-      { provider: resolvedProvider, model: modelId, customUrl, userId }
+      { provider: resolvedProvider, model: modelId, customUrl, userId },
     );
 
     const latencyMs = Date.now() - start;
@@ -258,9 +322,15 @@ async function runStageChat(
       ok,
       stage: "chat",
       latencyMs,
-      message: ok ? "Chat básico OK" : `Resposta inesperada: ${result.output.slice(0, 200)}`,
-      userMessage: ok ? "O modelo respondeu corretamente a um prompt simples." : "O modelo respondeu, mas não no formato esperado. Isso pode indicar um modelo de embeddings ou incompleto.",
-      howToFix: ok ? undefined : "Verifique se o modelo selecionado é um modelo de chat/conversação (não embedding ou completion-only).",
+      message: ok
+        ? "Chat básico OK"
+        : `Resposta inesperada: ${result.output.slice(0, 200)}`,
+      userMessage: ok
+        ? "O modelo respondeu corretamente a um prompt simples."
+        : "O modelo respondeu, mas não no formato esperado. Isso pode indicar um modelo de embeddings ou incompleto.",
+      howToFix: ok
+        ? undefined
+        : "Verifique se o modelo selecionado é um modelo de chat/conversação (não embedding ou completion-only).",
       technicalDetails: `Output: ${result.output.slice(0, 500)}`,
     };
   } catch (err: any) {
@@ -284,7 +354,7 @@ async function runStageJson(
   modelId: string,
   apiKey: string,
   baseUrl?: string,
-  userId?: string
+  userId?: string,
 ): Promise<DiagnosticResult> {
   const start = Date.now();
   try {
@@ -292,15 +362,27 @@ async function runStageJson(
     let customUrl = baseUrl;
     if (provider === "custom_openai") resolvedProvider = "openrouter";
 
-    if (customUrl && /^(http:\/\/localhost|http:\/\/127\.)/i.test(customUrl) && process.env.VERCEL) {
-      throw new Error("URLs localhost não são acessíveis quando o backend roda na nuvem.");
+    if (
+      customUrl &&
+      /^(http:\/\/localhost|http:\/\/127\.)/i.test(customUrl) &&
+      process.env.VERCEL
+    ) {
+      throw new Error(
+        "URLs localhost não são acessíveis quando o backend roda na nuvem.",
+      );
     }
 
     // We use generateObject to test structured output capability
-    const { model } = await (await import("./llm-client.js")).getLanguageModel(resolvedProvider, modelId, userId, customUrl);
+    const { model } = await (
+      await import("./llm-client.js")
+    ).getLanguageModel(resolvedProvider, modelId, userId, customUrl);
     const { object } = await generateObject({
       model: model as any,
-      schema: { type: "object", properties: { ok: { type: "boolean" }, model: { type: "string" } }, required: ["ok", "model"] } as any,
+      schema: {
+        type: "object",
+        properties: { ok: { type: "boolean" }, model: { type: "string" } },
+        required: ["ok", "model"],
+      } as any,
       prompt: "Return JSON with ok=true and your model name.",
       system: "You must output valid JSON only.",
     });
@@ -313,8 +395,12 @@ async function runStageJson(
       stage: "json",
       latencyMs,
       message: ok ? "JSON mode OK" : "Resposta JSON inesperada",
-      userMessage: ok ? "O modelo suporta saída estruturada (JSON mode)." : "O modelo não retornou JSON válido.",
-      howToFix: ok ? undefined : "Este modelo pode não suportar JSON mode. Desative a opção 'JSON' para esta conexão.",
+      userMessage: ok
+        ? "O modelo suporta saída estruturada (JSON mode)."
+        : "O modelo não retornou JSON válido.",
+      howToFix: ok
+        ? undefined
+        : "Este modelo pode não suportar JSON mode. Desative a opção 'JSON' para esta conexão.",
       technicalDetails: `Response: ${JSON.stringify(object).slice(0, 500)}`,
     };
   } catch (err: any) {
@@ -327,7 +413,9 @@ async function runStageJson(
       latencyMs,
       message: err?.message || "Erro no JSON mode",
       userMessage: mapped.userMessage,
-      howToFix: mapped.howToFix || "Desative JSON mode para esta conexão se o modelo não declarar suporte.",
+      howToFix:
+        mapped.howToFix ||
+        "Desative JSON mode para esta conexão se o modelo não declarar suporte.",
       technicalDetails: err?.stack || String(err),
     };
   }
@@ -338,7 +426,7 @@ async function runStageTools(
   modelId: string,
   apiKey: string,
   baseUrl?: string,
-  userId?: string
+  userId?: string,
 ): Promise<DiagnosticResult> {
   const start = Date.now();
   try {
@@ -346,11 +434,19 @@ async function runStageTools(
     let customUrl = baseUrl;
     if (provider === "custom_openai") resolvedProvider = "openrouter";
 
-    if (customUrl && /^(http:\/\/localhost|http:\/\/127\.)/i.test(customUrl) && process.env.VERCEL) {
-      throw new Error("URLs localhost não são acessíveis quando o backend roda na nuvem.");
+    if (
+      customUrl &&
+      /^(http:\/\/localhost|http:\/\/127\.)/i.test(customUrl) &&
+      process.env.VERCEL
+    ) {
+      throw new Error(
+        "URLs localhost não são acessíveis quando o backend roda na nuvem.",
+      );
     }
 
-    const { model } = await (await import("./llm-client.js")).getLanguageModel(resolvedProvider, modelId, userId, customUrl);
+    const { model } = await (
+      await import("./llm-client.js")
+    ).getLanguageModel(resolvedProvider, modelId, userId, customUrl);
 
     const result = await generateText({
       model,
@@ -359,7 +455,11 @@ async function runStageTools(
       tools: {
         ping: {
           description: "Returns pong",
-          parameters: { type: "object", properties: {}, additionalProperties: false } as any,
+          parameters: {
+            type: "object",
+            properties: {},
+            additionalProperties: false,
+          } as any,
         },
       } as any,
       maxOutputTokens: 100,
@@ -373,8 +473,12 @@ async function runStageTools(
       stage: "tools",
       latencyMs,
       message: ok ? "Tools OK" : "O modelo não chamou a tool",
-      userMessage: ok ? "O modelo suporta function calling (tools)." : "O modelo não chamou a tool de teste. Pode ser que não suporte function calling.",
-      howToFix: ok ? undefined : "Desative 'Tools' para esta conexão se o modelo não declarar suporte a function calling.",
+      userMessage: ok
+        ? "O modelo suporta function calling (tools)."
+        : "O modelo não chamou a tool de teste. Pode ser que não suporte function calling.",
+      howToFix: ok
+        ? undefined
+        : "Desative 'Tools' para esta conexão se o modelo não declarar suporte a function calling.",
       technicalDetails: `Tool calls: ${JSON.stringify(result.toolCalls || []).slice(0, 500)}`,
     };
   } catch (err: any) {
@@ -387,7 +491,9 @@ async function runStageTools(
       latencyMs,
       message: err?.message || "Erro no tools",
       userMessage: mapped.userMessage,
-      howToFix: mapped.howToFix || "Desative 'Tools' para esta conexão se o modelo não declarar suporte.",
+      howToFix:
+        mapped.howToFix ||
+        "Desative 'Tools' para esta conexão se o modelo não declarar suporte.",
       technicalDetails: err?.stack || String(err),
     };
   }
@@ -407,26 +513,40 @@ export async function runDiagnostics(
     supportsTools?: boolean;
     apiKey: string; // encrypted — caller must decrypt
   },
-  userId?: string
+  userId?: string,
 ): Promise<ConnectionDiagnostics> {
   const results: DiagnosticResult[] = [];
 
   // Stage 1: Auth (via discovery)
-  const authResult = await runStageAuth(connection.provider, connection.apiKey, connection.baseUrl || undefined);
+  const authResult = await runStageAuth(
+    connection.provider,
+    connection.apiKey,
+    connection.baseUrl || undefined,
+  );
   results.push(authResult);
   if (!authResult.ok) {
     return { connectionId: connection.id, results, overall: "error" };
   }
 
   // Stage 2: Models (via discovery)
-  const modelsResult = await runStageModels(connection.provider, connection.apiKey, connection.baseUrl || undefined);
+  const modelsResult = await runStageModels(
+    connection.provider,
+    connection.apiKey,
+    connection.baseUrl || undefined,
+  );
   results.push(modelsResult);
   if (!modelsResult.ok) {
     return { connectionId: connection.id, results, overall: "error" };
   }
 
   // Stage 3: Chat
-  const chatResult = await runStageChat(connection.provider, connection.modelId, connection.apiKey, connection.baseUrl || undefined, userId);
+  const chatResult = await runStageChat(
+    connection.provider,
+    connection.modelId,
+    connection.apiKey,
+    connection.baseUrl || undefined,
+    userId,
+  );
   results.push(chatResult);
   if (!chatResult.ok) {
     return { connectionId: connection.id, results, overall: "error" };
@@ -434,19 +554,36 @@ export async function runDiagnostics(
 
   // Stage 4: JSON (only if model claims support)
   if (connection.supportsJson !== false) {
-    const jsonResult = await runStageJson(connection.provider, connection.modelId, connection.apiKey, connection.baseUrl || undefined, userId);
+    const jsonResult = await runStageJson(
+      connection.provider,
+      connection.modelId,
+      connection.apiKey,
+      connection.baseUrl || undefined,
+      userId,
+    );
     results.push(jsonResult);
   }
 
   // Stage 5: Tools (only if model claims support)
   if (connection.supportsTools !== false) {
-    const toolsResult = await runStageTools(connection.provider, connection.modelId, connection.apiKey, connection.baseUrl || undefined, userId);
+    const toolsResult = await runStageTools(
+      connection.provider,
+      connection.modelId,
+      connection.apiKey,
+      connection.baseUrl || undefined,
+      userId,
+    );
     results.push(toolsResult);
   }
 
   // Determine overall status
   const hasError = results.some((r) => !r.ok);
-  const hasWarning = results.some((r) => r.ok && (r.stage === "json" || r.stage === "tools") && r.message.includes("inesperada"));
+  const hasWarning = results.some(
+    (r) =>
+      r.ok &&
+      (r.stage === "json" || r.stage === "tools") &&
+      r.message.includes("inesperada"),
+  );
 
   return {
     connectionId: connection.id,
@@ -462,7 +599,7 @@ export async function runDiagnostics(
 export async function validateCredentials(
   provider: string,
   apiKey: string,
-  baseUrl?: string
+  baseUrl?: string,
 ): Promise<DiagnosticResult[]> {
   const authResult = await runStageAuth(provider, apiKey, baseUrl);
   if (!authResult.ok) return [authResult];
@@ -483,15 +620,33 @@ export async function testCapability(
     apiKey: string;
   },
   capability: "chat" | "json" | "tools",
-  userId?: string
+  userId?: string,
 ): Promise<DiagnosticResult> {
   switch (capability) {
     case "chat":
-      return runStageChat(connection.provider, connection.modelId, connection.apiKey, connection.baseUrl || undefined, userId);
+      return runStageChat(
+        connection.provider,
+        connection.modelId,
+        connection.apiKey,
+        connection.baseUrl || undefined,
+        userId,
+      );
     case "json":
-      return runStageJson(connection.provider, connection.modelId, connection.apiKey, connection.baseUrl || undefined, userId);
+      return runStageJson(
+        connection.provider,
+        connection.modelId,
+        connection.apiKey,
+        connection.baseUrl || undefined,
+        userId,
+      );
     case "tools":
-      return runStageTools(connection.provider, connection.modelId, connection.apiKey, connection.baseUrl || undefined, userId);
+      return runStageTools(
+        connection.provider,
+        connection.modelId,
+        connection.apiKey,
+        connection.baseUrl || undefined,
+        userId,
+      );
     default:
       return {
         ok: false,

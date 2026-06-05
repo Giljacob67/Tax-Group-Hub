@@ -40,14 +40,24 @@ export function maskUrl(url: string): string {
 /** Truncate payload preview to 500 chars, remove secrets */
 export function safePayloadPreview(payload: unknown, maxLen = 500): string {
   try {
-    let s = JSON.stringify(payload, (key, val) => {
-      const lower = key.toLowerCase();
-      if (lower.includes("secret") || lower.includes("token") || lower.includes("password") ||
-          lower.includes("key") || lower.includes("auth") || lower.includes("credential")) {
-        return "[REDACTED]";
-      }
-      return val;
-    }, 2);
+    let s = JSON.stringify(
+      payload,
+      (key, val) => {
+        const lower = key.toLowerCase();
+        if (
+          lower.includes("secret") ||
+          lower.includes("token") ||
+          lower.includes("password") ||
+          lower.includes("key") ||
+          lower.includes("auth") ||
+          lower.includes("credential")
+        ) {
+          return "[REDACTED]";
+        }
+        return val;
+      },
+      2,
+    );
     if (s.length > maxLen) s = s.slice(0, maxLen) + "…";
     return s;
   } catch {
@@ -55,7 +65,9 @@ export function safePayloadPreview(payload: unknown, maxLen = 500): string {
   }
 }
 
-export async function writeIntegrationLog(input: WriteLogInput): Promise<string> {
+export async function writeIntegrationLog(
+  input: WriteLogInput,
+): Promise<string> {
   const correlationId = input.correlationId ?? randomUUID();
   try {
     await db.insert(integrationLogsTable).values({
@@ -90,10 +102,16 @@ export interface ListLogsOptions {
 
 export async function listIntegrationLogs(opts: ListLogsOptions = {}) {
   const conditions: SQL[] = [];
-  if (opts.userId) conditions.push(eq(integrationLogsTable.userId, opts.userId));
-  if (opts.integrationKey) conditions.push(eq(integrationLogsTable.integrationKey, opts.integrationKey));
-  if (opts.status) conditions.push(eq(integrationLogsTable.status, opts.status));
-  if (opts.direction) conditions.push(eq(integrationLogsTable.direction, opts.direction));
+  if (opts.userId)
+    conditions.push(eq(integrationLogsTable.userId, opts.userId));
+  if (opts.integrationKey)
+    conditions.push(
+      eq(integrationLogsTable.integrationKey, opts.integrationKey),
+    );
+  if (opts.status)
+    conditions.push(eq(integrationLogsTable.status, opts.status));
+  if (opts.direction)
+    conditions.push(eq(integrationLogsTable.direction, opts.direction));
 
   const query = db
     .select()

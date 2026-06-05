@@ -35,13 +35,22 @@ vi.mock("@workspace/db", () => ({
   },
   appConfigTable: { key: "key", value: "value", updatedAt: "updated_at" },
   channelConfigsTable: {
-    id: "id", userId: "user_id", platform: "platform",
-    externalId: "external_id", agentId: "agent_id", config: "config",
-    createdAt: "created_at", updatedAt: "updated_at",
+    id: "id",
+    userId: "user_id",
+    platform: "platform",
+    externalId: "external_id",
+    agentId: "agent_id",
+    config: "config",
+    createdAt: "created_at",
+    updatedAt: "updated_at",
   },
   apiKeysTable: {
-    id: "id", userId: "user_id", provider: "provider",
-    key: "key", createdAt: "created_at", updatedAt: "updated_at",
+    id: "id",
+    userId: "user_id",
+    provider: "provider",
+    key: "key",
+    createdAt: "created_at",
+    updatedAt: "updated_at",
   },
 }));
 
@@ -71,8 +80,9 @@ vi.mock("../lib/validation.js", () => ({
 }));
 
 vi.mock("../middlewares/auth.js", () => ({
-  isRealUser: vi.fn((userId?: string) =>
-    !!userId && userId !== "default" && userId !== "dev-user"
+  isRealUser: vi.fn(
+    (userId?: string) =>
+      !!userId && userId !== "default" && userId !== "dev-user",
   ),
 }));
 
@@ -150,21 +160,17 @@ describe("Routes: /api/settings/channels", () => {
   // ── POST /api/settings/channels ───────────────────────────────────────────
 
   it("POST /api/settings/channels requires platform, externalId, agentId", async () => {
-    const res = await supertest(app)
-      .post("/api/settings/channels")
-      .send({});
+    const res = await supertest(app).post("/api/settings/channels").send({});
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
   });
 
   it("POST /api/settings/channels creates a new channel", async () => {
-    const res = await supertest(app)
-      .post("/api/settings/channels")
-      .send({
-        platform: "whatsapp",
-        externalId: "12345",
-        agentId: "coordenador-geral-tax-group",
-      });
+    const res = await supertest(app).post("/api/settings/channels").send({
+      platform: "whatsapp",
+      externalId: "12345",
+      agentId: "coordenador-geral-tax-group",
+    });
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
   });
@@ -224,9 +230,7 @@ describe("Routes: /api/settings/keys", () => {
   });
 
   it("POST /api/settings/keys requires provider and key", async () => {
-    const res = await supertest(app)
-      .post("/api/settings/keys")
-      .send({});
+    const res = await supertest(app).post("/api/settings/keys").send({});
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
   });

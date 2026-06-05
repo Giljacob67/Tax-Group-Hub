@@ -1,4 +1,14 @@
-import { pgTable, text, serial, timestamp, integer, jsonb, boolean, bigint, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  timestamp,
+  integer,
+  jsonb,
+  boolean,
+  bigint,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { dimAgnosticVector } from "../vector.js";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -6,7 +16,7 @@ import { z } from "zod/v4";
 export const conversationsTable = pgTable("conversations", {
   id: serial("id").primaryKey(),
   agentId: text("agent_id").notNull(),
-  userId: text("user_id"), 
+  userId: text("user_id"),
   title: text("title").notNull().default("Nova Conversa"),
   model: text("model"),
   provider: text("provider"),
@@ -19,7 +29,9 @@ export const conversationsTable = pgTable("conversations", {
 
 export const messagesTable = pgTable("messages", {
   id: serial("id").primaryKey(),
-  conversationId: integer("conversation_id").notNull().references(() => conversationsTable.id, { onDelete: "cascade" }),
+  conversationId: integer("conversation_id")
+    .notNull()
+    .references(() => conversationsTable.id, { onDelete: "cascade" }),
   role: text("role").notNull(), // 'user' | 'assistant' | 'system'
   content: text("content").notNull(),
   metadata: jsonb("metadata"),
@@ -40,7 +52,7 @@ export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   retries: integer("retries").notNull().default(0), // Added for resiliency
   errorLog: text("error_log"), // Added for debug
   fileData: text("file_data"), // Base64 do arquivo original (fallback para reindexação)
-  blobUrl: text("blob_url"),   // URL do Vercel Blob (upload direto, sem limite de payload)
+  blobUrl: text("blob_url"), // URL do Vercel Blob (upload direto, sem limite de payload)
   // --- Classificação e RAG ---
   category: text("category"), // 'RTI' | 'AFD' | 'REP' | 'Propostas' | etc.
   product: text("product"), // produto relacionado: 'RTI' | 'AFD' | 'REP' | 'Reforma Tributária' | etc.
@@ -52,7 +64,6 @@ export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   embeddingModel: text("embedding_model"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
-
 
 export const designGalleryTable = pgTable("design_gallery", {
   id: serial("id").primaryKey(),
@@ -69,24 +80,37 @@ export const appConfigTable = pgTable("app_config", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertDesignGallerySchema = createInsertSchema(designGalleryTable).omit({ id: true, createdAt: true });
+export const insertDesignGallerySchema = createInsertSchema(
+  designGalleryTable,
+).omit({ id: true, createdAt: true });
 export type DesignGalleryItem = typeof designGalleryTable.$inferSelect;
 export type InsertDesignGalleryItem = z.infer<typeof insertDesignGallerySchema>;
 
-export const insertConversationSchema = createInsertSchema(conversationsTable).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertMessageSchema = createInsertSchema(messagesTable).omit({ id: true, createdAt: true });
-export const insertKnowledgeDocumentSchema = createInsertSchema(knowledgeDocumentsTable).omit({ id: true, createdAt: true });
+export const insertConversationSchema = createInsertSchema(
+  conversationsTable,
+).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMessageSchema = createInsertSchema(messagesTable).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertKnowledgeDocumentSchema = createInsertSchema(
+  knowledgeDocumentsTable,
+).omit({ id: true, createdAt: true });
 
 export type Conversation = typeof conversationsTable.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Message = typeof messagesTable.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type KnowledgeDocument = typeof knowledgeDocumentsTable.$inferSelect;
-export type InsertKnowledgeDocument = z.infer<typeof insertKnowledgeDocumentSchema>;
+export type InsertKnowledgeDocument = z.infer<
+  typeof insertKnowledgeDocumentSchema
+>;
 
 export const knowledgeChunksTable = pgTable("knowledge_chunks", {
   id: serial("id").primaryKey(),
-  documentId: integer("document_id").notNull().references(() => knowledgeDocumentsTable.id, { onDelete: "cascade" }),
+  documentId: integer("document_id")
+    .notNull()
+    .references(() => knowledgeDocumentsTable.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   // Dim-agnostic vector via customType. See lib/db/src/vector.ts. Drizzle
   // type is `number[]`; the DB column has no dim pin so the same row can
@@ -99,7 +123,9 @@ export const knowledgeChunksTable = pgTable("knowledge_chunks", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertKnowledgeChunkSchema = createInsertSchema(knowledgeChunksTable).omit({ id: true, createdAt: true });
+export const insertKnowledgeChunkSchema = createInsertSchema(
+  knowledgeChunksTable,
+).omit({ id: true, createdAt: true });
 export type KnowledgeChunk = typeof knowledgeChunksTable.$inferSelect;
 export type InsertKnowledgeChunk = z.infer<typeof insertKnowledgeChunkSchema>;
 
@@ -158,7 +184,9 @@ export const channelConfigsTable = pgTable("channel_configs", {
 });
 
 export type ChannelConfig = typeof channelConfigsTable.$inferSelect;
-export const insertChannelConfigSchema = createInsertSchema(channelConfigsTable).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertChannelConfigSchema = createInsertSchema(
+  channelConfigsTable,
+).omit({ id: true, createdAt: true, updatedAt: true });
 
 /**
  * Stores LLM metrics for analytics and billing.
@@ -184,7 +212,10 @@ export const usageLogsTable = pgTable("usage_logs", {
 });
 
 export type UsageLog = typeof usageLogsTable.$inferSelect;
-export const insertUsageLogSchema = createInsertSchema(usageLogsTable).omit({ id: true, createdAt: true });
+export const insertUsageLogSchema = createInsertSchema(usageLogsTable).omit({
+  id: true,
+  createdAt: true,
+});
 
 /**
  * Custom branding configuration for tenants.
@@ -201,7 +232,9 @@ export const tenantBrandingTable = pgTable("tenant_branding", {
 });
 
 export type TenantBranding = typeof tenantBrandingTable.$inferSelect;
-export const insertTenantBrandingSchema = createInsertSchema(tenantBrandingTable).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTenantBrandingSchema = createInsertSchema(
+  tenantBrandingTable,
+).omit({ id: true, createdAt: true, updatedAt: true });
 
 /**
  * Integration execution logs — tracks every inbound/outbound integration event.
@@ -227,7 +260,9 @@ export const integrationLogsTable = pgTable("integration_logs", {
 });
 
 export type IntegrationLog = typeof integrationLogsTable.$inferSelect;
-export const insertIntegrationLogSchema = createInsertSchema(integrationLogsTable).omit({ id: true, createdAt: true });
+export const insertIntegrationLogSchema = createInsertSchema(
+  integrationLogsTable,
+).omit({ id: true, createdAt: true });
 
 /**
  * Registra cada execução de pipeline multi-agente (/automate/pipeline)
@@ -236,14 +271,16 @@ export const insertIntegrationLogSchema = createInsertSchema(integrationLogsTabl
 export const pipelineExecutionsTable = pgTable("pipeline_executions", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
-  steps: jsonb("steps").notNull().$type<Array<{
-    agentId: string;
-    input: string;
-    output: string;
-    tokensUsed: number;
-    timeMs: number;
-    success: boolean;
-  }>>(),
+  steps: jsonb("steps").notNull().$type<
+    Array<{
+      agentId: string;
+      input: string;
+      output: string;
+      tokensUsed: number;
+      timeMs: number;
+      success: boolean;
+    }>
+  >(),
   totalTokens: integer("total_tokens").notNull().default(0),
   totalTimeMs: integer("total_time_ms").notNull().default(0),
   status: text("status").notNull().default("completed"), // 'completed' | 'partial' | 'failed'
@@ -251,8 +288,12 @@ export const pipelineExecutionsTable = pgTable("pipeline_executions", {
 });
 
 export type PipelineExecution = typeof pipelineExecutionsTable.$inferSelect;
-export const insertPipelineExecutionSchema = createInsertSchema(pipelineExecutionsTable).omit({ id: true, createdAt: true });
-export type InsertPipelineExecution = z.infer<typeof insertPipelineExecutionSchema>;
+export const insertPipelineExecutionSchema = createInsertSchema(
+  pipelineExecutionsTable,
+).omit({ id: true, createdAt: true });
+export type InsertPipelineExecution = z.infer<
+  typeof insertPipelineExecutionSchema
+>;
 
 /**
  * Tracking de performance do conteúdo gerado pelos agentes de marketing.
@@ -262,20 +303,24 @@ export const contentPerformanceTable = pgTable("content_performance", {
   id: serial("id").primaryKey(),
   agentId: text("agent_id").notNull(),
   userId: text("user_id"),
-  channel: text("channel").notNull(),           // 'linkedin' | 'email' | 'whatsapp' | 'video' | 'seo'
-  contentType: text("content_type").notNull(),  // 'post' | 'email' | 'script' | 'one-pager' | 'article'
+  channel: text("channel").notNull(), // 'linkedin' | 'email' | 'whatsapp' | 'video' | 'seo'
+  contentType: text("content_type").notNull(), // 'post' | 'email' | 'script' | 'one-pager' | 'article'
   generatedContent: text("generated_content").notNull(),
   publishedAt: timestamp("published_at"),
   impressions: integer("impressions").default(0),
   clicks: integer("clicks").default(0),
   conversions: integer("conversions").default(0),
-  score: integer("score"),                      // 1-10, avaliação manual
+  score: integer("score"), // 1-10, avaliação manual
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export type ContentPerformance = typeof contentPerformanceTable.$inferSelect;
-export const insertContentPerformanceSchema = createInsertSchema(contentPerformanceTable).omit({ id: true, createdAt: true });
-export type InsertContentPerformance = z.infer<typeof insertContentPerformanceSchema>;
+export const insertContentPerformanceSchema = createInsertSchema(
+  contentPerformanceTable,
+).omit({ id: true, createdAt: true });
+export type InsertContentPerformance = z.infer<
+  typeof insertContentPerformanceSchema
+>;
 
 /**
  * User feedback on individual AI responses — thumbs up/down + optional reason.
@@ -295,8 +340,12 @@ export const aiResponseFeedbackTable = pgTable("ai_response_feedback", {
 });
 
 export type AiResponseFeedback = typeof aiResponseFeedbackTable.$inferSelect;
-export const insertAiResponseFeedbackSchema = createInsertSchema(aiResponseFeedbackTable).omit({ id: true, createdAt: true });
-export type InsertAiResponseFeedback = z.infer<typeof insertAiResponseFeedbackSchema>;
+export const insertAiResponseFeedbackSchema = createInsertSchema(
+  aiResponseFeedbackTable,
+).omit({ id: true, createdAt: true });
+export type InsertAiResponseFeedback = z.infer<
+  typeof insertAiResponseFeedbackSchema
+>;
 
 /**
  * Test cases for regression testing agent responses.
@@ -316,7 +365,9 @@ export const aiTestCasesTable = pgTable("ai_test_cases", {
 });
 
 export type AiTestCase = typeof aiTestCasesTable.$inferSelect;
-export const insertAiTestCaseSchema = createInsertSchema(aiTestCasesTable).omit({ id: true, createdAt: true });
+export const insertAiTestCaseSchema = createInsertSchema(aiTestCasesTable).omit(
+  { id: true, createdAt: true },
+);
 export type InsertAiTestCase = z.infer<typeof insertAiTestCaseSchema>;
 
 /**
@@ -324,7 +375,9 @@ export type InsertAiTestCase = z.infer<typeof insertAiTestCaseSchema>;
  */
 export const aiTestRunsTable = pgTable("ai_test_runs", {
   id: serial("id").primaryKey(),
-  testCaseId: integer("test_case_id").notNull().references(() => aiTestCasesTable.id, { onDelete: "cascade" }),
+  testCaseId: integer("test_case_id")
+    .notNull()
+    .references(() => aiTestCasesTable.id, { onDelete: "cascade" }),
   model: text("model").notNull(),
   provider: text("provider").notNull(),
   status: text("status").notNull().default("pending"), // 'pending' | 'running' | 'passed' | 'failed' | 'error'
@@ -338,6 +391,8 @@ export const aiTestRunsTable = pgTable("ai_test_runs", {
 });
 
 export type AiTestRun = typeof aiTestRunsTable.$inferSelect;
-export const insertAiTestRunSchema = createInsertSchema(aiTestRunsTable).omit({ id: true, createdAt: true });
+export const insertAiTestRunSchema = createInsertSchema(aiTestRunsTable).omit({
+  id: true,
+  createdAt: true,
+});
 export type InsertAiTestRun = z.infer<typeof insertAiTestRunSchema>;
-

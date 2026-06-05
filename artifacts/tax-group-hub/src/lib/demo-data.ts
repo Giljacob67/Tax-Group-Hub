@@ -91,8 +91,10 @@ export const DEMO_CONTACTS: DemoContact[] = [
     aiScore: 87,
     aiScoreDetails: {
       tier: "A",
-      nextAction: "Agendar diagnóstico fiscal completo com ênfase em RTI e créditos do Leite",
-      reasoning: "Cooperativa de grande porte com regime Lucro Real e alto volume de transações agrícolas. Potencial significativo para recuperação de créditos de PIS/COFINS e análise de benefícios do REIQ/Agro."
+      nextAction:
+        "Agendar diagnóstico fiscal completo com ênfase em RTI e créditos do Leite",
+      reasoning:
+        "Cooperativa de grande porte com regime Lucro Real e alto volume de transações agrícolas. Potencial significativo para recuperação de créditos de PIS/COFINS e análise de benefícios do REIQ/Agro.",
     },
     aiRecommendedProduct: "RTI",
     source: "demo",
@@ -121,7 +123,8 @@ export const DEMO_CONTACTS: DemoContact[] = [
     aiScoreDetails: {
       tier: "A",
       nextAction: "Validar créditos acumulados e documentação para AFD",
-      reasoning: "Indústria de médios e grandes componentes automotivos com regime Lucro Real. Histórico de exportações e operações com mercadorias sujeitas a diferentes alíquotas de IPI."
+      reasoning:
+        "Indústria de médios e grandes componentes automotivos com regime Lucro Real. Histórico de exportações e operações com mercadorias sujeitas a diferentes alíquotas de IPI.",
     },
     aiRecommendedProduct: "AFD",
     source: "demo",
@@ -150,7 +153,8 @@ export const DEMO_CONTACTS: DemoContact[] = [
     aiScoreDetails: {
       tier: "B",
       nextAction: "Enviar follow-up comercial com proposta de RTI",
-      reasoning: "Distribuidora atacadista com operação interestadual frequente. Potencial para revisão de enquadramento tributário e recuperação de créditos de ICMS."
+      reasoning:
+        "Distribuidora atacadista com operação interestadual frequente. Potencial para revisão de enquadramento tributário e recuperação de créditos de ICMS.",
     },
     aiRecommendedProduct: "RTI",
     source: "demo",
@@ -179,7 +183,8 @@ export const DEMO_CONTACTS: DemoContact[] = [
     aiScoreDetails: {
       tier: "B",
       nextAction: "Revisar regime tributário e mapear oportunidades de REP",
-      reasoning: "Transportadora rodoviário de cargas com grande frota própria e regime Lucro Real. Operações com combustíveis, pneus e peças sujeitas a substituição tributária."
+      reasoning:
+        "Transportadora rodoviário de cargas com grande frota própria e regime Lucro Real. Operações com combustíveis, pneus e peças sujeitas a substituição tributária.",
     },
     aiRecommendedProduct: "REP",
     source: "demo",
@@ -207,8 +212,10 @@ export const DEMO_CONTACTS: DemoContact[] = [
     aiScore: 72,
     aiScoreDetails: {
       tier: "B",
-      nextAction: "Apresentar diagnóstico de AFD com benchmarking do setor metalúrgico",
-      reasoning: "Metalúrgica de médio porte com regime Lucro Presumido. Potencial de transição para Lucro Real com benefícios de RECINE e RECICLAGA."
+      nextAction:
+        "Apresentar diagnóstico de AFD com benchmarking do setor metalúrgico",
+      reasoning:
+        "Metalúrgica de médio porte com regime Lucro Presumido. Potencial de transição para Lucro Real com benefícios de RECINE e RECICLAGA.",
     },
     aiRecommendedProduct: "AFD",
     source: "demo",
@@ -236,8 +243,10 @@ export const DEMO_CONTACTS: DemoContact[] = [
     aiScore: 84,
     aiScoreDetails: {
       tier: "A",
-      nextAction: "Montar proposta de RTI com análise de créditos do agronegócio",
-      reasoning: "Grande cerealista com regime Lucro Real e operações de exportação. Alto potencial para recuperação de créditos presumidos do agronegócio e análise de REIQ."
+      nextAction:
+        "Montar proposta de RTI com análise de créditos do agronegócio",
+      reasoning:
+        "Grande cerealista com regime Lucro Real e operações de exportação. Alto potencial para recuperação de créditos presumidos do agronegócio e análise de REIQ.",
     },
     aiRecommendedProduct: "RTI",
     source: "demo",
@@ -247,10 +256,38 @@ export const DEMO_CONTACTS: DemoContact[] = [
 ];
 
 export const DEMO_SEGMENTS: DemoSegment[] = [
-  { id: "agro", label: "Agronegócio", contacts: 2, deals: 3, potentialValue: 650_000_000, hotLeads: 2 },
-  { id: "industria", label: "Indústria", contacts: 2, deals: 2, potentialValue: 890_000_000, hotLeads: 1 },
-  { id: "atacado", label: "Atacado", contacts: 1, deals: 1, potentialValue: 120_000_000, hotLeads: 1 },
-  { id: "logistica", label: "Logística", contacts: 1, deals: 1, potentialValue: 320_000_000, hotLeads: 1 },
+  {
+    id: "agro",
+    label: "Agronegócio",
+    contacts: 2,
+    deals: 3,
+    potentialValue: 650_000_000,
+    hotLeads: 2,
+  },
+  {
+    id: "industria",
+    label: "Indústria",
+    contacts: 2,
+    deals: 2,
+    potentialValue: 890_000_000,
+    hotLeads: 1,
+  },
+  {
+    id: "atacado",
+    label: "Atacado",
+    contacts: 1,
+    deals: 1,
+    potentialValue: 120_000_000,
+    hotLeads: 1,
+  },
+  {
+    id: "logistica",
+    label: "Logística",
+    contacts: 1,
+    deals: 1,
+    potentialValue: 320_000_000,
+    hotLeads: 1,
+  },
 ];
 
 export const DEMO_DEALS: DemoDeal[] = [
@@ -314,7 +351,8 @@ export const DEMO_DEALS: DemoDeal[] = [
     value: "130000",
     probability: 30,
     expectedCloseDate: new Date(Date.now() + 60 * 86400000).toISOString(),
-    notes: "Primeiro contato realizado. Mapeando oportunidades de créditos de combustível.",
+    notes:
+      "Primeiro contato realizado. Mapeando oportunidades de créditos de combustível.",
     wonAt: null,
     lostAt: null,
     createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
@@ -331,7 +369,8 @@ export const DEMO_DEALS: DemoDeal[] = [
     value: "210000",
     probability: 55,
     expectedCloseDate: new Date(Date.now() + 25 * 86400000).toISOString(),
-    notes: "Análise de créditos do agronegócio em andamento. Potencial de RECINE.",
+    notes:
+      "Análise de créditos do agronegócio em andamento. Potencial de RECINE.",
     wonAt: null,
     lostAt: null,
     createdAt: new Date(Date.now() - 6 * 86400000).toISOString(),
@@ -346,7 +385,8 @@ export const DEMO_TASKS: DemoTask[] = [
     id: 301,
     contactId: 101,
     title: "Agendar diagnóstico fiscal - AgroVale",
-    description: "Marcar reunião presencial com Carlos Henrique para apresentação do diagnóstico RTI.",
+    description:
+      "Marcar reunião presencial com Carlos Henrique para apresentação do diagnóstico RTI.",
     status: "pending",
     priority: "high",
     dueDate: new Date(Date.now() + 2 * 86400000).toISOString(),
@@ -368,7 +408,8 @@ export const DEMO_TASKS: DemoTask[] = [
     id: 303,
     contactId: 103,
     title: "Follow-up proposta NorteSul",
-    description: "Ligar para Roberto Dias e confirmar recebimento da proposta de RTI.",
+    description:
+      "Ligar para Roberto Dias e confirmar recebimento da proposta de RTI.",
     status: "pending",
     priority: "medium",
     dueDate: new Date(Date.now() + 3 * 86400000).toISOString(),
@@ -379,7 +420,8 @@ export const DEMO_TASKS: DemoTask[] = [
     id: 304,
     contactId: 104,
     title: "Revisar regime tributário LogPrime",
-    description: "Analisar possibilidade de transição para Lucro Presumido ou benefícios de REP.",
+    description:
+      "Analisar possibilidade de transição para Lucro Presumido ou benefícios de REP.",
     status: "pending",
     priority: "medium",
     dueDate: new Date(Date.now() + 5 * 86400000).toISOString(),
@@ -392,22 +434,26 @@ export const DEMO_JOURNEY_STEPS = [
   {
     step: 1,
     title: "Mapear empresas-alvo",
-    description: "Importe CNPJs ou conecte fontes de dados para identificar empresas com potencial tributário.",
+    description:
+      "Importe CNPJs ou conecte fontes de dados para identificar empresas com potencial tributário.",
   },
   {
     step: 2,
     title: "Priorizar com IA",
-    description: "O motor de pontuação analisa regime, CNAE, faturamento e histórico para ranquear oportunidades.",
+    description:
+      "O motor de pontuação analisa regime, CNAE, faturamento e histórico para ranquear oportunidades.",
   },
   {
     step: 3,
     title: "Acionar agentes especializados",
-    description: "Cada vertical tem agentes treinados para diagnóstico, proposta e follow-up comercial.",
+    description:
+      "Cada vertical tem agentes treinados para diagnóstico, proposta e follow-up comercial.",
   },
   {
     step: 4,
     title: "Converter em diagnóstico, proposta e contrato",
-    description: "Pipeline comercial rastreia cada etapa até o fechamento, com automações de nurturing.",
+    description:
+      "Pipeline comercial rastreia cada etapa até o fechamento, com automações de nurturing.",
   },
 ];
 
@@ -420,5 +466,8 @@ export const DEMO_CHAT_SUGGESTIONS = [
 
 // Helpers
 export function isDemoData(item: any): boolean {
-  return item?.source === "demo" || (typeof item?.id === "number" && item.id >= 100 && item.id < 1000);
+  return (
+    item?.source === "demo" ||
+    (typeof item?.id === "number" && item.id >= 100 && item.id < 1000)
+  );
 }

@@ -34,7 +34,9 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="flex items-center justify-center h-screen bg-background">
           <div className="text-center p-8 max-w-md">
             <div className="text-6xl mb-4">⚠️</div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">Algo deu errado</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-2">
+              Algo deu errado
+            </h1>
             <p className="text-muted-foreground mb-4">
               Ocorreu um erro inesperado. Tente recarregar a página.
             </p>

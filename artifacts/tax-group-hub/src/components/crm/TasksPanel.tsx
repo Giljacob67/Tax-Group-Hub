@@ -2,9 +2,22 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, Loader2, Check, Trash2, Bell, BellOff,
-  PhoneCall, AtSign, MessageSquare, Calendar, StickyNote,
-  FileText, AlertCircle, Clock, ChevronDown, X,
+  Plus,
+  Loader2,
+  Check,
+  Trash2,
+  Bell,
+  BellOff,
+  PhoneCall,
+  AtSign,
+  MessageSquare,
+  Calendar,
+  StickyNote,
+  FileText,
+  AlertCircle,
+  Clock,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +26,11 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
   useListCrmTasks,
@@ -41,19 +58,26 @@ export type Task = {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const TASK_TYPES = [
-  { value: "call",     label: "Ligação",   icon: PhoneCall },
-  { value: "email",    label: "E-mail",    icon: AtSign },
-  { value: "whatsapp", label: "WhatsApp",  icon: MessageSquare },
-  { value: "meeting",  label: "Reunião",   icon: Calendar },
-  { value: "proposal", label: "Proposta",  icon: FileText },
-  { value: "note",     label: "Nota",      icon: StickyNote },
+  { value: "call", label: "Ligação", icon: PhoneCall },
+  { value: "email", label: "E-mail", icon: AtSign },
+  { value: "whatsapp", label: "WhatsApp", icon: MessageSquare },
+  { value: "meeting", label: "Reunião", icon: Calendar },
+  { value: "proposal", label: "Proposta", icon: FileText },
+  { value: "note", label: "Nota", icon: StickyNote },
 ];
 
-const PRIORITY_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
-  low:    { label: "Baixa",   color: "text-slate-400",   dot: "bg-slate-400" },
-  medium: { label: "Média",   color: "text-blue-400",    dot: "bg-blue-400" },
-  high:   { label: "Alta",    color: "text-amber-400",   dot: "bg-amber-400" },
-  urgent: { label: "Urgente", color: "text-red-400",     dot: "bg-red-500 animate-pulse" },
+const PRIORITY_CONFIG: Record<
+  string,
+  { label: string; color: string; dot: string }
+> = {
+  low: { label: "Baixa", color: "text-slate-400", dot: "bg-slate-400" },
+  medium: { label: "Média", color: "text-blue-400", dot: "bg-blue-400" },
+  high: { label: "Alta", color: "text-amber-400", dot: "bg-amber-400" },
+  urgent: {
+    label: "Urgente",
+    color: "text-red-400",
+    dot: "bg-red-500 animate-pulse",
+  },
 };
 
 // ─── Push Notification helper ──────────────────────────────────────────────────
@@ -68,29 +92,33 @@ async function requestNotificationPermission(): Promise<boolean> {
 function scheduleNotification(title: string, body: string, at: Date) {
   const delay = at.getTime() - Date.now();
   if (delay <= 0) return;
-  setTimeout(() => {
-    if (Notification.permission === "granted") {
-      new Notification(`📋 ${title}`, { body, icon: "/favicon.ico" });
-    }
-  }, Math.min(delay, 2_147_483_647)); // max 32-bit int timeout
+  setTimeout(
+    () => {
+      if (Notification.permission === "granted") {
+        new Notification(`📋 ${title}`, { body, icon: "/favicon.ico" });
+      }
+    },
+    Math.min(delay, 2_147_483_647),
+  ); // max 32-bit int timeout
 }
 
 // ─── Task Form ─────────────────────────────────────────────────────────────────
 function TaskForm({
-  contactId, onDone,
+  contactId,
+  onDone,
 }: {
   contactId?: number;
   onDone: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [title, setTitle]         = useState("");
-  const [type, setType]           = useState("call");
-  const [priority, setPriority]   = useState("medium");
-  const [dueDate, setDueDate]     = useState("");
-  const [dueTime, setDueTime]     = useState("");
-  const [reminder, setReminder]   = useState(false);
-  const [description, setDesc]    = useState("");
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState("call");
+  const [priority, setPriority] = useState("medium");
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
+  const [reminder, setReminder] = useState(false);
+  const [description, setDesc] = useState("");
 
   const createTask = useCreateCrmTask({
     mutation: {
@@ -106,7 +134,7 @@ function TaskForm({
             scheduleNotification(
               task.title,
               `Lembrete: ${task.type} — ${new Date(task.dueDate).toLocaleString("pt-BR")}`,
-              new Date(task.reminderAt)
+              new Date(task.reminderAt),
             );
             toast({ title: "🔔 Lembrete agendado para 30 min antes." });
           }
@@ -114,7 +142,12 @@ function TaskForm({
 
         onDone();
       },
-      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+      onError: (e: any) =>
+        toast({
+          title: "Erro",
+          description: e.message,
+          variant: "destructive",
+        }),
     },
   });
 
@@ -122,15 +155,22 @@ function TaskForm({
     const dueDateISO = dueDate
       ? new Date(`${dueDate}T${dueTime || "09:00"}:00`).toISOString()
       : undefined;
-    const reminderAt = reminder && dueDateISO
-      ? new Date(new Date(dueDateISO).getTime() - 30 * 60 * 1000).toISOString()
-      : undefined;
+    const reminderAt =
+      reminder && dueDateISO
+        ? new Date(
+            new Date(dueDateISO).getTime() - 30 * 60 * 1000,
+          ).toISOString()
+        : undefined;
 
     createTask.mutate({
       data: {
-        title, type, priority, description: description || undefined,
+        title,
+        type,
+        priority,
+        description: description || undefined,
         dueDate: dueDateISO,
-        contactId: contactId || undefined, status: "pending",
+        contactId: contactId || undefined,
+        status: "pending",
       } as any,
     });
   }
@@ -139,7 +179,10 @@ function TaskForm({
     <div className="border border-border/60 rounded-xl p-3.5 space-y-3 bg-muted/10">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold">Nova Tarefa</span>
-        <button onClick={onDone} className="text-muted-foreground hover:text-foreground">
+        <button
+          onClick={onDone}
+          className="text-muted-foreground hover:text-foreground"
+        >
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -147,14 +190,14 @@ function TaskForm({
       <Input
         placeholder="Título da tarefa..."
         value={title}
-        onChange={e => setTitle(e.target.value)}
+        onChange={(e) => setTitle(e.target.value)}
         className="text-xs h-8"
         autoFocus
       />
 
       {/* Type chips */}
       <div className="flex gap-1 flex-wrap">
-        {TASK_TYPES.map(t => (
+        {TASK_TYPES.map((t) => (
           <button
             key={t.value}
             onClick={() => setType(t.value)}
@@ -172,7 +215,9 @@ function TaskForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {/* Priority */}
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground uppercase tracking-wider">Prioridade</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+            Prioridade
+          </Label>
           <Select value={priority} onValueChange={setPriority}>
             <SelectTrigger className="h-7 text-xs">
               <SelectValue />
@@ -192,11 +237,13 @@ function TaskForm({
 
         {/* Due Date */}
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground uppercase tracking-wider">Data</Label>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+            Data
+          </Label>
           <Input
             type="date"
             value={dueDate}
-            onChange={e => setDueDate(e.target.value)}
+            onChange={(e) => setDueDate(e.target.value)}
             className="h-7 text-xs"
           />
         </div>
@@ -208,18 +255,22 @@ function TaskForm({
           <Input
             type="time"
             value={dueTime}
-            onChange={e => setDueTime(e.target.value)}
+            onChange={(e) => setDueTime(e.target.value)}
             className="h-7 text-xs w-28"
           />
           <button
-            onClick={() => setReminder(r => !r)}
+            onClick={() => setReminder((r) => !r)}
             className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-colors ${
               reminder
                 ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
                 : "border-border/50 text-muted-foreground hover:border-border"
             }`}
           >
-            {reminder ? <Bell className="w-2.5 h-2.5" /> : <BellOff className="w-2.5 h-2.5" />}
+            {reminder ? (
+              <Bell className="w-2.5 h-2.5" />
+            ) : (
+              <BellOff className="w-2.5 h-2.5" />
+            )}
             Lembrete 30min antes
           </button>
         </div>
@@ -228,16 +279,21 @@ function TaskForm({
       <Textarea
         placeholder="Descrição (opcional)..."
         value={description}
-        onChange={e => setDesc(e.target.value)}
+        onChange={(e) => setDesc(e.target.value)}
         className="text-xs min-h-[52px] resize-none"
       />
 
       <Button
-        size="sm" className="w-full text-xs h-7"
+        size="sm"
+        className="w-full text-xs h-7"
         onClick={handleCreate}
         disabled={createTask.isPending || !title.trim()}
       >
-        {createTask.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Plus className="w-3 h-3 mr-1.5" />}
+        {createTask.isPending ? (
+          <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
+        ) : (
+          <Plus className="w-3 h-3 mr-1.5" />
+        )}
         Criar Tarefa
       </Button>
     </div>
@@ -245,15 +301,21 @@ function TaskForm({
 }
 
 // ─── Task Item ─────────────────────────────────────────────────────────────────
-function TaskItem({ task, onUpdate, onDelete }: {
+function TaskItem({
+  task,
+  onUpdate,
+  onDelete,
+}: {
   task: Task;
   onUpdate: (t: Task) => void;
   onDelete: (id: number) => void;
 }) {
-  const Icon = TASK_TYPES.find(t => t.value === task.type)?.icon || StickyNote;
+  const Icon =
+    TASK_TYPES.find((t) => t.value === task.type)?.icon || StickyNote;
   const prio = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
   const isDone = task.status === "done";
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !isDone;
+  const isOverdue =
+    task.dueDate && new Date(task.dueDate) < new Date() && !isDone;
 
   return (
     <motion.div
@@ -265,46 +327,69 @@ function TaskItem({ task, onUpdate, onDelete }: {
         isDone
           ? "bg-muted/20 border-border/30 opacity-60"
           : isOverdue
-          ? "bg-red-500/5 border-red-500/20"
-          : "bg-card/50 border-border/40 hover:border-border/70"
+            ? "bg-red-500/5 border-red-500/20"
+            : "bg-card/50 border-border/40 hover:border-border/70"
       }`}
     >
       {/* Checkbox */}
       <button
-        onClick={() => onUpdate({ ...task, status: isDone ? "pending" : "done" })}
+        onClick={() =>
+          onUpdate({ ...task, status: isDone ? "pending" : "done" })
+        }
         className={`w-4 h-4 rounded border-2 flex-shrink-0 mt-0.5 flex items-center justify-center transition-all ${
-          isDone ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/40 hover:border-primary"
+          isDone
+            ? "bg-emerald-500 border-emerald-500"
+            : "border-muted-foreground/40 hover:border-primary"
         }`}
       >
         {isDone && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
       </button>
 
       {/* Icon */}
-      <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 ${
-        isDone ? "bg-muted" : "bg-primary/10"
-      }`}>
-        <Icon className={`w-3 h-3 ${isDone ? "text-muted-foreground" : "text-primary"}`} />
+      <div
+        className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 ${
+          isDone ? "bg-muted" : "bg-primary/10"
+        }`}
+      >
+        <Icon
+          className={`w-3 h-3 ${isDone ? "text-muted-foreground" : "text-primary"}`}
+        />
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className={`text-xs font-medium leading-tight ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
+        <p
+          className={`text-xs font-medium leading-tight ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}
+        >
           {task.title}
         </p>
         {task.description && (
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+            {task.description}
+          </p>
         )}
         <div className="flex items-center gap-2 mt-1">
-          <span className={`text-[11px] font-semibold ${prio.color}`}>{prio.label}</span>
+          <span className={`text-[11px] font-semibold ${prio.color}`}>
+            {prio.label}
+          </span>
           {task.dueDate && (
-            <span className={`text-[11px] flex items-center gap-0.5 ${
-              isOverdue ? "text-red-400 font-semibold" : "text-muted-foreground"
-            }`}>
+            <span
+              className={`text-[11px] flex items-center gap-0.5 ${
+                isOverdue
+                  ? "text-red-400 font-semibold"
+                  : "text-muted-foreground"
+              }`}
+            >
               {isOverdue && <AlertCircle className="w-2.5 h-2.5" />}
               <Clock className="w-2 h-2" />
-              {new Date(task.dueDate).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" })}
-              {" "}
-              {new Date(task.dueDate).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })}
+              {new Date(task.dueDate).toLocaleDateString("pt-BR", {
+                day: "2-digit",
+                month: "2-digit",
+              })}{" "}
+              {new Date(task.dueDate).toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </span>
           )}
           {task.reminderAt && !isDone && (
@@ -333,7 +418,10 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
 
   const queryKey = getListCrmTasksQueryKey({ contactId });
 
-  const { data, isLoading } = useListCrmTasks({ contactId } as any, { query: { refetchInterval: 30_000 } } as any);
+  const { data, isLoading } = useListCrmTasks(
+    { contactId } as any,
+    { query: { refetchInterval: 30_000 } } as any,
+  );
 
   const updateMutation = useMutation({
     mutationFn: async (task: Task) => {
@@ -346,7 +434,8 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-    onError: () => toast({ title: "Erro ao atualizar tarefa", variant: "destructive" }),
+    onError: () =>
+      toast({ title: "Erro ao atualizar tarefa", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -358,17 +447,17 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
       queryClient.invalidateQueries({ queryKey });
       toast({ title: "Tarefa removida." });
     },
-    onError: () => toast({ title: "Erro ao remover tarefa", variant: "destructive" }),
+    onError: () =>
+      toast({ title: "Erro ao remover tarefa", variant: "destructive" }),
   });
 
   const allTasks = data?.tasks || [];
-  const filtered = filter === "all"
-    ? allTasks
-    : allTasks.filter(t => t.status === filter);
+  const filtered =
+    filter === "all" ? allTasks : allTasks.filter((t) => t.status === filter);
 
-  const pendingCount  = allTasks.filter(t => t.status === "pending").length;
-  const overdueCount  = allTasks.filter(t =>
-    t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done"
+  const pendingCount = allTasks.filter((t) => t.status === "pending").length;
+  const overdueCount = allTasks.filter(
+    (t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done",
   ).length;
 
   return (
@@ -384,14 +473,16 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
           )}
           {overdueCount > 0 && (
             <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold flex items-center gap-0.5">
-              <AlertCircle className="w-2.5 h-2.5" />{overdueCount} atrasada{overdueCount > 1 ? "s" : ""}
+              <AlertCircle className="w-2.5 h-2.5" />
+              {overdueCount} atrasada{overdueCount > 1 ? "s" : ""}
             </span>
           )}
         </div>
         <Button
-          variant="outline" size="sm"
+          variant="outline"
+          size="sm"
           className="h-6 text-xs px-2 gap-1"
-          onClick={() => setShowForm(v => !v)}
+          onClick={() => setShowForm((v) => !v)}
         >
           <Plus className="w-2.5 h-2.5" /> Nova
         </Button>
@@ -399,7 +490,7 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
 
       {/* Filter tabs */}
       <div className="flex gap-1">
-        {(["pending", "all", "done"] as const).map(f => (
+        {(["pending", "all", "done"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -409,7 +500,11 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
                 : "border-border/50 text-muted-foreground hover:border-border"
             }`}
           >
-            {f === "pending" ? "Pendentes" : f === "done" ? "Concluídas" : "Todas"}
+            {f === "pending"
+              ? "Pendentes"
+              : f === "done"
+                ? "Concluídas"
+                : "Todas"}
           </button>
         ))}
       </div>
@@ -417,7 +512,11 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
       {/* Form */}
       <AnimatePresence>
         {showForm && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+          >
             <TaskForm
               contactId={contactId}
               onDone={() => {
@@ -436,17 +535,19 @@ export default function TasksPanel({ contactId }: { contactId: number }) {
         </div>
       ) : filtered.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-4">
-          {filter === "pending" ? "Nenhuma tarefa pendente." : "Nenhuma tarefa encontrada."}
+          {filter === "pending"
+            ? "Nenhuma tarefa pendente."
+            : "Nenhuma tarefa encontrada."}
         </p>
       ) : (
         <div className="space-y-2">
           <AnimatePresence>
-            {filtered.map(task => (
+            {filtered.map((task) => (
               <TaskItem
                 key={task.id}
                 task={task}
-                onUpdate={t => updateMutation.mutate(t)}
-                onDelete={id => deleteMutation.mutate(id)}
+                onUpdate={(t) => updateMutation.mutate(t)}
+                onDelete={(id) => deleteMutation.mutate(id)}
               />
             ))}
           </AnimatePresence>

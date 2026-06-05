@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Check, ChevronDown, Cpu, Wifi, WifiOff, AlertCircle } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Cpu,
+  Wifi,
+  WifiOff,
+  AlertCircle,
+} from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -23,11 +30,16 @@ interface Props {
   placeholder?: string;
 }
 
-export default function ModelSelector({ value, onChange, placeholder = "Selecionar modelo..." }: Props) {
+export default function ModelSelector({
+  value,
+  onChange,
+  placeholder = "Selecionar modelo...",
+}: Props) {
   const [open, setOpen] = useState(false);
 
   const { data, isLoading: loading } = useListLlmConnections();
-  const connections: LlmConnection[] = (data?.connections as unknown as LlmConnection[]) || [];
+  const connections: LlmConnection[] =
+    (data?.connections as unknown as LlmConnection[]) || [];
 
   const selected = connections.find((c) => c.id === value);
 
@@ -68,7 +80,9 @@ export default function ModelSelector({ value, onChange, placeholder = "Selecion
         >
           {selected ? (
             <div className="flex items-center gap-2 truncate">
-              <span className={providerColor(selected.provider)}>{providerIcon(selected.provider)}</span>
+              <span className={providerColor(selected.provider)}>
+                {providerIcon(selected.provider)}
+              </span>
               <span className="truncate">{selected.name}</span>
               {selected.lastTestStatus === "ok" ? (
                 <Wifi className="w-3 h-3 text-emerald-400 shrink-0" />
@@ -114,12 +128,18 @@ export default function ModelSelector({ value, onChange, placeholder = "Selecion
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {conn.supportsVision && (
-                        <span className="text-[11px] bg-blue-500/10 text-blue-400 px-1 rounded">vision</span>
+                        <span className="text-[11px] bg-blue-500/10 text-blue-400 px-1 rounded">
+                          vision
+                        </span>
                       )}
                       {conn.supportsTools && (
-                        <span className="text-[11px] bg-emerald-500/10 text-emerald-400 px-1 rounded">tools</span>
+                        <span className="text-[11px] bg-emerald-500/10 text-emerald-400 px-1 rounded">
+                          tools
+                        </span>
                       )}
-                      {value === conn.id && <Check className="w-3.5 h-3.5 text-primary" />}
+                      {value === conn.id && (
+                        <Check className="w-3.5 h-3.5 text-primary" />
+                      )}
                     </div>
                   </div>
                 </CommandItem>

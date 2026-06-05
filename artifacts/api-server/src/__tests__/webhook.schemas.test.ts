@@ -11,18 +11,22 @@ const TelegramMessage = z.object({
   chat: z.object({ id: z.union([z.number(), z.string()]) }),
   text: z.string().optional(),
   voice: z.object({ file_id: z.string() }).optional(),
-  document: z.object({
-    file_id: z.string(),
-    file_name: z.string().optional(),
-    mime_type: z.string().optional(),
-  }).optional(),
+  document: z
+    .object({
+      file_id: z.string(),
+      file_name: z.string().optional(),
+      mime_type: z.string().optional(),
+    })
+    .optional(),
   photo: z.array(TelegramPhotoSize).optional(),
 });
 
-const TelegramUpdate = z.object({
-  update_id: z.number(),
-  message: TelegramMessage.optional(),
-}).passthrough();
+const TelegramUpdate = z
+  .object({
+    update_id: z.number(),
+    message: TelegramMessage.optional(),
+  })
+  .passthrough();
 
 const TelegramFileResponse = z.object({
   result: z.object({ file_path: z.string() }),
@@ -62,7 +66,11 @@ describe("TelegramUpdate schema", () => {
       message: {
         message_id: 1,
         chat: { id: 1 },
-        document: { file_id: "doc123", file_name: "contract.pdf", mime_type: "application/pdf" },
+        document: {
+          file_id: "doc123",
+          file_name: "contract.pdf",
+          mime_type: "application/pdf",
+        },
       },
     });
     expect(result.success).toBe(true);
@@ -96,7 +104,9 @@ describe("TelegramUpdate schema", () => {
   });
 
   it("rejects missing update_id", () => {
-    const result = TelegramUpdate.safeParse({ message: { message_id: 1, chat: { id: 1 } } });
+    const result = TelegramUpdate.safeParse({
+      message: { message_id: 1, chat: { id: 1 } },
+    });
     expect(result.success).toBe(false);
   });
 
@@ -138,7 +148,9 @@ describe("TelegramFileResponse schema", () => {
   });
 
   it("rejects response without result.file_path", () => {
-    expect(TelegramFileResponse.safeParse({ ok: true, result: {} }).success).toBe(false);
+    expect(
+      TelegramFileResponse.safeParse({ ok: true, result: {} }).success,
+    ).toBe(false);
     expect(TelegramFileResponse.safeParse({ ok: false }).success).toBe(false);
   });
 });

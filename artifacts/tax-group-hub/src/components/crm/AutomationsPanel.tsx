@@ -6,7 +6,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
@@ -19,11 +25,16 @@ import {
   getListCrmAutomationsQueryKey,
 } from "@workspace/api-client-react";
 import {
-  CONTACT_STATUSES, CONTACT_STATUS_LABELS,
-  DEAL_STAGES, DEAL_STAGE_LABELS,
-  AUTOMATION_TRIGGER_LABELS, AUTOMATION_ACTION_LABELS,
-  ALERT_TYPES, ALERT_LABELS,
-  type AutomationTriggerType, type AutomationActionType,
+  CONTACT_STATUSES,
+  CONTACT_STATUS_LABELS,
+  DEAL_STAGES,
+  DEAL_STAGE_LABELS,
+  AUTOMATION_TRIGGER_LABELS,
+  AUTOMATION_ACTION_LABELS,
+  ALERT_TYPES,
+  ALERT_LABELS,
+  type AutomationTriggerType,
+  type AutomationActionType,
   PRIORIDADE_COMERCIAL_NIVEIS,
 } from "@workspace/db/crm-constants";
 
@@ -40,45 +51,84 @@ type Automation = {
 type Sequence = { id: number; name: string; isActive?: boolean };
 
 const TRIGGER_TYPES: { value: AutomationTriggerType; label: string }[] = [
-  { value: "status_changed",            label: AUTOMATION_TRIGGER_LABELS.status_changed },
-  { value: "score_above",               label: AUTOMATION_TRIGGER_LABELS.score_above },
-  { value: "score_below",               label: AUTOMATION_TRIGGER_LABELS.score_below },
-  { value: "deal_stage_changed",        label: AUTOMATION_TRIGGER_LABELS.deal_stage_changed },
-  { value: "followup_vencido",          label: AUTOMATION_TRIGGER_LABELS.followup_vencido },
-  { value: "sem_atividade_7d",          label: AUTOMATION_TRIGGER_LABELS.sem_atividade_7d },
-  { value: "sem_atividade_14d",         label: AUTOMATION_TRIGGER_LABELS.sem_atividade_14d },
-  { value: "matriz_enviado",            label: AUTOMATION_TRIGGER_LABELS.matriz_enviado },
-  { value: "matriz_aguardando",         label: AUTOMATION_TRIGGER_LABELS.matriz_aguardando },
-  { value: "matriz_pendencia",          label: AUTOMATION_TRIGGER_LABELS.matriz_pendencia },
-  { value: "proposta_pronta",           label: AUTOMATION_TRIGGER_LABELS.proposta_pronta },
-  { value: "proposta_enviada",          label: AUTOMATION_TRIGGER_LABELS.proposta_enviada },
-  { value: "proposta_sem_retorno_7d",   label: AUTOMATION_TRIGGER_LABELS.proposta_sem_retorno_7d },
+  { value: "status_changed", label: AUTOMATION_TRIGGER_LABELS.status_changed },
+  { value: "score_above", label: AUTOMATION_TRIGGER_LABELS.score_above },
+  { value: "score_below", label: AUTOMATION_TRIGGER_LABELS.score_below },
+  {
+    value: "deal_stage_changed",
+    label: AUTOMATION_TRIGGER_LABELS.deal_stage_changed,
+  },
+  {
+    value: "followup_vencido",
+    label: AUTOMATION_TRIGGER_LABELS.followup_vencido,
+  },
+  {
+    value: "sem_atividade_7d",
+    label: AUTOMATION_TRIGGER_LABELS.sem_atividade_7d,
+  },
+  {
+    value: "sem_atividade_14d",
+    label: AUTOMATION_TRIGGER_LABELS.sem_atividade_14d,
+  },
+  { value: "matriz_enviado", label: AUTOMATION_TRIGGER_LABELS.matriz_enviado },
+  {
+    value: "matriz_aguardando",
+    label: AUTOMATION_TRIGGER_LABELS.matriz_aguardando,
+  },
+  {
+    value: "matriz_pendencia",
+    label: AUTOMATION_TRIGGER_LABELS.matriz_pendencia,
+  },
+  {
+    value: "proposta_pronta",
+    label: AUTOMATION_TRIGGER_LABELS.proposta_pronta,
+  },
+  {
+    value: "proposta_enviada",
+    label: AUTOMATION_TRIGGER_LABELS.proposta_enviada,
+  },
+  {
+    value: "proposta_sem_retorno_7d",
+    label: AUTOMATION_TRIGGER_LABELS.proposta_sem_retorno_7d,
+  },
 ];
 
 const ACTION_TYPES: { value: AutomationActionType; label: string }[] = [
-  { value: "create_task",      label: AUTOMATION_ACTION_LABELS.create_task },
-  { value: "log_activity",     label: AUTOMATION_ACTION_LABELS.log_activity },
-  { value: "enroll_sequence",  label: AUTOMATION_ACTION_LABELS.enroll_sequence },
-  { value: "send_whatsapp",    label: AUTOMATION_ACTION_LABELS.send_whatsapp },
-  { value: "add_tag",          label: AUTOMATION_ACTION_LABELS.add_tag },
-  { value: "set_priority",     label: AUTOMATION_ACTION_LABELS.set_priority },
-  { value: "set_assignee",     label: AUTOMATION_ACTION_LABELS.set_assignee },
-  { value: "create_alert",     label: AUTOMATION_ACTION_LABELS.create_alert },
+  { value: "create_task", label: AUTOMATION_ACTION_LABELS.create_task },
+  { value: "log_activity", label: AUTOMATION_ACTION_LABELS.log_activity },
+  { value: "enroll_sequence", label: AUTOMATION_ACTION_LABELS.enroll_sequence },
+  { value: "send_whatsapp", label: AUTOMATION_ACTION_LABELS.send_whatsapp },
+  { value: "add_tag", label: AUTOMATION_ACTION_LABELS.add_tag },
+  { value: "set_priority", label: AUTOMATION_ACTION_LABELS.set_priority },
+  { value: "set_assignee", label: AUTOMATION_ACTION_LABELS.set_assignee },
+  { value: "create_alert", label: AUTOMATION_ACTION_LABELS.create_alert },
 ];
 
-const STATUS_OPTIONS = CONTACT_STATUSES.map(s => ({ value: s, label: CONTACT_STATUS_LABELS[s] }));
-const STAGE_OPTIONS = DEAL_STAGES.map(s => ({ value: s, label: DEAL_STAGE_LABELS[s] }));
-const PRIORITY_OPTIONS = PRIORIDADE_COMERCIAL_NIVEIS.map(p => ({ value: p, label: p }));
+const STATUS_OPTIONS = CONTACT_STATUSES.map((s) => ({
+  value: s,
+  label: CONTACT_STATUS_LABELS[s],
+}));
+const STAGE_OPTIONS = DEAL_STAGES.map((s) => ({
+  value: s,
+  label: DEAL_STAGE_LABELS[s],
+}));
+const PRIORITY_OPTIONS = PRIORIDADE_COMERCIAL_NIVEIS.map((p) => ({
+  value: p,
+  label: p,
+}));
 
 function triggerLabel(auto: Automation) {
-  const t = TRIGGER_TYPES.find(t => t.value === auto.triggerType);
+  const t = TRIGGER_TYPES.find((t) => t.value === auto.triggerType);
   const base = t?.label.replace("...", "") ?? auto.triggerType;
   return `${base} ${auto.triggerValue}`;
 }
 
 function actionLabel(auto: Automation) {
-  const a = ACTION_TYPES.find(a => a.value === auto.actionType);
-  if (auto.actionType === "enroll_sequence" && auto.actionPayload?.sequenceName) {
+  const a = ACTION_TYPES.find((a) => a.value === auto.actionType);
+  if (
+    auto.actionType === "enroll_sequence" &&
+    auto.actionPayload?.sequenceName
+  ) {
     return `Enrolar em "${auto.actionPayload.sequenceName}"`;
   }
   return a?.label ?? auto.actionType;
@@ -111,16 +161,29 @@ export default function AutomationsPanel() {
 
   function buildPayload() {
     switch (actionType) {
-      case "create_task": return { title: taskTitle, type: "call", priority: taskPriority };
+      case "create_task":
+        return { title: taskTitle, type: "call", priority: taskPriority };
       case "enroll_sequence": {
-        const seq = sequences.find(s => String(s.id) === seqId);
+        const seq = sequences.find((s) => String(s.id) === seqId);
         return { sequenceId: Number(seqId), sequenceName: seq?.name ?? "" };
       }
-      case "add_tag": return { tag: tagName };
-      case "set_priority": return { priority: taskPriority === "high" ? "alta" : taskPriority === "urgent" ? "critica" : taskPriority };
-      case "set_assignee": return { responsavelUnidade: assigneeName };
-      case "create_alert": return { type: alertType, severity: alertSeverity, title: alertTitle };
-      default: return { note: "Ação gerada por automação" };
+      case "add_tag":
+        return { tag: tagName };
+      case "set_priority":
+        return {
+          priority:
+            taskPriority === "high"
+              ? "alta"
+              : taskPriority === "urgent"
+                ? "critica"
+                : taskPriority,
+        };
+      case "set_assignee":
+        return { responsavelUnidade: assigneeName };
+      case "create_alert":
+        return { type: alertType, severity: alertSeverity, title: alertTitle };
+      default:
+        return { note: "Ação gerada por automação" };
     }
   }
 
@@ -130,7 +193,10 @@ export default function AutomationsPanel() {
         qc.invalidateQueries({ queryKey: getListCrmAutomationsQueryKey() });
         setShowForm(false);
         toast({ title: "✅ Automação criada!" });
-        setName(""); setTriggerValue(""); setTaskTitle(""); setSeqId("");
+        setName("");
+        setTriggerValue("");
+        setTaskTitle("");
+        setSeqId("");
       },
       onError: () => toast({ title: "Erro ao criar", variant: "destructive" }),
     },
@@ -138,7 +204,13 @@ export default function AutomationsPanel() {
 
   function handleCreate() {
     createAutomation.mutate({
-      data: { name, triggerType, triggerValue, actionType, actionPayload: buildPayload() },
+      data: {
+        name,
+        triggerType,
+        triggerValue,
+        actionType,
+        actionPayload: buildPayload(),
+      },
     });
   }
 
@@ -150,7 +222,8 @@ export default function AutomationsPanel() {
         body: JSON.stringify({ isActive }),
       });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/crm/automations"] }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["/api/crm/automations"] }),
   });
 
   const deleteAutomation = useDeleteCrmAutomation({
@@ -165,13 +238,19 @@ export default function AutomationsPanel() {
   const saveDisabled =
     createAutomation.isPending ||
     !name.trim() ||
-    (
-      // For event-based triggers, triggerValue is not required
-      !["followup_vencido", "sem_atividade_7d", "sem_atividade_14d",
-        "matriz_enviado", "matriz_aguardando", "matriz_pendencia",
-        "proposta_pronta", "proposta_enviada", "proposta_sem_retorno_7d"
-      ].includes(triggerType) && !triggerValue
-    ) ||
+    // For event-based triggers, triggerValue is not required
+    (![
+      "followup_vencido",
+      "sem_atividade_7d",
+      "sem_atividade_14d",
+      "matriz_enviado",
+      "matriz_aguardando",
+      "matriz_pendencia",
+      "proposta_pronta",
+      "proposta_enviada",
+      "proposta_sem_retorno_7d",
+    ].includes(triggerType) &&
+      !triggerValue) ||
     (actionType === "create_task" && !taskTitle.trim()) ||
     (actionType === "enroll_sequence" && !seqId) ||
     (actionType === "add_tag" && !tagName.trim()) ||
@@ -191,10 +270,19 @@ export default function AutomationsPanel() {
           </p>
         </div>
         <Can permission="canManageAutomations">
-        <Button onClick={() => setShowForm(v => !v)} variant="outline" size="sm" className="gap-2">
-          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? "Cancelar" : "Nova Regra"}
-        </Button>
+          <Button
+            onClick={() => setShowForm((v) => !v)}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            {showForm ? (
+              <X className="w-4 h-4" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+            {showForm ? "Cancelar" : "Nova Regra"}
+          </Button>
         </Can>
       </CardHeader>
 
@@ -209,11 +297,13 @@ export default function AutomationsPanel() {
             >
               <div className="border border-border rounded-xl p-4 bg-muted/20 space-y-4">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Nome da Regra</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Nome da Regra
+                  </Label>
                   <Input
                     placeholder="Ex: Enrolar em sequência ao enviar proposta"
                     value={name}
-                    onChange={e => setName(e.target.value)}
+                    onChange={(e) => setName(e.target.value)}
                     className="mt-1"
                   />
                 </div>
@@ -222,35 +312,74 @@ export default function AutomationsPanel() {
                   {/* SE */}
                   <div className="space-y-3 bg-card p-3 border border-border/50 rounded-lg">
                     <h4 className="text-sm font-semibold flex items-center gap-2">
-                      <span className="bg-primary/20 text-primary w-5 h-5 flex items-center justify-center rounded-full text-xs">1</span>
+                      <span className="bg-primary/20 text-primary w-5 h-5 flex items-center justify-center rounded-full text-xs">
+                        1
+                      </span>
                       SE (Gatilho)
                     </h4>
-                    <Select value={triggerType} onValueChange={v => { setTriggerType(v); setTriggerValue(""); }}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Select
+                      value={triggerType}
+                      onValueChange={(v) => {
+                        setTriggerType(v);
+                        setTriggerValue("");
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
-                        {TRIGGER_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                        {TRIGGER_TYPES.map((t) => (
+                          <SelectItem key={t.value} value={t.value}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
 
                     {triggerType === "status_changed" ? (
-                      <Select value={triggerValue} onValueChange={setTriggerValue}>
-                        <SelectTrigger><SelectValue placeholder="Selecionar status..." /></SelectTrigger>
+                      <Select
+                        value={triggerValue}
+                        onValueChange={setTriggerValue}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar status..." />
+                        </SelectTrigger>
                         <SelectContent>
-                          {STATUS_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                          {STATUS_OPTIONS.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>
+                              {s.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     ) : triggerType === "deal_stage_changed" ? (
-                      <Select value={triggerValue} onValueChange={setTriggerValue}>
-                        <SelectTrigger><SelectValue placeholder="Selecionar etapa..." /></SelectTrigger>
+                      <Select
+                        value={triggerValue}
+                        onValueChange={setTriggerValue}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar etapa..." />
+                        </SelectTrigger>
                         <SelectContent>
-                          {STAGE_OPTIONS.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                          {STAGE_OPTIONS.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>
+                              {s.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-                    ) : (triggerType === "score_above" || triggerType === "score_below") ? (
-                      <Input type="number" placeholder="Ex: 70" value={triggerValue} onChange={e => setTriggerValue(e.target.value)} />
+                    ) : triggerType === "score_above" ||
+                      triggerType === "score_below" ? (
+                      <Input
+                        type="number"
+                        placeholder="Ex: 70"
+                        value={triggerValue}
+                        onChange={(e) => setTriggerValue(e.target.value)}
+                      />
                     ) : (
                       <p className="text-xs text-muted-foreground italic px-2 py-1.5 bg-muted/30 rounded">
-                        ⏱ Dispara automaticamente quando o evento ocorre (sem valor adicional).
+                        ⏱ Dispara automaticamente quando o evento ocorre (sem
+                        valor adicional).
                       </p>
                     )}
                   </div>
@@ -258,21 +387,38 @@ export default function AutomationsPanel() {
                   {/* ENTÃO */}
                   <div className="space-y-3 bg-card p-3 border border-border/50 rounded-lg">
                     <h4 className="text-sm font-semibold flex items-center gap-2">
-                      <span className="bg-primary/20 text-primary w-5 h-5 flex items-center justify-center rounded-full text-xs">2</span>
+                      <span className="bg-primary/20 text-primary w-5 h-5 flex items-center justify-center rounded-full text-xs">
+                        2
+                      </span>
                       ENTÃO (Ação)
                     </h4>
                     <Select value={actionType} onValueChange={setActionType}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
-                        {ACTION_TYPES.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+                        {ACTION_TYPES.map((a) => (
+                          <SelectItem key={a.value} value={a.value}>
+                            {a.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
 
                     {actionType === "create_task" && (
                       <div className="space-y-2">
-                        <Input placeholder="Título da tarefa..." value={taskTitle} onChange={e => setTaskTitle(e.target.value)} />
-                        <Select value={taskPriority} onValueChange={setTaskPriority}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
+                        <Input
+                          placeholder="Título da tarefa..."
+                          value={taskTitle}
+                          onChange={(e) => setTaskTitle(e.target.value)}
+                        />
+                        <Select
+                          value={taskPriority}
+                          onValueChange={setTaskPriority}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="low">Baixa</SelectItem>
                             <SelectItem value="medium">Média</SelectItem>
@@ -285,32 +431,51 @@ export default function AutomationsPanel() {
 
                     {actionType === "enroll_sequence" && (
                       <Select value={seqId} onValueChange={setSeqId}>
-                        <SelectTrigger><SelectValue placeholder="Selecionar sequência..." /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar sequência..." />
+                        </SelectTrigger>
                         <SelectContent>
                           {sequences.length === 0 ? (
-                            <SelectItem value="none" disabled>Nenhuma sequência cadastrada</SelectItem>
+                            <SelectItem value="none" disabled>
+                              Nenhuma sequência cadastrada
+                            </SelectItem>
                           ) : (
-                            sequences.filter(s => (s as any).isActive !== false).map(s => (
-                              <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                            ))
+                            sequences
+                              .filter((s) => (s as any).isActive !== false)
+                              .map((s) => (
+                                <SelectItem key={s.id} value={String(s.id)}>
+                                  {s.name}
+                                </SelectItem>
+                              ))
                           )}
                         </SelectContent>
                       </Select>
                     )}
 
                     {actionType === "add_tag" && (
-                      <Input placeholder="Nome da tag (ex: lead-quente)" value={tagName}
-                        onChange={e => setTagName(e.target.value)} />
+                      <Input
+                        placeholder="Nome da tag (ex: lead-quente)"
+                        value={tagName}
+                        onChange={(e) => setTagName(e.target.value)}
+                      />
                     )}
 
                     {actionType === "set_assignee" && (
-                      <Input placeholder="Nome do responsável" value={assigneeName}
-                        onChange={e => setAssigneeName(e.target.value)} />
+                      <Input
+                        placeholder="Nome do responsável"
+                        value={assigneeName}
+                        onChange={(e) => setAssigneeName(e.target.value)}
+                      />
                     )}
 
                     {actionType === "set_priority" && (
-                      <Select value={taskPriority} onValueChange={setTaskPriority}>
-                        <SelectTrigger><SelectValue placeholder="Prioridade..." /></SelectTrigger>
+                      <Select
+                        value={taskPriority}
+                        onValueChange={setTaskPriority}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Prioridade..." />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="baixa">Baixa</SelectItem>
                           <SelectItem value="media">Média</SelectItem>
@@ -322,16 +487,30 @@ export default function AutomationsPanel() {
 
                     {actionType === "create_alert" && (
                       <div className="space-y-2">
-                        <Input placeholder="Título do alerta..." value={alertTitle}
-                          onChange={e => setAlertTitle(e.target.value)} />
+                        <Input
+                          placeholder="Título do alerta..."
+                          value={alertTitle}
+                          onChange={(e) => setAlertTitle(e.target.value)}
+                        />
                         <Select value={alertType} onValueChange={setAlertType}>
-                          <SelectTrigger><SelectValue placeholder="Tipo de alerta..." /></SelectTrigger>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Tipo de alerta..." />
+                          </SelectTrigger>
                           <SelectContent>
-                            {ALERT_TYPES.map(t => <SelectItem key={t} value={t}>{ALERT_LABELS[t]}</SelectItem>)}
+                            {ALERT_TYPES.map((t) => (
+                              <SelectItem key={t} value={t}>
+                                {ALERT_LABELS[t]}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
-                        <Select value={alertSeverity} onValueChange={setAlertSeverity}>
-                          <SelectTrigger><SelectValue placeholder="Severidade..." /></SelectTrigger>
+                        <Select
+                          value={alertSeverity}
+                          onValueChange={setAlertSeverity}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Severidade..." />
+                          </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="info">Info</SelectItem>
                             <SelectItem value="warning">Atenção</SelectItem>
@@ -345,7 +524,11 @@ export default function AutomationsPanel() {
 
                 <div className="flex justify-end">
                   <Button onClick={handleCreate} disabled={saveDisabled}>
-                    {createAutomation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                    {createAutomation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4 mr-2" />
+                    )}
                     Salvar Regra
                   </Button>
                 </div>
@@ -355,38 +538,54 @@ export default function AutomationsPanel() {
         </AnimatePresence>
 
         {isLoading ? (
-          <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-primary/40" /></div>
+          <div className="flex justify-center py-10">
+            <Loader2 className="w-6 h-6 animate-spin text-primary/40" />
+          </div>
         ) : automations.length === 0 ? (
           <div className="text-center py-16">
             <Zap className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm font-medium">Nenhuma automação configurada.</p>
-            <p className="text-xs text-muted-foreground mt-1">Clique em "Nova Regra" para criar a primeira.</p>
+            <p className="text-sm font-medium">
+              Nenhuma automação configurada.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Clique em "Nova Regra" para criar a primeira.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {automations.map(auto => (
+            {automations.map((auto) => (
               <div
                 key={auto.id}
                 className={`flex items-center justify-between p-4 border rounded-xl transition-all ${
-                  auto.isActive ? "bg-card border-border/60 shadow-sm" : "bg-muted/30 border-dashed opacity-60"
+                  auto.isActive
+                    ? "bg-card border-border/60 shadow-sm"
+                    : "bg-muted/30 border-dashed opacity-60"
                 }`}
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${auto.isActive ? "bg-amber-500/15" : "bg-muted"}`}>
-                    <Zap className={`w-4 h-4 ${auto.isActive ? "text-amber-400" : "text-muted-foreground"}`} />
+                  <div
+                    className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${auto.isActive ? "bg-amber-500/15" : "bg-muted"}`}
+                  >
+                    <Zap
+                      className={`w-4 h-4 ${auto.isActive ? "text-amber-400" : "text-muted-foreground"}`}
+                    />
                   </div>
                   <div className="min-w-0">
-                    <div className="font-semibold text-sm truncate">{auto.name}</div>
+                    <div className="font-semibold text-sm truncate">
+                      {auto.name}
+                    </div>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className="text-[11px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                         SE {triggerLabel(auto)}
                       </span>
                       <span className="text-muted-foreground text-xs">→</span>
-                      <span className={`text-[11px] px-1.5 py-0.5 rounded ${
-                        auto.actionType === "enroll_sequence"
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-primary/10 text-primary"
-                      }`}>
+                      <span
+                        className={`text-[11px] px-1.5 py-0.5 rounded ${
+                          auto.actionType === "enroll_sequence"
+                            ? "bg-emerald-500/15 text-emerald-400"
+                            : "bg-primary/10 text-primary"
+                        }`}
+                      >
                         {actionLabel(auto)}
                       </span>
                     </div>
@@ -394,25 +593,37 @@ export default function AutomationsPanel() {
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0 ml-3">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">{auto.isActive ? "Ativa" : "Pausada"}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {auto.isActive ? "Ativa" : "Pausada"}
+                    </span>
                     <Switch
                       checked={!!auto.isActive}
-                      onCheckedChange={checked => toggleMutation.mutate({ id: auto.id, isActive: checked })}
+                      onCheckedChange={(checked) =>
+                        toggleMutation.mutate({
+                          id: auto.id,
+                          isActive: checked,
+                        })
+                      }
                     />
                   </div>
                   <Can permission="canManageAutomations">
-                  <Button
-                    variant="ghost" size="icon"
-                    className="text-muted-foreground hover:text-destructive h-8 w-8"
-                    onClick={() => {
-                      showConfirm(
-                        { title: `Remover "${auto.name}"?`, variant: "destructive", confirmLabel: "Remover" },
-                        () => deleteAutomation.mutate({ id: auto.id })
-                      );
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-destructive h-8 w-8"
+                      onClick={() => {
+                        showConfirm(
+                          {
+                            title: `Remover "${auto.name}"?`,
+                            variant: "destructive",
+                            confirmLabel: "Remover",
+                          },
+                          () => deleteAutomation.mutate({ id: auto.id }),
+                        );
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </Can>
                 </div>
               </div>

@@ -10,7 +10,7 @@ type LookupAddress = { address: string; family: number };
 /** Pick only allowed fields from an object */
 export function pick<T extends Record<string, any>>(
   obj: T,
-  keys: readonly (keyof T)[]
+  keys: readonly (keyof T)[],
 ): Partial<T> {
   const result: Partial<T> = {};
   for (const key of keys) {
@@ -32,7 +32,7 @@ export function validateIdParam(param: string | undefined): number | null {
 /** Validate value against a whitelist; returns null if invalid */
 export function validateWhitelist<T extends string>(
   value: unknown,
-  allowed: readonly T[]
+  allowed: readonly T[],
 ): T | null {
   if (typeof value !== "string") return null;
   return allowed.includes(value as T) ? (value as T) : null;
@@ -41,7 +41,7 @@ export function validateWhitelist<T extends string>(
 /** Safe number conversion with bounds check */
 export function safeNumber(
   value: unknown,
-  opts?: { min?: number; max?: number }
+  opts?: { min?: number; max?: number },
 ): number | null {
   if (typeof value === "string") {
     const num = Number(value);
@@ -64,7 +64,8 @@ export function validateHttpUrl(url: unknown): string | null {
   if (typeof url !== "string") return null;
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+      return null;
     return url;
   } catch {
     return null;
@@ -83,14 +84,14 @@ function isPrivateOrReservedIp(ip: string): boolean {
     const parts = ip.split(".").map((p) => Number(p));
     if (parts.length !== 4 || parts.some((p) => Number.isNaN(p))) return true;
     const [a, b] = parts;
-    if (a === 0) return true;            // 0.0.0.0/8 — "this network"
-    if (a === 10) return true;           // 10.0.0.0/8
-    if (a === 127) return true;          // 127.0.0.0/8 loopback
+    if (a === 0) return true; // 0.0.0.0/8 — "this network"
+    if (a === 10) return true; // 10.0.0.0/8
+    if (a === 127) return true; // 127.0.0.0/8 loopback
     if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local + metadata
     if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-    if (a === 192 && b === 168) return true;          // 192.168.0.0/16
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
     if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
-    if (a >= 224) return true;           // 224.0.0.0/4 multicast + 240/4 reserved + 255 broadcast
+    if (a >= 224) return true; // 224.0.0.0/4 multicast + 240/4 reserved + 255 broadcast
     return false;
   }
   // IPv6
@@ -98,7 +99,13 @@ function isPrivateOrReservedIp(ip: string): boolean {
     const lower = ip.toLowerCase();
     if (lower === "::1" || lower === "::") return true;
     if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // unique-local
-    if (lower.startsWith("fe8") || lower.startsWith("fe9") || lower.startsWith("fea") || lower.startsWith("feb")) return true; // link-local
+    if (
+      lower.startsWith("fe8") ||
+      lower.startsWith("fe9") ||
+      lower.startsWith("fea") ||
+      lower.startsWith("feb")
+    )
+      return true; // link-local
     if (lower.startsWith("ff")) return true; // multicast
     return false;
   }
@@ -120,7 +127,10 @@ function isPrivateHostname(hostname: string): boolean {
   if (/^0x[0-9a-f]+$/i.test(h)) return true;
   if (/^0[0-7]+\./.test(h)) return true;
   const numeric = Number(h);
-  if (Number.isFinite(numeric) && h.replace(/\./g, "") === String(numeric).replace(/\./g, "")) {
+  if (
+    Number.isFinite(numeric) &&
+    h.replace(/\./g, "") === String(numeric).replace(/\./g, "")
+  ) {
     // Bare integer like `2130706433` (= 127.0.0.1)
     return true;
   }

@@ -6,30 +6,30 @@ vi.mock("@workspace/db", () => {
   function chain(result: any = []) {
     const prom = Promise.resolve(result);
     const c: any = (..._args: any[]) => prom;
-    c.then     = prom.then.bind(prom);
-    c.catch    = prom.catch.bind(prom);
-    c.from      = vi.fn(() => c);
-    c.where     = vi.fn(() => c);
-    c.leftJoin  = vi.fn(() => c);
+    c.then = prom.then.bind(prom);
+    c.catch = prom.catch.bind(prom);
+    c.from = vi.fn(() => c);
+    c.where = vi.fn(() => c);
+    c.leftJoin = vi.fn(() => c);
     c.innerJoin = vi.fn(() => c);
-    c.orderBy   = vi.fn(() => c);
-    c.limit     = vi.fn(() => c);
-    c.values    = vi.fn(() => c);
-    c.set       = vi.fn(() => c);
+    c.orderBy = vi.fn(() => c);
+    c.limit = vi.fn(() => c);
+    c.values = vi.fn(() => c);
+    c.set = vi.fn(() => c);
     c.returning = vi.fn(() => prom);
-    c.execute   = vi.fn(() => Promise.resolve({ rows: [] }));
+    c.execute = vi.fn(() => Promise.resolve({ rows: [] }));
     return c;
   }
   return {
     db: {
-      select:  vi.fn(() => chain()),
-      insert:  vi.fn(() => chain()),
-      update:  vi.fn(() => chain()),
-      delete:  vi.fn(() => chain()),
+      select: vi.fn(() => chain()),
+      insert: vi.fn(() => chain()),
+      update: vi.fn(() => chain()),
+      delete: vi.fn(() => chain()),
       execute: vi.fn(() => Promise.resolve({ rows: [] })),
     },
     crmContactsTable: { id: "id", userId: "user_id", status: "status" },
-    crmDealsTable:    { id: "id", userId: "user_id", stage: "stage" },
+    crmDealsTable: { id: "id", userId: "user_id", stage: "stage" },
     crmActivitiesTable: {},
     crmEnrichmentLogTable: {},
     crmPipelinesTable: {},
@@ -51,7 +51,14 @@ vi.mock("@workspace/db/crm-constants", () => ({
   LEGACY_DEAL_STAGE_MAP: {},
   DEAL_STAGE_TO_CONTACT_STATUS: {},
   SYSTEM_VIEWS: [
-    { id: "sv_todos", name: "Todos", emoji: "📋", category: "operacional", filters: {}, description: "Todos" },
+    {
+      id: "sv_todos",
+      name: "Todos",
+      emoji: "📋",
+      category: "operacional",
+      filters: {},
+      description: "Todos",
+    },
   ],
 }));
 
@@ -60,7 +67,8 @@ vi.mock("../middlewares/auth.js", () => ({
 }));
 
 vi.mock("../lib/api-response.js", () => ({
-  apiError: (res: any, code: number, message: string) => res.status(code).json({ error: message }),
+  apiError: (res: any, code: number, message: string) =>
+    res.status(code).json({ error: message }),
 }));
 
 vi.mock("../lib/validation.js", () => ({
@@ -167,14 +175,16 @@ describe("CRM Phase 2 — Distinct Values", () => {
   });
 
   it("GET /contacts/distinct-values returns 400 for invalid field", async () => {
-    const res = await supertest(app)
-      .get("/api/crm/contacts/distinct-values?field=invalidField");
+    const res = await supertest(app).get(
+      "/api/crm/contacts/distinct-values?field=invalidField",
+    );
     expect(res.status).toBe(400);
   });
 
   it("GET /contacts/distinct-values returns 200 for valid field", async () => {
-    const res = await supertest(app)
-      .get("/api/crm/contacts/distinct-values?field=setor");
+    const res = await supertest(app).get(
+      "/api/crm/contacts/distinct-values?field=setor",
+    );
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(Array.isArray(res.body.values)).toBe(true);

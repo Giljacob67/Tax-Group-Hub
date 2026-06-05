@@ -9,14 +9,16 @@ const basePath = process.env.BASE_PATH || "/";
 
 export default defineConfig({
   base: basePath,
-  plugins: [
-    react(),
-    tailwindcss(),
-  ],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
-      "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      "@assets": path.resolve(
+        import.meta.dirname,
+        "..",
+        "..",
+        "attached_assets",
+      ),
     },
     dedupe: ["react", "react-dom"],
   },
@@ -30,7 +32,12 @@ export default defineConfig({
           "vendor-react": ["react", "react-dom"],
           "vendor-motion": ["framer-motion"],
           "vendor-query": ["@tanstack/react-query"],
-          "vendor-ui": ["lucide-react", "clsx", "tailwind-merge", "class-variance-authority"],
+          "vendor-ui": [
+            "lucide-react",
+            "clsx",
+            "tailwind-merge",
+            "class-variance-authority",
+          ],
           "vendor-charts": ["recharts"],
         },
       },

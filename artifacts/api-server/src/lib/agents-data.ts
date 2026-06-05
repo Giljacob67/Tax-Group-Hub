@@ -32,7 +32,8 @@ export const AGENTS: AgentDef[] = [
     id: "coordenador-geral-tax-group",
     name: "Coordenador Geral",
     slug: "coordenador-geral-tax-group",
-    description: "Orquestrador estratégico. Recebe objetivos, monta planos multi-agente e coordena a execução da plataforma.",
+    description:
+      "Orquestrador estratégico. Recebe objetivos, monta planos multi-agente e coordena a execução da plataforma.",
     block: "estrategia",
     blockLabel: "Estratégia e Inteligência",
     icon: "🎖️",
@@ -91,14 +92,15 @@ Trigger: campanha, plano, estratégia, orquestrar, coordenar, quais agentes usar
       "Monte um plano de 30 dias para vender RTI para indústrias no PR",
       "Quero uma campanha de LinkedIn + Email para o setor de transporte",
       "Quais agentes usar para reativar uma base de leads murcha?",
-      "Orquestre um lançamento de novo produto PPS na carteira atual"
-    ]
+      "Orquestre um lançamento de novo produto PPS na carteira atual",
+    ],
   },
   {
     id: "analise-tributaria-tax-group",
     name: "Análise Tributária",
     slug: "analise-tributaria-tax-group",
-    description: "Expert técnico em legislação. Decifra normas, interpreta jurisprudência e suporta diagnósticos complexos.",
+    description:
+      "Expert técnico em legislação. Decifra normas, interpreta jurisprudência e suporta diagnósticos complexos.",
     block: "estrategia",
     blockLabel: "Estratégia e Inteligência",
     icon: "🧐",
@@ -168,14 +170,15 @@ Trigger: legislação, jurisprudência, tese, fundamentação, risco fiscal, ICM
       "Liste as verbas indenizatórias que podem sair da base previdenciária com fundamentação legal",
       "Elabore parecer técnico para transporte rodoviário: recuperação PIS/COFINS sobre insumos de frota",
       "Qual a diferença entre a tese do ICMS-ST e a tese do ICMS próprio? E quais os riscos?",
-      "Monte resumo executivo da oportunidade RTI para CFO de empresa com R$ 80M de faturamento"
-    ]
+      "Monte resumo executivo da oportunidade RTI para CFO de empresa com R$ 80M de faturamento",
+    ],
   },
   {
     id: "inteligencia-competitiva-tax-group",
     name: "Inteligência Competitiva",
     slug: "inteligencia-competitiva-tax-group",
-    description: "Monitor de mercado. Analisa concorrentes, mapeia tendências e diferenciais competitivos da Tax Group.",
+    description:
+      "Monitor de mercado. Analisa concorrentes, mapeia tendências e diferenciais competitivos da Tax Group.",
     block: "estrategia",
     blockLabel: "Estratégia e Inteligência",
     icon: "📡",
@@ -184,7 +187,11 @@ Trigger: legislação, jurisprudência, tese, fundamentação, risco fiscal, ICM
     systemPrompt: `${TAX_GROUP_CONTEXT}
 VOCÊ É: Especialista em Inteligência de Mercado.
 MISSÃO: Comparar metodologia Tax Group vs "Big Four" e consultorias boutique. Mapear movimentações do setor e tendências de M&A.`,
-    suggestedPrompts: ["Quais os diferenciais do AFD em relação ao serviço da concorrente X?", "Tendências de consultoria tributária para 2026", "Análise SWOT: Tax Group vs Escritórios Locais"]
+    suggestedPrompts: [
+      "Quais os diferenciais do AFD em relação ao serviço da concorrente X?",
+      "Tendências de consultoria tributária para 2026",
+      "Análise SWOT: Tax Group vs Escritórios Locais",
+    ],
   },
 
   // ===== BLOCO 1: PROSPECÇÃO =====
@@ -192,7 +199,8 @@ MISSÃO: Comparar metodologia Tax Group vs "Big Four" e consultorias boutique. M
     id: "diagnostico-cnpj-tax-group",
     name: "Diagnóstico CNPJ",
     slug: "diagnostico-cnpj-tax-group",
-    description: "Pré-qualificação automática de leads. Recebe CNPJ, CNAE, regime tributário e porte — entrega score de aderência, produto indicado e potencial de crédito estimado antes do primeiro contato humano.",
+    description:
+      "Pré-qualificação automática de leads. Recebe CNPJ, CNAE, regime tributário e porte — entrega score de aderência, produto indicado e potencial de crédito estimado antes do primeiro contato humano.",
     block: "prospeccao",
     blockLabel: "Prospecção e Operação Comercial",
     icon: "🔎",
@@ -271,14 +279,15 @@ Trigger: CNPJ, diagnóstico automático, enriquecimento de lead, EmpresAqui, qua
       "CNPJ de uma indústria alimentícia Lucro Real R$ 50M — qual produto indica e qual o potencial?",
       "Analise: Hospital Regional, Lucro Presumido, R$ 8M faturamento — está no ICP?",
       "Faça diagnóstico completo para: agronegócio Lucro Real, soja/milho, R$ 120M de faturamento, Paraná",
-      "Lead chegou via webhook: CNPJ 98.765.432/0001-11, varejo alimentar, 3 sócios — gere o diagnóstico"
-    ]
+      "Lead chegou via webhook: CNPJ 98.765.432/0001-11, varejo alimentar, 3 sócios — gere o diagnóstico",
+    ],
   },
   {
     id: "prospeccao-tax-group",
     name: "Prospecção",
     slug: "prospeccao-tax-group",
-    description: "Agente de qualificação e abordagem ativa de prospects. Gera scripts personalizados, identifica o produto ideal e produz mensagens de primeiro contato.",
+    description:
+      "Agente de qualificação e abordagem ativa de prospects. Gera scripts personalizados, identifica o produto ideal e produz mensagens de primeiro contato.",
     block: "prospeccao",
     blockLabel: "Prospecção e Operação Comercial",
     icon: "🎯",
@@ -340,14 +349,15 @@ Trigger: qualquer menção a prospect, lead, cold outreach, script de abordagem,
       "Qual produto Tax Group indica para uma indústria no Lucro Real?",
       "Crie um email frio para prospectar uma rede de varejo",
       "Gere perguntas SPIN para o setor de agronegócio",
-      "Como abordar um CFO que nunca ouviu falar da Tax Group?"
-    ]
+      "Como abordar um CFO que nunca ouviu falar da Tax Group?",
+    ],
   },
   {
     id: "qualificacao-leads-tax-group",
     name: "Qualificação de Leads",
     slug: "qualificacao-leads-tax-group",
-    description: "Scoring e priorização de pipeline. Calcula score de aderência, classifica leads como hot/warm/cold e indica qual produto faz mais sentido.",
+    description:
+      "Scoring e priorização de pipeline. Calcula score de aderência, classifica leads como hot/warm/cold e indica qual produto faz mais sentido.",
     block: "prospeccao",
     blockLabel: "Prospecção e Operação Comercial",
     icon: "📊",
@@ -383,14 +393,15 @@ Trigger: qualificação, scoring, ICP, priorização de lista, pipeline.`,
       "Calcule o score para uma indústria alimentícia, Lucro Presumido, R$ 8M",
       "Quais perguntas devo fazer para qualificar melhor um lead do setor de saúde?",
       "Como priorizar uma lista de 50 leads de varejo?",
-      "Qual produto indica para um lead WARM do agronegócio?"
-    ]
+      "Qual produto indica para um lead WARM do agronegócio?",
+    ],
   },
   {
     id: "objecoes-tax-group",
     name: "Reversão de Objeções",
     slug: "objecoes-tax-group",
-    description: "Agente de reversão de objeções em tempo real. Entrega reversões calibradas ao produto e contexto, considerando o perfil do decisor.",
+    description:
+      "Agente de reversão de objeções em tempo real. Entrega reversões calibradas ao produto e contexto, considerando o perfil do decisor.",
     block: "prospeccao",
     blockLabel: "Prospecção e Operação Comercial",
     icon: "🛡️",
@@ -429,14 +440,15 @@ Trigger: objeção, reversão, "o cliente disse que...", resistência, dúvida d
       "Prospect falou: 'não temos verba para isso agora'",
       "CFO questionou: 'e se der problema com o fisco?'",
       "Cliente disse: 'já fizemos auditoria fiscal no ano passado'",
-      "Prospect: 'não é o momento, estamos em corte de custos'"
-    ]
+      "Prospect: 'não é o momento, estamos em corte de custos'",
+    ],
   },
   {
     id: "followup-tax-group",
     name: "Follow-Up",
     slug: "followup-tax-group",
-    description: "Sequências de follow-up pós-contato. Gera cadências D1, D3, D7, D15 personalizadas por canal com tom consultivo.",
+    description:
+      "Sequências de follow-up pós-contato. Gera cadências D1, D3, D7, D15 personalizadas por canal com tom consultivo.",
     block: "prospeccao",
     blockLabel: "Prospecção e Operação Comercial",
     icon: "📅",
@@ -473,8 +485,8 @@ Trigger: follow-up, cadência, prospect não respondeu, retomar contato.`,
       "Gere mensagem de follow-up D7 por WhatsApp para indústria do agronegócio",
       "Prospect não respondeu há 3 dias — qual a melhor abordagem?",
       "Crie follow-up por LinkedIn após reunião sem resposta",
-      "Como retomar contato após 60 dias sem resposta?"
-    ]
+      "Como retomar contato após 60 dias sem resposta?",
+    ],
   },
 
   // ===== BLOCO 2: MARKETING =====
@@ -482,7 +494,8 @@ Trigger: follow-up, cadência, prospect não respondeu, retomar contato.`,
     id: "conteudo-linkedin-tax-group",
     name: "LinkedIn",
     slug: "conteudo-linkedin-tax-group",
-    description: "Criação de conteúdo institucional e educativo para LinkedIn. Gera posts sobre produtos, reforma tributária, cases e dados de mercado.",
+    description:
+      "Criação de conteúdo institucional e educativo para LinkedIn. Gera posts sobre produtos, reforma tributária, cases e dados de mercado.",
     block: "marketing",
     blockLabel: "Agência Virtual de Marketing",
     icon: "💼",
@@ -522,14 +535,15 @@ Trigger: post, LinkedIn, conteúdo, publicação, reforma tributária, autoridad
       "Gere um post provocativo sobre a Reforma Tributária e Split Payment",
       "Post com storytelling: empresa recuperou R$ 3M sem gastar nada",
       "Post técnico sobre CBS e IBS para CFOs",
-      "Crie 3 posts variados para publicar essa semana"
-    ]
+      "Crie 3 posts variados para publicar essa semana",
+    ],
   },
   {
     id: "email-marketing-tax-group",
     name: "Email Marketing",
     slug: "email-marketing-tax-group",
-    description: "Copy para email de prospecção e nutrição. Gera cold emails, nurturing e reativação segmentados por setor e produto.",
+    description:
+      "Copy para email de prospecção e nutrição. Gera cold emails, nurturing e reativação segmentados por setor e produto.",
     block: "marketing",
     blockLabel: "Agência Virtual de Marketing",
     icon: "✉️",
@@ -566,14 +580,15 @@ Trigger: email, campanha, cold email, nurturing, lista de contatos.`,
       "Email de nurturing para leads que baixaram material sobre Reforma Tributária",
       "Campanha de reativação para leads que pararam de responder há 30 dias",
       "Sequência de 3 emails para indústria do agronegócio",
-      "Subject lines para campanha de dezembro sobre planejamento tributário"
-    ]
+      "Subject lines para campanha de dezembro sobre planejamento tributário",
+    ],
   },
   {
     id: "materiais-comerciais-tax-group",
     name: "Materiais Comerciais",
     slug: "materiais-comerciais-tax-group",
-    description: "Criação de materiais de apoio à venda: one-pagers, pitches, PDFs de ROI e apresentações para reuniões e aprovação interna.",
+    description:
+      "Criação de materiais de apoio à venda: one-pagers, pitches, PDFs de ROI e apresentações para reuniões e aprovação interna.",
     block: "marketing",
     blockLabel: "Agência Virtual de Marketing",
     icon: "📄",
@@ -603,14 +618,15 @@ Trigger: one-pager, material, pitch, apresentação, PDF, argumentário.`,
       "Crie um one-pager para o produto AFD direcionado a empresas de transporte",
       "Monte um pitch para WhatsApp sobre o REP para enviar a um RH",
       "Estruture uma apresentação de 10 slides sobre a Reforma Tributária para CFOs",
-      "Crie argumentário em 3 bullets para o RTI convencer um diretor financeiro"
-    ]
+      "Crie argumentário em 3 bullets para o RTI convencer um diretor financeiro",
+    ],
   },
   {
     id: "reformatributaria-insight",
     name: "Reforma Tributária",
     slug: "reformatributaria-insight",
-    description: "Especialista em LC 214/2025. Traduz as novas regras (IBS/CBS) em impacto prático e alertas estratégicos para CFOs, diretores e consultores.",
+    description:
+      "Especialista em LC 214/2025. Traduz as novas regras (IBS/CBS) em impacto prático e alertas estratégicos para CFOs, diretores e consultores.",
     block: "estrategia",
     blockLabel: "Estratégia e Inteligência",
     icon: "⚖️",
@@ -640,8 +656,8 @@ Trigger: reforma tributária, IBS, CBS, LC 214/25, Split Payment.`,
       "Quais as últimas notícias de hoje sobre o Split Payment da LC 214/25?",
       "Crie um alerta para CFOs sobre a alíquota de 0,9% da CBS em vigor",
       "Como 2026 impacta o fluxo de caixa de uma transportadora?",
-      "Simulação de IBS de 2026 a 2033"
-    ]
+      "Simulação de IBS de 2026 a 2033",
+    ],
   },
 
   // ===== NOVOS AGENTES — BLOCO MARKETING =====
@@ -649,7 +665,8 @@ Trigger: reforma tributária, IBS, CBS, LC 214/25, Split Payment.`,
     id: "conteudo-video-tax-group",
     name: "Conteúdo para Vídeo",
     slug: "conteudo-video-tax-group",
-    description: "Roteiros de vídeo para Reels, YouTube Shorts, LinkedIn Video e webinars. Formatos de 30s a 10min com gancho, desenvolvimento e CTA falado.",
+    description:
+      "Roteiros de vídeo para Reels, YouTube Shorts, LinkedIn Video e webinars. Formatos de 30s a 10min com gancho, desenvolvimento e CTA falado.",
     block: "marketing",
     blockLabel: "Agência Virtual de Marketing",
     icon: "🎬",
@@ -710,14 +727,15 @@ Trigger: vídeo, roteiro, Reels, YouTube, TikTok, LinkedIn Video, webinar, grava
       "Script para LinkedIn Video de 2min sobre Split Payment e impacto no capital de giro",
       "Roteiro de webinar 10min: como a Reforma Tributária afeta empresas de transporte",
       "3 ganchos diferentes para vídeo sobre AFD — quero testar qual performa melhor",
-      "Roteiro de áudio 90s para disparar no WhatsApp para leads do agronegócio"
-    ]
+      "Roteiro de áudio 90s para disparar no WhatsApp para leads do agronegócio",
+    ],
   },
   {
     id: "whatsapp-tax-group",
     name: "WhatsApp & Broadcast",
     slug: "whatsapp-tax-group",
-    description: "Mensagens e campanhas para o canal principal do B2B brasileiro. Prospecção individual, broadcast segmentado, sequências de nutrição e scripts de áudio.",
+    description:
+      "Mensagens e campanhas para o canal principal do B2B brasileiro. Prospecção individual, broadcast segmentado, sequências de nutrição e scripts de áudio.",
     block: "marketing",
     blockLabel: "Agência Virtual de Marketing",
     icon: "📱",
@@ -783,14 +801,15 @@ Trigger: WhatsApp, mensagem, broadcast, lista de transmissão, disparar, áudio,
       "Broadcast para lista de 30 leads do varejo sobre Reforma Tributária",
       "Sequência completa D0 a D20 para lead que pediu 'um tempo para pensar'",
       "Script de áudio 45s para prospectar diretor financeiro de indústria",
-      "Mensagem pós-reunião para enviar hoje à tarde para lead de agronegócio"
-    ]
+      "Mensagem pós-reunião para enviar hoje à tarde para lead de agronegócio",
+    ],
   },
   {
     id: "calendario-editorial-tax-group",
     name: "Calendário Editorial",
     slug: "calendario-editorial-tax-group",
-    description: "Planejamento multi-canal integrado: LinkedIn, email, WhatsApp e vídeo. Distribui temas por semana alinhando conteúdo ao funil comercial.",
+    description:
+      "Planejamento multi-canal integrado: LinkedIn, email, WhatsApp e vídeo. Distribui temas por semana alinhando conteúdo ao funil comercial.",
     block: "marketing",
     blockLabel: "Agência Virtual de Marketing",
     icon: "📆",
@@ -853,8 +872,8 @@ Trigger: calendário, pauta, editorial, planejamento de conteúdo, o que postar,
       "Planejamento de conteúdo para a semana: foco em Reforma Tributária",
       "Calendário para lançar o RTI em 30 dias usando todos os canais",
       "Distribua 4 pilares temáticos em uma semana de conteúdo multi-canal",
-      "Crie pauta de março alinhando com o período de IR Pessoa Jurídica"
-    ]
+      "Crie pauta de março alinhando com o período de IR Pessoa Jurídica",
+    ],
   },
 
   // ===== BLOCO 3: GESTÃO =====
@@ -862,7 +881,8 @@ Trigger: calendário, pauta, editorial, planejamento de conteúdo, o que postar,
     id: "gestao-pipeline-tax-group",
     name: "Pipeline",
     slug: "gestao-pipeline-tax-group",
-    description: "Acompanhamento do funil comercial. Diagnostica gargalos, sugere ações prioritárias e estrutura revisão semanal de pipeline.",
+    description:
+      "Acompanhamento do funil comercial. Diagnostica gargalos, sugere ações prioritárias e estrutura revisão semanal de pipeline.",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "🔄",
@@ -907,14 +927,15 @@ Trigger: pipeline, funil, conversão, gargalo comercial, meta, CRM.`,
       "Taxa de conversão de proposta para fechamento está em 10%. O que fazer?",
       "Monte uma revisão semanal de pipeline para minha equipe",
       "Como priorizar deals quando há múltiplos em negociação simultânea?",
-      "Quais são os sinais de que um deal está prestes a ser perdido?"
-    ]
+      "Quais são os sinais de que um deal está prestes a ser perdido?",
+    ],
   },
   {
     id: "roteiro-reuniao-tax-group",
     name: "Roteiro de Reunião",
     slug: "roteiro-reuniao-tax-group",
-    description: "Preparação para reuniões comerciais. Entrega roteiro completo com abertura, perguntas SPIN, conexão dor-solução, fechamento e próximos passos.",
+    description:
+      "Preparação para reuniões comerciais. Entrega roteiro completo com abertura, perguntas SPIN, conexão dor-solução, fechamento e próximos passos.",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "📋",
@@ -963,14 +984,15 @@ Trigger: vou ter reunião, preparar reunião, cliente X amanhã, apresentação.
       "Roteiro para reunião com rede de varejo — produto AFD",
       "Como conduzir reunião quando o decisor final não está presente?",
       "Adapte o roteiro para reunião de 30 minutos (tempo reduzido)",
-      "Quais perguntas SPIN usar para empresa do agronegócio?"
-    ]
+      "Quais perguntas SPIN usar para empresa do agronegócio?",
+    ],
   },
   {
     id: "proposta-comercial-tax-group",
     name: "Proposta Comercial",
     slug: "proposta-comercial-tax-group",
-    description: "Estruturação de propostas. Gera estrutura completa com diagnóstico, solução, ROI estimado e próximos passos em linguagem de aprovação por CFO.",
+    description:
+      "Estruturação de propostas. Gera estrutura completa com diagnóstico, solução, ROI estimado e próximos passos em linguagem de aprovação por CFO.",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "📑",
@@ -1030,15 +1052,15 @@ Trigger: proposta, enviar proposta, formalizar, orçamento.`,
       "Proposta de RTI para empresa industrial que se preocupa com a Reforma Tributária",
       "Como calcular ROI estimado para incluir na proposta?",
       "Adapte a proposta para aprovação em conselho de administração",
-      "Gere seção de 'próximos passos' para proposta já enviada sem resposta"
-    ]
-  }
-,
+      "Gere seção de 'próximos passos' para proposta já enviada sem resposta",
+    ],
+  },
   {
     id: "relatorio-performance-tax-group",
     name: "Relatório de Performance",
     slug: "relatorio-performance-tax-group",
-    description: "Análise e apresentação de resultados comerciais. Gera relatórios semanais e mensais com KPIs, diagnóstico de gargalos e projeção de metas.",
+    description:
+      "Análise e apresentação de resultados comerciais. Gera relatórios semanais e mensais com KPIs, diagnóstico de gargalos e projeção de metas.",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "📊",
@@ -1110,14 +1132,15 @@ Trigger: relatório, performance, resultados, KPI, meta, funil, conversão, sema
       "Análise do mês: R$ 80k meta, R$ 45k fechado, pipeline de R$ 200k em aberto",
       "Qual minha taxa de conversão se fechei 2 de 12 propostas no trimestre?",
       "Monte slide de performance para apresentar ao franqueador Tax Group",
-      "Identifique o maior gargalo: 50 leads → 20 respostas → 8 reuniões → 3 propostas → 0 fechamentos"
-    ]
+      "Identifique o maior gargalo: 50 leads → 20 respostas → 8 reuniões → 3 propostas → 0 fechamentos",
+    ],
   },
   {
     id: "treinamento-parceiros-tax-group",
     name: "Treinamento de Parceiros",
     slug: "treinamento-parceiros-tax-group",
-    description: "Para novos parceiros (primeiros 30 dias). Trilha de onboarding estruturada com materiais por produto, simulações de atendimento e quizzes — use este antes de entrar em operação.",
+    description:
+      "Para novos parceiros (primeiros 30 dias). Trilha de onboarding estruturada com materiais por produto, simulações de atendimento e quizzes — use este antes de entrar em operação.",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "👨‍🏫",
@@ -1185,8 +1208,8 @@ Trigger: treinamento, onboarding, novo parceiro, capacitação, simulação, qui
       "Me explique o AFD como se eu fosse um novo parceiro que nunca vendeu tributário",
       "Simule uma objeção: 'já temos contador que cuida disso' — eu pratico minha reversão",
       "Quiz com 10 perguntas sobre qualificação de leads e SPIN Selling",
-      "Como apresento o RTI para um CFO que não sabe nada sobre Reforma Tributária?"
-    ]
+      "Como apresento o RTI para um CFO que não sabe nada sobre Reforma Tributária?",
+    ],
   },
 
   // ===== BLOCO MARKETING (continuação — agentes de mídia paga e SEO) =====
@@ -1194,7 +1217,8 @@ Trigger: treinamento, onboarding, novo parceiro, capacitação, simulação, qui
     id: "midia-paga-tax-group",
     name: "Mídia Paga",
     slug: "midia-paga-tax-group",
-    description: "Estrategista de anúncios pagos para Tax Group. Cria campanhas em Google Ads, LinkedIn Ads e Meta Ads com segmentação por cargo, setor e intenção de compra.",
+    description:
+      "Estrategista de anúncios pagos para Tax Group. Cria campanhas em Google Ads, LinkedIn Ads e Meta Ads com segmentação por cargo, setor e intenção de compra.",
     block: "marketing",
     blockLabel: "Agência Virtual de Marketing",
     icon: "💰",
@@ -1336,14 +1360,15 @@ Trigger: anúncio, ads, mídia paga, Google Ads, LinkedIn Ads, Meta, Facebook, c
       "Monte a estratégia de LinkedIn Ads para gerar leads de CFOs para o RTI",
       "Como fazer retargeting no Meta Ads para visitantes do nosso site que não converteram?",
       "Escreva headlines e descrições para 3 anúncios de REP no Google",
-      "Qual orçamento mensal de mídia paga faz sentido para gerar 30 leads qualificados?"
-    ]
+      "Qual orçamento mensal de mídia paga faz sentido para gerar 30 leads qualificados?",
+    ],
   },
   {
     id: "seo-tax-group",
     name: "SEO & Conteúdo Orgânico",
     slug: "seo-tax-group",
-    description: "Especialista em busca orgânica e conteúdo SEO para Tax Group. Cria clusters de conteúdo, briefings de artigos e otimiza textos existentes para rankear no Google.",
+    description:
+      "Especialista em busca orgânica e conteúdo SEO para Tax Group. Cria clusters de conteúdo, briefings de artigos e otimiza textos existentes para rankear no Google.",
     block: "marketing",
     blockLabel: "Agência Virtual de Marketing",
     icon: "🔍",
@@ -1468,8 +1493,8 @@ Trigger: SEO, rankeamento, artigo, conteúdo orgânico, blog, palavra-chave, Goo
       "Quais são as melhores palavras-chave para rankeamento de RTI/Reforma Tributária?",
       "Otimize este texto para SEO: [cole seu texto aqui]",
       "Monte um calendário de 12 artigos SEO para os próximos 3 meses",
-      "Como criar uma FAQ otimizada sobre REP para aparecer na posição zero do Google?"
-    ]
+      "Como criar uma FAQ otimizada sobre REP para aparecer na posição zero do Google?",
+    ],
   },
 
   // ===== BLOCO GESTÃO (continuação — Expansão de Carteira) =====
@@ -1477,7 +1502,8 @@ Trigger: SEO, rankeamento, artigo, conteúdo orgânico, blog, palavra-chave, Goo
     id: "entrega-projeto-tax-group",
     name: "Entrega de Projeto",
     slug: "entrega-projeto-tax-group",
-    description: "Gerencia a fase crítica entre assinatura e entrega do primeiro relatório. Elimina a ansiedade das semanas 1-4 com comunicação proativa, cronogramas e gestão de expectativas.",
+    description:
+      "Gerencia a fase crítica entre assinatura e entrega do primeiro relatório. Elimina a ansiedade das semanas 1-4 com comunicação proativa, cronogramas e gestão de expectativas.",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "🚀",
@@ -1554,14 +1580,15 @@ Trigger: projeto iniciado, cliente assinou, kickoff, onboarding, entrega, cronog
       "Monte cronograma de projeto REP de 45 dias para indústria com folha de R$ 3M/mês",
       "Gere lista de documentos necessários para projeto AFD + REP combinados",
       "Escreva update da semana 2 para cliente que está ansioso sem novidades",
-      "Monte checklist de handoff para Customer Success após entrega do relatório de R$ 1,2M"
-    ]
+      "Monte checklist de handoff para Customer Success após entrega do relatório de R$ 1,2M",
+    ],
   },
   {
     id: "customer-success-tax-group",
     name: "Customer Success",
     slug: "customer-success-tax-group",
-    description: "Guardião da experiência do cliente. Pós-venda, coleta de NPS, renovações e acompanhamento de projetos após fechamento.",
+    description:
+      "Guardião da experiência do cliente. Pós-venda, coleta de NPS, renovações e acompanhamento de projetos após fechamento.",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "🤝",
@@ -1570,13 +1597,18 @@ Trigger: projeto iniciado, cliente assinou, kickoff, onboarding, entrega, cronog
     systemPrompt: `${TAX_GROUP_CONTEXT}
 VOCÊ É: Gerente de CS da Tax Group.
 MISSÃO: Garantir que o projeto contratado (AFD, REP, etc) seja entregue com qualidade. Gerir expectativas e garantir a renovação ou expansão (upsell).`,
-    suggestedPrompts: ["Crie plano de acompanhamento D30/D60/D90 após assinatura", "Como pedir indicação para um cliente satisfeito?", "Roteiro de reunião de entrega de relatório final"]
+    suggestedPrompts: [
+      "Crie plano de acompanhamento D30/D60/D90 após assinatura",
+      "Como pedir indicação para um cliente satisfeito?",
+      "Roteiro de reunião de entrega de relatório final",
+    ],
   },
   {
     id: "compliance-conteudo-tax-group",
     name: "Compliance de Conteúdo",
     slug: "compliance-conteudo-tax-group",
-    description: "Auditor de qualidade. Revisa textos, apresentações e propostas garantindo precisão dos dados e conformidade técnica.",
+    description:
+      "Auditor de qualidade. Revisa textos, apresentações e propostas garantindo precisão dos dados e conformidade técnica.",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "🛡️",
@@ -1585,13 +1617,18 @@ MISSÃO: Garantir que o projeto contratado (AFD, REP, etc) seja entregue com qua
     systemPrompt: `${TAX_GROUP_CONTEXT}
 VOCÊ É: Auditor Técnico de Comunicação.
 MISSÃO: Revisar outputs de outros agentes para garantir que nenhum dado sensível vaze e que as afirmações tributárias estão condizentes com a LC 214/2025.`,
-    suggestedPrompts: ["Revise esta proposta buscando erros de alíquota", "Este texto respeita as diretrizes de marca da Tax Group?", "Checklist de compliance para posts no LinkedIn"]
+    suggestedPrompts: [
+      "Revise esta proposta buscando erros de alíquota",
+      "Este texto respeita as diretrizes de marca da Tax Group?",
+      "Checklist de compliance para posts no LinkedIn",
+    ],
   },
   {
     id: "pricing-roi-tax-group",
     name: "Pricing & ROI",
     slug: "pricing-roi-tax-group",
-    description: "Simulador financeiro. Calcula o ROI detalhado e potenciais ganhos baseados no faturamento e segmento do prospect.",
+    description:
+      "Simulador financeiro. Calcula o ROI detalhado e potenciais ganhos baseados no faturamento e segmento do prospect.",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "💰",
@@ -1600,13 +1637,18 @@ MISSÃO: Revisar outputs de outros agentes para garantir que nenhum dado sensív
     systemPrompt: `${TAX_GROUP_CONTEXT}
 VOCÊ É: Analista de Pricing e ROI.
 MISSÃO: Criar modelos financeiros inquestionáveis. Se o prospect fatura R$ 100M, quanto ele tem a ganhar com o AFD?`,
-    suggestedPrompts: ["Simule ROI para indústria têxtil com R$ 200M faturamento", "Calcule Payback de um projeto RTI", "Tabela comparativa de custos: In-house vs Tax Group"]
+    suggestedPrompts: [
+      "Simule ROI para indústria têxtil com R$ 200M faturamento",
+      "Calcule Payback de um projeto RTI",
+      "Tabela comparativa de custos: In-house vs Tax Group",
+    ],
   },
   {
     id: "expansao-carteira-tax-group",
     name: "Expansão de Carteira",
     slug: "expansao-carteira-tax-group",
-    description: "Especialista em upsell, cross-sell e saúde da carteira Tax Group. Diagnostica parceiros e clientes, mapeia próximo produto e monta plano de expansão com multi-threading.",
+    description:
+      "Especialista em upsell, cross-sell e saúde da carteira Tax Group. Diagnostica parceiros e clientes, mapeia próximo produto e monta plano de expansão com multi-threading.",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "📈",
@@ -1736,8 +1778,8 @@ Trigger: upsell, cross-sell, expansão, carteira, parceiro, NRR, churn, retenç�
       "Monte o plano de expansão para nossa carteira de 50 parceiros ativos",
       "Crie o script de QBR para um cliente que recuperou R$ 1,2M com o AFD",
       "Tenho 3 clientes em risco de churn — o que fazer primeiro?",
-      "Como identificar quais stakeholders abordar para vender RTI em uma indústria já cliente de AFD?"
-    ]
+      "Como identificar quais stakeholders abordar para vender RTI em uma indústria já cliente de AFD?",
+    ],
   },
 
   // ===== AGENTES INSPIRADOS NO AGENCY-AGENTS FRAMEWORK =====
@@ -1745,7 +1787,8 @@ Trigger: upsell, cross-sell, expansão, carteira, parceiro, NRR, churn, retenç�
     id: "coach-descoberta-tax-group",
     name: "Coach de Descoberta",
     slug: "coach-descoberta-tax-group",
-    description: "Especialista em conduzir reuniões de diagnóstico tributário com metodologias SPIN Selling, Gap Selling e Sandler Pain Funnel. Revela a dor real antes de apresentar qualquer solução.",
+    description:
+      "Especialista em conduzir reuniões de diagnóstico tributário com metodologias SPIN Selling, Gap Selling e Sandler Pain Funnel. Revela a dor real antes de apresentar qualquer solução.",
     block: "prospeccao",
     blockLabel: "Prospecção e Operação Comercial",
     icon: "🔍",
@@ -1812,15 +1855,16 @@ Trigger: descoberta, diagnóstico, reunião, SPIN, Gap Selling, entender o clien
       "Como quantificar o gap tributário para uma indústria com R$ 50M de faturamento?",
       "Prospect disse 'já tenho contador' — como conduzir a descoberta sem soar repetitivo?",
       "Simule uma call de diagnóstico completa com empresa de transporte (Lucro Real)",
-      "Quais perguntas identificam urgência para a Reforma Tributária em empresas do Lucro Real?"
-    ]
+      "Quais perguntas identificam urgência para a Reforma Tributária em empresas do Lucro Real?",
+    ],
   },
 
   {
     id: "estrategista-deals-tax-group",
     name: "Estrategista de Deals",
     slug: "estrategista-deals-tax-group",
-    description: "Especialista em qualificação avançada e estratégia de fechamento de deals complexos usando MEDDPICC. Para negociações com múltiplos decisores, grandes contas e processos longos.",
+    description:
+      "Especialista em qualificação avançada e estratégia de fechamento de deals complexos usando MEDDPICC. Para negociações com múltiplos decisores, grandes contas e processos longos.",
     block: "prospeccao",
     blockLabel: "Prospecção e Operação Comercial",
     icon: "♟️",
@@ -1920,15 +1964,16 @@ Trigger: MEDDPICC, deal complexo, negociação, múltiplos decisores, por que o 
       "Deal está parado há 3 semanas sem resposta — diagnóstico MEDDPICC e ações",
       "Crie battlecard: Tax Group vs. consultoria tributária local menor e mais barata",
       "Como criar multi-threading em uma empresa familiar com 2 sócios e um CFO?",
-      "Prospect pediu proposta mas não me deu acesso ao decisor final — o que fazer?"
-    ]
+      "Prospect pediu proposta mas não me deu acesso ao decisor final — o que fazer?",
+    ],
   },
 
   {
     id: "coach-comercial-tax-group",
     name: "Coach Comercial",
     slug: "coach-comercial-tax-group",
-    description: "Para parceiros já em operação. Coaching socrático contínuo: revisões de pipeline, feedback de calls, diagnóstico skill/will/knowledge gap e plano de desenvolvimento individual (PDI).",
+    description:
+      "Para parceiros já em operação. Coaching socrático contínuo: revisões de pipeline, feedback de calls, diagnóstico skill/will/knowledge gap e plano de desenvolvimento individual (PDI).",
     block: "gestao",
     blockLabel: "Gestão e Operação Interna",
     icon: "🏋️",
@@ -2016,15 +2061,15 @@ Trigger: coaching, performance, consultor não está fechando, parceiro travado,
       "Parceiro enviou 8 propostas esse mês e fechou zero — qual o problema mais provável?",
       "Monte um PDI de 30 dias para consultor que trava sempre na fase de proposta",
       "Simule roleplay: consultor enfrenta prospect que diz 'já tenho auditor de confiança'",
-      "Como identificar se o problema é skill gap ou will gap em um parceiro com 6 meses na Tax Group?"
-    ]
-  }
+      "Como identificar se o problema é skill gap ou will gap em um parceiro com 6 meses na Tax Group?",
+    ],
+  },
 ];
 
 export function getAgentById(id: string): AgentDef | undefined {
-  return AGENTS.find(a => a.id === id);
+  return AGENTS.find((a) => a.id === id);
 }
 
 export function getAgentsByBlock(block: string): AgentDef[] {
-  return AGENTS.filter(a => a.block === block);
+  return AGENTS.filter((a) => a.block === block);
 }

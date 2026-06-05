@@ -11,7 +11,7 @@ export const errorHandler = (
   err: Error,
   req: Request,
   res: Response,
-  _next: NextFunction
+  _next: NextFunction,
 ) => {
   const requestId = (req as any).id || "unknown";
 
@@ -27,9 +27,14 @@ export const errorHandler = (
 
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
-      res.status(413).json({ error: "Arquivo excede o limite de 50MB.", requestId });
+      res
+        .status(413)
+        .json({ error: "Arquivo excede o limite de 50MB.", requestId });
     } else if (err.code === "LIMIT_UNEXPECTED_FILE") {
-      res.status(400).json({ error: "Campo de arquivo inesperado. Use o campo 'file'.", requestId });
+      res.status(400).json({
+        error: "Campo de arquivo inesperado. Use o campo 'file'.",
+        requestId,
+      });
     } else {
       res.status(400).json({ error: err.message, requestId });
     }
@@ -37,12 +42,15 @@ export const errorHandler = (
   }
 
   // Log critical error
-  logger.error({ 
-    err,
-    requestId,
-    url: req.url,
-    method: req.method
-  }, "unhandled_exception");
+  logger.error(
+    {
+      err,
+      requestId,
+      url: req.url,
+      method: req.method,
+    },
+    "unhandled_exception",
+  );
 
   const isProduction = process.env.NODE_ENV === "production";
 

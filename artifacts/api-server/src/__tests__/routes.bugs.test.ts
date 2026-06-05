@@ -17,45 +17,68 @@ vi.mock("@workspace/db", () => {
     // Função thenable: quando chamada com () retorna a Promise,
     // quando usada com await resolve via .then
     const c: any = (..._args: any[]) => prom;
-    c.then     = prom.then.bind(prom);
-    c.catch    = prom.catch.bind(prom);
-    c.from      = vi.fn(() => c);
-    c.where     = vi.fn(() => c);
-    c.leftJoin  = vi.fn(() => c);
+    c.then = prom.then.bind(prom);
+    c.catch = prom.catch.bind(prom);
+    c.from = vi.fn(() => c);
+    c.where = vi.fn(() => c);
+    c.leftJoin = vi.fn(() => c);
     c.innerJoin = vi.fn(() => c);
-    c.orderBy   = vi.fn(() => c);
-    c.limit     = vi.fn(() => c);
-    c.values    = vi.fn(() => c);
-    c.set       = vi.fn(() => c);
+    c.orderBy = vi.fn(() => c);
+    c.limit = vi.fn(() => c);
+    c.values = vi.fn(() => c);
+    c.set = vi.fn(() => c);
     c.returning = vi.fn(() => prom);
-    c.execute   = vi.fn(() => Promise.resolve({ rows: [] }));
+    c.execute = vi.fn(() => Promise.resolve({ rows: [] }));
     return c;
   }
 
   return {
     db: {
-      select:  vi.fn(() => chain()),
-      insert:  vi.fn(() => chain()),
-      update:  vi.fn(() => chain()),
-      delete:  vi.fn(() => chain()),
+      select: vi.fn(() => chain()),
+      insert: vi.fn(() => chain()),
+      update: vi.fn(() => chain()),
+      delete: vi.fn(() => chain()),
       execute: vi.fn(() => Promise.resolve({ rows: [] })),
     },
     crmContactsTable: {
-      id: "id", userId: "user_id", status: "status", source: "source",
-      uf: "uf", porte: "porte", aiScore: "ai_score", createdAt: "created_at",
-      razaoSocial: "razao_social", nomeFantasia: "nome_fantasia", cnpj: "cnpj",
-      tags: "tags", customFields: "custom_fields", regimeTributario: "regime_tributario",
+      id: "id",
+      userId: "user_id",
+      status: "status",
+      source: "source",
+      uf: "uf",
+      porte: "porte",
+      aiScore: "ai_score",
+      createdAt: "created_at",
+      razaoSocial: "razao_social",
+      nomeFantasia: "nome_fantasia",
+      cnpj: "cnpj",
+      tags: "tags",
+      customFields: "custom_fields",
+      regimeTributario: "regime_tributario",
       updatedAt: "updated_at",
     },
     crmDealsTable: {
-      id: "id", userId: "user_id", pipelineId: "pipeline_id",
-      contactId: "contact_id", title: "title", stage: "stage", value: "value",
-      probability: "probability", createdAt: "created_at", updatedAt: "updated_at",
-      expectedCloseDate: "expected_close_date", notes: "notes",
-      wonAt: "won_at", lostAt: "lost_at", produto: "produto",
+      id: "id",
+      userId: "user_id",
+      pipelineId: "pipeline_id",
+      contactId: "contact_id",
+      title: "title",
+      stage: "stage",
+      value: "value",
+      probability: "probability",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+      expectedCloseDate: "expected_close_date",
+      notes: "notes",
+      wonAt: "won_at",
+      lostAt: "lost_at",
+      produto: "produto",
     },
     crmPipelinesTable: {
-      id: "id", name: "name", stages: "stages", userId: "user_id",
+      id: "id",
+      name: "name",
+      stages: "stages",
+      userId: "user_id",
       isDefault: "is_default",
     },
     crmActivitiesTable: {},
@@ -68,33 +91,47 @@ vi.mock("@workspace/db", () => {
     sequenceEnrollmentsTable: {},
     appConfigTable: { key: "key", value: "value" },
     llmConnectionsTable: {
-      id: "id", userId: "user_id", isActive: "is_active", provider: "provider",
-      name: "name", apiKey: "api_key", modelId: "model_id", modelName: "model_name",
-      baseUrl: "base_url", contextWindow: "context_window", maxTokens: "max_tokens",
-      supportsVision: "supports_vision", supportsTools: "supports_tools",
-      supportsJson: "supports_json", usageType: "usage_type", isDefault: "is_default",
-      lastTestedAt: "last_tested_at", lastTestStatus: "last_test_status",
-      lastError: "last_error", createdAt: "created_at", updatedAt: "updated_at",
+      id: "id",
+      userId: "user_id",
+      isActive: "is_active",
+      provider: "provider",
+      name: "name",
+      apiKey: "api_key",
+      modelId: "model_id",
+      modelName: "model_name",
+      baseUrl: "base_url",
+      contextWindow: "context_window",
+      maxTokens: "max_tokens",
+      supportsVision: "supports_vision",
+      supportsTools: "supports_tools",
+      supportsJson: "supports_json",
+      usageType: "usage_type",
+      isDefault: "is_default",
+      lastTestedAt: "last_tested_at",
+      lastTestStatus: "last_test_status",
+      lastError: "last_error",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
     },
     llmProfilesTable: { id: "id", userId: "user_id", isActive: "is_active" },
   };
 });
 
 vi.mock("drizzle-orm", () => ({
-  eq:       vi.fn((a: any, b: any) => ({ eq: [a, b] })),
-  and:      vi.fn((...args: any[]) => ({ and: args })),
-  desc:     vi.fn((a: any) => ({ desc: a })),
-  asc:      vi.fn((a: any) => ({ asc: a })),
-  ilike:    vi.fn((a: any, b: any) => ({ ilike: [a, b] })),
-  or:       vi.fn((...args: any[]) => ({ or: args })),
-  gte:      vi.fn((a: any, b: any) => ({ gte: [a, b] })),
-  lte:      vi.fn((a: any, b: any) => ({ lte: [a, b] })),
-  inArray:  vi.fn((a: any, b: any) => ({ inArray: [a, b] })),
-  sql:      vi.fn((_s: TemplateStringsArray, ..._args: any[]) => ({} as any)),
+  eq: vi.fn((a: any, b: any) => ({ eq: [a, b] })),
+  and: vi.fn((...args: any[]) => ({ and: args })),
+  desc: vi.fn((a: any) => ({ desc: a })),
+  asc: vi.fn((a: any) => ({ asc: a })),
+  ilike: vi.fn((a: any, b: any) => ({ ilike: [a, b] })),
+  or: vi.fn((...args: any[]) => ({ or: args })),
+  gte: vi.fn((a: any, b: any) => ({ gte: [a, b] })),
+  lte: vi.fn((a: any, b: any) => ({ lte: [a, b] })),
+  inArray: vi.fn((a: any, b: any) => ({ inArray: [a, b] })),
+  sql: vi.fn((_s: TemplateStringsArray, ..._args: any[]) => ({}) as any),
 }));
 
 vi.mock("@workspace/empresaqui", () => ({
-  EmpresAquiClient:       vi.fn(),
+  EmpresAquiClient: vi.fn(),
   mapEmpresAquiToContact: vi.fn(() => ({})),
 }));
 
@@ -109,8 +146,8 @@ vi.mock("../lib/api-response.js", () => ({
 }));
 vi.mock("../lib/cnpj-enrichment.js", () => ({ enrichContact: vi.fn() }));
 vi.mock("../lib/validation.js", () => ({
-  pick:            vi.fn((_obj: any, _fields: readonly string[]) => ({})),
-  safeNumber:      vi.fn(() => null),
+  pick: vi.fn((_obj: any, _fields: readonly string[]) => ({})),
+  safeNumber: vi.fn(() => null),
   validateHttpUrl: vi.fn((u: string) => u),
   validateIdParam: vi.fn((id: string) => {
     const n = Number(id);
@@ -125,9 +162,9 @@ vi.mock("../lib/crypto.js", () => ({
 vi.mock("../lib/model-discovery.js", () => ({ discoverModels: vi.fn() }));
 vi.mock("../lib/llm-router.js", () => ({ healthCheckConnections: vi.fn() }));
 vi.mock("../lib/llm-diagnostics.js", () => ({
-  runDiagnostics:    vi.fn(() => ({ status: "ok" })),
+  runDiagnostics: vi.fn(() => ({ status: "ok" })),
   validateCredentials: vi.fn(),
-  testCapability:    vi.fn(),
+  testCapability: vi.fn(),
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -236,7 +273,7 @@ describe("Bug 2: GET /api/llm/health-check — 200 OK", () => {
 describe("Bug 3: Pipeline stage normalization — [object Object]", () => {
   // Testa a lógica de normalização isoladamente (sem depender de DB/Express)
   const normalizeStage = (s: any): string =>
-    typeof s === "string" ? s : (s?.name || String(s));
+    typeof s === "string" ? s : s?.name || String(s);
 
   it("mantém strings inalteradas", () => {
     expect(normalizeStage("prospecting")).toBe("prospecting");
@@ -246,7 +283,9 @@ describe("Bug 3: Pipeline stage normalization — [object Object]", () => {
 
   it("extrai .name de objetos (pipeline customizado)", () => {
     expect(normalizeStage({ name: "Novo Lead", order: 1 })).toBe("Novo Lead");
-    expect(normalizeStage({ name: "Qualificação", order: 2 })).toBe("Qualificação");
+    expect(normalizeStage({ name: "Qualificação", order: 2 })).toBe(
+      "Qualificação",
+    );
     expect(normalizeStage({ name: "Proposta", order: 3 })).toBe("Proposta");
     expect(normalizeStage({ name: "Negociação", order: 4 })).toBe("Negociação");
     expect(normalizeStage({ name: "Fechamento", order: 5 })).toBe("Fechamento");

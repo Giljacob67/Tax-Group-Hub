@@ -198,7 +198,9 @@ function splitSqlStatements(sqlText) {
 async function main() {
   console.log("Connecting to database...");
   // Test connection
-  const ping = await sql("SELECT current_database() as db, current_user as usr, version() as v");
+  const ping = await sql(
+    "SELECT current_database() as db, current_user as usr, version() as v",
+  );
   console.log(`✅ Connected to: ${ping[0].db} as ${ping[0].usr}`);
 
   // Drizzle migrations (in order)
@@ -238,7 +240,13 @@ async function main() {
     console.log(`  ${ok ? "✅" : "❌"} ${table}.${col}`);
   }
 
-  const tables = ["crm_alerts", "crm_audit_log", "crm_qualification_history", "crm_next_step_history", "app_user_roles"];
+  const tables = [
+    "crm_alerts",
+    "crm_audit_log",
+    "crm_qualification_history",
+    "crm_next_step_history",
+    "app_user_roles",
+  ];
   for (const t of tables) {
     const r = await sql(
       `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1`,

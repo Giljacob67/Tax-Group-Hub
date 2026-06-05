@@ -10,10 +10,20 @@ import {
 } from "@workspace/api-client-react";
 import { motion } from "framer-motion";
 import {
-  Zap, Trash2, Plus, Users, Clock,
-  CheckCircle2, ChevronRight, Megaphone,
-  AlertCircle, ToggleLeft, ToggleRight,
-  RefreshCw, List, Send,
+  Zap,
+  Trash2,
+  Plus,
+  Users,
+  Clock,
+  CheckCircle2,
+  ChevronRight,
+  Megaphone,
+  AlertCircle,
+  ToggleLeft,
+  ToggleRight,
+  RefreshCw,
+  List,
+  Send,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,10 +33,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -65,21 +93,26 @@ type Enrollment = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const TRIGGER_LABELS: Record<string, string> = {
-  score_above:        "Score acima de",
+  score_above: "Score acima de",
   deal_stage_changed: "Negócio muda para",
-  contact_created:    "Novo contato",
-  manual:             "Manual",
+  contact_created: "Novo contato",
+  manual: "Manual",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  active:    "bg-primary/20 text-primary border-primary/30",
-  paused:    "bg-muted/20 text-muted-foreground border-muted/30",
+  active: "bg-primary/20 text-primary border-primary/30",
+  paused: "bg-muted/20 text-muted-foreground border-muted/30",
   completed: "bg-primary/20 text-primary border-primary/30",
   cancelled: "bg-destructive/20 text-destructive border-destructive/30",
 };
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -92,6 +125,7 @@ export default function AutomationsPage() {
   const [showBroadcastDialog, setShowBroadcastDialog] = useState(false);
   const [enrollSeqId, setEnrollSeqId] = useState("");
   const [enrollContactId, setEnrollContactId] = useState("");
+  const [deleteSeqId, setDeleteSeqId] = useState<number | null>(null);
   const [broadcastForm, setBroadcastForm] = useState({
     channelId: "",
     agentId: "whatsapp-broadcast-tax-group",
@@ -104,21 +138,26 @@ export default function AutomationsPage() {
   // ── Queries ──
   const { data: seqData, isLoading: seqLoading } = useListAutomationSequences();
 
-  const { data: enrollData, isLoading: enrollLoading } = useListSequenceEnrollments(
-    undefined,
-    { query: { refetchInterval: 30_000 } } as any,
-  );
+  const { data: enrollData, isLoading: enrollLoading } =
+    useListSequenceEnrollments(undefined, {
+      query: { refetchInterval: 30_000 },
+    } as any);
 
   const sequences = seqData?.sequences ?? [];
   const enrollments = enrollData?.enrollments ?? [];
 
-  const activeEnrollments = enrollments.filter(e => e.status === "active");
-  const completedToday = enrollments.filter(e => e.completedAt && new Date(e.completedAt).toDateString() === new Date().toDateString()).length;
+  const activeEnrollments = enrollments.filter((e) => e.status === "active");
+  const completedToday = enrollments.filter(
+    (e) =>
+      e.completedAt &&
+      new Date(e.completedAt).toDateString() === new Date().toDateString(),
+  ).length;
 
   // ── Toggle active ──
   const toggleMutation = useUpdateAutomationSequence({
     mutation: {
-      onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/automate/sequences"] }),
+      onSuccess: () =>
+        qc.invalidateQueries({ queryKey: ["/api/automate/sequences"] }),
     },
   });
 
@@ -141,7 +180,12 @@ export default function AutomationsPage() {
         setEnrollContactId("");
         toast({ title: "Contato inscrito na sequência" });
       },
-      onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+      onError: (e: any) =>
+        toast({
+          title: "Erro",
+          description: e.message,
+          variant: "destructive",
+        }),
     },
   });
 
@@ -152,7 +196,12 @@ export default function AutomationsPage() {
         setShowBroadcastDialog(false);
         toast({ title: `Broadcast enviado: ${data.queued} contatos na fila` });
       },
-      onError: (e: any) => toast({ title: "Erro no broadcast", description: e.message, variant: "destructive" }),
+      onError: (e: any) =>
+        toast({
+          title: "Erro no broadcast",
+          description: e.message,
+          variant: "destructive",
+        }),
     },
   });
 
@@ -166,13 +215,23 @@ export default function AutomationsPage() {
               <Zap className="w-6 h-6 text-primary" />
               Automações
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Sequências de WhatsApp e broadcasts segmentados</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Sequências de WhatsApp e broadcasts segmentados
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowEnrollDialog(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowEnrollDialog(true)}
+            >
               <Plus className="w-4 h-4 mr-1" /> Inscrever Contato
             </Button>
-            <Button size="sm" onClick={() => setShowBroadcastDialog(true)} className="bg-primary hover:bg-primary/90">
+            <Button
+              size="sm"
+              onClick={() => setShowBroadcastDialog(true)}
+              className="bg-primary hover:bg-primary/90"
+            >
               <Megaphone className="w-4 h-4 mr-1" /> Broadcast
             </Button>
           </div>
@@ -180,18 +239,41 @@ export default function AutomationsPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-3 gap-4 mt-5">
-          <KpiCard icon={<List className="w-4 h-4 text-primary" />} label="Sequências ativas" value={sequences.filter(s => s.isActive).length} color="primary" />
-          <KpiCard icon={<Users className="w-4 h-4 text-muted-foreground" />} label="Contatos em andamento" value={activeEnrollments.length} color="muted" />
-          <KpiCard icon={<CheckCircle2 className="w-4 h-4 text-primary" />} label="Concluídos hoje" value={completedToday} color="primary" />
+          <KpiCard
+            icon={<List className="w-4 h-4 text-primary" />}
+            label="Sequências ativas"
+            value={sequences.filter((s) => s.isActive).length}
+            color="primary"
+          />
+          <KpiCard
+            icon={<Users className="w-4 h-4 text-muted-foreground" />}
+            label="Contatos em andamento"
+            value={activeEnrollments.length}
+            color="muted"
+          />
+          <KpiCard
+            icon={<CheckCircle2 className="w-4 h-4 text-primary" />}
+            label="Concluídos hoje"
+            value={completedToday}
+            color="primary"
+          />
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col overflow-hidden">
+      <Tabs
+        value={tab}
+        onValueChange={setTab}
+        className="flex-1 flex flex-col overflow-hidden"
+      >
         <div className="flex-none px-6 pt-3">
           <TabsList className="bg-muted/30">
-            <TabsTrigger value="sequences">Sequências ({sequences.length})</TabsTrigger>
-            <TabsTrigger value="enrollments">Contatos Ativos ({activeEnrollments.length})</TabsTrigger>
+            <TabsTrigger value="sequences">
+              Sequências ({sequences.length})
+            </TabsTrigger>
+            <TabsTrigger value="enrollments">
+              Contatos Ativos ({activeEnrollments.length})
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -205,14 +287,23 @@ export default function AutomationsPage() {
             ) : sequences.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground">
                 <Zap className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm font-medium text-foreground">Nenhuma automação configurada</p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">Crie sequências de WhatsApp e e-mail para nurturing automático de leads qualificados.</p>
+                <p className="text-sm font-medium text-foreground">
+                  Nenhuma automação configurada
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                  Crie sequências de WhatsApp e e-mail para nurturing automático
+                  de leads qualificados.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {sequences.map(seq => {
-                  const enrolled = enrollments.filter(e => e.sequenceId === seq.id);
-                  const active = enrolled.filter(e => e.status === "active").length;
+                {sequences.map((seq) => {
+                  const enrolled = enrollments.filter(
+                    (e) => e.sequenceId === seq.id,
+                  );
+                  const active = enrolled.filter(
+                    (e) => e.status === "active",
+                  ).length;
                   return (
                     <motion.div
                       key={seq.id}
@@ -223,8 +314,17 @@ export default function AutomationsPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-sm text-foreground">{seq.name}</span>
-                            <Badge variant="outline" className={seq.isActive ? "border-primary/40 text-primary" : "border-muted text-muted-foreground"}>
+                            <span className="font-semibold text-sm text-foreground">
+                              {seq.name}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={
+                                seq.isActive
+                                  ? "border-primary/40 text-primary"
+                                  : "border-muted text-muted-foreground"
+                              }
+                            >
                               {seq.isActive ? "Ativa" : "Pausada"}
                             </Badge>
                           </div>
@@ -232,7 +332,12 @@ export default function AutomationsPage() {
                             <span className="flex items-center gap-1">
                               <Zap className="w-3 h-3" />
                               {TRIGGER_LABELS[seq.trigger] ?? seq.trigger}
-                              {seq.triggerValue && <span className="font-medium text-foreground/70"> {seq.triggerValue}</span>}
+                              {seq.triggerValue && (
+                                <span className="font-medium text-foreground/70">
+                                  {" "}
+                                  {seq.triggerValue}
+                                </span>
+                              )}
                             </span>
                             <span className="flex items-center gap-1">
                               <List className="w-3 h-3" />
@@ -240,34 +345,54 @@ export default function AutomationsPage() {
                             </span>
                             <span className="flex items-center gap-1">
                               <Users className="w-3 h-3 text-muted-foreground" />
-                              <span className="text-muted-foreground">{active} ativos</span>
+                              <span className="text-muted-foreground">
+                                {active} ativos
+                              </span>
                             </span>
                           </div>
                           {/* Steps preview */}
                           <div className="flex items-center gap-1 mt-2 flex-wrap">
                             {seq.steps.map((s: any, i: number) => (
-                              <div key={i} className="flex items-center gap-0.5">
+                              <div
+                                key={i}
+                                className="flex items-center gap-0.5"
+                              >
                                 <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 border border-primary/20 text-primary/80">
-                                  D+{s.day} · {s.channel === "whatsapp" ? "WA" : s.channel === "email" ? "E-mail" : "Nota"}
+                                  D+{s.day} ·{" "}
+                                  {s.channel === "whatsapp"
+                                    ? "WA"
+                                    : s.channel === "email"
+                                      ? "E-mail"
+                                      : "Nota"}
                                 </span>
-                                {i < seq.steps.length - 1 && <ChevronRight className="w-3 h-3 text-muted-foreground/40" />}
+                                {i < seq.steps.length - 1 && (
+                                  <ChevronRight className="w-3 h-3 text-muted-foreground/40" />
+                                )}
                               </div>
                             ))}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <Button
-                            variant="ghost" size="sm"
-                            onClick={() => toggleMutation.mutate({ id: seq.id, data: { isActive: !seq.isActive } })}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              toggleMutation.mutate({
+                                id: seq.id,
+                                data: { isActive: !seq.isActive },
+                              })
+                            }
                             className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                           >
-                            {seq.isActive
-                              ? <ToggleRight className="w-4 h-4 text-emerald-400" />
-                              : <ToggleLeft className="w-4 h-4" />
-                            }
+                            {seq.isActive ? (
+                              <ToggleRight className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                              <ToggleLeft className="w-4 h-4" />
+                            )}
                           </Button>
                           <Button
-                            variant="ghost" size="sm"
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                               setEnrollSeqId(String(seq.id));
                               setShowEnrollDialog(true);
@@ -278,9 +403,11 @@ export default function AutomationsPage() {
                             <Plus className="w-4 h-4" />
                           </Button>
                           <Button
-                            variant="ghost" size="sm"
-                            onClick={() => deleteMutation.mutate({ id: seq.id })}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteSeqId(seq.id)}
                             className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                            title="Excluir sequência"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -304,25 +431,50 @@ export default function AutomationsPage() {
             ) : activeEnrollments.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground">
                 <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm font-medium text-foreground">Nenhum contato em sequência</p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">Inscreva leads em campanhas automáticas de follow-up comercial.</p>
+                <p className="text-sm font-medium text-foreground">
+                  Nenhum contato em sequência
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                  Inscreva leads em campanhas automáticas de follow-up
+                  comercial.
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
-                {activeEnrollments.map(en => {
-                  const seqForEnroll = sequences.find(s => s.id === en.sequenceId);
+                {activeEnrollments.map((en) => {
+                  const seqForEnroll = sequences.find(
+                    (s) => s.id === en.sequenceId,
+                  );
                   const totalSteps = seqForEnroll?.steps?.length ?? 0;
-                  const pct = totalSteps > 0 ? Math.round(((en.currentStep) / totalSteps) * 100) : 0;
-                  const overdue = en.nextSendAt ? new Date(en.nextSendAt) < new Date() : false;
+                  const pct =
+                    totalSteps > 0
+                      ? Math.round((en.currentStep / totalSteps) * 100)
+                      : 0;
+                  const overdue = en.nextSendAt
+                    ? new Date(en.nextSendAt) < new Date()
+                    : false;
                   return (
-                    <div key={en.id} className="bg-card/50 border border-border/40 rounded-lg px-4 py-3 flex items-center gap-4">
+                    <div
+                      key={en.id}
+                      className="bg-card/50 border border-border/40 rounded-lg px-4 py-3 flex items-center gap-4"
+                    >
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{en.sequenceName ?? `Sequência #${en.sequenceId}`}</div>
+                        <div className="text-sm font-medium truncate">
+                          {en.sequenceName ?? `Sequência #${en.sequenceId}`}
+                        </div>
                         <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                           <span>Contato #{en.contactId}</span>
-                          <span>Etapa {en.currentStep + 1}/{totalSteps}</span>
-                          <span className={`flex items-center gap-1 ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
-                            {overdue ? <AlertCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                          <span>
+                            Etapa {en.currentStep + 1}/{totalSteps}
+                          </span>
+                          <span
+                            className={`flex items-center gap-1 ${overdue ? "text-destructive" : "text-muted-foreground"}`}
+                          >
+                            {overdue ? (
+                              <AlertCircle className="w-3 h-3" />
+                            ) : (
+                              <Clock className="w-3 h-3" />
+                            )}
                             {overdue ? "Atrasado · " : "Próximo: "}
                             {en.nextSendAt ? fmtDate(en.nextSendAt) : "—"}
                           </span>
@@ -330,9 +482,14 @@ export default function AutomationsPage() {
                       </div>
                       <div className="flex-shrink-0 w-20">
                         <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                          <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                          <div
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5 text-right">{pct}%</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 text-right">
+                          {pct}%
+                        </div>
                       </div>
                     </div>
                   );
@@ -351,33 +508,57 @@ export default function AutomationsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5 block">Sequência</Label>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">
+                Sequência
+              </Label>
               <Select value={enrollSeqId} onValueChange={setEnrollSeqId}>
-                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
                 <SelectContent>
-                  {sequences.filter(s => s.isActive).map(s => (
-                    <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                  ))}
+                  {sequences
+                    .filter((s) => s.isActive)
+                    .map((s) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5 block">ID do Contato (CRM)</Label>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">
+                ID do Contato (CRM)
+              </Label>
               <Input
                 type="number"
                 placeholder="Ex: 42"
                 value={enrollContactId}
-                onChange={e => setEnrollContactId(e.target.value)}
+                onChange={(e) => setEnrollContactId(e.target.value)}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEnrollDialog(false)}>Cancelar</Button>
             <Button
-              onClick={() => enrollMutation.mutate({ id: Number(enrollSeqId), data: { contactId: Number(enrollContactId) } })}
-              disabled={!enrollSeqId || !enrollContactId || enrollMutation.isPending}
+              variant="outline"
+              onClick={() => setShowEnrollDialog(false)}
             >
-              {enrollMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : null}
+              Cancelar
+            </Button>
+            <Button
+              onClick={() =>
+                enrollMutation.mutate({
+                  id: Number(enrollSeqId),
+                  data: { contactId: Number(enrollContactId) },
+                })
+              }
+              disabled={
+                !enrollSeqId || !enrollContactId || enrollMutation.isPending
+              }
+            >
+              {enrollMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin mr-1" />
+              ) : null}
               Inscrever
             </Button>
           </DialogFooter>
@@ -389,19 +570,40 @@ export default function AutomationsPage() {
         <DialogContent className="bg-card/95 backdrop-blur-lg border-border/50 max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Megaphone className="w-5 h-5 text-primary" /> Broadcast WhatsApp Segmentado
+              <Megaphone className="w-5 h-5 text-primary" /> Broadcast WhatsApp
+              Segmentado
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs text-muted-foreground mb-1.5 block">ID do Canal WhatsApp</Label>
-                <Input placeholder="ID do canal" value={broadcastForm.channelId} onChange={e => setBroadcastForm(f => ({ ...f, channelId: e.target.value }))} />
+                <Label className="text-xs text-muted-foreground mb-1.5 block">
+                  ID do Canal WhatsApp
+                </Label>
+                <Input
+                  placeholder="ID do canal"
+                  value={broadcastForm.channelId}
+                  onChange={(e) =>
+                    setBroadcastForm((f) => ({
+                      ...f,
+                      channelId: e.target.value,
+                    }))
+                  }
+                />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Status dos contatos</Label>
-                <Select value={broadcastForm.status} onValueChange={v => setBroadcastForm(f => ({ ...f, status: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">
+                  Status dos contatos
+                </Label>
+                <Select
+                  value={broadcastForm.status}
+                  onValueChange={(v) =>
+                    setBroadcastForm((f) => ({ ...f, status: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="prospect">Prospect</SelectItem>
                     <SelectItem value="qualified">Qualificado</SelectItem>
@@ -410,68 +612,166 @@ export default function AutomationsPage() {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Score mínimo</Label>
-                <Input type="number" placeholder="0" value={broadcastForm.minScore} onChange={e => setBroadcastForm(f => ({ ...f, minScore: e.target.value }))} />
+                <Label className="text-xs text-muted-foreground mb-1.5 block">
+                  Score mínimo
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={broadcastForm.minScore}
+                  onChange={(e) =>
+                    setBroadcastForm((f) => ({
+                      ...f,
+                      minScore: e.target.value,
+                    }))
+                  }
+                />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground mb-1.5 block">Score máximo</Label>
-                <Input type="number" placeholder="100" value={broadcastForm.maxScore} onChange={e => setBroadcastForm(f => ({ ...f, maxScore: e.target.value }))} />
+                <Label className="text-xs text-muted-foreground mb-1.5 block">
+                  Score máximo
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="100"
+                  value={broadcastForm.maxScore}
+                  onChange={(e) =>
+                    setBroadcastForm((f) => ({
+                      ...f,
+                      maxScore: e.target.value,
+                    }))
+                  }
+                />
               </div>
             </div>
             <Separator />
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5 block">Instrução para o agente</Label>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">
+                Instrução para o agente
+              </Label>
               <Textarea
                 placeholder="Ex: Crie uma mensagem personalizada para {{contact_name}} da {{razao_social}} sobre a Reforma Tributária e como o Tax Group pode ajudar..."
                 rows={4}
                 value={broadcastForm.inputTemplate}
-                onChange={e => setBroadcastForm(f => ({ ...f, inputTemplate: e.target.value }))}
+                onChange={(e) =>
+                  setBroadcastForm((f) => ({
+                    ...f,
+                    inputTemplate: e.target.value,
+                  }))
+                }
                 className="text-sm"
               />
               <p className="text-[11px] text-muted-foreground mt-1">
-                Use: <code className="text-primary/80">{"{{contact_name}}"}</code> <code className="text-primary/80">{"{{razao_social}}"}</code> <code className="text-primary/80">{"{{product}}"}</code> <code className="text-primary/80">{"{{uf}}"}</code>
+                Use:{" "}
+                <code className="text-primary/80">{"{{contact_name}}"}</code>{" "}
+                <code className="text-primary/80">{"{{razao_social}}"}</code>{" "}
+                <code className="text-primary/80">{"{{product}}"}</code>{" "}
+                <code className="text-primary/80">{"{{uf}}"}</code>
               </p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBroadcastDialog(false)}>Cancelar</Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowBroadcastDialog(false)}
+            >
+              Cancelar
+            </Button>
             <Button
               onClick={() => {
-  const filters: Record<string, any> = {};
-  if (broadcastForm.minScore) filters.minScore = Number(broadcastForm.minScore);
-  if (broadcastForm.maxScore) filters.maxScore = Number(broadcastForm.maxScore);
-  if (broadcastForm.status)   filters.status = [broadcastForm.status];
-  broadcastMutation.mutate({
-    data: {
-      channelId: Number(broadcastForm.channelId),
-      agentId: broadcastForm.agentId,
-      inputTemplate: broadcastForm.inputTemplate,
-      filters,
-    },
-  });
-}}
-              disabled={!broadcastForm.channelId || !broadcastForm.inputTemplate || broadcastMutation.isPending}
+                const filters: Record<string, any> = {};
+                if (broadcastForm.minScore)
+                  filters.minScore = Number(broadcastForm.minScore);
+                if (broadcastForm.maxScore)
+                  filters.maxScore = Number(broadcastForm.maxScore);
+                if (broadcastForm.status)
+                  filters.status = [broadcastForm.status];
+                broadcastMutation.mutate({
+                  data: {
+                    channelId: Number(broadcastForm.channelId),
+                    agentId: broadcastForm.agentId,
+                    inputTemplate: broadcastForm.inputTemplate,
+                    filters,
+                  },
+                });
+              }}
+              disabled={
+                !broadcastForm.channelId ||
+                !broadcastForm.inputTemplate ||
+                broadcastMutation.isPending
+              }
               className="bg-primary hover:bg-primary/90"
             >
-              {broadcastMutation.isPending ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
+              {broadcastMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin mr-1" />
+              ) : (
+                <Send className="w-4 h-4 mr-1" />
+              )}
               Enviar Broadcast
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Sequence Confirmation */}
+      <AlertDialog
+        open={!!deleteSeqId}
+        onOpenChange={(open) => {
+          if (!open) setDeleteSeqId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir sequência?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. A sequência e todas as inscrições
+              associadas serão permanentemente excluídas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteSeqId) {
+                  deleteMutation.mutate({ id: deleteSeqId });
+                  setDeleteSeqId(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
-function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
+function KpiCard({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
+}) {
   const colorMap: Record<string, string> = {
     primary: "bg-primary/10 border-primary/20",
-    muted:   "bg-muted/10 border-muted/20",
+    muted: "bg-muted/10 border-muted/20",
   };
   return (
-    <div className={`rounded-xl border p-4 ${colorMap[color] ?? "bg-card/50 border-border/40"}`}>
-      <div className="flex items-center gap-2 mb-2">{icon}<span className="text-xs text-muted-foreground">{label}</span></div>
+    <div
+      className={`rounded-xl border p-4 ${colorMap[color] ?? "bg-card/50 border-border/40"}`}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <span className="text-xs text-muted-foreground">{label}</span>
+      </div>
       <div className="text-2xl font-bold">{value}</div>
     </div>
   );

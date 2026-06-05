@@ -1,8 +1,20 @@
 import { useState, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { UploadCloud, CheckCircle2, AlertCircle, Loader2, FileSpreadsheet } from "lucide-react";
+import {
+  UploadCloud,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  FileSpreadsheet,
+} from "lucide-react";
 import Papa from "papaparse";
 
 interface BulkImportDialogProps {
@@ -11,13 +23,21 @@ interface BulkImportDialogProps {
   onSuccess?: () => void;
 }
 
-export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDialogProps) {
+export function BulkImportDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+}: BulkImportDialogProps) {
   const { toast } = useToast();
   const [isParsing, setIsParsing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  
+
   const [parsedData, setParsedData] = useState<{ cnpj: string }[]>([]);
-  const [importResults, setImportResults] = useState<{ created: number; duplicates: number; errors: number } | null>(null);
+  const [importResults, setImportResults] = useState<{
+    created: number;
+    duplicates: number;
+    errors: number;
+  } | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -34,8 +54,8 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
         // Find the column that looks mostly like CNPJs or just flatten everything and extract 14-digit numbers
         const extractCnpjs = (data: string[][]) => {
           const cnpjs = new Set<string>();
-          data.forEach(row => {
-            row.forEach(cell => {
+          data.forEach((row) => {
+            row.forEach((cell) => {
               if (typeof cell !== "string") return;
               const clean = cell.replace(/\D/g, "");
               if (clean.length === 14) {
@@ -47,27 +67,32 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
         };
 
         const cnpjs = extractCnpjs(results.data as string[][]);
-        
+
         setIsParsing(false);
         if (cnpjs.length === 0) {
           toast({
             title: "Nenhum CNPJ encontrado",
-            description: "Não conseguimos achar números de 14 dígitos válidos no seu arquivo.",
-            variant: "destructive"
+            description:
+              "Não conseguimos achar números de 14 dígitos válidos no seu arquivo.",
+            variant: "destructive",
           });
           return;
         }
 
-        setParsedData(cnpjs.map(cnpj => ({ cnpj })));
+        setParsedData(cnpjs.map((cnpj) => ({ cnpj })));
       },
       error: (error) => {
         setIsParsing(false);
-        toast({ title: "Erro na leitura", description: error.message, variant: "destructive" });
-      }
+        toast({
+          title: "Erro na leitura",
+          description: error.message,
+          variant: "destructive",
+        });
+      },
     });
 
     // Reset input
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const handleImport = async () => {
@@ -76,7 +101,7 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
     setImportResults(null);
 
     const CHUNK_SIZE = 10;
-    const allCnpjs = parsedData.map(d => d.cnpj);
+    const allCnpjs = parsedData.map((d) => d.cnpj);
     let totalCreated = 0;
     let totalDuplicates = 0;
     let totalErrors = 0;
@@ -87,7 +112,7 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
         const req = await fetch("/api/crm/contacts/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cnpjs: chunk })
+          body: JSON.stringify({ cnpjs: chunk }),
         });
         const res = await req.json();
         if (res.success && res.summary) {
@@ -100,21 +125,20 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
       setImportResults({
         created: totalCreated,
         duplicates: totalDuplicates,
-        errors: totalErrors
+        errors: totalErrors,
       });
 
       toast({
         title: "Importação concluída!",
-        description: `${totalCreated} leads inseridos com sucesso.`
+        description: `${totalCreated} leads inseridos com sucesso.`,
       });
 
       if (onSuccess) onSuccess();
-
     } catch (err: any) {
       toast({
         title: "Falha na importação",
         description: err.message,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsImporting(false);
@@ -122,18 +146,23 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
   };
 
   return (
-    <Dialog open={open} onOpenChange={(val) => {
-      onOpenChange(val);
-      if (!val) {
-        setParsedData([]);
-        setImportResults(null);
-      }
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        onOpenChange(val);
+        if (!val) {
+          setParsedData([]);
+          setImportResults(null);
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle>Importação em Lote de Leads</DialogTitle>
           <DialogDescription>
-            Faça upload de um arquivo CSV ou Excel. Nós encontraremos automaticamente todos os CNPJs e faremos o enriquecimento na base do EmpresAqui.
+            Faça upload de um arquivo CSV ou Excel. Nós encontraremos
+            automaticamente todos os CNPJs e faremos o enriquecimento na base do
+            EmpresAqui.
           </DialogDescription>
         </DialogHeader>
 
@@ -149,11 +178,19 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
               />
               <div className="flex flex-col items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  {isParsing ? <Loader2 className="w-6 h-6 text-primary animate-spin" /> : <UploadCloud className="w-6 h-6 text-primary" />}
+                  {isParsing ? (
+                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                  ) : (
+                    <UploadCloud className="w-6 h-6 text-primary" />
+                  )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Clique ou arraste seu arquivo aqui</p>
-                  <p className="text-xs text-muted-foreground mt-1">Extensões suportadas: .csv</p>
+                  <p className="text-sm font-medium">
+                    Clique ou arraste seu arquivo aqui
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Extensões suportadas: .csv
+                  </p>
                 </div>
               </div>
             </div>
@@ -164,18 +201,34 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex items-start gap-3">
                 <FileSpreadsheet className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="text-sm font-medium text-primary">Pronto para importar</h4>
+                  <h4 className="text-sm font-medium text-primary">
+                    Pronto para importar
+                  </h4>
                   <p className="text-xs text-primary/80 mt-1">
-                    Encontramos <strong>{parsedData.length}</strong> CNPJs válidos no seu arquivo. Eles serão adicionados e enriquecidos sequencialmente. Isso pode levar alguns minutos.
+                    Encontramos <strong>{parsedData.length}</strong> CNPJs
+                    válidos no seu arquivo. Eles serão adicionados e
+                    enriquecidos sequencialmente. Isso pode levar alguns
+                    minutos.
                   </p>
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => setParsedData([])} disabled={isImporting}>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setParsedData([])}
+                  disabled={isImporting}
+                >
                   Cancelar
                 </Button>
-                <Button className="flex-1" onClick={handleImport} disabled={isImporting}>
-                  {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                <Button
+                  className="flex-1"
+                  onClick={handleImport}
+                  disabled={isImporting}
+                >
+                  {isImporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : null}
                   {isImporting ? "Importando..." : "Iniciar Importação"}
                 </Button>
               </div>
@@ -186,25 +239,42 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 <div className="bg-muted rounded-lg p-3 text-center border border-border/50">
-                  <div className="text-2xl font-semibold text-emerald-500 mb-1">{importResults.created}</div>
-                  <div className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Criados</div>
+                  <div className="text-2xl font-semibold text-emerald-500 mb-1">
+                    {importResults.created}
+                  </div>
+                  <div className="text-xs uppercase font-bold text-muted-foreground tracking-wider">
+                    Criados
+                  </div>
                 </div>
                 <div className="bg-muted rounded-lg p-3 text-center border border-border/50">
-                  <div className="text-2xl font-semibold text-amber-500 mb-1">{importResults.duplicates}</div>
-                  <div className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Duplicados</div>
+                  <div className="text-2xl font-semibold text-amber-500 mb-1">
+                    {importResults.duplicates}
+                  </div>
+                  <div className="text-xs uppercase font-bold text-muted-foreground tracking-wider">
+                    Duplicados
+                  </div>
                 </div>
                 <div className="bg-muted rounded-lg p-3 text-center border border-border/50">
-                  <div className="text-2xl font-semibold text-rose-500 mb-1">{importResults.errors}</div>
-                  <div className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Erros</div>
+                  <div className="text-2xl font-semibold text-rose-500 mb-1">
+                    {importResults.errors}
+                  </div>
+                  <div className="text-xs uppercase font-bold text-muted-foreground tracking-wider">
+                    Erros
+                  </div>
                 </div>
               </div>
 
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <p className="text-xs text-emerald-500 font-medium">Tudo finalizado! Os leads já estão disponíveis na sua base.</p>
+                <p className="text-xs text-emerald-500 font-medium">
+                  Tudo finalizado! Os leads já estão disponíveis na sua base.
+                </p>
               </div>
 
-              <Button className="w-full mt-4" onClick={() => onOpenChange(false)}>
+              <Button
+                className="w-full mt-4"
+                onClick={() => onOpenChange(false)}
+              >
                 Ver Painel
               </Button>
             </div>

@@ -27,7 +27,9 @@ if (files.length === 0) {
   process.exit(0);
 }
 
-console.log(`[migrate] applying ${files.length} migration(s) from ${migrationsFolder}`);
+console.log(
+  `[migrate] applying ${files.length} migration(s) from ${migrationsFolder}`,
+);
 
 const sql = neon(process.env.DATABASE_URL);
 const db = drizzle(sql);

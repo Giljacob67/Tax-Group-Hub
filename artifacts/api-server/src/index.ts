@@ -3,13 +3,19 @@ import logger from "./lib/logger.js";
 
 function validateEnv() {
   if (!process.env.JWT_SECRET && !process.env.API_KEY) {
-    logger.warn("Neither JWT_SECRET nor API_KEY is set — all requests will fall through to demo-user mode");
+    logger.warn(
+      "Neither JWT_SECRET nor API_KEY is set — all requests will fall through to demo-user mode",
+    );
   }
   if (!process.env.ENCRYPTION_KEY) {
-    logger.warn("ENCRYPTION_KEY not set — BYOK API keys will be stored unencrypted");
+    logger.warn(
+      "ENCRYPTION_KEY not set — BYOK API keys will be stored unencrypted",
+    );
   }
   if (!process.env.APP_URL && process.env.NODE_ENV === "production") {
-    logger.warn("APP_URL not set in production — CORS may reject frontend requests");
+    logger.warn(
+      "APP_URL not set in production — CORS may reject frontend requests",
+    );
   }
 }
 

@@ -4,16 +4,20 @@
  */
 
 import { createHash } from "node:crypto";
-import { 
-  generateText, 
+import {
+  generateText,
   embedMany,
   type LanguageModel,
-  type EmbeddingModel
+  type EmbeddingModel,
 } from "ai";
 import { createOpenAI, openai } from "@ai-sdk/openai";
 import { createAnthropic, anthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI, google } from "@ai-sdk/google";
-import { getEffectiveOllamaUrl, getEffectiveOllamaModel, getConfigValue } from "../routes/settings.js";
+import {
+  getEffectiveOllamaUrl,
+  getEffectiveOllamaModel,
+  getConfigValue,
+} from "../routes/settings.js";
 import { db } from "@workspace/db";
 import { embeddingCacheTable, apiKeysTable } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
@@ -35,19 +39,22 @@ export interface LLMResult {
 /**
  * Get a specific API key from DB or Env
  */
-async function getApiKey(provider: string, userId?: string): Promise<string | null> {
+async function getApiKey(
+  provider: string,
+  userId?: string,
+): Promise<string | null> {
   // Try DB first (BYOK)
   // Scoped to user if userId provided, or global keys where user_id IS NULL
-  
+
   const dbKeys = await db
     .select()
     .from(apiKeysTable)
     .where(eq(apiKeysTable.provider, provider));
-  
+
   // Prefer user specific key, then fallback to global (null)
-  const userKey = userId ? dbKeys.find(k => k.userId === userId) : null;
-  const globalKey = dbKeys.find(k => !k.userId);
-  
+  const userKey = userId ? dbKeys.find((k) => k.userId === userId) : null;
+  const globalKey = dbKeys.find((k) => !k.userId);
+
   const selectedDbKey = userKey || globalKey;
   if (selectedDbKey?.key) {
     return decrypt(selectedDbKey.key);
@@ -69,17 +76,26 @@ async function getApiKey(provider: string, userId?: string): Promise<string | nu
  * Returns a configured LanguageModel based on provider and model name.
  * Defaults to Ollama (if available) or Gemini.
  */
-export async function getLanguageModel(requestedProvider?: string, requestedModel?: string, userId?: string, requestedCustomUrl?: string): Promise<{ model: LanguageModel; providerName: string; modelId: string }> {
+export async function getLanguageModel(
+  requestedProvider?: string,
+  requestedModel?: string,
+  userId?: string,
+  requestedCustomUrl?: string,
+): Promise<{ model: LanguageModel; providerName: string; modelId: string }> {
   // Normalize provider names
   let provider = (requestedProvider || "auto").toLowerCase();
-  
+
   // ── Read active provider preference from DB ──────────────────────────────────
   const activeProviderDb = await getConfigValue("ACTIVE_LLM_PROVIDER");
-  const activeLlmUrl     = await getConfigValue("ACTIVE_LLM_URL");
-  const activeLlmModel   = await getConfigValue("ACTIVE_LLM_MODEL");
+  const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
+  const activeLlmModel = await getConfigValue("ACTIVE_LLM_MODEL");
 
   // Only override provider when the caller has not explicitly specified one
-  if ((provider === "auto" || !requestedProvider) && activeProviderDb && activeProviderDb !== "auto") {
+  if (
+    (provider === "auto" || !requestedProvider) &&
+    activeProviderDb &&
+    activeProviderDb !== "auto"
+  ) {
     provider = activeProviderDb.toLowerCase();
     if (activeLlmModel && !requestedModel) requestedModel = activeLlmModel;
   }
@@ -92,24 +108,31 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
       baseURL: "https://openrouter.ai/api/v1",
       apiKey: openrouterKey,
     });
-    const modelId = requestedModel || activeLlmModel || "meta-llama/llama-3.3-70b-instruct";
-    return { model: customOpenAI(modelId), providerName: "OpenRouter", modelId };
+    const modelId =
+      requestedModel || activeLlmModel || "meta-llama/llama-3.3-70b-instruct";
+    return {
+      model: customOpenAI(modelId),
+      providerName: "OpenRouter",
+      modelId,
+    };
   }
 
   // 3. OLLAMA LOCAL
   const { url: ollamaUrl } = await getEffectiveOllamaUrl();
   const ollamaDefaultModel = await getEffectiveOllamaModel();
-  
+
   if ((provider === "ollama" || provider === "auto") && ollamaUrl) {
     const customOpenAI = createOpenAI({
-      baseURL: ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
+      baseURL: ollamaUrl.endsWith("/v1")
+        ? ollamaUrl
+        : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
       apiKey: "ollama",
     });
     const modelId = requestedModel || ollamaDefaultModel;
-    return { 
-      model: customOpenAI(modelId), 
-      providerName: "Ollama", 
-      modelId 
+    return {
+      model: customOpenAI(modelId),
+      providerName: "Ollama",
+      modelId,
     };
   }
 
@@ -118,7 +141,11 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
   if ((provider === "anthropic" || provider === "claude") && anthropicKey) {
     const customAnthropic = createAnthropic({ apiKey: anthropicKey });
     const modelId = requestedModel || "claude-sonnet-4-5-20250929";
-    return { model: customAnthropic(modelId), providerName: "Anthropic", modelId };
+    return {
+      model: customAnthropic(modelId),
+      providerName: "Anthropic",
+      modelId,
+    };
   }
 
   // 3. OPENAI
@@ -131,9 +158,16 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
 
   // 4. GOOGLE / GEMINI
   const googleKey = await getApiKey("google", userId);
-  if ((provider === "google" || provider === "gemini" || provider === "auto") && googleKey) {
+  if (
+    (provider === "google" || provider === "gemini" || provider === "auto") &&
+    googleKey
+  ) {
     const customGoogle = createGoogleGenerativeAI({ apiKey: googleKey });
-    const modelId = requestedModel || activeLlmModel || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const modelId =
+      requestedModel ||
+      activeLlmModel ||
+      process.env.GEMINI_MODEL ||
+      "gemini-2.5-flash";
     return { model: customGoogle(modelId), providerName: "Google", modelId };
   }
 
@@ -148,7 +182,9 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
     return { model: customOpenAI(modelId), providerName: "Custom", modelId };
   }
 
-  throw new Error(`Nenhum provedor de IA disponível para: "${provider}". Verifique se a chave de API está configurada em Configurações.`);
+  throw new Error(
+    `Nenhum provedor de IA disponível para: "${provider}". Verifique se a chave de API está configurada em Configurações.`,
+  );
 }
 
 /**
@@ -158,14 +194,14 @@ export async function getLanguageModel(requestedProvider?: string, requestedMode
 export async function callLLM(
   systemPrompt: string,
   userMessage: string | Array<{ role: string; content: string }>,
-  options?: { 
-    provider?: string; 
-    model?: string; 
+  options?: {
+    provider?: string;
+    model?: string;
     customUrl?: string;
     jsonMode?: boolean;
     toolIds?: string[];
     userId?: string;
-  }
+  },
 ): Promise<LLMResult> {
   const startTime = Date.now();
 
@@ -174,19 +210,33 @@ export async function callLLM(
   const provider = (options?.provider || "auto").toLowerCase();
   if (provider === "ollama_cloud") {
     const activeLlmUrl = await getConfigValue("ACTIVE_LLM_URL");
-    const cloudUrl = (options?.customUrl || activeLlmUrl || process.env.OLLAMA_CLOUD_URL || "").replace(/\/+$/, "");
+    const cloudUrl = (
+      options?.customUrl ||
+      activeLlmUrl ||
+      process.env.OLLAMA_CLOUD_URL ||
+      ""
+    ).replace(/\/+$/, "");
     if (!cloudUrl) throw new Error("Ollama Cloud URL não configurada.");
 
     const modelId = options?.model || "llama3.2";
     // Normalize: avoid /api duplication if caller already included it
-    const chatEndpoint = cloudUrl.endsWith("/api") ? `${cloudUrl}/chat` : `${cloudUrl}/api/chat`;
+    const chatEndpoint = cloudUrl.endsWith("/api")
+      ? `${cloudUrl}/chat`
+      : `${cloudUrl}/api/chat`;
 
-    const messages: Array<{ role: string; content: string }> = Array.isArray(userMessage)
+    const messages: Array<{ role: string; content: string }> = Array.isArray(
+      userMessage,
+    )
       ? [{ role: "system", content: systemPrompt }, ...userMessage]
-      : [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }];
+      : [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ];
 
     const ollamaKey = await getApiKey("ollama_cloud", options?.userId);
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
     if (ollamaKey) headers["Authorization"] = `Bearer ${ollamaKey}`;
 
     const response = await fetch(chatEndpoint, {
@@ -200,13 +250,29 @@ export async function callLLM(
       throw new Error(`Ollama Cloud erro ${response.status}: ${errText}`);
     }
 
-    const data = await response.json() as { message?: { content?: string }; response?: string };
+    const data = (await response.json()) as {
+      message?: { content?: string };
+      response?: string;
+    };
     const output = data.message?.content || data.response || "";
 
-    return { output, tokensUsed: 0, promptTokens: 0, completionTokens: 0, executionTimeMs: Date.now() - startTime, model: modelId, provider: "Ollama Cloud" };
+    return {
+      output,
+      tokensUsed: 0,
+      promptTokens: 0,
+      completionTokens: 0,
+      executionTimeMs: Date.now() - startTime,
+      model: modelId,
+      provider: "Ollama Cloud",
+    };
   }
 
-  const { model, providerName, modelId } = await getLanguageModel(options?.provider, options?.model, options?.userId, options?.customUrl);
+  const { model, providerName, modelId } = await getLanguageModel(
+    options?.provider,
+    options?.model,
+    options?.userId,
+    options?.customUrl,
+  );
 
   // Prepare tools if requested
   const tools: Record<string, unknown> = {};
@@ -226,14 +292,20 @@ export async function callLLM(
         model,
         system: systemPrompt,
         maxOutputTokens: 4096,
-        tools: hasTools ? (tools as Parameters<typeof generateText>[0]["tools"]) : undefined,
-        messages: userMessage as NonNullable<Parameters<typeof generateText>[0]["messages"]>
+        tools: hasTools
+          ? (tools as Parameters<typeof generateText>[0]["tools"])
+          : undefined,
+        messages: userMessage as NonNullable<
+          Parameters<typeof generateText>[0]["messages"]
+        >,
       })
     : await generateText({
         model,
         system: systemPrompt,
         maxOutputTokens: 4096,
-        tools: hasTools ? (tools as Parameters<typeof generateText>[0]["tools"]) : undefined,
+        tools: hasTools
+          ? (tools as Parameters<typeof generateText>[0]["tools"])
+          : undefined,
         prompt: userMessage as string,
       });
 
@@ -242,7 +314,9 @@ export async function callLLM(
   const completionTokens = result.usage?.outputTokens ?? 0;
   const tokensUsed = promptTokens + completionTokens;
 
-  console.info(`[LLM] ${providerName} (${modelId}) | tokens=${tokensUsed} steps=${result.steps?.length ?? 1} ms=${executionTimeMs}`);
+  console.info(
+    `[LLM] ${providerName} (${modelId}) | tokens=${tokensUsed} steps=${result.steps?.length ?? 1} ms=${executionTimeMs}`,
+  );
 
   return {
     output: result.text,
@@ -263,25 +337,67 @@ export async function callLLM(
  */
 export const EMBEDDING_MODELS = {
   // Google AI Studio / Vertex AI — Gemini Embedding
-  "google/text-embedding-004": { provider: "google" as const, dimensions: 768, modelId: "text-embedding-004" },
-  "google/gemini-embedding-001": { provider: "google" as const, dimensions: 768, modelId: "gemini-embedding-001" },
+  "google/text-embedding-004": {
+    provider: "google" as const,
+    dimensions: 768,
+    modelId: "text-embedding-004",
+  },
+  "google/gemini-embedding-001": {
+    provider: "google" as const,
+    dimensions: 768,
+    modelId: "gemini-embedding-001",
+  },
   // OpenAI
-  "openai/text-embedding-3-small": { provider: "openai" as const, dimensions: 1536, modelId: "text-embedding-3-small" },
-  "openai/text-embedding-3-small-768": { provider: "openai" as const, dimensions: 768, modelId: "text-embedding-3-small" },
-  "openai/text-embedding-3-large": { provider: "openai" as const, dimensions: 3072, modelId: "text-embedding-3-large" },
-  "openai/text-embedding-ada-002": { provider: "openai" as const, dimensions: 1536, modelId: "text-embedding-ada-002" },
+  "openai/text-embedding-3-small": {
+    provider: "openai" as const,
+    dimensions: 1536,
+    modelId: "text-embedding-3-small",
+  },
+  "openai/text-embedding-3-small-768": {
+    provider: "openai" as const,
+    dimensions: 768,
+    modelId: "text-embedding-3-small",
+  },
+  "openai/text-embedding-3-large": {
+    provider: "openai" as const,
+    dimensions: 3072,
+    modelId: "text-embedding-3-large",
+  },
+  "openai/text-embedding-ada-002": {
+    provider: "openai" as const,
+    dimensions: 1536,
+    modelId: "text-embedding-ada-002",
+  },
   // Ollama (hosted or cloud)
-  "ollama/nomic-embed-text": { provider: "ollama" as const, dimensions: 768, modelId: "nomic-embed-text" },
-  "ollama/mxbai-embed-large": { provider: "ollama" as const, dimensions: 1024, modelId: "mxbai-embed-large" },
-  "ollama/all-minilm": { provider: "ollama" as const, dimensions: 384, modelId: "all-minilm" },
+  "ollama/nomic-embed-text": {
+    provider: "ollama" as const,
+    dimensions: 768,
+    modelId: "nomic-embed-text",
+  },
+  "ollama/mxbai-embed-large": {
+    provider: "ollama" as const,
+    dimensions: 1024,
+    modelId: "mxbai-embed-large",
+  },
+  "ollama/all-minilm": {
+    provider: "ollama" as const,
+    dimensions: 384,
+    modelId: "all-minilm",
+  },
 } as const;
 
 export type EmbeddingModelKey = keyof typeof EMBEDDING_MODELS;
-export const DEFAULT_EMBEDDING_MODEL: EmbeddingModelKey = "google/text-embedding-004";
+export const DEFAULT_EMBEDDING_MODEL: EmbeddingModelKey =
+  "google/text-embedding-004";
 
 export class EmbeddingDimError extends Error {
-  constructor(public readonly expected: number, public readonly got: number) {
-    super(`Embedding dimension mismatch: provider expects ${expected} dims, got ${got}.`);
+  constructor(
+    public readonly expected: number,
+    public readonly got: number,
+  ) {
+    super(
+      `Embedding dimension mismatch: provider expects ${expected} dims, got ${got}.`,
+    );
     this.name = "EmbeddingDimError";
   }
 }
@@ -291,7 +407,10 @@ export class EmbeddingDimError extends Error {
  * comparison — that would defeat caching — but we DO require the length to
  * match the model the caller asked for.
  */
-export function validateEmbeddingDim(vec: number[], model: EmbeddingModelKey): number[] {
+export function validateEmbeddingDim(
+  vec: number[],
+  model: EmbeddingModelKey,
+): number[] {
   const expected = EMBEDDING_MODELS[model].dimensions;
   if (!Array.isArray(vec) || vec.length !== expected) {
     throw new EmbeddingDimError(expected, vec?.length ?? 0);
@@ -313,7 +432,11 @@ export async function generateEmbeddings(
   opts: { model?: EmbeddingModelKey } = {},
 ): Promise<{ embeddings: number[][]; model: EmbeddingModelKey; dim: number }> {
   if (texts.length === 0) {
-    return { embeddings: [], model: opts.model ?? DEFAULT_EMBEDDING_MODEL, dim: 0 };
+    return {
+      embeddings: [],
+      model: opts.model ?? DEFAULT_EMBEDDING_MODEL,
+      dim: 0,
+    };
   }
 
   const modelKey: EmbeddingModelKey = opts.model ?? DEFAULT_EMBEDDING_MODEL;
@@ -324,7 +447,9 @@ export async function generateEmbeddings(
   if (spec.provider === "google") {
     const key = await getApiKey("google", userId);
     if (!key) throw new Error("Google API key ausente para gerar embeddings.");
-    sdkModel = createGoogleGenerativeAI({ apiKey: key }).embeddingModel(spec.modelId);
+    sdkModel = createGoogleGenerativeAI({ apiKey: key }).embeddingModel(
+      spec.modelId,
+    );
   } else if (spec.provider === "openai") {
     const key = await getApiKey("openai", userId);
     if (!key) throw new Error("OpenAI API key ausente para gerar embeddings.");
@@ -332,9 +457,12 @@ export async function generateEmbeddings(
   } else {
     // ollama
     const ollamaUrl = (await getEffectiveOllamaUrl()).url;
-    if (!ollamaUrl) throw new Error("Ollama URL ausente para gerar embeddings.");
+    if (!ollamaUrl)
+      throw new Error("Ollama URL ausente para gerar embeddings.");
     sdkModel = createOpenAI({
-      baseURL: ollamaUrl.endsWith("/v1") ? ollamaUrl : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
+      baseURL: ollamaUrl.endsWith("/v1")
+        ? ollamaUrl
+        : `${ollamaUrl.replace(/\/+$/, "")}/v1`,
       apiKey: "ollama",
     }).embeddingModel(spec.modelId);
   }
@@ -343,7 +471,11 @@ export async function generateEmbeddings(
   const hashes = texts.map((t) => createHash("md5").update(t).digest("hex"));
 
   // 2. Cache lookup: only rows whose model matches the one we're generating.
-  let cachedRows: { textHash: string; embedding: number[] | null; dim: number | null }[] = [];
+  let cachedRows: {
+    textHash: string;
+    embedding: number[] | null;
+    dim: number | null;
+  }[] = [];
   try {
     cachedRows = await db
       .select({
@@ -352,7 +484,12 @@ export async function generateEmbeddings(
         dim: embeddingCacheTable.dim,
       })
       .from(embeddingCacheTable)
-      .where(and(eq(embeddingCacheTable.model, modelKey), inArray(embeddingCacheTable.textHash, hashes)));
+      .where(
+        and(
+          eq(embeddingCacheTable.model, modelKey),
+          inArray(embeddingCacheTable.textHash, hashes),
+        ),
+      );
   } catch (e) {
     console.warn("[Embedding Cache] DB error:", e);
   }
@@ -364,7 +501,9 @@ export async function generateEmbeddings(
   for (const r of cachedRows) {
     if (!r.embedding) continue;
     if (r.dim !== spec.dimensions) {
-      console.warn(`[Embedding Cache] dropping cache row with dim=${r.dim} (expected ${spec.dimensions})`);
+      console.warn(
+        `[Embedding Cache] dropping cache row with dim=${r.dim} (expected ${spec.dimensions})`,
+      );
       continue;
     }
     cacheMap.set(r.textHash, r.embedding);
@@ -381,16 +520,25 @@ export async function generateEmbeddings(
 
   const newEmbeddings: number[][] = [];
   if (missingTexts.length > 0) {
-    console.log(`[Embedding Cache] MISS model=${modelKey} (${missingTexts.length}/${texts.length} texts)`);
+    console.log(
+      `[Embedding Cache] MISS model=${modelKey} (${missingTexts.length}/${texts.length} texts)`,
+    );
     // Build providerOptions without undefined fields (the AI SDK types them as
     // JSONValues which don't accept undefined).
-    const providerOptions: { google?: { outputDimensionality: number; taskType: string }; openai?: { dimensions: number } } = {};
+    const providerOptions: {
+      google?: { outputDimensionality: number; taskType: string };
+      openai?: { dimensions: number };
+    } = {};
     if (spec.provider === "google") {
       providerOptions.google = {
         outputDimensionality: spec.dimensions,
         taskType: "RETRIEVAL_DOCUMENT",
       };
-    } else if (spec.provider === "openai" && spec.modelId === "text-embedding-3-small" && spec.dimensions === 768) {
+    } else if (
+      spec.provider === "openai" &&
+      spec.modelId === "text-embedding-3-small" &&
+      spec.dimensions === 768
+    ) {
       // Only OpenAI accepts a `dimensions` override today; for the small model
       // that targets 768 dims. Other providers ignore it.
       providerOptions.openai = { dimensions: 768 };
@@ -402,7 +550,10 @@ export async function generateEmbeddings(
         providerOptions: providerOptions as any,
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout: embedMany excedeu 30000ms")), 30000)
+        setTimeout(
+          () => reject(new Error("Timeout: embedMany excedeu 30000ms")),
+          30000,
+        ),
       ),
     ]);
 
@@ -429,8 +580,10 @@ export async function generateEmbeddings(
             dim: spec.dimensions,
           })
           .onConflictDoNothing()
-          .catch((e: Error) => console.warn("[Embedding Cache] Save failed:", e.message)),
-      )
+          .catch((e: Error) =>
+            console.warn("[Embedding Cache] Save failed:", e.message),
+          ),
+      ),
     ).catch(() => {});
   }
 
@@ -452,36 +605,46 @@ export async function generateEmbeddings(
 /**
  * Transcribe audio buffer to text using OpenAI Whisper.
  */
-export async function transcribeAudio(audioBuffer: Buffer, fileName: string): Promise<string> {
+export async function transcribeAudio(
+  audioBuffer: Buffer,
+  fileName: string,
+): Promise<string> {
   const apiKey = await getApiKey("openai");
   if (!apiKey) {
-    throw new Error("OpenAI API Key não configurada para transcrição de áudio.");
+    throw new Error(
+      "OpenAI API Key não configurada para transcrição de áudio.",
+    );
   }
 
   const customOpenAI = createOpenAI({ apiKey });
-  
+
   // Vercel AI SDK doesn't have a direct transcribe tool, so we use the openai package if available or fetch
   // Since we have @ai-sdk/openai, we can try to use the raw client if we find it, or just use fetch.
   // I'll use fetch to be safe and avoid adding new dependencies if possible.
-  
+
   const formData = new FormData();
   const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
   formData.append("file", blob, fileName);
   formData.append("model", "whisper-1");
 
-  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
+  const response = await fetch(
+    "https://api.openai.com/v1/audio/transcriptions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: formData,
     },
-    body: formData,
-  });
+  );
 
   if (!response.ok) {
-    const error = await response.json() as { error?: { message?: string } };
-    throw new Error(`Erro na transcrição: ${error.error?.message || response.statusText}`);
+    const error = (await response.json()) as { error?: { message?: string } };
+    throw new Error(
+      `Erro na transcrição: ${error.error?.message || response.statusText}`,
+    );
   }
 
-  const result = await response.json() as { text: string };
+  const result = (await response.json()) as { text: string };
   return result.text;
 }

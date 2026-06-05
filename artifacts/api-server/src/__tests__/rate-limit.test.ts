@@ -6,7 +6,7 @@ import type { Server } from "node:http";
 
 function createTestServer(
   limiter: express.RequestHandler,
-  opts?: { trustProxy?: boolean }
+  opts?: { trustProxy?: boolean },
 ): { app: express.Express; server: Server; port: number } {
   const app = express();
   if (opts?.trustProxy !== undefined) {
@@ -17,7 +17,11 @@ function createTestServer(
   return { app, server: null as any, port: 0 };
 }
 
-async function startServer(info: { app: express.Express; server: Server; port: number }) {
+async function startServer(info: {
+  app: express.Express;
+  server: Server;
+  port: number;
+}) {
   return new Promise<void>((resolve) => {
     info.server = info.app.listen(0, () => {
       info.port = (info.server.address() as any).port;
@@ -26,13 +30,20 @@ async function startServer(info: { app: express.Express; server: Server; port: n
   });
 }
 
-async function stopServer(info: { app: express.Express; server: Server; port: number }) {
+async function stopServer(info: {
+  app: express.Express;
+  server: Server;
+  port: number;
+}) {
   return new Promise<void>((resolve) => {
     info.server.close(() => resolve());
   });
 }
 
-async function request(port: number, ip = "127.0.0.1"): Promise<{ status: number; body: any }> {
+async function request(
+  port: number,
+  ip = "127.0.0.1",
+): Promise<{ status: number; body: any }> {
   const res = await fetch(`http://127.0.0.1:${port}/test`, {
     headers: { "x-forwarded-for": ip },
   });

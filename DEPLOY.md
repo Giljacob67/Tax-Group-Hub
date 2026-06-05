@@ -20,38 +20,38 @@ Set these in **Vercel Dashboard → Settings → Environment Variables** for the
 
 ### Critical (app won't work without these)
 
-| Variable | Description | How to generate |
-|----------|-------------|-----------------|
-| `JWT_SECRET` | JWT token signing key | `openssl rand -hex 32` |
-| `API_KEY` | Service-to-service auth key | `openssl rand -hex 32` |
+| Variable         | Description                         | How to generate                                                            |
+| ---------------- | ----------------------------------- | -------------------------------------------------------------------------- |
+| `JWT_SECRET`     | JWT token signing key               | `openssl rand -hex 32`                                                     |
+| `API_KEY`        | Service-to-service auth key         | `openssl rand -hex 32`                                                     |
 | `ENCRYPTION_KEY` | AES-256-GCM key for BYOK encryption | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `CRON_SECRET` | Vercel Cron job authentication | `openssl rand -hex 32` |
-| `WEBHOOK_SECRET` | Incoming webhook validation | `openssl rand -hex 32` |
+| `CRON_SECRET`    | Vercel Cron job authentication      | `openssl rand -hex 32`                                                     |
+| `WEBHOOK_SECRET` | Incoming webhook validation         | `openssl rand -hex 32`                                                     |
 
 ### Required for full functionality
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | Neon PostgreSQL connection string (use pooled) |
-| `DATABASE_URL_UNPOOLED` | Neon unpooled connection (for migrations) |
-| `APP_URL` | Frontend URL for CORS (e.g., `https://tax-group-hub.vercel.app`) |
-| `GEMINI_API_KEY` | Google Gemini API key for embeddings and chat |
+| Variable                | Description                                                      |
+| ----------------------- | ---------------------------------------------------------------- |
+| `DATABASE_URL`          | Neon PostgreSQL connection string (use pooled)                   |
+| `DATABASE_URL_UNPOOLED` | Neon unpooled connection (for migrations)                        |
+| `APP_URL`               | Frontend URL for CORS (e.g., `https://tax-group-hub.vercel.app`) |
+| `GEMINI_API_KEY`        | Google Gemini API key for embeddings and chat                    |
 
 ### Optional
 
-| Variable | Description |
-|----------|-------------|
-| `ANTHROPIC_API_KEY` | Anthropic Claude |
-| `OPENAI_API_KEY` | OpenAI (Whisper, GPT) |
-| `PERPLEXITY_API_KEY` | Perplexity Sonar web search |
-| `RESEND_API_KEY` | Transactional email |
-| `EMPRESAQUI_API_KEY` | CNPJ enrichment |
-| `OLLAMA_CLOUD_API_KEY` | Ollama Cloud |
-| `OLLAMA_CLOUD_MODEL` | Ollama Cloud model |
-| `OPENROUTER_API_KEY` | OpenRouter multi-model |
-| `OPENROUTER_MODEL` | OpenRouter model |
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob for large uploads |
-| `SERVICE_USER_ID` | Override service identity (default: `service`) |
+| Variable                | Description                                    |
+| ----------------------- | ---------------------------------------------- |
+| `ANTHROPIC_API_KEY`     | Anthropic Claude                               |
+| `OPENAI_API_KEY`        | OpenAI (Whisper, GPT)                          |
+| `PERPLEXITY_API_KEY`    | Perplexity Sonar web search                    |
+| `RESEND_API_KEY`        | Transactional email                            |
+| `EMPRESAQUI_API_KEY`    | CNPJ enrichment                                |
+| `OLLAMA_CLOUD_API_KEY`  | Ollama Cloud                                   |
+| `OLLAMA_CLOUD_MODEL`    | Ollama Cloud model                             |
+| `OPENROUTER_API_KEY`    | OpenRouter multi-model                         |
+| `OPENROUTER_MODEL`      | OpenRouter model                               |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob for large uploads                  |
+| `SERVICE_USER_ID`       | Override service identity (default: `service`) |
 
 ## 2. How to Generate Secrets
 
@@ -99,12 +99,12 @@ This fallback is **correctly gated** by `NODE_ENV !== "production"`. In Vercel p
 
 ### Summary
 
-| Scenario | Result |
-|----------|--------|
+| Scenario                                          | Result                                          |
+| ------------------------------------------------- | ----------------------------------------------- |
 | `NODE_ENV=production` + no `JWT_SECRET`/`API_KEY` | 401 on all protected routes (secure but broken) |
-| `NODE_ENV=production` + `API_KEY` set | Auth enforced via API key (secure) |
-| `NODE_ENV=production` + `JWT_SECRET` set | Auth enforced via JWT (secure) |
-| `NODE_ENV=development` + no secrets | Dev fallback to `dev-user` (insecure, dev only) |
+| `NODE_ENV=production` + `API_KEY` set             | Auth enforced via API key (secure)              |
+| `NODE_ENV=production` + `JWT_SECRET` set          | Auth enforced via JWT (secure)                  |
+| `NODE_ENV=development` + no secrets               | Dev fallback to `dev-user` (insecure, dev only) |
 
 ## 4. Database Migration Steps
 
@@ -213,11 +213,11 @@ Check Vercel function logs for warnings:
 
 ## 6. Environment Variables NOT to Set in Production
 
-| Variable | Why |
-|----------|-----|
-| `VITE_BYPASS_AUTH` | Unused dead variable; creates confusion |
-| `DEV_BYPASS_AUTH` | Only works when `NODE_ENV !== "production"`; set it only in `.env` for local dev |
-| `NODE_ENV` | Vercel sets this automatically to `"production"`; do not override |
+| Variable           | Why                                                                              |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `VITE_BYPASS_AUTH` | Unused dead variable; creates confusion                                          |
+| `DEV_BYPASS_AUTH`  | Only works when `NODE_ENV !== "production"`; set it only in `.env` for local dev |
+| `NODE_ENV`         | Vercel sets this automatically to `"production"`; do not override                |
 
 ## 7. Troubleshooting
 

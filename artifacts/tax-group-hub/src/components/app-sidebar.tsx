@@ -1,9 +1,25 @@
 import { useLocation } from "wouter";
 import {
-  LayoutDashboard, Users, Zap, BookOpen, Settings,
-  MessageCircle, Crown, Briefcase, Megaphone, Settings2,
-  ChevronRight, Loader2, Search, X, Bot, BarChart3, ShieldCheck, FileText,
-  Sun, Moon,
+  LayoutDashboard,
+  Users,
+  Zap,
+  BookOpen,
+  Settings,
+  MessageCircle,
+  Crown,
+  Briefcase,
+  Megaphone,
+  Settings2,
+  ChevronRight,
+  Loader2,
+  Search,
+  X,
+  Bot,
+  BarChart3,
+  ShieldCheck,
+  FileText,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useListAgents } from "@workspace/api-client-react";
@@ -22,30 +38,104 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useBranding } from "../contexts/BrandingContext";
 
 const BLOCKS = [
-  { id: "estrategia",  label: "Estratégia e Inteligência",   icon: Crown,     color: "text-muted-foreground"  },
-  { id: "prospeccao",  label: "Prospecção Comercial",    icon: Briefcase, color: "text-muted-foreground"   },
-  { id: "marketing",   label: "Agência Virtual de Marketing",     icon: Megaphone, color: "text-muted-foreground" },
-  { id: "gestao",      label: "Gestão e Operação Interna",        icon: Settings2, color: "text-muted-foreground"},
+  {
+    id: "estrategia",
+    label: "Estratégia e Inteligência",
+    icon: Crown,
+    color: "text-muted-foreground",
+  },
+  {
+    id: "prospeccao",
+    label: "Prospecção Comercial",
+    icon: Briefcase,
+    color: "text-muted-foreground",
+  },
+  {
+    id: "marketing",
+    label: "Agência Virtual de Marketing",
+    icon: Megaphone,
+    color: "text-muted-foreground",
+  },
+  {
+    id: "gestao",
+    label: "Gestão e Operação Interna",
+    icon: Settings2,
+    color: "text-muted-foreground",
+  },
 ];
 
 const NAV_ITEMS = [
-  { path: "/command-center", label: "Command Center",      icon: LayoutDashboard, color: "text-primary"          },
-  { path: "/crm",            label: "CRM & Pipeline",      icon: Users,           color: "text-muted-foreground" },
-  { path: "/agent/coordenador-geral-tax-group", label: "Agentes", icon: Bot,    color: "text-muted-foreground" },
-  { path: "/automations",    label: "Campanhas",           icon: Zap,             color: "text-muted-foreground" },
-  { path: "/knowledge",      label: "Base de Conhecimento",icon: BookOpen,        color: "text-muted-foreground" },
-  { path: "/analytics",      label: "Analytics",           icon: BarChart3,       color: "text-muted-foreground" },
-  { path: "/ai-quality",     label: "Qualidade IA",        icon: ShieldCheck,     color: "text-muted-foreground" },
-  { path: "/deliverables",   label: "Entregáveis",         icon: FileText,        color: "text-muted-foreground" },
-  { path: "/integrations",   label: "Integrações",         icon: Settings2,       color: "text-muted-foreground" },
+  {
+    path: "/command-center",
+    label: "Command Center",
+    icon: LayoutDashboard,
+    color: "text-primary",
+  },
+  {
+    path: "/crm",
+    label: "CRM & Pipeline",
+    icon: Users,
+    color: "text-muted-foreground",
+  },
+  {
+    path: "/agent/coordenador-geral-tax-group",
+    label: "Agentes",
+    icon: Bot,
+    color: "text-muted-foreground",
+  },
+  {
+    path: "/automations",
+    label: "Campanhas",
+    icon: Zap,
+    color: "text-muted-foreground",
+  },
+  {
+    path: "/knowledge",
+    label: "Base de Conhecimento",
+    icon: BookOpen,
+    color: "text-muted-foreground",
+  },
+  {
+    path: "/analytics",
+    label: "Analytics",
+    icon: BarChart3,
+    color: "text-muted-foreground",
+  },
+  {
+    path: "/ai-quality",
+    label: "Qualidade IA",
+    icon: ShieldCheck,
+    color: "text-muted-foreground",
+  },
+  {
+    path: "/deliverables",
+    label: "Entregáveis",
+    icon: FileText,
+    color: "text-muted-foreground",
+  },
+  {
+    path: "/integrations",
+    label: "Integrações",
+    icon: Settings2,
+    color: "text-muted-foreground",
+  },
 ];
 
 const FOOTER_ITEMS = [
-  { path: "/settings",  label: "Configurações",  icon: Settings, color: "text-muted-foreground" },
+  {
+    path: "/settings",
+    label: "Configurações",
+    icon: Settings,
+    color: "text-muted-foreground",
+  },
 ];
 
 export function AppSidebar() {
@@ -61,28 +151,40 @@ export function AppSidebar() {
     : `${import.meta.env.BASE_URL}images/logo-x-branco.svg`;
 
   const filteredAgents = search.trim()
-    ? data?.agents?.filter(a =>
-        a.name.toLowerCase().includes(search.toLowerCase()) ||
-        (a.description || "").toLowerCase().includes(search.toLowerCase())
+    ? data?.agents?.filter(
+        (a) =>
+          a.name.toLowerCase().includes(search.toLowerCase()) ||
+          (a.description || "").toLowerCase().includes(search.toLowerCase()),
       )
     : null;
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border/50 bg-background/50 backdrop-blur-xl" data-tour="sidebar">
-
+    <Sidebar
+      collapsible="icon"
+      className="border-r border-border/50 bg-background/50 backdrop-blur-xl"
+      data-tour="sidebar"
+    >
       {/* ── Header ───────────────────────────── */}
       <SidebarHeader className="px-3 py-3 border-b border-border/30">
         <div className="flex items-center gap-3">
           {/* Logo */}
           <div className="w-8 h-8 rounded-lg bg-primary/15 ring-1 ring-primary/30 flex items-center justify-center flex-shrink-0">
-            <img src={logoUrl} alt={branding.companyName} className="w-5 h-5 object-contain" />
+            <img
+              src={logoUrl}
+              alt={branding.companyName}
+              className="w-5 h-5 object-contain"
+            />
           </div>
 
           {/* Name — only when expanded */}
           {open && (
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold text-foreground truncate">{branding.companyName}</div>
-              <div className="text-[11px] text-muted-foreground font-medium tracking-wider uppercase">Centro de Comando</div>
+              <div className="text-sm font-bold text-foreground truncate">
+                {branding.companyName}
+              </div>
+              <div className="text-[11px] text-muted-foreground font-medium tracking-wider uppercase">
+                Centro de Comando
+              </div>
             </div>
           )}
 
@@ -91,7 +193,9 @@ export function AppSidebar() {
             <TooltipTrigger asChild>
               <SidebarTrigger className="h-7 w-7 flex-shrink-0 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors" />
             </TooltipTrigger>
-            <TooltipContent side="right">{open ? "Recolher" : "Expandir"} menu</TooltipContent>
+            <TooltipContent side="right">
+              {open ? "Recolher" : "Expandir"} menu
+            </TooltipContent>
           </Tooltip>
         </div>
       </SidebarHeader>
@@ -105,11 +209,15 @@ export function AppSidebar() {
               type="text"
               placeholder="Buscar agente ou função..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-8 pr-7 py-1.5 text-xs bg-muted/40 border border-border/40 rounded-md focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/60"
+              aria-label="Buscar agente ou função"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
                 <X className="w-3 h-3" />
               </button>
             )}
@@ -119,25 +227,32 @@ export function AppSidebar() {
 
       {/* ── Content ───────────────────────── */}
       <SidebarContent className="px-2 py-2">
-
         {/* Main nav */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV_ITEMS.map(item => (
+              {NAV_ITEMS.map((item) => (
                 <SidebarMenuItem key={item.path}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <SidebarMenuButton
-                        isActive={item.path === "/command-center" ? location === "/command-center" : location.startsWith(item.path)}
+                        isActive={
+                          item.path === "/command-center"
+                            ? location === "/command-center"
+                            : location.startsWith(item.path)
+                        }
                         onClick={() => navigate(item.path)}
                         className="cursor-pointer"
                       >
-                        <item.icon className={`w-4 h-4 flex-shrink-0 ${item.color}`} />
+                        <item.icon
+                          className={`w-4 h-4 flex-shrink-0 ${item.color}`}
+                        />
                         <span className="font-medium">{item.label}</span>
                       </SidebarMenuButton>
                     </TooltipTrigger>
-                    {!open && <TooltipContent side="right">{item.label}</TooltipContent>}
+                    {!open && (
+                      <TooltipContent side="right">{item.label}</TooltipContent>
+                    )}
                   </Tooltip>
                 </SidebarMenuItem>
               ))}
@@ -159,28 +274,47 @@ export function AppSidebar() {
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {filteredAgents.map(agent => {
-                      const isActive = location.startsWith(`/agent/${agent.id}`);
-                      const block = BLOCKS.find(b => b.id === agent.block);
+                    {filteredAgents.map((agent) => {
+                      const isActive = location.startsWith(
+                        `/agent/${agent.id}`,
+                      );
+                      const block = BLOCKS.find((b) => b.id === agent.block);
                       return (
                         <SidebarMenuItem key={agent.id}>
-                          <SidebarMenuButton isActive={isActive} onClick={() => navigate(`/agent/${agent.id}`)} className="cursor-pointer">
-                            <MessageCircle className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
-                            <span className="truncate flex-1 text-xs">{agent.name}</span>
-                            {block && <span className={`text-[11px] flex-shrink-0 ${block.color}`}>{block.label}</span>}
+                          <SidebarMenuButton
+                            isActive={isActive}
+                            onClick={() => navigate(`/agent/${agent.id}`)}
+                            className="cursor-pointer"
+                          >
+                            <MessageCircle
+                              className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                            />
+                            <span className="truncate flex-1 text-xs">
+                              {agent.name}
+                            </span>
+                            {block && (
+                              <span
+                                className={`text-[11px] flex-shrink-0 ${block.color}`}
+                              >
+                                {block.label}
+                              </span>
+                            )}
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       );
                     })}
                     {filteredAgents.length === 0 && (
-                      <div className="px-2 py-3 text-center text-xs text-muted-foreground">Nenhum agente encontrado</div>
+                      <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                        Nenhum agente encontrado
+                      </div>
                     )}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
             ) : (
-              BLOCKS.map(block => {
-                const blockAgents = data?.agents?.filter(a => a.block === block.id) || [];
+              BLOCKS.map((block) => {
+                const blockAgents =
+                  data?.agents?.filter((a) => a.block === block.id) || [];
                 if (blockAgents.length === 0) return null;
                 return (
                   <SidebarGroup key={block.id} className="mt-1">
@@ -190,14 +324,26 @@ export function AppSidebar() {
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
                       <SidebarMenu>
-                        {blockAgents.map(agent => {
-                          const isActive = location.startsWith(`/agent/${agent.id}`);
+                        {blockAgents.map((agent) => {
+                          const isActive = location.startsWith(
+                            `/agent/${agent.id}`,
+                          );
                           return (
                             <SidebarMenuItem key={agent.id}>
-                              <SidebarMenuButton isActive={isActive} onClick={() => navigate(`/agent/${agent.id}`)} className="cursor-pointer">
-                                <MessageCircle className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
-                                <span className="truncate flex-1 text-xs">{agent.name}</span>
-                                {isActive && <ChevronRight className="w-3 h-3 opacity-50 flex-shrink-0" />}
+                              <SidebarMenuButton
+                                isActive={isActive}
+                                onClick={() => navigate(`/agent/${agent.id}`)}
+                                className="cursor-pointer"
+                              >
+                                <MessageCircle
+                                  className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                                />
+                                <span className="truncate flex-1 text-xs">
+                                  {agent.name}
+                                </span>
+                                {isActive && (
+                                  <ChevronRight className="w-3 h-3 opacity-50 flex-shrink-0" />
+                                )}
                               </SidebarMenuButton>
                             </SidebarMenuItem>
                           );
@@ -215,7 +361,7 @@ export function AppSidebar() {
       {/* ── Footer ───────────────────────── */}
       <SidebarFooter className="px-2 py-2 border-t border-border/30">
         <SidebarMenu>
-          {FOOTER_ITEMS.map(item => (
+          {FOOTER_ITEMS.map((item) => (
             <SidebarMenuItem key={item.path}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -224,11 +370,15 @@ export function AppSidebar() {
                     onClick={() => navigate(item.path)}
                     className="cursor-pointer"
                   >
-                    <item.icon className={`w-4 h-4 flex-shrink-0 ${item.color}`} />
+                    <item.icon
+                      className={`w-4 h-4 flex-shrink-0 ${item.color}`}
+                    />
                     <span className="text-sm">{item.label}</span>
                   </SidebarMenuButton>
                 </TooltipTrigger>
-                {!open && <TooltipContent side="right">{item.label}</TooltipContent>}
+                {!open && (
+                  <TooltipContent side="right">{item.label}</TooltipContent>
+                )}
               </Tooltip>
             </SidebarMenuItem>
           ))}
@@ -238,11 +388,14 @@ export function AppSidebar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <SidebarMenuButton onClick={toggle} className="cursor-pointer">
-                  {theme === "dark"
-                    ? <Sun className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-                    : <Moon className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-                  }
-                  <span className="text-sm">{theme === "dark" ? "Modo claro" : "Modo escuro"}</span>
+                  {theme === "dark" ? (
+                    <Sun className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                  ) : (
+                    <Moon className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="text-sm">
+                    {theme === "dark" ? "Modo claro" : "Modo escuro"}
+                  </span>
                 </SidebarMenuButton>
               </TooltipTrigger>
               <TooltipContent side="right">

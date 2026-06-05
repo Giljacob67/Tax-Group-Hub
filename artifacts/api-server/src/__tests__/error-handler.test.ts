@@ -50,7 +50,13 @@ describe("errorHandler", () => {
   describe("ZodError handling", () => {
     it("returns 400 with validation details", () => {
       const issues: ZodIssue[] = [
-        { code: "invalid_type", expected: "string", received: "number", path: ["name"], message: "Expected string" },
+        {
+          code: "invalid_type",
+          expected: "string",
+          received: "number",
+          path: ["name"],
+          message: "Expected string",
+        },
       ];
       const err = new ZodError(issues);
       const res = makeRes();

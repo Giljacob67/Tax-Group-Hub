@@ -10,21 +10,21 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 
 ### Triggers (Cenários Pré-configurados)
 
-| Trigger | Endpoint | Descrição |
-|---------|----------|-----------|
-| Novo Lead | `POST /api/automate/trigger/new-lead` | Lead do site → Prospecção + Qualificação |
-| Calendário Editorial | `POST /api/automate/trigger/editorial-calendar` | Gera posts da semana |
-| Reforma Tributária | `POST /api/automate/trigger/reforma-tributaria` | Insight diário |
-| Follow-Up Check | `POST /api/automate/trigger/follow-up-check` | Leads sem contato recente |
-| Conteúdo para Redes | `POST /api/automate/trigger/content-request` | LinkedIn ou Instagram |
+| Trigger              | Endpoint                                        | Descrição                                |
+| -------------------- | ----------------------------------------------- | ---------------------------------------- |
+| Novo Lead            | `POST /api/automate/trigger/new-lead`           | Lead do site → Prospecção + Qualificação |
+| Calendário Editorial | `POST /api/automate/trigger/editorial-calendar` | Gera posts da semana                     |
+| Reforma Tributária   | `POST /api/automate/trigger/reforma-tributaria` | Insight diário                           |
+| Follow-Up Check      | `POST /api/automate/trigger/follow-up-check`    | Leads sem contato recente                |
+| Conteúdo para Redes  | `POST /api/automate/trigger/content-request`    | LinkedIn ou Instagram                    |
 
 ### Genéricos
 
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/api/automate/execute` | POST | Executa qualquer agente com input custom |
-| `/api/automate/pipeline` | POST | Executa múltiplos agentes em sequência |
-| `/api/automate/triggers` | GET | Lista todos os triggers disponíveis |
+| Endpoint                 | Método | Descrição                                |
+| ------------------------ | ------ | ---------------------------------------- |
+| `/api/automate/execute`  | POST   | Executa qualquer agente com input custom |
+| `/api/automate/pipeline` | POST   | Executa múltiplos agentes em sequência   |
+| `/api/automate/triggers` | GET    | Lista todos os triggers disponíveis      |
 
 ---
 
@@ -33,14 +33,17 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 ### 1. Novo Lead → Prospecção + Qualificação
 
 **Módulo 1: Webhook (Trigger)**
+
 - Tipo: Custom webhook
 - URL: Copie a URL gerada pelo Make
 
 **Módulo 2: HTTP (Make a request)**
+
 - URL: `{{YOUR_API_URL}}/api/automate/trigger/new-lead`
 - Method: POST
 - Headers: `Content-Type: application/json`
 - Body:
+
 ```json
 {
   "name": "{{1.name}}",
@@ -53,6 +56,7 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 ```
 
 **Módulo 3: Router (Enviar resultado)**
+
 - Branch A: Email de notificação com o script de abordagem
 - Branch B: WhatsApp com o lead qualificado
 - Branch C: Criar card no CRM/Trello com o scoring
@@ -62,14 +66,17 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 ### 2. Calendário Editorial Semanal (Cron → Segunda-feira)
 
 **Módulo 1: Schedule (Trigger)**
+
 - Interval: Every week
 - Day: Monday
 - Time: 07:00
 
 **Módulo 2: HTTP (Make a request)**
+
 - URL: `{{YOUR_API_URL}}/api/automate/trigger/editorial-calendar`
 - Method: POST
 - Body:
+
 ```json
 {
   "week": "Semana de {{now}}",
@@ -78,9 +85,11 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 ```
 
 **Módulo 3: Parse JSON**
+
 - Extraia o campo `output` da resposta
 
 **Módulo 4: Router por Canal**
+
 - LinkedIn → Criar post agendado no Buffer/Hootsuite
 - Email → Criar rascunho no Mailchimp
 - WhatsApp → Enviar para o grupo do time
@@ -90,14 +99,17 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 ### 3. Reforma Tributária Diária
 
 **Módulo 1: Schedule (Trigger)**
+
 - Interval: Every day
 - Time: 08:00
 
 **Módulo 2: HTTP**
+
 - URL: `{{YOUR_API_URL}}/api/automate/trigger/reforma-tributaria`
 - Method: POST
 
 **Módulo 3: Enviar**
+
 - LinkedIn → Publicar como post
 - WhatsApp → Broadcast para clientes
 - Email → Newsletter para mailing
@@ -107,16 +119,20 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 ### 4. Follow-Up Automático (Lead sem contato há 7 dias)
 
 **Módulo 1: Schedule (Trigger)**
+
 - Interval: Every day
 - Time: 09:00
 
 **Módulo 2: Google Sheets / CRM (Search)**
+
 - Buscar leads com `lastContact` > 7 dias atrás
 
 **Módulo 3: HTTP**
+
 - URL: `{{YOUR_API_URL}}/api/automate/trigger/follow-up-check`
 - Method: POST
 - Body:
+
 ```json
 {
   "leads": [
@@ -131,6 +147,7 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 ```
 
 **Módulo 4: WhatsApp / Email**
+
 - Enviar a mensagem de follow-up gerada pelo agente
 
 ---
@@ -138,13 +155,16 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 ### 5. Site → LinkedIn/Instagram (Publicação Imediata)
 
 **Módulo 1: Webhook (Trigger)**
+
 - Recebe requisição do formulário do site
 - Ou: Watch do banco de dados / Google Sheets
 
 **Módulo 2: HTTP**
+
 - URL: `{{YOUR_API_URL}}/api/automate/trigger/content-request`
 - Method: POST
 - Body:
+
 ```json
 {
   "topic": "{{1.topic}}",
@@ -155,6 +175,7 @@ O AI Hub agora suporta execução automatizada de agentes via webhooks. Qualquer
 ```
 
 **Módulo 3: Router**
+
 - LinkedIn → Buffer / Hootsuite (agendar post)
 - Instagram → Canva (gerar imagem) → Instagram API (publicar)
 
@@ -204,12 +225,12 @@ POST /api/automate/pipeline
 
 ## Variáveis de Ambiente Necessárias (Vercel)
 
-| Variável | Obrigatória | Descrição |
-|----------|-------------|-----------|
-| `GEMINI_API_KEY` | Sim | Chave do Google AI (Gemini) |
-| `GEMINI_MODEL` | Não | Modelo Gemini (default: gemini-3-flash-preview) |
-| `API_KEY` | Não | Protege system prompts dos agentes |
-| `OLLAMA_URL` | Não | URL do Ollama (alternativa ao Gemini) |
+| Variável         | Obrigatória | Descrição                                       |
+| ---------------- | ----------- | ----------------------------------------------- |
+| `GEMINI_API_KEY` | Sim         | Chave do Google AI (Gemini)                     |
+| `GEMINI_MODEL`   | Não         | Modelo Gemini (default: gemini-3-flash-preview) |
+| `API_KEY`        | Não         | Protege system prompts dos agentes              |
+| `OLLAMA_URL`     | Não         | URL do Ollama (alternativa ao Gemini)           |
 
 ---
 
@@ -218,6 +239,7 @@ POST /api/automate/pipeline
 Após o deploy, acesse `/api/automate/triggers` para ver a lista completa de triggers com schemas de body. Use isso como referência para montar os cenários no Make.
 
 Cada trigger retorna:
+
 - `success: true/false`
 - `output` — conteúdo gerado pelo agente
 - `timestamp` — quando foi executado

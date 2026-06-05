@@ -1,14 +1,33 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  AreaChart, Area, BarChart, Bar, FunnelChart, Funnel,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Cell, PieChart, Pie, Legend,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  FunnelChart,
+  Funnel,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  PieChart,
+  Pie,
+  Legend,
 } from "recharts";
 import { motion } from "framer-motion";
 import {
-  TrendingUp, TrendingDown, Users, DollarSign,
-  Target, Trophy, Zap, Activity, Minus,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  DollarSign,
+  Target,
+  Trophy,
+  Zap,
+  Activity,
+  Minus,
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 
@@ -96,7 +115,13 @@ const REGIME_LABELS: Record<string, string> = {
 
 // ─── KPI Card ──────────────────────────────────────────────────────────────────
 function KpiCard({
-  label, value, sub, growth, icon: Icon, color, delay = 0,
+  label,
+  value,
+  sub,
+  growth,
+  icon: Icon,
+  color,
+  delay = 0,
 }: {
   label: string;
   value: string;
@@ -113,21 +138,42 @@ function KpiCard({
       transition={{ delay }}
       className="bg-card border border-border/50 rounded-2xl p-5 flex items-center gap-4 hover:border-border/80 transition-colors"
     >
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
+      <div
+        className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}
+      >
         <Icon className="w-6 h-6" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">{label}</p>
-        <p className="text-2xl font-bold text-foreground leading-none">{value}</p>
+        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+          {label}
+        </p>
+        <p className="text-2xl font-bold text-foreground leading-none">
+          {value}
+        </p>
         {(sub || growth !== undefined) && (
           <div className="flex items-center gap-1.5 mt-1">
-            {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
+            {sub && (
+              <span className="text-xs text-muted-foreground">{sub}</span>
+            )}
             {growth !== null && growth !== undefined && (
-              <span className={`text-xs font-semibold flex items-center gap-0.5 ${
-                growth > 0 ? "text-emerald-400" : growth < 0 ? "text-red-400" : "text-muted-foreground"
-              }`}>
-                {growth > 0 ? <TrendingUp className="w-3 h-3" /> : growth < 0 ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-                {growth > 0 ? "+" : ""}{growth}% vs. mês ant.
+              <span
+                className={`text-xs font-semibold flex items-center gap-0.5 ${
+                  growth > 0
+                    ? "text-emerald-400"
+                    : growth < 0
+                      ? "text-red-400"
+                      : "text-muted-foreground"
+                }`}
+              >
+                {growth > 0 ? (
+                  <TrendingUp className="w-3 h-3" />
+                ) : growth < 0 ? (
+                  <TrendingDown className="w-3 h-3" />
+                ) : (
+                  <Minus className="w-3 h-3" />
+                )}
+                {growth > 0 ? "+" : ""}
+                {growth}% vs. mês ant.
               </span>
             )}
           </div>
@@ -138,7 +184,15 @@ function KpiCard({
 }
 
 // ─── Chart Card wrapper ─────────────────────────────────────────────────────────
-function ChartCard({ title, children, delay = 0 }: { title: string; children: React.ReactNode; delay?: number }) {
+function ChartCard({
+  title,
+  children,
+  delay = 0,
+}: {
+  title: string;
+  children: React.ReactNode;
+  delay?: number;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -171,15 +225,17 @@ function CustomTooltip({ active, payload, label }: any) {
 export default function CRMDashboard() {
   const [period, setPeriod] = React.useState("this_month");
 
-  const { data: overview, isLoading: loadingOverview } = useQuery<OverviewData>({
-    queryKey: ["/api/crm/analytics/overview", period],
-    queryFn: async () => {
-      const r = await fetch(`/api/crm/analytics/overview?period=${period}`);
-      if (!r.ok) throw new Error("Failed");
-      return r.json();
+  const { data: overview, isLoading: loadingOverview } = useQuery<OverviewData>(
+    {
+      queryKey: ["/api/crm/analytics/overview", period],
+      queryFn: async () => {
+        const r = await fetch(`/api/crm/analytics/overview?period=${period}`);
+        if (!r.ok) throw new Error("Failed");
+        return r.json();
+      },
+      refetchInterval: 60_000,
     },
-    refetchInterval: 60_000,
-  });
+  );
 
   const { data: funnelData, isLoading: loadingFunnel } = useQuery<FunnelData>({
     queryKey: ["/api/crm/analytics/funnel", period],
@@ -202,21 +258,25 @@ export default function CRMDashboard() {
   const kpis = overview?.kpis;
 
   // Status pie data
-  const statusPie = Object.entries(overview?.statusDist || {}).map(([k, v]) => ({
-    name: STATUS_LABELS[k] || k,
-    value: v,
-    fill: STATUS_COLORS[k] || "#64748b",
-  }));
+  const statusPie = Object.entries(overview?.statusDist || {}).map(
+    ([k, v]) => ({
+      name: STATUS_LABELS[k] || k,
+      value: v,
+      fill: STATUS_COLORS[k] || "#64748b",
+    }),
+  );
 
   // Regime pie data
-  const regimePie = Object.entries(overview?.regimeDist || {}).map(([k, v], i) => ({
-    name: REGIME_LABELS[k] || k,
-    value: v,
-    fill: REGIME_COLORS[i % REGIME_COLORS.length],
-  }));
+  const regimePie = Object.entries(overview?.regimeDist || {}).map(
+    ([k, v], i) => ({
+      name: REGIME_LABELS[k] || k,
+      value: v,
+      fill: REGIME_COLORS[i % REGIME_COLORS.length],
+    }),
+  );
 
   // Funnel bar data
-  const funnelBar = (funnelData?.funnel || []).map(f => ({
+  const funnelBar = (funnelData?.funnel || []).map((f) => ({
     name: STAGE_LABELS[f.stage] || f.stage,
     deals: f.count,
     valor: f.value,
@@ -228,7 +288,9 @@ export default function CRMDashboard() {
     <div className="space-y-6">
       {/* Period Selector */}
       <div className="flex justify-end items-center gap-2">
-        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Período:</span>
+        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+          Período:
+        </span>
         <select
           value={period}
           onChange={(e) => setPeriod(e.target.value)}
@@ -318,9 +380,15 @@ export default function CRMDashboard() {
       {/* Charts Row 1: Weekly Trend + Funnel */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3">
-          <ChartCard title="Novos Leads e Deals — Últimas 8 Semanas" delay={0.4}>
+          <ChartCard
+            title="Novos Leads e Deals — Últimas 8 Semanas"
+            delay={0.4}
+          >
             <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={overview?.weeklyLeads || []} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
+              <AreaChart
+                data={overview?.weeklyLeads || []}
+                margin={{ top: 4, right: 8, bottom: 0, left: -10 }}
+              >
                 <defs>
                   <linearGradient id="gradLeads" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -331,12 +399,32 @@ export default function CRMDashboard() {
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="week" tick={{ fontSize: 10, fill: "#71717a" }} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.05)"
+                />
+                <XAxis
+                  dataKey="week"
+                  tick={{ fontSize: 10, fill: "#71717a" }}
+                />
                 <YAxis tick={{ fontSize: 10, fill: "#71717a" }} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="leads" name="Leads" stroke="#3b82f6" fill="url(#gradLeads)" strokeWidth={2} />
-                <Area type="monotone" dataKey="deals" name="Deals" stroke="#10b981" fill="url(#gradDeals)" strokeWidth={2} />
+                <Area
+                  type="monotone"
+                  dataKey="leads"
+                  name="Leads"
+                  stroke="#3b82f6"
+                  fill="url(#gradLeads)"
+                  strokeWidth={2}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="deals"
+                  name="Deals"
+                  stroke="#10b981"
+                  fill="url(#gradDeals)"
+                  strokeWidth={2}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -346,13 +434,25 @@ export default function CRMDashboard() {
           <ChartCard title="Distribuição por Status" delay={0.45}>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie data={statusPie} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
+                <Pie
+                  data={statusPie}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={85}
+                  paddingAngle={3}
+                  dataKey="value"
+                >
                   {statusPie.map((entry, i) => (
                     <Cell key={i} fill={entry.fill} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(v: any) => [v, "Contatos"]} />
-                <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 10 }} />
+                <Legend
+                  iconSize={8}
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 10 }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -364,8 +464,14 @@ export default function CRMDashboard() {
         <div className="lg:col-span-3">
           <ChartCard title="Funil de Deals por Etapa" delay={0.5}>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={funnelBar} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <BarChart
+                data={funnelBar}
+                margin={{ top: 4, right: 8, bottom: 0, left: -10 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.05)"
+                />
                 <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#71717a" }} />
                 <YAxis tick={{ fontSize: 10, fill: "#71717a" }} />
                 <Tooltip content={<CustomTooltip />} />
@@ -378,17 +484,19 @@ export default function CRMDashboard() {
             </ResponsiveContainer>
 
             {/* Avg days per stage pills */}
-            {funnelBar.filter(f => f.days > 0).length > 0 && (
+            {funnelBar.filter((f) => f.days > 0).length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-border/30">
-                {funnelBar.filter(f => f.days > 0).map(f => (
-                  <span
-                    key={f.name}
-                    className="text-xs px-2 py-0.5 rounded-full font-medium"
-                    style={{ background: `${f.color}20`, color: f.color }}
-                  >
-                    {f.name}: {f.days}d
-                  </span>
-                ))}
+                {funnelBar
+                  .filter((f) => f.days > 0)
+                  .map((f) => (
+                    <span
+                      key={f.name}
+                      className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={{ background: `${f.color}20`, color: f.color }}
+                    >
+                      {f.name}: {f.days}d
+                    </span>
+                  ))}
               </div>
             )}
           </ChartCard>
@@ -403,13 +511,25 @@ export default function CRMDashboard() {
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
-                  <Pie data={regimePie} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
+                  <Pie
+                    data={regimePie}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
                     {regimePie.map((entry, i) => (
                       <Cell key={i} fill={entry.fill} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(v: any) => [v, "Empresas"]} />
-                  <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 10 }} />
+                  <Legend
+                    iconSize={8}
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 10 }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -419,24 +539,58 @@ export default function CRMDashboard() {
       {/* Charts Row 3: Activities */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard title="Relatório de Atividades da Equipe" delay={0.6}>
-          {!overview?.activitiesByType || Object.keys(overview.activitiesByType).length === 0 ? (
+          {!overview?.activitiesByType ||
+          Object.keys(overview.activitiesByType).length === 0 ? (
             <div className="flex items-center justify-center h-[220px] text-xs text-muted-foreground">
               Nenhuma atividade registrada no período
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart
-                data={Object.entries(overview.activitiesByType).map(([k, v]) => ({
-                  name: k === "call" ? "Ligação" : k === "email" ? "E-mail" : k === "whatsapp" ? "WhatsApp" : k === "meeting" ? "Reunião" : k === "proposal" ? "Proposta" : "Nota",
-                  count: v,
-                  fill: k === "call" ? "#3b82f6" : k === "email" ? "#f59e0b" : k === "whatsapp" ? "#10b981" : k === "meeting" ? "#a855f7" : k === "proposal" ? "#ef4444" : "#64748b",
-                })).sort((a, b) => b.count - a.count)}
+                data={Object.entries(overview.activitiesByType)
+                  .map(([k, v]) => ({
+                    name:
+                      k === "call"
+                        ? "Ligação"
+                        : k === "email"
+                          ? "E-mail"
+                          : k === "whatsapp"
+                            ? "WhatsApp"
+                            : k === "meeting"
+                              ? "Reunião"
+                              : k === "proposal"
+                                ? "Proposta"
+                                : "Nota",
+                    count: v,
+                    fill:
+                      k === "call"
+                        ? "#3b82f6"
+                        : k === "email"
+                          ? "#f59e0b"
+                          : k === "whatsapp"
+                            ? "#10b981"
+                            : k === "meeting"
+                              ? "#a855f7"
+                              : k === "proposal"
+                                ? "#ef4444"
+                                : "#64748b",
+                  }))
+                  .sort((a, b) => b.count - a.count)}
                 layout="vertical"
                 margin={{ top: 4, right: 8, bottom: 0, left: 10 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(255,255,255,0.05)"
+                  horizontal={false}
+                />
                 <XAxis type="number" tick={{ fontSize: 10, fill: "#71717a" }} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#foreground" }} width={80} />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  tick={{ fontSize: 10, fill: "#foreground" }}
+                  width={80}
+                />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="count" name="Atividades" radius={[0, 4, 4, 0]}>
                   {Object.entries(overview.activitiesByType).map((_, i) => (

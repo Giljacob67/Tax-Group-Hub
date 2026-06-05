@@ -1,5 +1,11 @@
 import { Router, type IRouter } from "express";
-import { db, usageLogsTable, conversationsTable, messagesTable, llmConnectionsTable } from "@workspace/db";
+import {
+  db,
+  usageLogsTable,
+  conversationsTable,
+  messagesTable,
+  llmConnectionsTable,
+} from "@workspace/db";
 import { eq, sql, gte, and, desc, lte } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
 
@@ -18,7 +24,10 @@ function getDateRange(req: any) {
 
 function scopeWhere(userId: string | undefined, start: Date) {
   return userId && userId !== "default" && userId !== "dev-user"
-    ? and(eq(usageLogsTable.userId, userId), gte(usageLogsTable.createdAt, start))
+    ? and(
+        eq(usageLogsTable.userId, userId),
+        gte(usageLogsTable.createdAt, start),
+      )
     : gte(usageLogsTable.createdAt, start);
 }
 
@@ -31,11 +40,26 @@ router.get("/analytics/overview", async (req, res) => {
     const { start } = getDateRange(req);
     const where = scopeWhere(userId, start);
 
-    const [tokenResult] = await db.select({ total: sql<number>`sum(${usageLogsTable.totalTokens})` }).from(usageLogsTable).where(where);
-    const [msgCount] = await db.select({ count: sql<number>`count(*)` }).from(usageLogsTable).where(where);
-    const [agentCount] = await db.select({ count: sql<number>`count(distinct ${usageLogsTable.agentId})` }).from(usageLogsTable).where(where);
-    const [costResult] = await db.select({ total: sql<number>`sum(${usageLogsTable.cost})` }).from(usageLogsTable).where(where);
-    const [latencyResult] = await db.select({ avg: sql<number>`avg(${usageLogsTable.latencyMs})` }).from(usageLogsTable).where(where);
+    const [tokenResult] = await db
+      .select({ total: sql<number>`sum(${usageLogsTable.totalTokens})` })
+      .from(usageLogsTable)
+      .where(where);
+    const [msgCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(usageLogsTable)
+      .where(where);
+    const [agentCount] = await db
+      .select({ count: sql<number>`count(distinct ${usageLogsTable.agentId})` })
+      .from(usageLogsTable)
+      .where(where);
+    const [costResult] = await db
+      .select({ total: sql<number>`sum(${usageLogsTable.cost})` })
+      .from(usageLogsTable)
+      .where(where);
+    const [latencyResult] = await db
+      .select({ avg: sql<number>`avg(${usageLogsTable.latencyMs})` })
+      .from(usageLogsTable)
+      .where(where);
 
     res.json({
       totalTokens: Number(tokenResult?.total || 0),
@@ -203,9 +227,10 @@ router.get("/analytics/recent-logs", async (req, res) => {
   try {
     const userId = req.userId;
     const limit = Math.min(Number(req.query.limit) || 50, 200);
-    const where = userId && userId !== "default" && userId !== "dev-user"
-      ? eq(usageLogsTable.userId, userId)
-      : undefined;
+    const where =
+      userId && userId !== "default" && userId !== "dev-user"
+        ? eq(usageLogsTable.userId, userId)
+        : undefined;
 
     const logs = await db
       .select()

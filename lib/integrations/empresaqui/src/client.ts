@@ -28,14 +28,14 @@ export interface EmpresAquiDivida {
 export interface EmpresAquiResponse {
   // Dados básicos
   cnpj: string;
-  razao: string;             // Razão social
-  fantasia?: string;         // Nome fantasia
+  razao: string; // Razão social
+  fantasia?: string; // Nome fantasia
   email?: string;
   ddd_1?: string;
   tel_1?: string;
   ddd_2?: string;
   tel_2?: string;
-  site?: string;             // Sem https://
+  site?: string; // Sem https://
 
   // Endereço
   log_tipo?: string;
@@ -49,8 +49,8 @@ export interface EmpresAquiResponse {
 
   // Tributário / Cadastral
   cnae_principal?: string;
-  cnae_secundario?: string;  // CSV separado por vírgula
-  matriz?: string;           // "1" = matriz
+  cnae_secundario?: string; // CSV separado por vírgula
+  matriz?: string; // "1" = matriz
   situacao_cadastral?: string; // "2" = ativa
   data_sit_cad?: string;
   natureza_juridica?: string;
@@ -61,7 +61,7 @@ export interface EmpresAquiResponse {
   opcao_simples?: string;
   data_simples?: string;
   data_exc_simples?: string;
-  porte?: string;            // "1"=ME, "2"=EPP, "3"=Demais, "5"=Grande
+  porte?: string; // "1"=ME, "2"=EPP, "3"=Demais, "5"=Grande
   capital_social?: string;
   regime_tributario?: string; // código: "1"=Simples, "3"=Lucro Real etc.
   faturamento?: string;
@@ -101,7 +101,9 @@ export class EmpresAquiClient {
   async getCompanyByCNPJ(cnpj: string): Promise<EmpresAquiResponse> {
     const cleanCnpj = cnpj.replace(/\D/g, "");
     if (cleanCnpj.length !== 14) {
-      throw new Error(`CNPJ inválido: deve ter 14 dígitos (recebido: ${cleanCnpj.length})`);
+      throw new Error(
+        `CNPJ inválido: deve ter 14 dígitos (recebido: ${cleanCnpj.length})`,
+      );
     }
 
     // Token vai no PATH — sem headers de autenticação
@@ -110,33 +112,49 @@ export class EmpresAquiClient {
     try {
       const response = await fetch(url, {
         headers: {
-          "Accept": "application/json",
+          Accept: "application/json",
         },
       });
 
-      const body = await response.json().catch(() => ({} as any)) as any;
+      const body = (await response.json().catch(() => ({}) as any)) as any;
 
       // API retorna 200 com { "Erro": "..." } em caso de erros lógicos
       if (body?.Erro) {
         if (body.Erro.includes("não encontrado")) {
-          throw new Error(`CNPJ ${cleanCnpj} não encontrado na base EmpresAqui.`);
+          throw new Error(
+            `CNPJ ${cleanCnpj} não encontrado na base EmpresAqui.`,
+          );
         }
-        if (body.Erro.includes("Token Inválido") || body.Erro.includes("sem permissão")) {
-          throw new Error(`Token EmpresAqui inválido ou sem permissão: ${body.Erro}`);
+        if (
+          body.Erro.includes("Token Inválido") ||
+          body.Erro.includes("sem permissão")
+        ) {
+          throw new Error(
+            `Token EmpresAqui inválido ou sem permissão: ${body.Erro}`,
+          );
         }
         throw new Error(`EmpresAqui: ${body.Erro}`);
       }
 
       if (!response.ok) {
         if (response.status === 429) {
-          throw new Error("Rate limit EmpresAqui: aguarde 1 segundo e tente novamente.");
+          throw new Error(
+            "Rate limit EmpresAqui: aguarde 1 segundo e tente novamente.",
+          );
         }
-        throw new Error(`EmpresAqui HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(
+          `EmpresAqui HTTP ${response.status}: ${response.statusText}`,
+        );
       }
 
       return body as EmpresAquiResponse;
     } catch (err: any) {
-      if (err.message.startsWith("EmpresAqui") || err.message.startsWith("CNPJ") || err.message.startsWith("Token") || err.message.startsWith("Rate")) {
+      if (
+        err.message.startsWith("EmpresAqui") ||
+        err.message.startsWith("CNPJ") ||
+        err.message.startsWith("Token") ||
+        err.message.startsWith("Rate")
+      ) {
         throw err;
       }
       throw new Error(`Falha na conexão com EmpresAqui: ${err.message}`);

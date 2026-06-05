@@ -1,6 +1,22 @@
-import { db, appConfigTable, crmContactsTable, crmDealsTable, crmActivitiesTable, crmTasksTable, hubspotSyncStateTable, hubspotListMappingTable } from "@workspace/db";
+import {
+  db,
+  appConfigTable,
+  crmContactsTable,
+  crmDealsTable,
+  crmActivitiesTable,
+  crmTasksTable,
+  hubspotSyncStateTable,
+  hubspotListMappingTable,
+} from "@workspace/db";
 import { eq, and, isNull, sql } from "drizzle-orm";
-import { HubSpotClient, HubSpotCompany, HubSpotDeal, HubSpotNote, HubSpotTask, HubSpotList } from "@workspace/hubspot";
+import {
+  HubSpotClient,
+  HubSpotCompany,
+  HubSpotDeal,
+  HubSpotNote,
+  HubSpotTask,
+  HubSpotList,
+} from "@workspace/hubspot";
 import {
   mapContactToHubSpotCompany,
   mapContactToHubSpotContactPerson,
@@ -13,7 +29,10 @@ import {
   mapHubSpotTaskToTask,
 } from "@workspace/hubspot";
 import { decrypt } from "./crypto.js";
-import { writeIntegrationLog, safePayloadPreview } from "./integration-logger.js";
+import {
+  writeIntegrationLog,
+  safePayloadPreview,
+} from "./integration-logger.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,16 +51,30 @@ export interface PullResult {
 }
 
 async function getHubSpotConfig(userId: string): Promise<HubSpotConfig | null> {
-  const rows = await db.select().from(appConfigTable)
+  const rows = await db
+    .select()
+    .from(appConfigTable)
     .where(eq(appConfigTable.key, "integration:hubspot:access_token"))
     .limit(1);
 
   if (!rows[0]?.value) return null;
 
   const [portalRow, enabledRow, directionRow] = await Promise.all([
-    db.select().from(appConfigTable).where(eq(appConfigTable.key, "integration:hubspot:portal_id")).limit(1),
-    db.select().from(appConfigTable).where(eq(appConfigTable.key, "integration:hubspot:enabled")).limit(1),
-    db.select().from(appConfigTable).where(eq(appConfigTable.key, "integration:hubspot:sync_direction")).limit(1),
+    db
+      .select()
+      .from(appConfigTable)
+      .where(eq(appConfigTable.key, "integration:hubspot:portal_id"))
+      .limit(1),
+    db
+      .select()
+      .from(appConfigTable)
+      .where(eq(appConfigTable.key, "integration:hubspot:enabled"))
+      .limit(1),
+    db
+      .select()
+      .from(appConfigTable)
+      .where(eq(appConfigTable.key, "integration:hubspot:sync_direction"))
+      .limit(1),
   ]);
 
   const rawToken = rows[0].value;
@@ -51,12 +84,19 @@ async function getHubSpotConfig(userId: string): Promise<HubSpotConfig | null> {
     accessToken: token,
     portalId: portalRow[0]?.value ?? undefined,
     enabled: enabledRow[0]?.value === "true",
-    syncDirection: (directionRow[0]?.value as HubSpotConfig["syncDirection"]) ?? "bidirectional",
+    syncDirection:
+      (directionRow[0]?.value as HubSpotConfig["syncDirection"]) ??
+      "bidirectional",
   };
 }
 
-async function updateSyncState(userId: string, objectType: string, lastUpdatedId?: string): Promise<void> {
-  await db.insert(hubspotSyncStateTable)
+async function updateSyncState(
+  userId: string,
+  objectType: string,
+  lastUpdatedId?: string,
+): Promise<void> {
+  await db
+    .insert(hubspotSyncStateTable)
     .values({
       userId,
       objectType,
@@ -91,7 +131,8 @@ export async function pushContactToHubSpot(
       if (search.results.length > 0) {
         const id = search.results[0].id;
         await client.updateCompany(id, props.properties);
-        await db.update(crmContactsTable)
+        await db
+          .update(crmContactsTable)
           .set({ hubspotId: id })
           .where(eq(crmContactsTable.id, contact.id));
         return id;
@@ -100,7 +141,8 @@ export async function pushContactToHubSpot(
 
     // Create new company
     const result = await client.createCompany(props.properties);
-    await db.update(crmContactsTable)
+    await db
+      .update(crmContactsTable)
       .set({ hubspotId: result.id })
       .where(eq(crmContactsTable.id, contact.id));
 
@@ -109,7 +151,12 @@ export async function pushContactToHubSpot(
     if (person) {
       try {
         const contactResult = await client.createContact(person.properties);
-        await client.createAssociation("companies", result.id, "contacts", contactResult.id);
+        await client.createAssociation(
+          "companies",
+          result.id,
+          "contacts",
+          contactResult.id,
+        );
       } catch (err) {
         // Non-critical: contact person creation failure shouldn't block the sync
         await writeIntegrationLog({
@@ -119,7 +166,10 @@ export async function pushContactToHubSpot(
           eventType: "contact.person_create_failed",
           direction: "outbound",
           status: "error",
-          payloadPreview: safePayloadPreview({ companyId: result.id, email: contact.email }),
+          payloadPreview: safePayloadPreview({
+            companyId: result.id,
+            email: contact.email,
+          }),
           errorMessage: err instanceof Error ? err.message : String(err),
           correlationId: `hs-${result.id}`,
         });
@@ -135,7 +185,10 @@ export async function pushContactToHubSpot(
       eventType: "contact.push_failed",
       direction: "outbound",
       status: "error",
-      payloadPreview: safePayloadPreview({ contactId: contact.id, cnpj: contact.cnpj }),
+      payloadPreview: safePayloadPreview({
+        contactId: contact.id,
+        cnpj: contact.cnpj,
+      }),
       errorMessage: err instanceof Error ? err.message : String(err),
       correlationId: `hs-contact-${contact.id}`,
     });
@@ -169,8 +222,14 @@ export async function pushDealToHubSpot(
     }
 
     const result = await client.createDeal(props.properties);
-    await client.createAssociation("deals", result.id, "companies", contact.hubspotId!);
-    await db.update(crmDealsTable)
+    await client.createAssociation(
+      "deals",
+      result.id,
+      "companies",
+      contact.hubspotId!,
+    );
+    await db
+      .update(crmDealsTable)
       .set({ hubspotId: result.id })
       .where(eq(crmDealsTable.id, deal.id));
     return result.id;
@@ -182,7 +241,10 @@ export async function pushDealToHubSpot(
       eventType: "deal.push_failed",
       direction: "outbound",
       status: "error",
-      payloadPreview: safePayloadPreview({ dealId: deal.id, title: deal.title }),
+      payloadPreview: safePayloadPreview({
+        dealId: deal.id,
+        title: deal.title,
+      }),
       errorMessage: err instanceof Error ? err.message : String(err),
       correlationId: `hs-deal-${deal.id}`,
     });
@@ -201,11 +263,22 @@ export async function pushActivityToHubSpot(
 
   try {
     const result = await client.createNote(props.properties);
-    await client.createAssociation("notes", result.id, "companies", contactHubspotId);
+    await client.createAssociation(
+      "notes",
+      result.id,
+      "companies",
+      contactHubspotId,
+    );
     if (dealHubspotId) {
-      await client.createAssociation("notes", result.id, "deals", dealHubspotId);
+      await client.createAssociation(
+        "notes",
+        result.id,
+        "deals",
+        dealHubspotId,
+      );
     }
-    await db.update(crmActivitiesTable)
+    await db
+      .update(crmActivitiesTable)
       .set({ hubspotId: result.id })
       .where(eq(crmActivitiesTable.id, activity.id));
     return result.id;
@@ -217,7 +290,10 @@ export async function pushActivityToHubSpot(
       eventType: "activity.push_failed",
       direction: "outbound",
       status: "error",
-      payloadPreview: safePayloadPreview({ activityId: activity.id, type: activity.type }),
+      payloadPreview: safePayloadPreview({
+        activityId: activity.id,
+        type: activity.type,
+      }),
       errorMessage: err instanceof Error ? err.message : String(err),
       correlationId: `hs-activity-${activity.id}`,
     });
@@ -241,11 +317,22 @@ export async function pushTaskToHubSpot(
     }
 
     const result = await client.createTask(props.properties);
-    await client.createAssociation("tasks", result.id, "companies", contactHubspotId);
+    await client.createAssociation(
+      "tasks",
+      result.id,
+      "companies",
+      contactHubspotId,
+    );
     if (dealHubspotId) {
-      await client.createAssociation("tasks", result.id, "deals", dealHubspotId);
+      await client.createAssociation(
+        "tasks",
+        result.id,
+        "deals",
+        dealHubspotId,
+      );
     }
-    await db.update(crmTasksTable)
+    await db
+      .update(crmTasksTable)
       .set({ hubspotId: result.id })
       .where(eq(crmTasksTable.id, task.id));
     return result.id;
@@ -257,7 +344,10 @@ export async function pushTaskToHubSpot(
       eventType: "task.push_failed",
       direction: "outbound",
       status: "error",
-      payloadPreview: safePayloadPreview({ taskId: task.id, title: task.title }),
+      payloadPreview: safePayloadPreview({
+        taskId: task.id,
+        title: task.title,
+      }),
       errorMessage: err instanceof Error ? err.message : String(err),
       correlationId: `hs-task-${task.id}`,
     });
@@ -268,13 +358,16 @@ export async function pushTaskToHubSpot(
 // ─── HubSpot → Tax Group (Inbound Polling) ───────────────────────────────────
 
 async function pullPaginated<T>(
-  fetchFn: (after: string) => Promise<{ results: T[]; paging?: { next?: { after: string } } }>,
+  fetchFn: (
+    after: string,
+  ) => Promise<{ results: T[]; paging?: { next?: { after: string } } }>,
 ): Promise<T[]> {
   const all: T[] = [];
   let after = "";
   let page = 0;
 
-  while (page < 50) { // safety cap at 5000 records per poll
+  while (page < 50) {
+    // safety cap at 5000 records per poll
     const response = await fetchFn(after);
     all.push(...response.results);
     if (!response.paging?.next?.after) break;
@@ -293,8 +386,8 @@ export async function pullCompaniesFromHubSpot(
   const result: PullResult = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
   try {
-    const companies = await pullPaginated<HubSpotCompany>(
-      (after) => client.searchCompaniesModifiedAfter(lastPolledAt.toISOString(), after),
+    const companies = await pullPaginated<HubSpotCompany>((after) =>
+      client.searchCompaniesModifiedAfter(lastPolledAt.toISOString(), after),
     );
 
     for (const company of companies) {
@@ -302,29 +395,47 @@ export async function pullCompaniesFromHubSpot(
         const mapped = mapHubSpotCompanyToContact(company);
         if (!mapped.cnpj) continue; // skip companies without CNPJ
 
-        const [existing] = await db.select().from(crmContactsTable)
-          .where(and(eq(crmContactsTable.hubspotId, company.id), eq(crmContactsTable.userId, userId)))
+        const [existing] = await db
+          .select()
+          .from(crmContactsTable)
+          .where(
+            and(
+              eq(crmContactsTable.hubspotId, company.id),
+              eq(crmContactsTable.userId, userId),
+            ),
+          )
           .limit(1);
 
         if (existing) {
           // Compare timestamps — only update if HubSpot is more recent
           const hsModified = new Date(company.updatedAt);
-          const localModified = existing.updatedAt ? new Date(existing.updatedAt) : new Date(0);
+          const localModified = existing.updatedAt
+            ? new Date(existing.updatedAt)
+            : new Date(0);
           if (hsModified.getTime() - localModified.getTime() < 5000) {
             result.skipped++;
             continue;
           }
-          await db.update(crmContactsTable)
+          await db
+            .update(crmContactsTable)
             .set(mapped)
             .where(eq(crmContactsTable.id, existing.id));
           result.updated++;
         } else {
           // Check by CNPJ for dedup
-          const [byCnpj] = await db.select().from(crmContactsTable)
-            .where(and(eq(crmContactsTable.cnpj, mapped.cnpj!), eq(crmContactsTable.userId, userId)))
+          const [byCnpj] = await db
+            .select()
+            .from(crmContactsTable)
+            .where(
+              and(
+                eq(crmContactsTable.cnpj, mapped.cnpj!),
+                eq(crmContactsTable.userId, userId),
+              ),
+            )
             .limit(1);
           if (byCnpj) {
-            await db.update(crmContactsTable)
+            await db
+              .update(crmContactsTable)
               .set({ hubspotId: company.id, ...mapped })
               .where(eq(crmContactsTable.id, byCnpj.id));
             result.updated++;
@@ -346,7 +457,11 @@ export async function pullCompaniesFromHubSpot(
       }
     }
 
-    await updateSyncState(userId, "companies", companies[companies.length - 1]?.id);
+    await updateSyncState(
+      userId,
+      "companies",
+      companies[companies.length - 1]?.id,
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await writeIntegrationLog({
@@ -372,8 +487,8 @@ export async function pullDealsFromHubSpot(
   const result: PullResult = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
   try {
-    const deals = await pullPaginated<HubSpotDeal>(
-      (after) => client.searchDealsModifiedAfter(lastPolledAt.toISOString(), after),
+    const deals = await pullPaginated<HubSpotDeal>((after) =>
+      client.searchDealsModifiedAfter(lastPolledAt.toISOString(), after),
     );
 
     for (const deal of deals) {
@@ -381,18 +496,28 @@ export async function pullDealsFromHubSpot(
         const mapped = mapHubSpotDealToDeal(deal);
         if (!mapped.title) continue;
 
-        const [existing] = await db.select().from(crmDealsTable)
-          .where(and(eq(crmDealsTable.hubspotId, deal.id), eq(crmDealsTable.userId, userId)))
+        const [existing] = await db
+          .select()
+          .from(crmDealsTable)
+          .where(
+            and(
+              eq(crmDealsTable.hubspotId, deal.id),
+              eq(crmDealsTable.userId, userId),
+            ),
+          )
           .limit(1);
 
         if (existing) {
           const hsModified = new Date(deal.updatedAt);
-          const localModified = existing.updatedAt ? new Date(existing.updatedAt) : new Date(0);
+          const localModified = existing.updatedAt
+            ? new Date(existing.updatedAt)
+            : new Date(0);
           if (hsModified.getTime() - localModified.getTime() < 5000) {
             result.skipped++;
             continue;
           }
-          await db.update(crmDealsTable)
+          await db
+            .update(crmDealsTable)
             .set(mapped)
             .where(eq(crmDealsTable.id, existing.id));
           result.updated++;
@@ -441,15 +566,22 @@ export async function pullNotesFromHubSpot(
   const result: PullResult = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
   try {
-    const notes = await pullPaginated<HubSpotNote>(
-      (after) => client.searchNotesModifiedAfter(lastPolledAt.toISOString(), after),
+    const notes = await pullPaginated<HubSpotNote>((after) =>
+      client.searchNotesModifiedAfter(lastPolledAt.toISOString(), after),
     );
 
     for (const note of notes) {
       try {
         const mapped = mapHubSpotNoteToActivity(note);
-        const [existing] = await db.select().from(crmActivitiesTable)
-          .where(and(eq(crmActivitiesTable.hubspotId, note.id), eq(crmActivitiesTable.userId, userId)))
+        const [existing] = await db
+          .select()
+          .from(crmActivitiesTable)
+          .where(
+            and(
+              eq(crmActivitiesTable.hubspotId, note.id),
+              eq(crmActivitiesTable.userId, userId),
+            ),
+          )
           .limit(1);
 
         if (!existing) {
@@ -496,25 +628,35 @@ export async function pullTasksFromHubSpot(
   const result: PullResult = { created: 0, updated: 0, skipped: 0, errors: 0 };
 
   try {
-    const tasks = await pullPaginated<HubSpotTask>(
-      (after) => client.searchTasksModifiedAfter(lastPolledAt.toISOString(), after),
+    const tasks = await pullPaginated<HubSpotTask>((after) =>
+      client.searchTasksModifiedAfter(lastPolledAt.toISOString(), after),
     );
 
     for (const task of tasks) {
       try {
         const mapped = mapHubSpotTaskToTask(task);
-        const [existing] = await db.select().from(crmTasksTable)
-          .where(and(eq(crmTasksTable.hubspotId, task.id), eq(crmTasksTable.userId, userId)))
+        const [existing] = await db
+          .select()
+          .from(crmTasksTable)
+          .where(
+            and(
+              eq(crmTasksTable.hubspotId, task.id),
+              eq(crmTasksTable.userId, userId),
+            ),
+          )
           .limit(1);
 
         if (existing) {
           const hsModified = new Date(task.updatedAt);
-          const localModified = existing.updatedAt ? new Date(existing.updatedAt) : new Date(0);
+          const localModified = existing.updatedAt
+            ? new Date(existing.updatedAt)
+            : new Date(0);
           if (hsModified.getTime() - localModified.getTime() < 5000) {
             result.skipped++;
             continue;
           }
-          await db.update(crmTasksTable)
+          await db
+            .update(crmTasksTable)
             .set(mapped)
             .where(eq(crmTasksTable.id, existing.id));
           result.updated++;
@@ -557,7 +699,12 @@ export async function pullTasksFromHubSpot(
 export async function pullListsFromHubSpot(
   client: HubSpotClient,
   userId: string,
-): Promise<{ listsFound: number; contactsTagged: number; errors: number; source: string }> {
+): Promise<{
+  listsFound: number;
+  contactsTagged: number;
+  errors: number;
+  source: string;
+}> {
   let listsFound = 0;
   let contactsTagged = 0;
   let errors = 0;
@@ -571,7 +718,7 @@ export async function pullListsFromHubSpot(
       const { lists } = await client.getLists();
       if (lists.length > 0) {
         source = "v3_ils";
-        listsData = lists.map(l => ({ listId: l.listId, name: l.name }));
+        listsData = lists.map((l) => ({ listId: l.listId, name: l.name }));
       }
     } catch {
       // v3 failed, try v1
@@ -582,7 +729,10 @@ export async function pullListsFromHubSpot(
         const v1Result = await client.getContactLists();
         if (v1Result.lists?.length > 0) {
           source = "v1_contacts";
-          listsData = v1Result.lists.map(l => ({ listId: String(l.listId), name: l.name }));
+          listsData = v1Result.lists.map((l) => ({
+            listId: String(l.listId),
+            name: l.name,
+          }));
         }
       } catch {
         // v1 also failed
@@ -602,8 +752,11 @@ export async function pullListsFromHubSpot(
           let offset: number | undefined;
           let hasMore = true;
           while (hasMore) {
-            const result = await client.getContactListMemberships(Number(list.listId), offset);
-            allRecordIds.push(...result.contacts.map(c => String(c.vid)));
+            const result = await client.getContactListMemberships(
+              Number(list.listId),
+              offset,
+            );
+            allRecordIds.push(...result.contacts.map((c) => String(c.vid)));
             hasMore = result["has-more"];
             offset = result["vid-offset"];
             if (allRecordIds.length > 5000) break; // safety cap
@@ -612,18 +765,21 @@ export async function pullListsFromHubSpot(
           const memberships = await pullPaginated<{ recordId: string }>(
             (after) => client.getListMemberships(list.listId, after),
           );
-          allRecordIds = memberships.map(m => m.recordId);
+          allRecordIds = memberships.map((m) => m.recordId);
         }
 
         for (const recordId of allRecordIds) {
           try {
             // For v1, vid is contact vid — find associated company via hubspotId
-            const [contact] = await db.select({ id: crmContactsTable.id, tags: crmContactsTable.tags })
+            const [contact] = await db
+              .select({ id: crmContactsTable.id, tags: crmContactsTable.tags })
               .from(crmContactsTable)
-              .where(and(
-                eq(crmContactsTable.hubspotId, recordId),
-                eq(crmContactsTable.userId, userId),
-              ))
+              .where(
+                and(
+                  eq(crmContactsTable.hubspotId, recordId),
+                  eq(crmContactsTable.userId, userId),
+                ),
+              )
               .limit(1);
 
             if (!contact) continue;
@@ -631,7 +787,8 @@ export async function pullListsFromHubSpot(
             const existingTags = contact.tags ?? [];
             if (!existingTags.includes(tagName)) {
               const newTags = [...existingTags, tagName];
-              await db.update(crmContactsTable)
+              await db
+                .update(crmContactsTable)
                 .set({ tags: newTags })
                 .where(eq(crmContactsTable.id, contact.id));
               contactsTagged++;
@@ -642,7 +799,8 @@ export async function pullListsFromHubSpot(
         }
 
         // Store list mapping
-        await db.insert(hubspotListMappingTable)
+        await db
+          .insert(hubspotListMappingTable)
           .values({
             userId,
             tagName,
@@ -650,12 +808,18 @@ export async function pullListsFromHubSpot(
             direction: "from_hubspot",
           })
           .onConflictDoUpdate({
-            target: [hubspotListMappingTable.userId, hubspotListMappingTable.tagName],
+            target: [
+              hubspotListMappingTable.userId,
+              hubspotListMappingTable.tagName,
+            ],
             set: { hubspotListId: list.listId },
           });
       } catch (err) {
         errors++;
-        console.error(`[HubSpot] pullLists error for list ${list.listId}:`, err);
+        console.error(
+          `[HubSpot] pullLists error for list ${list.listId}:`,
+          err,
+        );
       }
     }
   } catch (err) {
@@ -682,7 +846,11 @@ export async function pushTagListToHubSpot(
 ): Promise<string | null> {
   try {
     // Get all contacts with this tag
-    const contacts = await db.select({ id: crmContactsTable.id, hubspotId: crmContactsTable.hubspotId })
+    const contacts = await db
+      .select({
+        id: crmContactsTable.id,
+        hubspotId: crmContactsTable.hubspotId,
+      })
       .from(crmContactsTable)
       .where(
         and(
@@ -691,12 +859,14 @@ export async function pushTagListToHubSpot(
         ),
       );
 
-    const hsIds = contacts.filter(c => c.hubspotId).map(c => c.hubspotId!);
+    const hsIds = contacts.filter((c) => c.hubspotId).map((c) => c.hubspotId!);
     if (hsIds.length === 0) return null;
 
     // Find or create the list
     const existingLists = await client.getLists();
-    let listId = existingLists.lists.find((l: HubSpotList) => l.name === `[Tax Group] ${tagName}`)?.listId;
+    let listId = existingLists.lists.find(
+      (l: HubSpotList) => l.name === `[Tax Group] ${tagName}`,
+    )?.listId;
 
     if (!listId) {
       const newList = await client.createList(`[Tax Group] ${tagName}`, "0-2"); // 0-2 = companies
@@ -729,8 +899,12 @@ export async function pushTagListToHubSpot(
   }
 }
 
-export async function syncAllListsToHubSpot(client: HubSpotClient, userId: string): Promise<{ synced: number; errors: number }> {
-  const tags = await db.selectDistinct({ tag: crmContactsTable.tags })
+export async function syncAllListsToHubSpot(
+  client: HubSpotClient,
+  userId: string,
+): Promise<{ synced: number; errors: number }> {
+  const tags = await db
+    .selectDistinct({ tag: crmContactsTable.tags })
     .from(crmContactsTable)
     .where(eq(crmContactsTable.userId, userId));
 
@@ -751,7 +925,10 @@ export async function syncAllListsToHubSpot(client: HubSpotClient, userId: strin
 
 // ─── Auto-Segment ────────────────────────────────────────────────────────────
 
-const SEGMENT_RULES: Array<{ property: keyof typeof crmContactsTable.$inferSelect; prefix: string }> = [
+const SEGMENT_RULES: Array<{
+  property: keyof typeof crmContactsTable.$inferSelect;
+  prefix: string;
+}> = [
   { property: "regimeTributario", prefix: "regime:" },
   { property: "porte", prefix: "porte:" },
   { property: "status", prefix: "status:" },
@@ -768,7 +945,9 @@ export async function autoSegmentContacts(userId: string): Promise<{
   let tagsApplied = 0;
   const segments: Record<string, number> = {};
 
-  const contacts = await db.select().from(crmContactsTable)
+  const contacts = await db
+    .select()
+    .from(crmContactsTable)
     .where(eq(crmContactsTable.userId, userId));
 
   for (const contact of contacts) {
@@ -790,11 +969,15 @@ export async function autoSegmentContacts(userId: string): Promise<{
     const merged = [...new Set([...existingTags, ...newTags])];
 
     // Only update if tags actually changed
-    if (merged.length !== existingTags.length || !merged.every(t => existingTags.includes(t))) {
-      await db.update(crmContactsTable)
+    if (
+      merged.length !== existingTags.length ||
+      !merged.every((t) => existingTags.includes(t))
+    ) {
+      await db
+        .update(crmContactsTable)
         .set({ tags: merged })
         .where(eq(crmContactsTable.id, contact.id));
-      tagsApplied += newTags.filter(t => !existingTags.includes(t)).length;
+      tagsApplied += newTags.filter((t) => !existingTags.includes(t)).length;
     }
   }
 
@@ -808,14 +991,25 @@ export async function runFullInboundSync(userId: string): Promise<{
   deals: PullResult;
   notes: PullResult;
   tasks: PullResult;
-  lists: { listsFound: number; contactsTagged: number; errors: number; source: string };
+  lists: {
+    listsFound: number;
+    contactsTagged: number;
+    errors: number;
+    source: string;
+  };
 }> {
   const config = await getHubSpotConfig(userId);
   if (!config || !config.enabled) {
     throw new Error("HubSpot not configured or disabled");
   }
   if (config.syncDirection === "to_hubspot") {
-    return { companies: { created: 0, updated: 0, skipped: 0, errors: 0 }, deals: { created: 0, updated: 0, skipped: 0, errors: 0 }, notes: { created: 0, updated: 0, skipped: 0, errors: 0 }, tasks: { created: 0, updated: 0, skipped: 0, errors: 0 }, lists: { listsFound: 0, contactsTagged: 0, errors: 0, source: "none" } };
+    return {
+      companies: { created: 0, updated: 0, skipped: 0, errors: 0 },
+      deals: { created: 0, updated: 0, skipped: 0, errors: 0 },
+      notes: { created: 0, updated: 0, skipped: 0, errors: 0 },
+      tasks: { created: 0, updated: 0, skipped: 0, errors: 0 },
+      lists: { listsFound: 0, contactsTagged: 0, errors: 0, source: "none" },
+    };
   }
 
   const client = new HubSpotClient(config.accessToken, config.portalId);
@@ -823,14 +1017,18 @@ export async function runFullInboundSync(userId: string): Promise<{
   // Reassign any contacts previously synced as "system" to the real userId
   if (userId !== "system") {
     try {
-      await db.update(crmContactsTable)
+      await db
+        .update(crmContactsTable)
         .set({ userId })
-        .where(and(
-          eq(crmContactsTable.userId, "system"),
-          sql`${crmContactsTable.hubspotId} IS NOT NULL`,
-        ));
+        .where(
+          and(
+            eq(crmContactsTable.userId, "system"),
+            sql`${crmContactsTable.hubspotId} IS NOT NULL`,
+          ),
+        );
       // Also reassign sync state so incremental polling continues correctly
-      await db.update(hubspotSyncStateTable)
+      await db
+        .update(hubspotSyncStateTable)
         .set({ userId })
         .where(eq(hubspotSyncStateTable.userId, "system"));
     } catch (err) {
@@ -839,9 +1037,14 @@ export async function runFullInboundSync(userId: string): Promise<{
   }
 
   const [stateRows] = await Promise.all([
-    db.select().from(hubspotSyncStateTable).where(eq(hubspotSyncStateTable.userId, userId)),
+    db
+      .select()
+      .from(hubspotSyncStateTable)
+      .where(eq(hubspotSyncStateTable.userId, userId)),
   ]);
-  const stateMap = Object.fromEntries(stateRows.map(r => [r.objectType, r.lastPolledAt]));
+  const stateMap = Object.fromEntries(
+    stateRows.map((r) => [r.objectType, r.lastPolledAt]),
+  );
   const defaultDate = new Date("2020-01-01"); // pull all records on first sync
 
   const [companies, deals, notes, tasks] = await Promise.all([

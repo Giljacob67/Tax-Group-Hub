@@ -5,7 +5,12 @@ import { describe, it, expect, vi } from "vitest";
 // pure, but importing the file pulls in settings.ts -> @workspace/db.
 vi.mock("@workspace/db", () => ({
   db: {},
-  embeddingCacheTable: { textHash: "text_hash", model: "model", embedding: "embedding", dim: "dim" },
+  embeddingCacheTable: {
+    textHash: "text_hash",
+    model: "model",
+    embedding: "embedding",
+    dim: "dim",
+  },
   apiKeysTable: { provider: "provider", userId: "user_id", key: "key" },
 }));
 
@@ -25,7 +30,9 @@ describe("validateEmbeddingDim", () => {
 
   it("rejects a vector of the wrong length with a typed error", () => {
     const vec: number[] = Array.from({ length: 1536 }, () => 0.1);
-    expect(() => validateEmbeddingDim(vec, "google/text-embedding-004")).toThrow(EmbeddingDimError);
+    expect(() =>
+      validateEmbeddingDim(vec, "google/text-embedding-004"),
+    ).toThrow(EmbeddingDimError);
   });
 
   it("exposes the expected/got dimensions on the error", () => {

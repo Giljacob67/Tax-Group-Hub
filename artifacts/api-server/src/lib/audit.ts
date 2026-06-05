@@ -9,7 +9,11 @@
 
 import { db } from "@workspace/db";
 import { crmAuditLogTable } from "@workspace/db";
-import type { AuditAction, AuditActorType, AuditEntityType } from "@workspace/db/crm-constants";
+import type {
+  AuditAction,
+  AuditActorType,
+  AuditEntityType,
+} from "@workspace/db/crm-constants";
 
 export type AuditInput = {
   userId: string;
@@ -62,7 +66,17 @@ export async function logSensitiveChanges(opts: {
   action?: AuditAction;
   context?: Record<string, any>;
 }): Promise<void> {
-  const { userId, actorType, entityType, entityId, oldObj, newObj, sensitiveFields, action, context } = opts;
+  const {
+    userId,
+    actorType,
+    entityType,
+    entityId,
+    oldObj,
+    newObj,
+    sensitiveFields,
+    action,
+    context,
+  } = opts;
   const oldVal = oldObj || {};
 
   for (const field of sensitiveFields) {
@@ -74,7 +88,13 @@ export async function logSensitiveChanges(opts: {
         actorType: actorType || "user",
         entityType,
         entityId,
-        action: action || (field === "status" ? "status_change" : field === "stage" ? "stage_change" : "update"),
+        action:
+          action ||
+          (field === "status"
+            ? "status_change"
+            : field === "stage"
+              ? "stage_change"
+              : "update"),
         fieldName: field,
         oldValue: oldV != null ? String(oldV) : null,
         newValue: newV != null ? String(newV) : null,

@@ -45,15 +45,17 @@ async function run() {
 
   // ─── 3. knowledge_documents — novos campos RAG ───────────────────────────
   const knowledgeCols = [
-    ["category",    "TEXT"],
-    ["tags",        "JSONB"],
+    ["category", "TEXT"],
+    ["tags", "JSONB"],
     ["valid_until", "TIMESTAMP"],
-    ["priority",    "INTEGER DEFAULT 5"],
+    ["priority", "INTEGER DEFAULT 5"],
   ];
   for (const [col, type] of knowledgeCols) {
-    await db.execute(sql.raw(
-      `ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS ${col} ${type};`
-    ));
+    await db.execute(
+      sql.raw(
+        `ALTER TABLE knowledge_documents ADD COLUMN IF NOT EXISTS ${col} ${type};`,
+      ),
+    );
     console.log(`✅  knowledge_documents.${col}`);
   }
 
@@ -247,18 +249,30 @@ async function run() {
   `);
   console.log("✅  crm_attachments");
 
-  await db.execute(sql.raw(`ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS custom_fields JSONB;`));
+  await db.execute(
+    sql.raw(
+      `ALTER TABLE crm_contacts ADD COLUMN IF NOT EXISTS custom_fields JSONB;`,
+    ),
+  );
   console.log("✅  crm_contacts.custom_fields");
 
-  await db.execute(sql.raw(`ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS custom_fields JSONB;`));
-  await db.execute(sql.raw(`ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS pipeline_id TEXT NOT NULL DEFAULT 'default';`));
+  await db.execute(
+    sql.raw(
+      `ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS custom_fields JSONB;`,
+    ),
+  );
+  await db.execute(
+    sql.raw(
+      `ALTER TABLE crm_deals ADD COLUMN IF NOT EXISTS pipeline_id TEXT NOT NULL DEFAULT 'default';`,
+    ),
+  );
   console.log("✅  crm_deals.custom_fields e pipeline_id");
 
   console.log("\n🎉 Migração concluída com sucesso!");
   process.exit(0);
 }
 
-run().catch(err => {
+run().catch((err) => {
   console.error("❌ Migração falhou:", err);
   process.exit(1);
 });

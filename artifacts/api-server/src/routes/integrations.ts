@@ -1,15 +1,26 @@
 import { Router, type IRouter } from "express";
 import { randomUUID } from "node:crypto";
 import {
-  db, designGalleryTable, knowledgeChunksTable, knowledgeDocumentsTable,
-  appConfigTable, integrationLogsTable, crmContactsTable, hubspotSyncStateTable, hubspotListMappingTable,
+  db,
+  designGalleryTable,
+  knowledgeChunksTable,
+  knowledgeDocumentsTable,
+  appConfigTable,
+  integrationLogsTable,
+  crmContactsTable,
+  hubspotSyncStateTable,
+  hubspotListMappingTable,
   conversationsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, inArray, sql, isNull } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import { apiError } from "../lib/api-response.js";
 import { encrypt, decrypt } from "../lib/crypto.js";
-import { listIntegrationLogs, writeIntegrationLog, safePayloadPreview } from "../lib/integration-logger.js";
+import {
+  listIntegrationLogs,
+  writeIntegrationLog,
+  safePayloadPreview,
+} from "../lib/integration-logger.js";
 import { dispatchWebhook } from "../lib/webhook-dispatcher.js";
 import { validateSafeUrl } from "../lib/validation.js";
 import { safeNumber } from "../lib/validation.js";
@@ -27,17 +38,37 @@ const router: IRouter = Router();
 router.get("/integrations", (_req, res) => {
   res.json({
     endpoints: [
-      { method: "POST", path: "/api/integrations/generate-image", description: "Generate image with Gemini AI" },
-      { method: "GET", path: "/api/integrations/image-gallery/:agentId", description: "Get image gallery for agent" },
-      { method: "POST", path: "/api/integrations/canva-link", description: "Generate Canva design link" },
-      { method: "POST", path: "/api/integrations/search-knowledge", description: "Semantic search in knowledge base" },
+      {
+        method: "POST",
+        path: "/api/integrations/generate-image",
+        description: "Generate image with Gemini AI",
+      },
+      {
+        method: "GET",
+        path: "/api/integrations/image-gallery/:agentId",
+        description: "Get image gallery for agent",
+      },
+      {
+        method: "POST",
+        path: "/api/integrations/canva-link",
+        description: "Generate Canva design link",
+      },
+      {
+        method: "POST",
+        path: "/api/integrations/search-knowledge",
+        description: "Semantic search in knowledge base",
+      },
     ],
   });
 });
 
 router.post("/integrations/generate-image", async (req, res) => {
   try {
-    const { prompt, style, agentId } = req.body as { prompt?: string; style?: string; agentId?: string };
+    const { prompt, style, agentId } = req.body as {
+      prompt?: string;
+      style?: string;
+      agentId?: string;
+    };
     if (!prompt?.trim()) {
       apiError(res, 400, "prompt is required");
       return;
@@ -60,15 +91,22 @@ router.post("/integrations/generate-image", async (req, res) => {
             body: JSON.stringify({
               contents: [{ parts: [{ text: fullPrompt }] }],
               generationConfig: {
-                responseModalities: ["IMAGE", "TEXT"]
+                responseModalities: ["IMAGE", "TEXT"],
               },
             }),
-          }
+          },
         );
-        interface GeminiPart { inlineData?: { mimeType: string; data: string }; text?: string }
-        interface GeminiResponse { candidates?: Array<{ content?: { parts?: GeminiPart[] } }> }
+        interface GeminiPart {
+          inlineData?: { mimeType: string; data: string };
+          text?: string;
+        }
+        interface GeminiResponse {
+          candidates?: Array<{ content?: { parts?: GeminiPart[] } }>;
+        }
         const data = (await response.json()) as GeminiResponse;
-        const imagePart = data?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
+        const imagePart = data?.candidates?.[0]?.content?.parts?.find(
+          (p) => p.inlineData,
+        );
         if (imagePart?.inlineData) {
           imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
         } else {
@@ -91,15 +129,19 @@ router.post("/integrations/generate-image", async (req, res) => {
       .where(
         and(
           eq(designGalleryTable.agentId, galleryKey),
-          userId ? eq(designGalleryTable.userId, userId) : isNull(designGalleryTable.userId)
-        )
+          userId
+            ? eq(designGalleryTable.userId, userId)
+            : isNull(designGalleryTable.userId),
+        ),
       )
       .orderBy(desc(designGalleryTable.createdAt));
 
     if (existing.length >= 20) {
       const toDelete = existing.slice(19).map((r) => r.id);
       if (toDelete.length > 0) {
-        await db.delete(designGalleryTable).where(inArray(designGalleryTable.id, toDelete));
+        await db
+          .delete(designGalleryTable)
+          .where(inArray(designGalleryTable.id, toDelete));
       }
     }
 
@@ -116,15 +158,21 @@ router.post("/integrations/generate-image", async (req, res) => {
       .where(
         and(
           eq(designGalleryTable.agentId, galleryKey),
-          userId ? eq(designGalleryTable.userId, userId) : isNull(designGalleryTable.userId)
-        )
+          userId
+            ? eq(designGalleryTable.userId, userId)
+            : isNull(designGalleryTable.userId),
+        ),
       )
       .orderBy(desc(designGalleryTable.createdAt));
 
     res.json({
       imageUrl,
       prompt: fullPrompt,
-      gallery: gallery.map(g => ({ url: g.imageUrl, prompt: g.prompt, createdAt: g.createdAt.toISOString() })),
+      gallery: gallery.map((g) => ({
+        url: g.imageUrl,
+        prompt: g.prompt,
+        createdAt: g.createdAt.toISOString(),
+      })),
     });
   } catch (err) {
     console.error("Error generating image:", err);
@@ -143,13 +191,19 @@ router.get("/integrations/image-gallery/:agentId", async (req, res) => {
       .where(
         and(
           eq(designGalleryTable.agentId, agentId),
-          userId ? eq(designGalleryTable.userId, userId) : isNull(designGalleryTable.userId)
-        )
+          userId
+            ? eq(designGalleryTable.userId, userId)
+            : isNull(designGalleryTable.userId),
+        ),
       )
       .orderBy(desc(designGalleryTable.createdAt));
 
     res.json({
-      images: images.map(g => ({ url: g.imageUrl, prompt: g.prompt, createdAt: g.createdAt.toISOString() })),
+      images: images.map((g) => ({
+        url: g.imageUrl,
+        prompt: g.prompt,
+        createdAt: g.createdAt.toISOString(),
+      })),
     });
   } catch (err) {
     console.error("Error fetching image gallery:", err);
@@ -159,7 +213,11 @@ router.get("/integrations/image-gallery/:agentId", async (req, res) => {
 
 router.post("/integrations/canva-link", async (req, res) => {
   try {
-    const { contentType, title, description } = req.body as { contentType?: string; title?: string; description?: string };
+    const { contentType, title, description } = req.body as {
+      contentType?: string;
+      title?: string;
+      description?: string;
+    };
     if (!contentType) {
       apiError(res, 400, "contentType is required");
       return;
@@ -178,8 +236,13 @@ router.post("/integrations/canva-link", async (req, res) => {
       instagram: { type: "InstagramPost", label: "Post Instagram" },
     };
 
-    const design = canvaDesignTypes[contentType] || { type: "Presentation", label: contentType };
-    const encodedTitle = encodeURIComponent(title || `Tax Group - ${design.label}`);
+    const design = canvaDesignTypes[contentType] || {
+      type: "Presentation",
+      label: contentType,
+    };
+    const encodedTitle = encodeURIComponent(
+      title || `Tax Group - ${design.label}`,
+    );
     const url = `https://www.canva.com/design/new?designType=${design.type}&title=${encodedTitle}`;
     res.json({ url, contentType, label: design.label });
   } catch (err) {
@@ -190,18 +253,24 @@ router.post("/integrations/canva-link", async (req, res) => {
 
 router.post("/integrations/search-knowledge", async (req, res) => {
   try {
-    const { query, agentId, limit } = req.body as { query?: string; agentId?: string; limit?: number };
+    const { query, agentId, limit } = req.body as {
+      query?: string;
+      agentId?: string;
+      limit?: number;
+    };
     if (!query?.trim()) {
       apiError(res, 400, "query is required");
       return;
     }
 
     try {
-      const { embeddings: [queryEmbedding] } = await generateEmbeddings([query]);
+      const {
+        embeddings: [queryEmbedding],
+      } = await generateEmbeddings([query]);
       const userId = req.userId;
-      
+
       const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
-      
+
       const results = await db
         .select({
           documentId: knowledgeChunksTable.documentId,
@@ -210,12 +279,15 @@ router.post("/integrations/search-knowledge", async (req, res) => {
           filename: knowledgeDocumentsTable.filename,
         })
         .from(knowledgeChunksTable)
-        .innerJoin(knowledgeDocumentsTable, eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id))
+        .innerJoin(
+          knowledgeDocumentsTable,
+          eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id),
+        )
         .where(
           and(
             agentId ? eq(knowledgeDocumentsTable.agentId, agentId) : sql`TRUE`,
-            userId ? eq(knowledgeDocumentsTable.userId, userId) : sql`TRUE`
-          )
+            userId ? eq(knowledgeDocumentsTable.userId, userId) : sql`TRUE`,
+          ),
         )
         .orderBy((t: any) => desc(t.score))
         .limit(limit || 5);
@@ -253,10 +325,16 @@ router.get("/integrations/health", async (req, res) => {
       .limit(50);
 
     // Make config status
-    const [makeUrlRow] = await db.select().from(appConfigTable)
-      .where(eq(appConfigTable.key, "integration:make:webhook_url")).limit(1);
-    const [makeEnabledRow] = await db.select().from(appConfigTable)
-      .where(eq(appConfigTable.key, "integration:make:enabled")).limit(1);
+    const [makeUrlRow] = await db
+      .select()
+      .from(appConfigTable)
+      .where(eq(appConfigTable.key, "integration:make:webhook_url"))
+      .limit(1);
+    const [makeEnabledRow] = await db
+      .select()
+      .from(appConfigTable)
+      .where(eq(appConfigTable.key, "integration:make:enabled"))
+      .limit(1);
 
     const makeConfigured = !!makeUrlRow?.value;
     const makeEnabled = makeEnabledRow?.value === "true";
@@ -267,12 +345,21 @@ router.get("/integrations/health", async (req, res) => {
         name: "Make.com",
         category: "Automação",
         isRealIntegration: true,
-        status: makeConfigured ? (makeEnabled ? "connected" : "available") : "available",
+        status: makeConfigured
+          ? makeEnabled
+            ? "connected"
+            : "available"
+          : "available",
         configured: makeConfigured,
         enabled: makeEnabled,
-        lastRunAt: recentLogs.find(l => l.integrationKey === "make")?.createdAt ?? null,
-        lastError: recentLogs.find(l => l.integrationKey === "make" && l.status === "error")?.errorMessage ?? null,
-        logCount: recentLogs.filter(l => l.integrationKey === "make").length,
+        lastRunAt:
+          recentLogs.find((l) => l.integrationKey === "make")?.createdAt ??
+          null,
+        lastError:
+          recentLogs.find(
+            (l) => l.integrationKey === "make" && l.status === "error",
+          )?.errorMessage ?? null,
+        logCount: recentLogs.filter((l) => l.integrationKey === "make").length,
       },
       {
         key: "webhooks",
@@ -282,9 +369,12 @@ router.get("/integrations/health", async (req, res) => {
         status: "connected" as const,
         configured: true,
         enabled: true,
-        lastRunAt: recentLogs.find(l => l.integrationKey === "webhooks")?.createdAt ?? null,
+        lastRunAt:
+          recentLogs.find((l) => l.integrationKey === "webhooks")?.createdAt ??
+          null,
         lastError: null,
-        logCount: recentLogs.filter(l => l.integrationKey === "webhooks").length,
+        logCount: recentLogs.filter((l) => l.integrationKey === "webhooks")
+          .length,
       },
       {
         key: "whatsapp",
@@ -294,9 +384,12 @@ router.get("/integrations/health", async (req, res) => {
         status: "connected" as const,
         configured: true,
         enabled: true,
-        lastRunAt: recentLogs.find(l => l.integrationKey === "whatsapp")?.createdAt ?? null,
+        lastRunAt:
+          recentLogs.find((l) => l.integrationKey === "whatsapp")?.createdAt ??
+          null,
         lastError: null,
-        logCount: recentLogs.filter(l => l.integrationKey === "whatsapp").length,
+        logCount: recentLogs.filter((l) => l.integrationKey === "whatsapp")
+          .length,
       },
       {
         key: "telegram",
@@ -306,9 +399,12 @@ router.get("/integrations/health", async (req, res) => {
         status: "connected" as const,
         configured: true,
         enabled: true,
-        lastRunAt: recentLogs.find(l => l.integrationKey === "telegram")?.createdAt ?? null,
+        lastRunAt:
+          recentLogs.find((l) => l.integrationKey === "telegram")?.createdAt ??
+          null,
         lastError: null,
-        logCount: recentLogs.filter(l => l.integrationKey === "telegram").length,
+        logCount: recentLogs.filter((l) => l.integrationKey === "telegram")
+          .length,
       },
       {
         key: "canva",
@@ -318,9 +414,11 @@ router.get("/integrations/health", async (req, res) => {
         status: "connected" as const,
         configured: true,
         enabled: true,
-        lastRunAt: recentLogs.find(l => l.integrationKey === "canva")?.createdAt ?? null,
+        lastRunAt:
+          recentLogs.find((l) => l.integrationKey === "canva")?.createdAt ??
+          null,
         lastError: null,
-        logCount: recentLogs.filter(l => l.integrationKey === "canva").length,
+        logCount: recentLogs.filter((l) => l.integrationKey === "canva").length,
       },
       {
         key: "gemini-images",
@@ -330,9 +428,12 @@ router.get("/integrations/health", async (req, res) => {
         status: process.env.GEMINI_API_KEY ? "connected" : "available",
         configured: !!process.env.GEMINI_API_KEY,
         enabled: !!process.env.GEMINI_API_KEY,
-        lastRunAt: recentLogs.find(l => l.integrationKey === "gemini-images")?.createdAt ?? null,
+        lastRunAt:
+          recentLogs.find((l) => l.integrationKey === "gemini-images")
+            ?.createdAt ?? null,
         lastError: null,
-        logCount: recentLogs.filter(l => l.integrationKey === "gemini-images").length,
+        logCount: recentLogs.filter((l) => l.integrationKey === "gemini-images")
+          .length,
       },
       {
         key: "hubspot",
@@ -340,39 +441,58 @@ router.get("/integrations/health", async (req, res) => {
         category: "CRM & Comercial",
         isRealIntegration: true,
         status: (() => {
-          const hsTokenRow = recentLogs.length >= 0
-            ? "check" // placeholder — check below
-            : "available";
+          const hsTokenRow =
+            recentLogs.length >= 0
+              ? "check" // placeholder — check below
+              : "available";
           return hsTokenRow;
         })(),
         configured: false,
         enabled: false,
-        lastRunAt: recentLogs.find(l => l.integrationKey === "hubspot")?.createdAt ?? null,
-        lastError: recentLogs.find(l => l.integrationKey === "hubspot" && l.status === "error")?.errorMessage ?? null,
-        logCount: recentLogs.filter(l => l.integrationKey === "hubspot").length,
+        lastRunAt:
+          recentLogs.find((l) => l.integrationKey === "hubspot")?.createdAt ??
+          null,
+        lastError:
+          recentLogs.find(
+            (l) => l.integrationKey === "hubspot" && l.status === "error",
+          )?.errorMessage ?? null,
+        logCount: recentLogs.filter((l) => l.integrationKey === "hubspot")
+          .length,
       },
     ];
 
     // Resolve HubSpot actual status
     try {
-      const [hsTokenRow] = await db.select().from(appConfigTable)
-        .where(eq(appConfigTable.key, "integration:hubspot:access_token")).limit(1);
-      const [hsEnabledRow] = await db.select().from(appConfigTable)
-        .where(eq(appConfigTable.key, "integration:hubspot:enabled")).limit(1);
+      const [hsTokenRow] = await db
+        .select()
+        .from(appConfigTable)
+        .where(eq(appConfigTable.key, "integration:hubspot:access_token"))
+        .limit(1);
+      const [hsEnabledRow] = await db
+        .select()
+        .from(appConfigTable)
+        .where(eq(appConfigTable.key, "integration:hubspot:enabled"))
+        .limit(1);
       const hsConfigured = !!hsTokenRow?.value;
       const hsEnabled = hsEnabledRow?.value === "true";
-      const hsEntry = integrations.find(i => i.key === "hubspot");
+      const hsEntry = integrations.find((i) => i.key === "hubspot");
       if (hsEntry) {
         hsEntry.configured = hsConfigured;
         hsEntry.enabled = hsEnabled;
-        hsEntry.status = hsConfigured ? (hsEnabled ? "connected" : "available") : "available";
+        hsEntry.status = hsConfigured
+          ? hsEnabled
+            ? "connected"
+            : "available"
+          : "available";
       }
     } catch {
       // keep defaults
     }
 
-    const connected = integrations.filter(i => i.status === "connected").length;
-    const errors = recentLogs.filter(l => l.status === "error").length;
+    const connected = integrations.filter(
+      (i) => i.status === "connected",
+    ).length;
+    const errors = recentLogs.filter((l) => l.status === "error").length;
     const lastRun = recentLogs[0]?.createdAt ?? null;
 
     res.json({ integrations, summary: { connected, errors, lastRun } });
@@ -391,13 +511,16 @@ router.get("/integrations/health", async (req, res) => {
 router.get("/integrations/logs", async (req, res) => {
   try {
     const userId = req.userId;
-    const { integration, status, direction, limit } = req.query as Record<string, string>;
+    const { integration, status, direction, limit } = req.query as Record<
+      string,
+      string
+    >;
 
     const logs = await listIntegrationLogs({
       userId: userId ?? undefined,
       integrationKey: integration || undefined,
-      status: status as any || undefined,
-      direction: direction as any || undefined,
+      status: (status as any) || undefined,
+      direction: (direction as any) || undefined,
       limit: safeNumber(limit, { min: 1, max: 200 }) ?? 100,
     });
 
@@ -415,16 +538,26 @@ router.get("/integrations/logs", async (req, res) => {
 router.get("/integrations/logs/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (isNaN(id)) { apiError(res, 400, "Invalid log id"); return; }
+    if (isNaN(id)) {
+      apiError(res, 400, "Invalid log id");
+      return;
+    }
 
-    const [log] = await db.select().from(integrationLogsTable)
-      .where(eq(integrationLogsTable.id, id)).limit(1);
+    const [log] = await db
+      .select()
+      .from(integrationLogsTable)
+      .where(eq(integrationLogsTable.id, id))
+      .limit(1);
 
-    if (!log) { apiError(res, 404, "Log not found"); return; }
+    if (!log) {
+      apiError(res, 404, "Log not found");
+      return;
+    }
 
     // Tenancy: only own logs
     if (req.userId && log.userId && log.userId !== req.userId) {
-      apiError(res, 404, "Log not found"); return;
+      apiError(res, 404, "Log not found");
+      return;
     }
 
     res.json({ log });
@@ -445,10 +578,11 @@ const MAKE_KEYS = {
 };
 
 async function getMakeConfig() {
-  const rows = await db.select().from(appConfigTable).where(
-    sql`${appConfigTable.key} LIKE 'integration:make:%'`
-  );
-  const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  const rows = await db
+    .select()
+    .from(appConfigTable)
+    .where(sql`${appConfigTable.key} LIKE 'integration:make:%'`);
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   const rawUrl = map[MAKE_KEYS.url] ?? "";
   const hasUrl = !!rawUrl;
   const hasSecret = !!map[MAKE_KEYS.secret];
@@ -466,12 +600,19 @@ function maskConfigUrl(url: string): string {
   try {
     const u = new URL(url);
     return `${u.protocol}//${u.host}${u.pathname}`;
-  } catch { return url.substring(0, 50) + "…"; }
+  } catch {
+    return url.substring(0, 50) + "…";
+  }
 }
 
 async function upsertConfig(key: string, value: string) {
-  await db.insert(appConfigTable).values({ key, value, updatedAt: new Date() })
-    .onConflictDoUpdate({ target: appConfigTable.key, set: { value, updatedAt: new Date() } });
+  await db
+    .insert(appConfigTable)
+    .values({ key, value, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: appConfigTable.key,
+      set: { value, updatedAt: new Date() },
+    });
 }
 
 /**
@@ -494,17 +635,19 @@ router.get("/integrations/make/config", async (_req, res) => {
  */
 router.post("/integrations/make/config", async (req, res) => {
   try {
-    const { webhookUrl, secret, enabled, environment, description } = req.body as {
-      webhookUrl?: string;
-      secret?: string;
-      enabled?: boolean;
-      environment?: string;
-      description?: string;
-    };
+    const { webhookUrl, secret, enabled, environment, description } =
+      req.body as {
+        webhookUrl?: string;
+        secret?: string;
+        enabled?: boolean;
+        environment?: string;
+        description?: string;
+      };
 
     if (webhookUrl !== undefined) {
       if (webhookUrl && !(await validateSafeUrl(webhookUrl))) {
-        apiError(res, 400, "URL inválida ou não permitida."); return;
+        apiError(res, 400, "URL inválida ou não permitida.");
+        return;
       }
       await upsertConfig(MAKE_KEYS.url, webhookUrl ?? "");
     }
@@ -541,15 +684,21 @@ router.post("/integrations/make/test", async (req, res) => {
   try {
     const userId = req.userId;
 
-    const rows = await db.select().from(appConfigTable).where(
-      sql`${appConfigTable.key} LIKE 'integration:make:%'`
-    );
-    const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    const rows = await db
+      .select()
+      .from(appConfigTable)
+      .where(sql`${appConfigTable.key} LIKE 'integration:make:%'`);
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     const rawUrl = map[MAKE_KEYS.url];
     const encryptedSecret = map[MAKE_KEYS.secret];
 
     if (!rawUrl) {
-      apiError(res, 400, "Make.com não configurado. Salve a URL do webhook primeiro."); return;
+      apiError(
+        res,
+        400,
+        "Make.com não configurado. Salve a URL do webhook primeiro.",
+      );
+      return;
     }
 
     const secret = encryptedSecret ? decrypt(encryptedSecret) : undefined;
@@ -599,7 +748,8 @@ router.post("/integrations/inbound/:source", async (req, res) => {
   const body = req.body;
 
   try {
-    const sanitizedSource = source.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 50) || "unknown";
+    const sanitizedSource =
+      source.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 50) || "unknown";
 
     await writeIntegrationLog({
       userId: req.userId ?? undefined,
@@ -635,22 +785,34 @@ router.post("/integrations/inbound/:source", async (req, res) => {
  */
 router.post("/integrations/events/dispatch", async (req, res) => {
   try {
-    const { eventType, payload } = req.body as { eventType?: string; payload?: Record<string, unknown> };
-    if (!eventType) { apiError(res, 400, "eventType required"); return; }
+    const { eventType, payload } = req.body as {
+      eventType?: string;
+      payload?: Record<string, unknown>;
+    };
+    if (!eventType) {
+      apiError(res, 400, "eventType required");
+      return;
+    }
 
     const userId = req.userId;
-    const results: Array<{ target: string; result: Awaited<ReturnType<typeof dispatchWebhook>> }> = [];
+    const results: Array<{
+      target: string;
+      result: Awaited<ReturnType<typeof dispatchWebhook>>;
+    }> = [];
 
     // Fan out to Make.com if configured
-    const rows = await db.select().from(appConfigTable).where(
-      sql`${appConfigTable.key} LIKE 'integration:make:%'`
-    );
-    const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    const rows = await db
+      .select()
+      .from(appConfigTable)
+      .where(sql`${appConfigTable.key} LIKE 'integration:make:%'`);
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     const makeUrl = map[MAKE_KEYS.url];
     const makeEnabled = map[MAKE_KEYS.enabled] === "true";
 
     if (makeUrl && makeEnabled) {
-      const secret = map[MAKE_KEYS.secret] ? decrypt(map[MAKE_KEYS.secret]) : undefined;
+      const secret = map[MAKE_KEYS.secret]
+        ? decrypt(map[MAKE_KEYS.secret])
+        : undefined;
       const r = await dispatchWebhook({
         targetUrl: makeUrl,
         eventType,
@@ -684,7 +846,10 @@ function maskToken(token: string): string {
 router.get("/integrations/hubspot/config", async (req, res) => {
   try {
     const userId = req.userId;
-    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+    if (!userId) {
+      apiError(res, 401, "Unauthorized");
+      return;
+    }
 
     const config = await getHubSpotConfig(userId);
     if (!config) {
@@ -704,7 +869,9 @@ router.get("/integrations/hubspot/config", async (req, res) => {
 
     let lastSyncAt: Date | null = null;
     try {
-      const [lastSyncRow] = await db.select().from(hubspotSyncStateTable)
+      const [lastSyncRow] = await db
+        .select()
+        .from(hubspotSyncStateTable)
         .where(eq(hubspotSyncStateTable.userId, userId))
         .orderBy(desc(hubspotSyncStateTable.lastPolledAt))
         .limit(1);
@@ -737,7 +904,10 @@ router.get("/integrations/hubspot/config", async (req, res) => {
 router.post("/integrations/hubspot/config", async (req, res) => {
   try {
     const userId = req.userId;
-    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+    if (!userId) {
+      apiError(res, 401, "Unauthorized");
+      return;
+    }
 
     const { accessToken, portalId, enabled, syncDirection } = req.body as {
       accessToken?: string;
@@ -747,27 +917,59 @@ router.post("/integrations/hubspot/config", async (req, res) => {
     };
 
     if (accessToken !== undefined && accessToken !== "") {
-      await db.insert(appConfigTable)
-        .values({ key: "integration:hubspot:access_token", value: encrypt(accessToken), updatedAt: new Date() })
-        .onConflictDoUpdate({ target: appConfigTable.key, set: { value: encrypt(accessToken), updatedAt: new Date() } });
+      await db
+        .insert(appConfigTable)
+        .values({
+          key: "integration:hubspot:access_token",
+          value: encrypt(accessToken),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: appConfigTable.key,
+          set: { value: encrypt(accessToken), updatedAt: new Date() },
+        });
     }
 
     if (portalId !== undefined) {
-      await db.insert(appConfigTable)
-        .values({ key: "integration:hubspot:portal_id", value: portalId, updatedAt: new Date() })
-        .onConflictDoUpdate({ target: appConfigTable.key, set: { value: portalId, updatedAt: new Date() } });
+      await db
+        .insert(appConfigTable)
+        .values({
+          key: "integration:hubspot:portal_id",
+          value: portalId,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: appConfigTable.key,
+          set: { value: portalId, updatedAt: new Date() },
+        });
     }
 
     if (enabled !== undefined) {
-      await db.insert(appConfigTable)
-        .values({ key: "integration:hubspot:enabled", value: String(enabled), updatedAt: new Date() })
-        .onConflictDoUpdate({ target: appConfigTable.key, set: { value: String(enabled), updatedAt: new Date() } });
+      await db
+        .insert(appConfigTable)
+        .values({
+          key: "integration:hubspot:enabled",
+          value: String(enabled),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: appConfigTable.key,
+          set: { value: String(enabled), updatedAt: new Date() },
+        });
     }
 
     if (syncDirection !== undefined) {
-      await db.insert(appConfigTable)
-        .values({ key: "integration:hubspot:sync_direction", value: syncDirection, updatedAt: new Date() })
-        .onConflictDoUpdate({ target: appConfigTable.key, set: { value: syncDirection, updatedAt: new Date() } });
+      await db
+        .insert(appConfigTable)
+        .values({
+          key: "integration:hubspot:sync_direction",
+          value: syncDirection,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: appConfigTable.key,
+          set: { value: syncDirection, updatedAt: new Date() },
+        });
     }
 
     const config = await getHubSpotConfig(userId);
@@ -794,11 +996,18 @@ router.post("/integrations/hubspot/config", async (req, res) => {
 router.post("/integrations/hubspot/test", async (req, res) => {
   try {
     const userId = req.userId;
-    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+    if (!userId) {
+      apiError(res, 401, "Unauthorized");
+      return;
+    }
 
     const config = await getHubSpotConfig(userId);
     if (!config || !config.accessToken) {
-      apiError(res, 400, "HubSpot não configurado. Salve o token de acesso primeiro.");
+      apiError(
+        res,
+        400,
+        "HubSpot não configurado. Salve o token de acesso primeiro.",
+      );
       return;
     }
 
@@ -810,19 +1019,28 @@ router.post("/integrations/hubspot/test", async (req, res) => {
       testResult.companyCount = count;
     } catch (err) {
       testResult.companyCount = null;
-      testResult.companyError = err instanceof Error ? err.message : String(err);
+      testResult.companyError =
+        err instanceof Error ? err.message : String(err);
     }
 
     try {
       const pipelines = await client.getDealPipelines();
       testResult.pipelineCount = pipelines.results.length;
-      testResult.pipelines = pipelines.results.map((p: { id: string; label: string; stages: Array<{ id: string; label: string }> }) => ({ id: p.id, label: p.label, stageCount: p.stages.length }));
+      testResult.pipelines = pipelines.results.map(
+        (p: {
+          id: string;
+          label: string;
+          stages: Array<{ id: string; label: string }>;
+        }) => ({ id: p.id, label: p.label, stageCount: p.stages.length }),
+      );
     } catch (err) {
       testResult.pipelineCount = null;
-      testResult.pipelineError = err instanceof Error ? err.message : String(err);
+      testResult.pipelineError =
+        err instanceof Error ? err.message : String(err);
     }
 
-    const ok = testResult.companyCount !== null && testResult.pipelineCount !== null;
+    const ok =
+      testResult.companyCount !== null && testResult.pipelineCount !== null;
 
     await writeIntegrationLog({
       userId,
@@ -832,7 +1050,10 @@ router.post("/integrations/hubspot/test", async (req, res) => {
       direction: "outbound",
       status: ok ? "success" : "error",
       payloadPreview: safePayloadPreview(testResult),
-      errorMessage: ok ? undefined : (testResult.companyError as string ?? testResult.pipelineError as string),
+      errorMessage: ok
+        ? undefined
+        : ((testResult.companyError as string) ??
+          (testResult.pipelineError as string)),
       correlationId: `hs-test-${Date.now()}`,
     });
 
@@ -843,10 +1064,12 @@ router.post("/integrations/hubspot/test", async (req, res) => {
         pipelineCount: testResult.pipelineCount,
         pipelines: testResult.pipelines,
       },
-      errors: ok ? undefined : {
-        company: testResult.companyError,
-        pipeline: testResult.pipelineError,
-      },
+      errors: ok
+        ? undefined
+        : {
+            company: testResult.companyError,
+            pipeline: testResult.pipelineError,
+          },
     });
   } catch (err) {
     console.error("[Integrations] hubspot test error:", err);
@@ -858,29 +1081,39 @@ router.post("/integrations/hubspot/test", async (req, res) => {
  * POST /api/integrations/hubspot/setup-custom-properties
  * One-click setup of all custom properties in HubSpot.
  */
-router.post("/integrations/hubspot/setup-custom-properties", async (req, res) => {
-  try {
-    const userId = req.userId;
-    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+router.post(
+  "/integrations/hubspot/setup-custom-properties",
+  async (req, res) => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        apiError(res, 401, "Unauthorized");
+        return;
+      }
 
-    const config = await getHubSpotConfig(userId);
-    if (!config || !config.accessToken) {
-      apiError(res, 400, "HubSpot não configurado. Salve o token de acesso primeiro.");
-      return;
+      const config = await getHubSpotConfig(userId);
+      if (!config || !config.accessToken) {
+        apiError(
+          res,
+          400,
+          "HubSpot não configurado. Salve o token de acesso primeiro.",
+        );
+        return;
+      }
+
+      const client = new HubSpotClient(config.accessToken, config.portalId);
+      const result = await ensureCustomProperties(client);
+
+      res.json({
+        ok: result.errors.length === 0,
+        ...result,
+      });
+    } catch (err) {
+      console.error("[Integrations] hubspot setup-properties error:", err);
+      apiError(res, 500, "Erro ao configurar propriedades no HubSpot");
     }
-
-    const client = new HubSpotClient(config.accessToken, config.portalId);
-    const result = await ensureCustomProperties(client);
-
-    res.json({
-      ok: result.errors.length === 0,
-      ...result,
-    });
-  } catch (err) {
-    console.error("[Integrations] hubspot setup-properties error:", err);
-    apiError(res, 500, "Erro ao configurar propriedades no HubSpot");
-  }
-});
+  },
+);
 
 /**
  * GET /api/integrations/hubspot/lists
@@ -889,9 +1122,14 @@ router.post("/integrations/hubspot/setup-custom-properties", async (req, res) =>
 router.get("/integrations/hubspot/lists", async (req, res) => {
   try {
     const userId = req.userId;
-    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+    if (!userId) {
+      apiError(res, 401, "Unauthorized");
+      return;
+    }
 
-    const mappings = await db.select().from(hubspotListMappingTable)
+    const mappings = await db
+      .select()
+      .from(hubspotListMappingTable)
       .where(eq(hubspotListMappingTable.userId, userId))
       .orderBy(asc(hubspotListMappingTable.tagName));
 
@@ -909,7 +1147,10 @@ router.get("/integrations/hubspot/lists", async (req, res) => {
 router.post("/integrations/hubspot/lists", async (req, res) => {
   try {
     const userId = req.userId;
-    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+    if (!userId) {
+      apiError(res, 401, "Unauthorized");
+      return;
+    }
 
     const { tagName, hubspotListId, direction } = req.body as {
       tagName?: string;
@@ -922,7 +1163,8 @@ router.post("/integrations/hubspot/lists", async (req, res) => {
       return;
     }
 
-    await db.insert(hubspotListMappingTable)
+    await db
+      .insert(hubspotListMappingTable)
       .values({
         userId,
         tagName,
@@ -930,11 +1172,25 @@ router.post("/integrations/hubspot/lists", async (req, res) => {
         direction: direction ?? "bidirectional",
       })
       .onConflictDoUpdate({
-        target: [hubspotListMappingTable.userId, hubspotListMappingTable.tagName],
-        set: { hubspotListId, direction: direction ?? "bidirectional", updatedAt: new Date() },
+        target: [
+          hubspotListMappingTable.userId,
+          hubspotListMappingTable.tagName,
+        ],
+        set: {
+          hubspotListId,
+          direction: direction ?? "bidirectional",
+          updatedAt: new Date(),
+        },
       });
 
-    res.json({ success: true, mapping: { tagName, hubspotListId, direction: direction ?? "bidirectional" } });
+    res.json({
+      success: true,
+      mapping: {
+        tagName,
+        hubspotListId,
+        direction: direction ?? "bidirectional",
+      },
+    });
   } catch (err) {
     console.error("[Integrations] hubspot list save error:", err);
     apiError(res, 500, "Failed to save list mapping");
@@ -948,11 +1204,20 @@ router.post("/integrations/hubspot/lists", async (req, res) => {
 router.delete("/integrations/hubspot/lists/:tagName", async (req, res) => {
   try {
     const userId = req.userId;
-    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+    if (!userId) {
+      apiError(res, 401, "Unauthorized");
+      return;
+    }
 
     const { tagName } = req.params;
-    await db.delete(hubspotListMappingTable)
-      .where(and(eq(hubspotListMappingTable.userId, userId), eq(hubspotListMappingTable.tagName, tagName)));
+    await db
+      .delete(hubspotListMappingTable)
+      .where(
+        and(
+          eq(hubspotListMappingTable.userId, userId),
+          eq(hubspotListMappingTable.tagName, tagName),
+        ),
+      );
 
     res.json({ success: true });
   } catch (err) {
@@ -968,7 +1233,10 @@ router.delete("/integrations/hubspot/lists/:tagName", async (req, res) => {
 router.post("/integrations/hubspot/sync-lists", async (req, res) => {
   try {
     const userId = req.userId;
-    if (!userId) { apiError(res, 401, "Unauthorized"); return; }
+    if (!userId) {
+      apiError(res, 401, "Unauthorized");
+      return;
+    }
 
     const config = await getHubSpotConfig(userId);
     if (!config || !config.accessToken) {
@@ -998,21 +1266,38 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
 
   try {
     // Prefer authenticated user's ID (browser call), fall back to DB lookup (cron call)
-    let userId = (req.userId && req.userId !== "system") ? req.userId : "system";
+    let userId = req.userId && req.userId !== "system" ? req.userId : "system";
     if (userId === "system") {
       try {
         const tables = [conversationsTable, crmContactsTable];
         for (const table of tables) {
-          const [row] = await db.select({ userId: table.userId })
+          const [row] = await db
+            .select({ userId: table.userId })
             .from(table)
-            .where(sql`${table.userId} IS NOT NULL AND ${table.userId} != 'system'`)
+            .where(
+              sql`${table.userId} IS NOT NULL AND ${table.userId} != 'system'`,
+            )
             .limit(1);
-          if (row?.userId) { userId = row.userId; break; }
+          if (row?.userId) {
+            userId = row.userId;
+            break;
+          }
         }
-      } catch { /* fall through to "system" */ }
+      } catch {
+        /* fall through to "system" */
+      }
     }
 
-    const results: Array<{ userId: string; companies: number; deals: number; notes: number; tasks: number; listsFound: number; contactsTagged: number; listSource: string }> = [];
+    const results: Array<{
+      userId: string;
+      companies: number;
+      deals: number;
+      notes: number;
+      tasks: number;
+      listsFound: number;
+      contactsTagged: number;
+      listSource: string;
+    }> = [];
     const errors: Array<{ userId: string; error: string }> = [];
 
     const config = await getHubSpotConfig(userId);
@@ -1056,9 +1341,13 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
  */
 router.get("/integrations/hubspot/lists-debug", async (req, res) => {
   try {
-    const userId = (req.userId && req.userId !== "system") ? req.userId : "system";
+    const userId =
+      req.userId && req.userId !== "system" ? req.userId : "system";
     const config = await getHubSpotConfig(userId);
-    if (!config?.accessToken) { apiError(res, 400, "HubSpot not configured"); return; }
+    if (!config?.accessToken) {
+      apiError(res, 400, "HubSpot not configured");
+      return;
+    }
 
     const client = new HubSpotClient(config.accessToken, config.portalId);
     const BASE_URL = "https://api.hubapi.com";
@@ -1069,47 +1358,75 @@ router.get("/integrations/hubspot/lists-debug", async (req, res) => {
     // 1. v3 lists (default)
     try {
       const raw = await client.getLists();
-      results.v3_default = { count: raw.lists?.length ?? 0, total: (raw as any).total };
+      results.v3_default = {
+        count: raw.lists?.length ?? 0,
+        total: (raw as any).total,
+      };
     } catch (err) {
-      results.v3_default = { error: err instanceof Error ? err.message : String(err) };
+      results.v3_default = {
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
 
     // 2. v3 lists filtered by companies + DYNAMIC processing type
     try {
-      const rawCompanies = await (client as any)._request("GET", "/crm/v3/lists/?objectTypeId=0-2&processingTypes=DYNAMIC&limit=100");
+      const rawCompanies = await (client as any)._request(
+        "GET",
+        "/crm/v3/lists/?objectTypeId=0-2&processingTypes=DYNAMIC&limit=100",
+      );
       results.v3_companies = {
         count: rawCompanies.lists?.length ?? 0,
         total: rawCompanies.total,
-        sample: rawCompanies.lists?.slice(0, 3).map((l: any) => ({ listId: l.listId, name: l.name, objectTypeId: l.objectTypeId, processingType: l.processingType })),
+        sample: rawCompanies.lists?.slice(0, 3).map((l: any) => ({
+          listId: l.listId,
+          name: l.name,
+          objectTypeId: l.objectTypeId,
+          processingType: l.processingType,
+        })),
       };
     } catch (err) {
-      results.v3_companies = { error: err instanceof Error ? err.message : String(err) };
+      results.v3_companies = {
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
 
     // 2b. v3 lists with ALL processing types
     try {
-      const rawAll = await (client as any)._request("GET", "/crm/v3/lists/?objectTypeId=0-2&processingTypes=DYNAMIC&processingTypes=MANUAL&processingTypes=SNAPSHOT&limit=100");
+      const rawAll = await (client as any)._request(
+        "GET",
+        "/crm/v3/lists/?objectTypeId=0-2&processingTypes=DYNAMIC&processingTypes=MANUAL&processingTypes=SNAPSHOT&limit=100",
+      );
       results.v3_all = {
         count: rawAll.lists?.length ?? 0,
         total: rawAll.total,
       };
     } catch (err) {
-      results.v3_all = { error: err instanceof Error ? err.message : String(err) };
+      results.v3_all = {
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
 
     // 3. v1 contact lists
     try {
       const raw = await client.getContactLists();
-      results.v1_contacts = { count: raw.lists?.length ?? 0, hasMore: raw["has-more"] };
+      results.v1_contacts = {
+        count: raw.lists?.length ?? 0,
+        hasMore: raw["has-more"],
+      };
     } catch (err) {
-      results.v1_contacts = { error: err instanceof Error ? err.message : String(err) };
+      results.v1_contacts = {
+        error: err instanceof Error ? err.message : String(err),
+      };
     }
 
     // 4. Test token scopes by calling a known endpoint
     try {
-      const tokenInfo = await fetch(`${BASE_URL}/oauth/v1/access-tokens/${config.accessToken}`, {
-        headers: { Authorization: `Bearer ${config.accessToken}` },
-      });
+      const tokenInfo = await fetch(
+        `${BASE_URL}/oauth/v1/access-tokens/${config.accessToken}`,
+        {
+          headers: { Authorization: `Bearer ${config.accessToken}` },
+        },
+      );
       results.token_check = { status: tokenInfo.status, ok: tokenInfo.ok };
     } catch {
       results.token_check = { error: "fetch failed" };
@@ -1117,7 +1434,11 @@ router.get("/integrations/hubspot/lists-debug", async (req, res) => {
 
     res.json({ portalId: config.portalId, results });
   } catch (err) {
-    apiError(res, 500, err instanceof Error ? err.message : "Failed to fetch lists");
+    apiError(
+      res,
+      500,
+      err instanceof Error ? err.message : "Failed to fetch lists",
+    );
   }
 });
 
@@ -1128,8 +1449,12 @@ router.get("/integrations/hubspot/lists-debug", async (req, res) => {
  */
 router.post("/integrations/hubspot/auto-segment", async (req, res) => {
   try {
-    const userId = req.userId && req.userId !== "system" ? req.userId : "system";
-    if (userId === "system") { apiError(res, 401, "Login required"); return; }
+    const userId =
+      req.userId && req.userId !== "system" ? req.userId : "system";
+    if (userId === "system") {
+      apiError(res, 401, "Login required");
+      return;
+    }
 
     const config = await getHubSpotConfig(userId);
     const result = await autoSegmentContacts(userId);
@@ -1145,7 +1470,11 @@ router.post("/integrations/hubspot/auto-segment", async (req, res) => {
       listsSynced,
     });
   } catch (err) {
-    apiError(res, 500, err instanceof Error ? err.message : "Auto-segment failed");
+    apiError(
+      res,
+      500,
+      err instanceof Error ? err.message : "Auto-segment failed",
+    );
   }
 });
 

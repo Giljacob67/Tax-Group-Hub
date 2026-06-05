@@ -7,18 +7,37 @@ vi.mock("@workspace/db", () => ({
     insert: vi.fn(),
   },
   crmContactsTable: {
-    id: "id", userId: "user_id", cnpj: "cnpj", razaoSocial: "razao_social",
-    nomeFantasia: "nome_fantasia", regimeTributario: "regime_tributario",
-    cnae: "cnae", faturamentoEstimado: "faturamento_estimado", porte: "porte",
-    uf: "uf", status: "status", aiScore: "ai_score", aiScoreDetails: "ai_score_details",
-    aiRecommendedProduct: "ai_recommended_product", lastEnrichedAt: "last_enriched_at",
+    id: "id",
+    userId: "user_id",
+    cnpj: "cnpj",
+    razaoSocial: "razao_social",
+    nomeFantasia: "nome_fantasia",
+    regimeTributario: "regime_tributario",
+    cnae: "cnae",
+    faturamentoEstimado: "faturamento_estimado",
+    porte: "porte",
+    uf: "uf",
+    status: "status",
+    aiScore: "ai_score",
+    aiScoreDetails: "ai_score_details",
+    aiRecommendedProduct: "ai_recommended_product",
+    lastEnrichedAt: "last_enriched_at",
   },
   crmDealsTable: {
-    id: "id", contactId: "contact_id", userId: "user_id", title: "title",
-    produto: "produto", stage: "stage", probability: "probability", value: "value",
+    id: "id",
+    contactId: "contact_id",
+    userId: "user_id",
+    title: "title",
+    produto: "produto",
+    stage: "stage",
+    probability: "probability",
+    value: "value",
   },
   crmEnrichmentLogTable: {
-    contactId: "contact_id", source: "source", rawData: "raw_data", fieldsUpdated: "fields_updated",
+    contactId: "contact_id",
+    source: "source",
+    rawData: "raw_data",
+    fieldsUpdated: "fields_updated",
   },
 }));
 
@@ -69,19 +88,39 @@ function mockInsertChain() {
 }
 
 const MOCK_AGENT = {
-  id: "diagnostico-cnpj-tax-group", name: "Diagnostico CNPJ",
-  slug: "diagnostico-cnpj-tax-group", systemPrompt: "You are a tax diagnostic agent.",
-  description: "Test", block: "prospeccao" as const, blockLabel: "Prospeccao",
-  icon: "X", suggestedPrompts: [], priority: 1, color: "#000",
+  id: "diagnostico-cnpj-tax-group",
+  name: "Diagnostico CNPJ",
+  slug: "diagnostico-cnpj-tax-group",
+  systemPrompt: "You are a tax diagnostic agent.",
+  description: "Test",
+  block: "prospeccao" as const,
+  blockLabel: "Prospeccao",
+  icon: "X",
+  suggestedPrompts: [],
+  priority: 1,
+  color: "#000",
 };
 
 const MOCK_CONTACT = {
-  id: 42, userId: "user-1", cnpj: "12.345.678/0001-90", razaoSocial: "Empresa Teste",
-  nomeFantasia: "Teste LTDA", regimeTributario: "Lucro Real", cnae: "6201-5/01",
-  faturamentoEstimado: "R$ 1.000.000", porte: "Medio", uf: "SP", status: "lead",
+  id: 42,
+  userId: "user-1",
+  cnpj: "12.345.678/0001-90",
+  razaoSocial: "Empresa Teste",
+  nomeFantasia: "Teste LTDA",
+  regimeTributario: "Lucro Real",
+  cnae: "6201-5/01",
+  faturamentoEstimado: "R$ 1.000.000",
+  porte: "Medio",
+  uf: "SP",
+  status: "lead",
 };
 
-const JSON_OUTPUT = (score: number, classif: string, produto: string, credito: string) =>
+const JSON_OUTPUT = (
+  score: number,
+  classif: string,
+  produto: string,
+  credito: string,
+) =>
   `\`\`\`json\n{"score": ${score}, "classificacao": "${classif}", "produto_recomendado": "${produto}", "credito_estimado": "${credito}"}\n\`\`\``;
 
 describe("enrichContact", () => {
@@ -109,8 +148,12 @@ describe("enrichContact", () => {
 
     (callLLM as any).mockResolvedValue({
       output: JSON_OUTPUT(85, "HOT", "AFD", "R$ 150.000"),
-      tokensUsed: 100, promptTokens: 50, completionTokens: 50,
-      executionTimeMs: 200, model: "gpt-4o", provider: "OpenAI",
+      tokensUsed: 100,
+      promptTokens: 50,
+      completionTokens: 50,
+      executionTimeMs: 200,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const result = await enrichContact(42, "user-1");
@@ -131,8 +174,12 @@ describe("enrichContact", () => {
 
     (callLLM as any).mockResolvedValue({
       output: "Score: 72\nClassification: WARM\nProduto: AFD",
-      tokensUsed: 80, promptTokens: 40, completionTokens: 40,
-      executionTimeMs: 150, model: "gpt-4o", provider: "OpenAI",
+      tokensUsed: 80,
+      promptTokens: 40,
+      completionTokens: 40,
+      executionTimeMs: 150,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const result = await enrichContact(42, "user-1");
@@ -151,8 +198,12 @@ describe("enrichContact", () => {
 
     (callLLM as any).mockResolvedValue({
       output: JSON_OUTPUT(80, "HOT", "REP", "R$ 200k"),
-      tokensUsed: 50, promptTokens: 25, completionTokens: 25,
-      executionTimeMs: 100, model: "gpt-4o", provider: "OpenAI",
+      tokensUsed: 50,
+      promptTokens: 25,
+      completionTokens: 25,
+      executionTimeMs: 100,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const result = await enrichContact(42, "user-1");
@@ -169,8 +220,12 @@ describe("enrichContact", () => {
 
     (callLLM as any).mockResolvedValue({
       output: JSON_OUTPUT(30, "COLD", "", ""),
-      tokensUsed: 50, promptTokens: 25, completionTokens: 25,
-      executionTimeMs: 100, model: "gpt-4o", provider: "OpenAI",
+      tokensUsed: 50,
+      promptTokens: 25,
+      completionTokens: 25,
+      executionTimeMs: 100,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const result = await enrichContact(42, "user-1");
@@ -189,8 +244,12 @@ describe("enrichContact", () => {
 
     (callLLM as any).mockResolvedValue({
       output: JSON_OUTPUT(90, "HOT", "AFD", "R$ 300k"),
-      tokensUsed: 50, promptTokens: 25, completionTokens: 25,
-      executionTimeMs: 100, model: "gpt-4o", provider: "OpenAI",
+      tokensUsed: 50,
+      promptTokens: 25,
+      completionTokens: 25,
+      executionTimeMs: 100,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const result = await enrichContact(42, "user-1");
@@ -203,9 +262,14 @@ describe("enrichContact", () => {
     (db.insert as any).mockReturnValue(mockInsertChain());
 
     (callLLM as any).mockResolvedValue({
-      output: '\u0060\u0060\u0060json\n{"score": 55, "classification": "WARM", "produto": "RTI", "credito": "R$ 50k"}\n\u0060\u0060\u0060',
-      tokensUsed: 50, promptTokens: 25, completionTokens: 25,
-      executionTimeMs: 100, model: "gpt-4o", provider: "OpenAI",
+      output:
+        '\u0060\u0060\u0060json\n{"score": 55, "classification": "WARM", "produto": "RTI", "credito": "R$ 50k"}\n\u0060\u0060\u0060',
+      tokensUsed: 50,
+      promptTokens: 25,
+      completionTokens: 25,
+      executionTimeMs: 100,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const result = await enrichContact(42, "user-1");
@@ -220,8 +284,12 @@ describe("enrichContact", () => {
 
     (callLLM as any).mockResolvedValue({
       output: "Score: 150\nClassification: HOT",
-      tokensUsed: 50, promptTokens: 25, completionTokens: 25,
-      executionTimeMs: 100, model: "gpt-4o", provider: "OpenAI",
+      tokensUsed: 50,
+      promptTokens: 25,
+      completionTokens: 25,
+      executionTimeMs: 100,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const result = await enrichContact(42, "user-1");
@@ -235,8 +303,12 @@ describe("enrichContact", () => {
 
     (callLLM as any).mockResolvedValue({
       output: "I have no structured data to provide.",
-      tokensUsed: 50, promptTokens: 25, completionTokens: 25,
-      executionTimeMs: 100, model: "gpt-4o", provider: "OpenAI",
+      tokensUsed: 50,
+      promptTokens: 25,
+      completionTokens: 25,
+      executionTimeMs: 100,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const result = await enrichContact(42, "user-1");
@@ -251,8 +323,12 @@ describe("enrichContact", () => {
 
     (callLLM as any).mockResolvedValue({
       output: JSON_OUTPUT(50, "WARM", "REP", ""),
-      tokensUsed: 50, promptTokens: 25, completionTokens: 25,
-      executionTimeMs: 100, model: "gpt-4o", provider: "OpenAI",
+      tokensUsed: 50,
+      promptTokens: 25,
+      completionTokens: 25,
+      executionTimeMs: 100,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     await enrichContact(42, "user-1");
@@ -271,8 +347,12 @@ describe("enrichContact", () => {
 
     (callLLM as any).mockResolvedValue({
       output: JSON_OUTPUT(10, "FORA DO ICP", "", ""),
-      tokensUsed: 50, promptTokens: 25, completionTokens: 25,
-      executionTimeMs: 100, model: "gpt-4o", provider: "OpenAI",
+      tokensUsed: 50,
+      promptTokens: 25,
+      completionTokens: 25,
+      executionTimeMs: 100,
+      model: "gpt-4o",
+      provider: "OpenAI",
     });
 
     const result = await enrichContact(42, "user-1");

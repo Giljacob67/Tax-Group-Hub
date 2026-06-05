@@ -27,7 +27,11 @@ interface CoordinatorReview {
   conversationId: string;
 }
 
-async function executeAgentTask(task: OrchestrationTask, context?: string, userId?: string): Promise<OrchestrationResult> {
+async function executeAgentTask(
+  task: OrchestrationTask,
+  context?: string,
+  userId?: string,
+): Promise<OrchestrationResult> {
   const agent = getAgentById(task.agentId);
   if (!agent) {
     return {
@@ -69,19 +73,30 @@ async function executeAgentTask(task: OrchestrationTask, context?: string, userI
       assistantContent = result.output || "Sem resposta do agente.";
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      const isUnconfigured = /não configurada|not configured|API Key/i.test(errMsg);
-      if (!isUnconfigured) console.error(`[Orchestrate] callLLM failed for agent ${task.agentId}:`, err);
+      const isUnconfigured = /não configurada|not configured|API Key/i.test(
+        errMsg,
+      );
+      if (!isUnconfigured)
+        console.error(
+          `[Orchestrate] callLLM failed for agent ${task.agentId}:`,
+          err,
+        );
       assistantContent = isUnconfigured
         ? `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para executar este agente.\n\n**Tarefa recebida:** ${task.task}`
         : `**Erro ao processar agente** — ${errMsg}\n\n**Tarefa recebida:** ${task.task}`;
     }
 
     // Save assistant response
-    await db
-      .insert(messagesTable)
-      .values({ conversationId: conv.id, role: "assistant", content: assistantContent });
+    await db.insert(messagesTable).values({
+      conversationId: conv.id,
+      role: "assistant",
+      content: assistantContent,
+    });
 
-    await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conv.id));
+    await db
+      .update(conversationsTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(conversationsTable.id, conv.id));
 
     return {
       agentId: task.agentId,
@@ -108,22 +123,25 @@ async function executeAgentTask(task: OrchestrationTask, context?: string, userI
 async function runCoordinatorReview(
   tasks: OrchestrationTask[],
   results: OrchestrationResult[],
-  userId?: string
+  userId?: string,
 ): Promise<CoordinatorReview> {
   const coordinator = getAgentById("coordenador-geral-tax-group");
   if (!coordinator) return { response: "", conversationId: "" };
 
   const successfulResults = results.filter((r) => r.success);
-  if (successfulResults.length === 0) return { response: "", conversationId: "" };
+  if (successfulResults.length === 0)
+    return { response: "", conversationId: "" };
 
   // Build the review prompt — truncate each output to keep input manageable
   const MAX_OUTPUT_CHARS = 500;
   const tasksAndOutputs = successfulResults
     .map((r) => {
       const originalTask = tasks.find((t) => t.agentId === r.agentId);
-      const truncatedResponse = r.response.length > MAX_OUTPUT_CHARS
-        ? r.response.substring(0, MAX_OUTPUT_CHARS) + "\n... [output truncado para análise]"
-        : r.response;
+      const truncatedResponse =
+        r.response.length > MAX_OUTPUT_CHARS
+          ? r.response.substring(0, MAX_OUTPUT_CHARS) +
+            "\n... [output truncado para análise]"
+          : r.response;
       return `## ${r.icon} Agente: ${r.agentName}\n**Tarefa:** ${originalTask?.task || ""}\n\n**Output:**\n${truncatedResponse}`;
     })
     .join("\n\n---\n\n");
@@ -175,12 +193,17 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
 
     try {
       const result = await callLLM(supervisorSystemPrompt, reviewPrompt);
-      console.log(`[Coordinator review] tokens=${result.tokensUsed} duration=${result.executionTimeMs}ms`);
+      console.log(
+        `[Coordinator review] tokens=${result.tokensUsed} duration=${result.executionTimeMs}ms`,
+      );
       reviewContent = result.output || "Sem parecer disponível.";
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      const isUnconfigured = /não configurada|not configured|API Key/i.test(errMsg);
-      if (!isUnconfigured) console.error("[Orchestrate] Coordinator callLLM failed:", err);
+      const isUnconfigured = /não configurada|not configured|API Key/i.test(
+        errMsg,
+      );
+      if (!isUnconfigured)
+        console.error("[Orchestrate] Coordinator callLLM failed:", err);
       reviewContent = isUnconfigured
         ? `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para ativar a supervisão do Coordenador.`
         : `**Erro na supervisão** — ${errMsg}`;
@@ -192,7 +215,10 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
       content: reviewContent,
     });
 
-    await db.update(conversationsTable).set({ updatedAt: new Date() }).where(eq(conversationsTable.id, conv.id));
+    await db
+      .update(conversationsTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(conversationsTable.id, conv.id));
 
     return { response: reviewContent, conversationId: String(conv.id) };
   } catch (err) {
@@ -204,7 +230,10 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
 router.post("/orchestrate", async (req, res) => {
   const reqId = req.id;
   try {
-    const { tasks, context } = req.body as { tasks?: OrchestrationTask[]; context?: string };
+    const { tasks, context } = req.body as {
+      tasks?: OrchestrationTask[];
+      context?: string;
+    };
 
     if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
       apiError(res, 400, "tasks array is required");
@@ -218,11 +247,15 @@ router.post("/orchestrate", async (req, res) => {
 
     // Step 1: Execute all agent tasks in parallel
     const results = await Promise.all(
-      tasks.map((task) => executeAgentTask(task, context, req.userId))
+      tasks.map((task) => executeAgentTask(task, context, req.userId)),
     );
 
     // Step 2: Coordinator reviews all outputs and gives final assessment
-    const coordinatorReview = await runCoordinatorReview(tasks, results, req.userId);
+    const coordinatorReview = await runCoordinatorReview(
+      tasks,
+      results,
+      req.userId,
+    );
 
     res.json({ results, coordinatorReview });
   } catch (err) {

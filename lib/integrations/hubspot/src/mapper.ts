@@ -1,5 +1,11 @@
 import type { CrmContact, CrmDeal, CrmActivity, CrmTask } from "@workspace/db";
-import type { HubSpotCompany, HubSpotContact, HubSpotDeal, HubSpotNote, HubSpotTask } from "./client.js";
+import type {
+  HubSpotCompany,
+  HubSpotContact,
+  HubSpotDeal,
+  HubSpotNote,
+  HubSpotTask,
+} from "./client.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -124,19 +130,35 @@ function taskTypeToHubSpot(type: string): string {
 
 function taskTypeFromHubSpot(hsType: string | null | undefined): string {
   if (!hsType) return "note";
-  const map: Record<string, string> = { call: "call", email: "email", todo: "note" };
+  const map: Record<string, string> = {
+    call: "call",
+    email: "email",
+    todo: "note",
+  };
   return map[hsType.toLowerCase()] ?? "note";
 }
 
 // ─── Activity → HubSpot Note ──────────────────────────────────────────────────
 
-export type HubSpotCompanyInput = { properties: Record<string, string | number | null> };
-export type HubSpotContactInput = { properties: Record<string, string | number | null> };
-export type HubSpotDealInput = { properties: Record<string, string | number | null> };
-export type HubSpotNoteInput = { properties: Record<string, string | number | null> };
-export type HubSpotTaskInput = { properties: Record<string, string | number | null> };
+export type HubSpotCompanyInput = {
+  properties: Record<string, string | number | null>;
+};
+export type HubSpotContactInput = {
+  properties: Record<string, string | number | null>;
+};
+export type HubSpotDealInput = {
+  properties: Record<string, string | number | null>;
+};
+export type HubSpotNoteInput = {
+  properties: Record<string, string | number | null>;
+};
+export type HubSpotTaskInput = {
+  properties: Record<string, string | number | null>;
+};
 
-export function mapContactToHubSpotCompany(contact: CrmContact): HubSpotCompanyInput {
+export function mapContactToHubSpotCompany(
+  contact: CrmContact,
+): HubSpotCompanyInput {
   return {
     properties: {
       name: safeStr(contact.razaoSocial),
@@ -160,7 +182,9 @@ export function mapContactToHubSpotCompany(contact: CrmContact): HubSpotCompanyI
   };
 }
 
-export function mapContactToHubSpotContactPerson(contact: CrmContact): HubSpotContactInput | null {
+export function mapContactToHubSpotContactPerson(
+  contact: CrmContact,
+): HubSpotContactInput | null {
   const nome = safeStr(contact.nomeDecissor).trim();
   if (!nome && !contact.email) return null;
 
@@ -192,7 +216,9 @@ export function mapDealToHubSpotDeal(deal: CrmDeal): HubSpotDealInput {
   };
 }
 
-export function mapActivityToHubSpotNote(activity: CrmActivity): HubSpotNoteInput {
+export function mapActivityToHubSpotNote(
+  activity: CrmActivity,
+): HubSpotNoteInput {
   const typePrefix: Record<string, string> = {
     call: "[Ligação] ",
     email: "[Email] ",
@@ -204,7 +230,9 @@ export function mapActivityToHubSpotNote(activity: CrmActivity): HubSpotNoteInpu
   };
 
   const prefix = typePrefix[activity.type] ?? "";
-  const title = activity.subject ? `${prefix}${activity.subject}` : `${prefix}Atividade`;
+  const title = activity.subject
+    ? `${prefix}${activity.subject}`
+    : `${prefix}Atividade`;
 
   return {
     properties: {
@@ -240,10 +268,12 @@ export function mapHubSpotCompanyToContact(
     razaoSocial: safeStr(p.name) || existing?.razaoSocial,
     nomeFantasia: safeStr(p.nome_fantasia) || existing?.nomeFantasia,
     cnpj: safeStr(p.cnpj) || existing?.cnpj,
-    regimeTributario: safeStr(p.regime_tributario) || existing?.regimeTributario,
+    regimeTributario:
+      safeStr(p.regime_tributario) || existing?.regimeTributario,
     cnae: safeStr(p.cnae) || existing?.cnae,
     porte: safeStr(p.porte) || existing?.porte,
-    faturamentoEstimado: safeStr(p.annualrevenue) || existing?.faturamentoEstimado,
+    faturamentoEstimado:
+      safeStr(p.annualrevenue) || existing?.faturamentoEstimado,
     uf: safeStr(p.state) || existing?.uf,
     cidade: safeStr(p.city) || existing?.cidade,
     endereco: safeStr(p.address) || existing?.endereco,
@@ -307,9 +337,7 @@ export function mapHubSpotNoteToActivity(
   };
 }
 
-export function mapHubSpotTaskToTask(
-  task: HubSpotTask,
-): Partial<CrmTask> {
+export function mapHubSpotTaskToTask(task: HubSpotTask): Partial<CrmTask> {
   const p = task.properties;
   return {
     hubspotId: task.id,

@@ -10,26 +10,28 @@
 
 O usuário confirmou (com links para `https://ollama.com/search?c=cloud`, `https://ai.google.dev/gemini-api/docs/models`, `https://platform.claude.com/docs/en/about-claude/models/overview` e `https://developers.openai.com/api/docs/models`) que **todos** os modelos referenciados no código existem:
 
-| Modelo | Onde | Status |
-|---|---|---|
-| `gemini-3-flash-preview` | settings.ts, env | ✅ Ollama Cloud |
-| `gemini-3-pro-preview` | settings.ts | ✅ Ollama Cloud |
-| `gemini-2.5-pro-preview-05-06` | settings.ts | ✅ Gemini API |
-| `gemini-2.0-flash-lite` | settings.ts | ✅ Gemini API |
-| `minimax-m3:cloud` | adicionado | ✅ Ollama Cloud |
-| `minimax-m2.7:cloud` | env, settings | ✅ Ollama Cloud |
-| `glm-5.1:cloud` | env, settings | ✅ Ollama Cloud |
-| `kimi-k2.5:cloud` | settings | ✅ Ollama Cloud |
-| `kimi-k2.6:cloud` | adicionado | ✅ Ollama Cloud |
-| `gemini-3.1-pro-preview` | env | ✅ Gemini API |
-| `gemini-3.1-flash-image-preview` | integrations.ts | ✅ Gemini API (image) |
+| Modelo                           | Onde             | Status                |
+| -------------------------------- | ---------------- | --------------------- |
+| `gemini-3-flash-preview`         | settings.ts, env | ✅ Ollama Cloud       |
+| `gemini-3-pro-preview`           | settings.ts      | ✅ Ollama Cloud       |
+| `gemini-2.5-pro-preview-05-06`   | settings.ts      | ✅ Gemini API         |
+| `gemini-2.0-flash-lite`          | settings.ts      | ✅ Gemini API         |
+| `minimax-m3:cloud`               | adicionado       | ✅ Ollama Cloud       |
+| `minimax-m2.7:cloud`             | env, settings    | ✅ Ollama Cloud       |
+| `glm-5.1:cloud`                  | env, settings    | ✅ Ollama Cloud       |
+| `kimi-k2.5:cloud`                | settings         | ✅ Ollama Cloud       |
+| `kimi-k2.6:cloud`                | adicionado       | ✅ Ollama Cloud       |
+| `gemini-3.1-pro-preview`         | env              | ✅ Gemini API         |
+| `gemini-3.1-flash-image-preview` | integrations.ts  | ✅ Gemini API (image) |
 
 **Defaults internos do `llm-client.ts` foram atualizados** para os modelos mais recentes:
+
 - `claude-3-5-sonnet-20240620` → **`claude-sonnet-4-5-20250929`**
 - `gemini-1.5-flash` → **`gemini-2.5-flash`**
 - `meta-llama/llama-3.1-70b-instruct` → **`meta-llama/llama-3.3-70b-instruct`**
 
 `model-discovery.ts`:
+
 - Lista Anthropic: inclui **`claude-opus-4-8`**, **`claude-sonnet-4-6`**, **`claude-haiku-4-5-20251001`** (atuais)
 - Lista OpenAI: inclui **`gpt-5.5`**, **`gpt-5.4`**, **`gpt-5.4-mini`** (atuais)
 
@@ -46,6 +48,7 @@ O usuário confirmou (com links para `https://ollama.com/search?c=cloud`, `https
 1. **Script criado** `scripts/apply-migrations.mjs` — aplica todas as migrations de `lib/db/drizzle/` + `lib/db/migrations/`. Idempotente, split de SQL robusto (suporta `$$ ... $$` PL/pgSQL blocks).
 
 2. **Todas as migrations executadas com sucesso:**
+
    ```
    ✅ 0000_init.sql (64 statements)
    ✅ 0001_pgvector_and_rag.sql (1 statement)
@@ -60,6 +63,7 @@ O usuário confirmou (com links para `https://ollama.com/search?c=cloud`, `https
    ```
 
 3. **Verificação final:**
+
    ```
    ✅ crm_contacts.valor_potencial
    ✅ crm_contacts.setor
@@ -77,6 +81,7 @@ O usuário confirmou (com links para `https://ollama.com/search?c=cloud`, `https
    ```
 
 4. **Endpoints validados pós-migration (todos 200 OK):**
+
    ```
    /api/crm/dashboards/executive?period=30d       → 200
    /api/crm/dashboards/coordenador?period=30d     → 200
@@ -116,6 +121,7 @@ Também atualizado `lostDeals` em `dashboards.ts:57` para `d.stage === "perdido"
 **Depois:**
 
 1. **Helper `logAndApiError` criado** em `src/lib/api-response.ts`:
+
    ```ts
    export function logAndApiError(
      res: Response, err: unknown, status = 500,
@@ -140,6 +146,7 @@ Também atualizado `lostDeals` em `dashboards.ts:57` para `d.stage === "perdido"
 ### ✅ #5 — Defaults de modelo outdated
 
 Atualizados em `llm-client.ts`:
+
 - Anthropic: `claude-3-5-sonnet-20240620` → `claude-sonnet-4-5-20250929`
 - Gemini: `gemini-1.5-flash` → `gemini-2.5-flash`
 - OpenRouter: `meta-llama/llama-3.1-70b-instruct` → `meta-llama/llama-3.3-70b-instruct`
@@ -147,6 +154,7 @@ Atualizados em `llm-client.ts`:
 ### ✅ #6 — Lista de modelos em `settings.ts` ampliada
 
 Adicionados modelos reais disponíveis em Ollama Cloud:
+
 - `minimax-m3:cloud` (1M context, coding & agentic)
 - `gemma4:cloud` (multimodal open-source)
 - `qwen3.5:cloud` (multimodal até 122b)
@@ -171,17 +179,18 @@ Adicionadas seções com URLs de validação e exemplos de modelos reais por pro
 
 ## 📊 Resumo final
 
-| Categoria | Status | Detalhes |
-|---|---|---|
-| Dashboards do CRM | ✅ FUNCIONANDO | Migrations aplicadas, 9/9 endpoints retornam 200 |
-| Configs de IA | ✅ ATUALIZADAS | Defaults apontam para modelos reais atuais |
-| Inconsistências Fase 1.5 | ✅ CORRIGIDAS | FINALIZADO_DEAL, proposta_enviada |
-| Logging | ✅ MELHORADO | 57 catches agora logam erro estruturado |
-| Migration no build | ✅ AUTOMATIZADO | vercel.json buildCommand aplica migrations |
-| Typecheck | ✅ TODOS PASSAM | tax-group-hub, api-server, api-zod, api-client-react |
-| Build | ✅ TODOS PASSAM | frontend e backend |
+| Categoria                | Status          | Detalhes                                             |
+| ------------------------ | --------------- | ---------------------------------------------------- |
+| Dashboards do CRM        | ✅ FUNCIONANDO  | Migrations aplicadas, 9/9 endpoints retornam 200     |
+| Configs de IA            | ✅ ATUALIZADAS  | Defaults apontam para modelos reais atuais           |
+| Inconsistências Fase 1.5 | ✅ CORRIGIDAS   | FINALIZADO_DEAL, proposta_enviada                    |
+| Logging                  | ✅ MELHORADO    | 57 catches agora logam erro estruturado              |
+| Migration no build       | ✅ AUTOMATIZADO | vercel.json buildCommand aplica migrations           |
+| Typecheck                | ✅ TODOS PASSAM | tax-group-hub, api-server, api-zod, api-client-react |
+| Build                    | ✅ TODOS PASSAM | frontend e backend                                   |
 
 ### Endpoints validados com 200 OK
+
 ```
 GET /api/crm/dashboards/executive?period=30d
 GET /api/crm/dashboards/coordenador?period=30d
@@ -199,6 +208,7 @@ GET /api/crm/me
 ## 📁 Arquivos modificados nesta rodada
 
 ### Correção de bugs
+
 - `artifacts/api-server/src/lib/dashboards.ts` — `FINALIZADO_DEAL` e `proposalsNoReturn`
 - `artifacts/api-server/src/routes/crm.ts` — 57 catches com `logAndApiError`
 - `artifacts/api-server/src/lib/api-response.ts` — novo helper `logAndApiError`
@@ -207,12 +217,14 @@ GET /api/crm/me
 - `artifacts/api-server/src/routes/settings.ts` — lista de modelos ampliada
 
 ### Infraestrutura
+
 - `scripts/apply-migrations.mjs` — **novo**, aplica todas as migrations
 - `lib/db/migrations/001_blob_url.sql` — sem mudança no arquivo, mas o script pula ivfflat problemático
 - `vercel.json` — `buildCommand` agora aplica migrations
 - `.env.example` — documentação de modelos
 
 ### Verificação executada
+
 - 9 endpoints testados: todos 200 OK
 - 13 checks de schema: todos passaram
 - Typecheck em 4 workspaces: todos passaram
@@ -222,13 +234,13 @@ GET /api/crm/me
 
 ## 🟡 Backlog (não urgente, melhorias opcionais)
 
-| Item | Local | Notas |
-|---|---|---|
-| Frontend com `any` em `PersonaDashboard.tsx` | frontend | Gerar tipos a partir do Zod schema |
-| `dist/` versionado deveria estar no `.gitignore` | repo | Recomendação de DX |
-| `crm-constants.ts` poderia usar Zod para env | backend | Type safety |
-| Mais testes para Fase 1.5 | backend | 18 testes existentes cobrem Fases 1-4; Fase 1.5 ainda sem cobertura |
-| Code-split do bundle frontend (546kB) | frontend | Vite manualChunks |
+| Item                                             | Local    | Notas                                                               |
+| ------------------------------------------------ | -------- | ------------------------------------------------------------------- |
+| Frontend com `any` em `PersonaDashboard.tsx`     | frontend | Gerar tipos a partir do Zod schema                                  |
+| `dist/` versionado deveria estar no `.gitignore` | repo     | Recomendação de DX                                                  |
+| `crm-constants.ts` poderia usar Zod para env     | backend  | Type safety                                                         |
+| Mais testes para Fase 1.5                        | backend  | 18 testes existentes cobrem Fases 1-4; Fase 1.5 ainda sem cobertura |
+| Code-split do bundle frontend (546kB)            | frontend | Vite manualChunks                                                   |
 
 ---
 

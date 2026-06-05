@@ -34,11 +34,18 @@ vi.mock("@workspace/db", () => ({
     execute: vi.fn(() => Promise.resolve({ rows: [] })),
   },
   usageLogsTable: {
-    id: "id", userId: "user_id", agentId: "agent_id",
-    platform: "platform", provider: "provider", model: "model",
-    totalTokens: "total_tokens", promptTokens: "prompt_tokens",
-    completionTokens: "completion_tokens", cost: "cost",
-    latencyMs: "latency_ms", createdAt: "created_at",
+    id: "id",
+    userId: "user_id",
+    agentId: "agent_id",
+    platform: "platform",
+    provider: "provider",
+    model: "model",
+    totalTokens: "total_tokens",
+    promptTokens: "prompt_tokens",
+    completionTokens: "completion_tokens",
+    cost: "cost",
+    latencyMs: "latency_ms",
+    createdAt: "created_at",
   },
   conversationsTable: {},
   messagesTable: {},
@@ -52,7 +59,7 @@ vi.mock("drizzle-orm", () => ({
   asc: vi.fn((a: any) => ({ asc: a })),
   gte: vi.fn((a: any, b: any) => ({ gte: [a, b] })),
   lte: vi.fn((a: any, b: any) => ({ lte: [a, b] })),
-  sql: vi.fn((_s: TemplateStringsArray, ..._args: any[]) => ({} as any)),
+  sql: vi.fn((_s: TemplateStringsArray, ..._args: any[]) => ({}) as any),
 }));
 
 vi.mock("../lib/api-response.js", () => ({
@@ -138,7 +145,9 @@ describe("Routes: /api/analytics/daily-usage", () => {
   });
 
   it("GET /api/analytics/daily-usage with period=24h", async () => {
-    const res = await supertest(app).get("/api/analytics/daily-usage?period=24h");
+    const res = await supertest(app).get(
+      "/api/analytics/daily-usage?period=24h",
+    );
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.usageByDay)).toBe(true);
   });

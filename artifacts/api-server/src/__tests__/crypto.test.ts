@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { encrypt, decrypt, decryptTolerant, DecryptionError } from "../lib/crypto.js";
+import {
+  encrypt,
+  decrypt,
+  decryptTolerant,
+  DecryptionError,
+} from "../lib/crypto.js";
 
 const VALID_KEY = "a".repeat(64); // 64-char hex
 
@@ -111,7 +116,8 @@ describe("crypto", () => {
       const ct = encrypt("data");
       const parts = ct.split(":");
       // Tamper with the ciphertext portion
-      const tampered = parts[0] + ":" + parts[1] + ":" + "ff".repeat(parts[2].length / 2);
+      const tampered =
+        parts[0] + ":" + parts[1] + ":" + "ff".repeat(parts[2].length / 2);
       expect(() => decrypt(tampered)).toThrow(DecryptionError);
     });
 
@@ -141,7 +147,8 @@ describe("crypto", () => {
     });
 
     it("throws DecryptionError for values that look encrypted but are wrong", () => {
-      const fake = "aa".repeat(16) + ":" + "bb".repeat(32) + ":" + "cc".repeat(32);
+      const fake =
+        "aa".repeat(16) + ":" + "bb".repeat(32) + ":" + "cc".repeat(32);
       expect(() => decryptTolerant(fake)).toThrow(DecryptionError);
     });
   });

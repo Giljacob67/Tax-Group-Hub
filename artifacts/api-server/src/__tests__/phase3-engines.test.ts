@@ -1,13 +1,23 @@
 import { describe, it, expect } from "vitest";
 import { recommendNextStep } from "../lib/next-step-engine.js";
 import { evaluateAlerts } from "../lib/alerts-engine.js";
-import { parseQualificationResult, buildQualificationPrompt } from "../lib/qualification-engine.js";
+import {
+  parseQualificationResult,
+  buildQualificationPrompt,
+} from "../lib/qualification-engine.js";
 import { calculatePriority } from "../lib/priority-engine.js";
 
 describe("next-step-engine", () => {
   it("recommends primeiro_contato for nao_iniciado with no activity", () => {
     const rec = recommendNextStep({
-      contact: { status: "nao_iniciado", temperatura: null, proximoFollowup: null, ultimaInteracao: null, pendenciasCliente: null, responsavelUnidade: null },
+      contact: {
+        status: "nao_iniciado",
+        temperatura: null,
+        proximoFollowup: null,
+        ultimaInteracao: null,
+        pendenciasCliente: null,
+        responsavelUnidade: null,
+      },
       deal: null,
       hasProposal: false,
       hasOpenTasks: false,
@@ -21,8 +31,22 @@ describe("next-step-engine", () => {
     const now = new Date("2026-06-15T12:00:00Z");
     const fiveDaysAgo = new Date("2026-06-10T12:00:00Z");
     const rec = recommendNextStep({
-      contact: { status: "enviado_matriz", temperatura: "quente", proximoFollowup: null, ultimaInteracao: fiveDaysAgo, pendenciasCliente: null, responsavelUnidade: "João" },
-      deal: { stage: "enviado_para_matriz", statusMatriz: "aguardando", statusProposta: null, briefingMatriz: "ok", dataEnvioMatriz: fiveDaysAgo, prazoRetornoMatriz: fiveDaysAgo },
+      contact: {
+        status: "enviado_matriz",
+        temperatura: "quente",
+        proximoFollowup: null,
+        ultimaInteracao: fiveDaysAgo,
+        pendenciasCliente: null,
+        responsavelUnidade: "João",
+      },
+      deal: {
+        stage: "enviado_para_matriz",
+        statusMatriz: "aguardando",
+        statusProposta: null,
+        briefingMatriz: "ok",
+        dataEnvioMatriz: fiveDaysAgo,
+        prazoRetornoMatriz: fiveDaysAgo,
+      },
       hasProposal: false,
       hasOpenTasks: false,
       now,
@@ -33,8 +57,22 @@ describe("next-step-engine", () => {
 
   it("recommends follow_up_proposta for proposta_enviada", () => {
     const rec = recommendNextStep({
-      contact: { status: "proposta_enviada", temperatura: "quente", proximoFollowup: null, ultimaInteracao: new Date(), pendenciasCliente: null, responsavelUnidade: "João" },
-      deal: { stage: "proposta_enviada", statusMatriz: "proposta_liberada", statusProposta: "proposta_enviada", briefingMatriz: null, dataEnvioMatriz: null, prazoRetornoMatriz: null },
+      contact: {
+        status: "proposta_enviada",
+        temperatura: "quente",
+        proximoFollowup: null,
+        ultimaInteracao: new Date(),
+        pendenciasCliente: null,
+        responsavelUnidade: "João",
+      },
+      deal: {
+        stage: "proposta_enviada",
+        statusMatriz: "proposta_liberada",
+        statusProposta: "proposta_enviada",
+        briefingMatriz: null,
+        dataEnvioMatriz: null,
+        prazoRetornoMatriz: null,
+      },
       hasProposal: true,
       hasOpenTasks: false,
     });
@@ -46,7 +84,14 @@ describe("next-step-engine", () => {
     const now = new Date("2026-06-15T12:00:00Z");
     const twentyDaysAgo = new Date("2026-05-26T12:00:00Z");
     const rec = recommendNextStep({
-      contact: { status: "em_abordagem", temperatura: "morno", proximoFollowup: null, ultimaInteracao: twentyDaysAgo, pendenciasCliente: null, responsavelUnidade: "João" },
+      contact: {
+        status: "em_abordagem",
+        temperatura: "morno",
+        proximoFollowup: null,
+        ultimaInteracao: twentyDaysAgo,
+        pendenciasCliente: null,
+        responsavelUnidade: "João",
+      },
       deal: null,
       hasProposal: false,
       hasOpenTasks: false,
@@ -57,8 +102,22 @@ describe("next-step-engine", () => {
 
   it("returns encaminhar_pos_venda for cliente status", () => {
     const rec = recommendNextStep({
-      contact: { status: "cliente", temperatura: null, proximoFollowup: null, ultimaInteracao: new Date(), pendenciasCliente: null, responsavelUnidade: "João" },
-      deal: { stage: "fechado_ganho", statusMatriz: "retorno_recebido", statusProposta: null, briefingMatriz: null, dataEnvioMatriz: null, prazoRetornoMatriz: null },
+      contact: {
+        status: "cliente",
+        temperatura: null,
+        proximoFollowup: null,
+        ultimaInteracao: new Date(),
+        pendenciasCliente: null,
+        responsavelUnidade: "João",
+      },
+      deal: {
+        stage: "fechado_ganho",
+        statusMatriz: "retorno_recebido",
+        statusProposta: null,
+        briefingMatriz: null,
+        dataEnvioMatriz: null,
+        prazoRetornoMatriz: null,
+      },
       hasProposal: false,
       hasOpenTasks: false,
     });
@@ -70,16 +129,20 @@ describe("alerts-engine", () => {
   it("generates followup_vencido alert", () => {
     const now = new Date("2026-06-15T12:00:00Z");
     const alerts = evaluateAlerts(
-      [{
-        id: 1, status: "em_abordagem",
-        proximoFollowup: new Date("2026-06-13T12:00:00Z"),
-        ultimaInteracao: new Date("2026-06-10T12:00:00Z"),
-        temperatura: "quente", responsavelUnidade: "João",
-      }],
+      [
+        {
+          id: 1,
+          status: "em_abordagem",
+          proximoFollowup: new Date("2026-06-13T12:00:00Z"),
+          ultimaInteracao: new Date("2026-06-10T12:00:00Z"),
+          temperatura: "quente",
+          responsavelUnidade: "João",
+        },
+      ],
       [],
       now,
     );
-    const followup = alerts.find(a => a.type === "followup_vencido");
+    const followup = alerts.find((a) => a.type === "followup_vencido");
     expect(followup).toBeTruthy();
     expect(followup!.context.diasAtraso).toBeGreaterThanOrEqual(2);
   });
@@ -87,22 +150,48 @@ describe("alerts-engine", () => {
   it("generates matriz_acima_prazo alert", () => {
     const now = new Date("2026-06-15T12:00:00Z");
     const alerts = evaluateAlerts(
-      [{ id: 1, status: "enviado_matriz", proximoFollowup: null, ultimaInteracao: new Date(), temperatura: null, responsavelUnidade: null }],
-      [{
-        id: 10, contactId: 1, stage: "enviado_para_matriz", statusMatriz: "aguardando",
-        statusProposta: null, dataEnvioMatriz: new Date("2026-06-01"), prazoRetornoMatriz: new Date("2026-06-10"),
-        dataRetornoMatriz: null, updatedAt: new Date("2026-06-01"),
-      }],
+      [
+        {
+          id: 1,
+          status: "enviado_matriz",
+          proximoFollowup: null,
+          ultimaInteracao: new Date(),
+          temperatura: null,
+          responsavelUnidade: null,
+        },
+      ],
+      [
+        {
+          id: 10,
+          contactId: 1,
+          stage: "enviado_para_matriz",
+          statusMatriz: "aguardando",
+          statusProposta: null,
+          dataEnvioMatriz: new Date("2026-06-01"),
+          prazoRetornoMatriz: new Date("2026-06-10"),
+          dataRetornoMatriz: null,
+          updatedAt: new Date("2026-06-01"),
+        },
+      ],
       now,
     );
-    const matriz = alerts.find(a => a.type === "matriz_acima_prazo");
+    const matriz = alerts.find((a) => a.type === "matriz_acima_prazo");
     expect(matriz).toBeTruthy();
   });
 
   it("does not generate alerts for finalized status", () => {
     const now = new Date("2026-06-15T12:00:00Z");
     const alerts = evaluateAlerts(
-      [{ id: 1, status: "cliente", proximoFollowup: null, ultimaInteracao: new Date("2020-01-01"), temperatura: null, responsavelUnidade: null }],
+      [
+        {
+          id: 1,
+          status: "cliente",
+          proximoFollowup: null,
+          ultimaInteracao: new Date("2020-01-01"),
+          temperatura: null,
+          responsavelUnidade: null,
+        },
+      ],
       [],
       now,
     );
@@ -131,8 +220,16 @@ describe("qualification-engine", () => {
       depende_validacao_matriz: true,
       confidence: 80,
       facts: [{ tipo: "fato", texto: "Regime Lucro Real", confianca: "alta" }],
-      inferences: [{ tipo: "inferencia", texto: "Boa capacidade financeira", confianca: "media" }],
-      hypotheses: [{ tipo: "hipotese", texto: "Interesse em RTI", confianca: "baixa" }],
+      inferences: [
+        {
+          tipo: "inferencia",
+          texto: "Boa capacidade financeira",
+          confianca: "media",
+        },
+      ],
+      hypotheses: [
+        { tipo: "hipotese", texto: "Interesse em RTI", confianca: "baixa" },
+      ],
       reasoning: "Lead qualificado",
     };
     const result = parseQualificationResult(raw, "fallback");
@@ -152,12 +249,24 @@ describe("qualification-engine", () => {
 
   it("builds prompt with all fields", () => {
     const contact = {
-      id: 1, cnpj: "12345678000190", razaoSocial: "Test", nomeFantasia: null,
-      regimeTributario: "lucro_real", cnae: "0111", porte: "Médio",
-      uf: "SP", cidade: "São Paulo", faturamentoEstimado: "R$ 30M",
-      setor: "agro", segmento: "cooperativas", temperatura: "morno",
-      produtoInteresse: "RTI", origemLead: "manual", status: "qualificado",
-      observacoes: "teste", tags: ["tag1"],
+      id: 1,
+      cnpj: "12345678000190",
+      razaoSocial: "Test",
+      nomeFantasia: null,
+      regimeTributario: "lucro_real",
+      cnae: "0111",
+      porte: "Médio",
+      uf: "SP",
+      cidade: "São Paulo",
+      faturamentoEstimado: "R$ 30M",
+      setor: "agro",
+      segmento: "cooperativas",
+      temperatura: "morno",
+      produtoInteresse: "RTI",
+      origemLead: "manual",
+      status: "qualificado",
+      observacoes: "teste",
+      tags: ["tag1"],
     };
     const prompt = buildQualificationPrompt(contact);
     expect(prompt).toContain("12345678000190");

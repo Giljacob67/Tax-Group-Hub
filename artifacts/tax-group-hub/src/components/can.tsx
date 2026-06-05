@@ -9,7 +9,13 @@ type CanProps = {
   children: ReactNode;
 };
 
-export function Can({ permission, anyOf, allOf, fallback = null, children }: CanProps) {
+export function Can({
+  permission,
+  anyOf,
+  allOf,
+  fallback = null,
+  children,
+}: CanProps) {
   const { has, hasAny, hasAll } = useCurrentUser();
 
   if (anyOf && anyOf.length > 0) {

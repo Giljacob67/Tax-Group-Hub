@@ -8,20 +8,28 @@ export async function sendWhatsAppMessage(
   phoneNumberId: string,
   accessToken: string,
 ): Promise<void> {
-  const res = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "text",
-      text: { body: text },
-    }),
-  });
+  const res = await fetch(
+    `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "text",
+        text: { body: text },
+      }),
+    },
+  );
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`WhatsApp send failed (${res.status}): ${body.slice(0, 200)}`);
+    throw new Error(
+      `WhatsApp send failed (${res.status}): ${body.slice(0, 200)}`,
+    );
   }
 }
 
@@ -33,6 +41,6 @@ export async function resolveWhatsAppMediaUrl(
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) return null;
-  const data = await res.json() as { url?: string };
+  const data = (await res.json()) as { url?: string };
   return data.url ?? null;
 }

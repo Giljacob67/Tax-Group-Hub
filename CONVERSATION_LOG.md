@@ -13,6 +13,7 @@
 - **Deploy:** Vercel (SPA com rewrites para `/index.html`)
 
 **Design Tokens:**
+
 - Primary: `#107EC2` (HSL 200 76% 41%)
 - Background: `#07111F`
 - Surface: `#0B1220` / `#111827`
@@ -24,6 +25,7 @@
 ## Etapas Concluídas
 
 ### 13/05 — Fundação e Remodelagem
+
 - **Etapa 1:** Remodelagem do frontend como "Command Center" (dashboard, sidebar, CRM, chat)
 - **Etapa 2:** Sincronia de types com OpenAPI + Orval + migration no Neon PostgreSQL
 - **Etapa 3:** Modo Demo criado (`?demo=1`) com dados de fallback
@@ -32,6 +34,7 @@
 - **Extras:** Code splitting (React.lazy + Vite manual chunks), SEO meta tags, hook `usePageTitle`, AlertDialog no lugar de `confirm()`, animações parallax
 
 ### 14/05 — Funcionalidades Avançadas
+
 - **`2a90dd2`** — Fix de type errors backend, code-split do CRM, mobile QA, onboarding tour
 - **`ee02d50`** — Remodelagem Central de Modelos IA (Model Hub V2)
 - **`94f0a1d`** — Analytics de Uso de LLM
@@ -46,6 +49,7 @@
 - **Sequência de fixes no upload KB:** pdf-parse v1↔v2, memoryStorage, busboy, JSON+base64
 
 ### 15/05 — Correções Críticas (Sessão Atual)
+
 - **`f5c5acb`** — Correções de upload, types, console cleanup, chunks:
   1. **Upload KB travado em "processando":**
      - Processamento agora é **síncrono antes da resposta HTTP** (evita morte do worker serverless da Vercel)
@@ -77,6 +81,7 @@
 ```
 
 **Chunks do build:**
+
 - `index-*.js` — 322 KB gzip:102KB
 - `vendor-motion-*.js` — 132 KB gzip:44KB
 - `vendor-charts-*.js` — 424 KB gzip:114KB (recharts isolado)
@@ -88,6 +93,7 @@
 ## Problemas Conhecidos / Próximos Passos
 
 ### Resolvidos nesta sessão
+
 - [x] Upload KB travado em "processando" → **arquitetura híbrida robusta**
   - Arquivos < 200KB: processamento síncrono com timeout de 8s (dentro do limite Hobby)
   - Arquivos ≥ 200KB: enfileirados no PostgreSQL com `fileData` (base64 persistido)
@@ -101,6 +107,7 @@
 - [x] `chart.tsx` não utilizado → removido
 
 ### Pendentes
+
 - [ ] Sourcemap warnings em componentes UI do shadcn (pré-existentes, não afetam runtime)
 - [ ] Mobile/responsividade QA nas páginas internas
 - [ ] Onboarding tour / feature highlights

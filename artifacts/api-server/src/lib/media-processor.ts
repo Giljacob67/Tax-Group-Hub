@@ -28,18 +28,24 @@ export interface ProcessedMedia {
 export async function processExternalMedia(
   mediaSource: Buffer | string,
   mimeType: string,
-  fileName: string
+  fileName: string,
 ): Promise<ProcessedMedia> {
   let buffer: Buffer;
-  
+
   if (typeof mediaSource === "string") {
-    if (!validateHttpUrl(mediaSource)) throw new Error("URL de mídia inválida.");
+    if (!validateHttpUrl(mediaSource))
+      throw new Error("URL de mídia inválida.");
     const { hostname } = new URL(mediaSource);
-    if (!ALLOWED_MEDIA_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+    if (
+      !ALLOWED_MEDIA_DOMAINS.some(
+        (d) => hostname === d || hostname.endsWith(`.${d}`),
+      )
+    ) {
       throw new Error(`Domínio de mídia não permitido: ${hostname}`);
     }
     const response = await fetch(mediaSource);
-    if (!response.ok) throw new Error(`Failed to download media: ${response.statusText}`);
+    if (!response.ok)
+      throw new Error(`Failed to download media: ${response.statusText}`);
     buffer = Buffer.from(await response.arrayBuffer());
   } else {
     buffer = mediaSource;
@@ -47,25 +53,32 @@ export async function processExternalMedia(
 
   // 1. AUDIO (WhatsApp/Telegram Voice notes)
   if (mimeType.startsWith("audio/")) {
-    console.log(`[MediaProcessor] Transcribing audio: ${fileName} (${mimeType})...`);
+    console.log(
+      `[MediaProcessor] Transcribing audio: ${fileName} (${mimeType})...`,
+    );
     const text = await transcribeAudio(buffer, fileName);
     return { type: "audio", content: text, mimeType };
   }
 
   // 2. IMAGE (OCR / Vision)
   if (mimeType.startsWith("image/")) {
-    console.log(`[MediaProcessor] Analyzing image: ${fileName} (${mimeType})...`);
+    console.log(
+      `[MediaProcessor] Analyzing image: ${fileName} (${mimeType})...`,
+    );
     // Use Vision via LLM
     const { model } = await getLanguageModel("google", "gemini-1.5-flash"); // Flash is fast for OCR
-    
+
     const { text } = await generateText({
       model,
       messages: [
         {
           role: "user",
           content: [
-            { type: "text", text: "Descreva o que está nesta imagem ou transcreva o texto se for um documento/nota fiscal. Recupere o máximo de detalhes possível." },
-            { type: "image", image: buffer, mediaType: mimeType }
+            {
+              type: "text",
+              text: "Descreva o que está nesta imagem ou transcreva o texto se for um documento/nota fiscal. Recupere o máximo de detalhes possível.",
+            },
+            { type: "image", image: buffer, mediaType: mimeType },
           ],
         },
       ],
@@ -75,8 +88,15 @@ export async function processExternalMedia(
   }
 
   // 3. DOCUMENTS (PDF, DOCX)
-  if (mimeType.includes("pdf") || mimeType.includes("word") || mimeType.includes("officedocument") || mimeType.includes("text/")) {
-    console.log(`[MediaProcessor] Extracting text from document: ${fileName} (${mimeType})...`);
+  if (
+    mimeType.includes("pdf") ||
+    mimeType.includes("word") ||
+    mimeType.includes("officedocument") ||
+    mimeType.includes("text/")
+  ) {
+    console.log(
+      `[MediaProcessor] Extracting text from document: ${fileName} (${mimeType})...`,
+    );
     const text = await extractTextContent(buffer, mimeType, fileName);
     return { type: "document", content: text, mimeType };
   }

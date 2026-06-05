@@ -1,5 +1,15 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, PhoneCall, AtSign, MessageSquare, Calendar, StickyNote, Activity, Loader2, Briefcase } from "lucide-react";
+import {
+  Clock,
+  PhoneCall,
+  AtSign,
+  MessageSquare,
+  Calendar,
+  StickyNote,
+  Activity,
+  Loader2,
+  Briefcase,
+} from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { CompanyAvatar } from "./CompanyAvatar";
 import { useListCrmActivities } from "@workspace/api-client-react";
@@ -26,7 +36,9 @@ type GlobalActivity = {
 };
 
 export default function GlobalTimeline() {
-  const { data, isLoading } = useListCrmActivities({ query: { refetchInterval: 30_000 } } as any);
+  const { data, isLoading } = useListCrmActivities({
+    query: { refetchInterval: 30_000 },
+  } as any);
 
   const activities = (data?.activities as any as GlobalActivity[]) || [];
 
@@ -50,7 +62,9 @@ export default function GlobalTimeline() {
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Clock className="w-10 h-10 text-muted-foreground/30 mb-3" />
             <p className="text-sm font-medium">Nenhuma atividade recente.</p>
-            <p className="text-xs text-muted-foreground">Suas atividades aparecerão aqui.</p>
+            <p className="text-xs text-muted-foreground">
+              Suas atividades aparecerão aqui.
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -79,16 +93,26 @@ export default function GlobalTimeline() {
                     <div className="flex-1 bg-card border border-border/40 rounded-xl p-3 shadow-sm hover:border-primary/30 transition-all">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-1.5">
-                          <CompanyAvatar name={a.contactName} className="w-4 h-4 rounded-full text-[8px]" />
-                          <span className="text-xs font-semibold">{a.contactName}</span>
+                          <CompanyAvatar
+                            name={a.contactName}
+                            className="w-4 h-4 rounded-full text-[8px]"
+                          />
+                          <span className="text-xs font-semibold">
+                            {a.contactName}
+                          </span>
                         </div>
                         <span className="text-xs text-muted-foreground">
                           {new Date(a.createdAt).toLocaleString("pt-BR", {
-                            day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
                           })}
                         </span>
                       </div>
-                      <div className="text-xs font-medium text-foreground/90">{a.subject || a.type}</div>
+                      <div className="text-xs font-medium text-foreground/90">
+                        {a.subject || a.type}
+                      </div>
                       {a.content && (
                         <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
                           {a.content}

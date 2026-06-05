@@ -3,7 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ── Mock heavy transitive deps ──────────────────────────────────────────────
 vi.mock("@workspace/db", () => ({
   db: { select: vi.fn(), from: vi.fn(), where: vi.fn() },
-  embeddingCacheTable: { textHash: "text_hash", model: "model", embedding: "embedding", dim: "dim" },
+  embeddingCacheTable: {
+    textHash: "text_hash",
+    model: "model",
+    embedding: "embedding",
+    dim: "dim",
+  },
   apiKeysTable: { provider: "provider", userId: "user_id", key: "key" },
 }));
 
@@ -13,17 +18,26 @@ vi.mock("ai", () => ({
 }));
 
 vi.mock("@ai-sdk/openai", () => ({
-  createOpenAI: vi.fn(() => (modelId: string) => ({ modelId, _type: "openai" })),
+  createOpenAI: vi.fn(() => (modelId: string) => ({
+    modelId,
+    _type: "openai",
+  })),
   openai: {},
 }));
 
 vi.mock("@ai-sdk/anthropic", () => ({
-  createAnthropic: vi.fn(() => (modelId: string) => ({ modelId, _type: "anthropic" })),
+  createAnthropic: vi.fn(() => (modelId: string) => ({
+    modelId,
+    _type: "anthropic",
+  })),
   anthropic: {},
 }));
 
 vi.mock("@ai-sdk/google", () => ({
-  createGoogleGenerativeAI: vi.fn(() => (modelId: string) => ({ modelId, _type: "google" })),
+  createGoogleGenerativeAI: vi.fn(() => (modelId: string) => ({
+    modelId,
+    _type: "google",
+  })),
   google: {},
 }));
 
@@ -49,7 +63,11 @@ import {
   DEFAULT_EMBEDDING_MODEL,
   getLanguageModel,
 } from "../lib/llm-client.js";
-import { getConfigValue, getEffectiveOllamaUrl, getEffectiveOllamaModel } from "../routes/settings.js";
+import {
+  getConfigValue,
+  getEffectiveOllamaUrl,
+  getEffectiveOllamaModel,
+} from "../routes/settings.js";
 import { db } from "@workspace/db";
 
 // Helper: build a Drizzle-like chain that resolves `where(...)` to rows
@@ -74,7 +92,9 @@ describe("validateEmbeddingDim", () => {
 
   it("rejects a vector of the wrong length with a typed error", () => {
     const vec: number[] = Array.from({ length: 1536 }, () => 0.1);
-    expect(() => validateEmbeddingDim(vec, "google/text-embedding-004")).toThrow(EmbeddingDimError);
+    expect(() =>
+      validateEmbeddingDim(vec, "google/text-embedding-004"),
+    ).toThrow(EmbeddingDimError);
   });
 
   it("exposes the expected/got dimensions on the error", () => {
@@ -104,11 +124,15 @@ describe("validateEmbeddingDim", () => {
   });
 
   it("rejects an empty array", () => {
-    expect(() => validateEmbeddingDim([], "google/text-embedding-004")).toThrow(EmbeddingDimError);
+    expect(() => validateEmbeddingDim([], "google/text-embedding-004")).toThrow(
+      EmbeddingDimError,
+    );
   });
 
   it("rejects non-array input gracefully (length = 0)", () => {
-    expect(() => validateEmbeddingDim(null as any, "google/text-embedding-004")).toThrow(EmbeddingDimError);
+    expect(() =>
+      validateEmbeddingDim(null as any, "google/text-embedding-004"),
+    ).toThrow(EmbeddingDimError);
   });
 
   it("accepts vectors for every model in EMBEDDING_MODELS", () => {
@@ -120,8 +144,13 @@ describe("validateEmbeddingDim", () => {
 
   it("rejects wrong dimensions for every model in EMBEDDING_MODELS", () => {
     for (const [key, spec] of Object.entries(EMBEDDING_MODELS)) {
-      const vec: number[] = Array.from({ length: spec.dimensions + 1 }, () => 0.5);
-      expect(() => validateEmbeddingDim(vec, key as any)).toThrow(EmbeddingDimError);
+      const vec: number[] = Array.from(
+        { length: spec.dimensions + 1 },
+        () => 0.5,
+      );
+      expect(() => validateEmbeddingDim(vec, key as any)).toThrow(
+        EmbeddingDimError,
+      );
     }
   });
 
@@ -152,68 +181,106 @@ describe("getLanguageModel", () => {
     (getEffectiveOllamaUrl as any).mockResolvedValue({ url: "" });
     (getConfigValue as any).mockResolvedValue(null);
 
-    await expect(getLanguageModel("auto", undefined, "user1")).rejects.toThrow("Nenhum provedor");
+    await expect(getLanguageModel("auto", undefined, "user1")).rejects.toThrow(
+      "Nenhum provedor",
+    );
   });
 
   it("selects Google when provider is 'google' and key exists", async () => {
-    (db.select as any).mockReturnValue(mockDbChain([{ key: "enc-google-key", userId: null }]));
+    (db.select as any).mockReturnValue(
+      mockDbChain([{ key: "enc-google-key", userId: null }]),
+    );
 
-    const { providerName, modelId } = await getLanguageModel("google", undefined, "u1");
+    const { providerName, modelId } = await getLanguageModel(
+      "google",
+      undefined,
+      "u1",
+    );
     expect(providerName).toBe("Google");
-    expect(modelId).toBe("gemini-1.5-flash");
+    expect(modelId).toBe("gemini-2.5-flash");
   });
 
   it("selects OpenAI when provider is 'openai' and key exists", async () => {
-    (db.select as any).mockReturnValue(mockDbChain([{ key: "enc-openai-key", userId: null }]));
+    (db.select as any).mockReturnValue(
+      mockDbChain([{ key: "enc-openai-key", userId: null }]),
+    );
 
-    const { providerName, modelId } = await getLanguageModel("openai", "gpt-4o-mini", "u1");
+    const { providerName, modelId } = await getLanguageModel(
+      "openai",
+      "gpt-4o-mini",
+      "u1",
+    );
     expect(providerName).toBe("OpenAI");
     expect(modelId).toBe("gpt-4o-mini");
   });
 
   it("selects Anthropic when provider is 'anthropic' and key exists", async () => {
-    (db.select as any).mockReturnValue(mockDbChain([{ key: "enc-anth-key", userId: null }]));
+    (db.select as any).mockReturnValue(
+      mockDbChain([{ key: "enc-anth-key", userId: null }]),
+    );
 
-    const { providerName, modelId } = await getLanguageModel("anthropic", "claude-3-opus", "u1");
+    const { providerName, modelId } = await getLanguageModel(
+      "anthropic",
+      "claude-3-opus",
+      "u1",
+    );
     expect(providerName).toBe("Anthropic");
     expect(modelId).toBe("claude-3-opus");
   });
 
   it("resolves 'claude' as alias for Anthropic", async () => {
-    (db.select as any).mockReturnValue(mockDbChain([{ key: "enc-anth-key", userId: null }]));
+    (db.select as any).mockReturnValue(
+      mockDbChain([{ key: "enc-anth-key", userId: null }]),
+    );
 
     const { providerName } = await getLanguageModel("claude", undefined, "u1");
     expect(providerName).toBe("Anthropic");
   });
 
   it("resolves 'gpt' as alias for OpenAI", async () => {
-    (db.select as any).mockReturnValue(mockDbChain([{ key: "enc-openai-key", userId: null }]));
+    (db.select as any).mockReturnValue(
+      mockDbChain([{ key: "enc-openai-key", userId: null }]),
+    );
 
     const { providerName } = await getLanguageModel("gpt", undefined, "u1");
     expect(providerName).toBe("OpenAI");
   });
 
   it("falls back to Ollama when auto and Ollama URL is set", async () => {
-    (getEffectiveOllamaUrl as any).mockResolvedValue({ url: "http://localhost:11434" });
+    (getEffectiveOllamaUrl as any).mockResolvedValue({
+      url: "http://localhost:11434",
+    });
     (getEffectiveOllamaModel as any).mockResolvedValue("llama3.2");
     (getConfigValue as any).mockResolvedValue(null);
 
-    const { providerName, modelId } = await getLanguageModel("auto", undefined, "u1");
+    const { providerName, modelId } = await getLanguageModel(
+      "auto",
+      undefined,
+      "u1",
+    );
     expect(providerName).toBe("Ollama");
     expect(modelId).toBe("llama3.2");
   });
 
   it("selects Ollama explicitly when provider is 'ollama'", async () => {
-    (getEffectiveOllamaUrl as any).mockResolvedValue({ url: "http://localhost:11434" });
+    (getEffectiveOllamaUrl as any).mockResolvedValue({
+      url: "http://localhost:11434",
+    });
     (getEffectiveOllamaModel as any).mockResolvedValue("mistral");
 
-    const { providerName, modelId } = await getLanguageModel("ollama", undefined, "u1");
+    const { providerName, modelId } = await getLanguageModel(
+      "ollama",
+      undefined,
+      "u1",
+    );
     expect(providerName).toBe("Ollama");
     expect(modelId).toBe("mistral");
   });
 
   it("normalizes trailing slashes in Ollama URL", async () => {
-    (getEffectiveOllamaUrl as any).mockResolvedValue({ url: "http://localhost:11434///" });
+    (getEffectiveOllamaUrl as any).mockResolvedValue({
+      url: "http://localhost:11434///",
+    });
     (getEffectiveOllamaModel as any).mockResolvedValue("llama3");
 
     const { providerName } = await getLanguageModel("ollama", undefined, "u1");
@@ -229,9 +296,15 @@ describe("getLanguageModel", () => {
       return null;
     });
 
-    (db.select as any).mockReturnValue(mockDbChain([{ key: "enc-openai-key", userId: null }]));
+    (db.select as any).mockReturnValue(
+      mockDbChain([{ key: "enc-openai-key", userId: null }]),
+    );
 
-    const { providerName, modelId } = await getLanguageModel(undefined, undefined, "u1");
+    const { providerName, modelId } = await getLanguageModel(
+      undefined,
+      undefined,
+      "u1",
+    );
     expect(providerName).toBe("OpenAI");
     expect(modelId).toBe("gpt-4o");
   });
@@ -243,16 +316,28 @@ describe("getLanguageModel", () => {
     });
     (getEffectiveOllamaUrl as any).mockResolvedValue({ url: "" });
 
-    (db.select as any).mockReturnValue(mockDbChain([{ key: "enc-anth-key", userId: null }]));
+    (db.select as any).mockReturnValue(
+      mockDbChain([{ key: "enc-anth-key", userId: null }]),
+    );
 
-    const { providerName } = await getLanguageModel("anthropic", undefined, "u1");
+    const { providerName } = await getLanguageModel(
+      "anthropic",
+      undefined,
+      "u1",
+    );
     expect(providerName).toBe("Anthropic");
   });
 
   it("uses custom_model for OpenRouter when specified", async () => {
-    (db.select as any).mockReturnValue(mockDbChain([{ key: "enc-or-key", userId: null }]));
+    (db.select as any).mockReturnValue(
+      mockDbChain([{ key: "enc-or-key", userId: null }]),
+    );
 
-    const { providerName, modelId } = await getLanguageModel("openrouter", "anthropic/claude-3.5-sonnet", "u1");
+    const { providerName, modelId } = await getLanguageModel(
+      "openrouter",
+      "anthropic/claude-3.5-sonnet",
+      "u1",
+    );
     expect(providerName).toBe("OpenRouter");
     expect(modelId).toBe("anthropic/claude-3.5-sonnet");
   });
@@ -260,6 +345,8 @@ describe("getLanguageModel", () => {
   it("throws for OpenRouter when API key is missing", async () => {
     (db.select as any).mockReturnValue(mockDbChain([]));
 
-    await expect(getLanguageModel("openrouter", undefined, "u1")).rejects.toThrow("OpenRouter API Key");
+    await expect(
+      getLanguageModel("openrouter", undefined, "u1"),
+    ).rejects.toThrow("OpenRouter API Key");
   });
 });

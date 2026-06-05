@@ -40,7 +40,7 @@ export function useConfirmDialog() {
       callbackRef.current = onConfirm;
       setOpen(true);
     },
-    []
+    [],
   );
 
   const handleConfirm = React.useCallback(() => {
@@ -60,7 +60,9 @@ export function useConfirmDialog() {
         <AlertDialogHeader>
           <AlertDialogTitle>{options.title}</AlertDialogTitle>
           {options.description && (
-            <AlertDialogDescription>{options.description}</AlertDialogDescription>
+            <AlertDialogDescription>
+              {options.description}
+            </AlertDialogDescription>
           )}
         </AlertDialogHeader>
         <AlertDialogFooter>

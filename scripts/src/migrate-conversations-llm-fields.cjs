@@ -17,7 +17,9 @@ async function migrate() {
         ADD COLUMN IF NOT EXISTS provider text,
         ADD COLUMN IF NOT EXISTS connection_id integer;
     `);
-    console.log("✅ Columns 'provider' and 'connection_id' added to conversations.");
+    console.log(
+      "✅ Columns 'provider' and 'connection_id' added to conversations.",
+    );
   } catch (err) {
     console.error("Migration failed:", err);
     process.exit(1);

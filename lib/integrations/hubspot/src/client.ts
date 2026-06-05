@@ -134,7 +134,9 @@ export class HubSpotClient {
 
     if (res.status === 429 && attempt < 3) {
       const retryAfter = parseInt(res.headers.get("Retry-After") ?? "1", 10);
-      await new Promise((r) => setTimeout(r, Math.max(retryAfter * 1000, 1000)));
+      await new Promise((r) =>
+        setTimeout(r, Math.max(retryAfter * 1000, 1000)),
+      );
       return this._request(method, path, body, attempt + 1);
     }
 
@@ -146,8 +148,14 @@ export class HubSpotClient {
 
     if (!res.ok) {
       let errorBody = "";
-      try { errorBody = await res.text(); } catch { /* ignore */ }
-      throw new Error(`HubSpot: HTTP ${res.status} on ${method} ${path}: ${errorBody.substring(0, 200)}`);
+      try {
+        errorBody = await res.text();
+      } catch {
+        /* ignore */
+      }
+      throw new Error(
+        `HubSpot: HTTP ${res.status} on ${method} ${path}: ${errorBody.substring(0, 200)}`,
+      );
     }
 
     return res.json() as Promise<T>;
@@ -155,12 +163,33 @@ export class HubSpotClient {
 
   // ── Companies ──────────────────────────────────────────────────────────────
 
-  async getCompanies(limit = 100, after?: string): Promise<{ results: HubSpotCompany[]; paging?: { next?: { after: string } } }> {
+  async getCompanies(
+    limit = 100,
+    after?: string,
+  ): Promise<{
+    results: HubSpotCompany[];
+    paging?: { next?: { after: string } };
+  }> {
     const props = [
-      "name", "domain", "phone", "address", "city", "state", "zip", "website",
-      "annualrevenue", "hs_lead_status", "createdate",
-      "nome_fantasia", "cnpj", "regime_tributario", "cnae", "porte",
-      "ai_score", "ai_recommended_product", "source",
+      "name",
+      "domain",
+      "phone",
+      "address",
+      "city",
+      "state",
+      "zip",
+      "website",
+      "annualrevenue",
+      "hs_lead_status",
+      "createdate",
+      "nome_fantasia",
+      "cnpj",
+      "regime_tributario",
+      "cnae",
+      "porte",
+      "ai_score",
+      "ai_recommended_product",
+      "source",
     ].join(",");
 
     let path = `/crm/v3/objects/companies?limit=${limit}&properties=${props}&sort=hs_lastmodifieddate`;
@@ -170,28 +199,55 @@ export class HubSpotClient {
 
   async getCompany(id: string): Promise<HubSpotCompany> {
     const props = [
-      "name", "domain", "phone", "address", "city", "state", "zip", "website",
-      "annualrevenue", "hs_lead_status", "createdate",
-      "nome_fantasia", "cnpj", "regime_tributario", "cnae", "porte",
-      "ai_score", "ai_recommended_product", "source",
+      "name",
+      "domain",
+      "phone",
+      "address",
+      "city",
+      "state",
+      "zip",
+      "website",
+      "annualrevenue",
+      "hs_lead_status",
+      "createdate",
+      "nome_fantasia",
+      "cnpj",
+      "regime_tributario",
+      "cnae",
+      "porte",
+      "ai_score",
+      "ai_recommended_product",
+      "source",
     ].join(",");
 
-    return this._request("GET", `/crm/v3/objects/companies/${id}?properties=${props}`);
+    return this._request(
+      "GET",
+      `/crm/v3/objects/companies/${id}?properties=${props}`,
+    );
   }
 
-  async createCompany(properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
+  async createCompany(
+    properties: Record<string, string | number | null>,
+  ): Promise<HubSpotCreateResult> {
     return this._request("POST", "/crm/v3/objects/companies", { properties });
   }
 
-  async updateCompany(id: string, properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
-    return this._request("PATCH", `/crm/v3/objects/companies/${id}`, { properties });
+  async updateCompany(
+    id: string,
+    properties: Record<string, string | number | null>,
+  ): Promise<HubSpotCreateResult> {
+    return this._request("PATCH", `/crm/v3/objects/companies/${id}`, {
+      properties,
+    });
   }
 
   async searchCompanies(cnpj: string): Promise<{ results: HubSpotCompany[] }> {
     return this._request("POST", "/crm/v3/objects/companies/search", {
-      filterGroups: [{
-        filters: [{ propertyName: "cnpj", operator: "EQ", value: cnpj }],
-      }],
+      filterGroups: [
+        {
+          filters: [{ propertyName: "cnpj", operator: "EQ", value: cnpj }],
+        },
+      ],
       properties: ["name", "cnpj"],
       limit: 1,
     });
@@ -199,11 +255,29 @@ export class HubSpotClient {
 
   // ── Search API helpers ────────────────────────────────────────────────────
 
-  private async _searchModifiedObjects<T>(objectType: string, properties: string[], modifiedAfter: string, after?: string, limit = 100): Promise<{ results: T[]; total?: number; paging?: { next?: { after: string } } }> {
+  private async _searchModifiedObjects<T>(
+    objectType: string,
+    properties: string[],
+    modifiedAfter: string,
+    after?: string,
+    limit = 100,
+  ): Promise<{
+    results: T[];
+    total?: number;
+    paging?: { next?: { after: string } };
+  }> {
     return this._request("POST", `/crm/v3/objects/${objectType}/search`, {
-      filterGroups: [{
-        filters: [{ propertyName: "hs_lastmodifieddate", operator: "GT", value: modifiedAfter }],
-      }],
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: "hs_lastmodifieddate",
+              operator: "GT",
+              value: modifiedAfter,
+            },
+          ],
+        },
+      ],
       sorts: [{ propertyName: "hs_lastmodifieddate", direction: "ASCENDING" }],
       properties,
       limit,
@@ -213,75 +287,189 @@ export class HubSpotClient {
 
   // ── Contacts (person) ──────────────────────────────────────────────────────
 
-  async createContact(properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
+  async createContact(
+    properties: Record<string, string | number | null>,
+  ): Promise<HubSpotCreateResult> {
     return this._request("POST", "/crm/v3/objects/contacts", { properties });
   }
 
-  async updateContact(id: string, properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
-    return this._request("PATCH", `/crm/v3/objects/contacts/${id}`, { properties });
+  async updateContact(
+    id: string,
+    properties: Record<string, string | number | null>,
+  ): Promise<HubSpotCreateResult> {
+    return this._request("PATCH", `/crm/v3/objects/contacts/${id}`, {
+      properties,
+    });
   }
 
   async searchContacts(email: string): Promise<{ results: HubSpotContact[] }> {
     return this._request("POST", "/crm/v3/objects/contacts/search", {
-      filterGroups: [{
-        filters: [{ propertyName: "email", operator: "EQ", value: email }],
-      }],
+      filterGroups: [
+        {
+          filters: [{ propertyName: "email", operator: "EQ", value: email }],
+        },
+      ],
       properties: ["firstname", "lastname", "email"],
       limit: 1,
     });
   }
 
-  async searchCompaniesModifiedAfter(modifiedAfter: string, after?: string, limit = 100): Promise<{ results: HubSpotCompany[]; paging?: { next?: { after: string } } }> {
-    return this._searchModifiedObjects<HubSpotCompany>("companies", [
-      "name", "domain", "phone", "address", "city", "state", "zip", "website",
-      "annualrevenue", "hs_lead_status", "createdate",
-      "nome_fantasia", "cnpj", "regime_tributario", "cnae", "porte",
-      "ai_score", "ai_recommended_product", "source",
-    ], modifiedAfter, after, limit);
+  async searchCompaniesModifiedAfter(
+    modifiedAfter: string,
+    after?: string,
+    limit = 100,
+  ): Promise<{
+    results: HubSpotCompany[];
+    paging?: { next?: { after: string } };
+  }> {
+    return this._searchModifiedObjects<HubSpotCompany>(
+      "companies",
+      [
+        "name",
+        "domain",
+        "phone",
+        "address",
+        "city",
+        "state",
+        "zip",
+        "website",
+        "annualrevenue",
+        "hs_lead_status",
+        "createdate",
+        "nome_fantasia",
+        "cnpj",
+        "regime_tributario",
+        "cnae",
+        "porte",
+        "ai_score",
+        "ai_recommended_product",
+        "source",
+      ],
+      modifiedAfter,
+      after,
+      limit,
+    );
   }
 
   // ── Deals ──────────────────────────────────────────────────────────────────
 
-  async createDeal(properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
+  async createDeal(
+    properties: Record<string, string | number | null>,
+  ): Promise<HubSpotCreateResult> {
     return this._request("POST", "/crm/v3/objects/deals", { properties });
   }
 
-  async updateDeal(id: string, properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
-    return this._request("PATCH", `/crm/v3/objects/deals/${id}`, { properties });
+  async updateDeal(
+    id: string,
+    properties: Record<string, string | number | null>,
+  ): Promise<HubSpotCreateResult> {
+    return this._request("PATCH", `/crm/v3/objects/deals/${id}`, {
+      properties,
+    });
   }
 
-  async searchDealsModifiedAfter(modifiedAfter: string, after?: string, limit = 100): Promise<{ results: HubSpotDeal[]; paging?: { next?: { after: string } } }> {
-    return this._searchModifiedObjects<HubSpotDeal>("deals", ["dealname", "dealstage", "amount", "closedate", "hs_lastmodifieddate"], modifiedAfter, after, limit);
+  async searchDealsModifiedAfter(
+    modifiedAfter: string,
+    after?: string,
+    limit = 100,
+  ): Promise<{
+    results: HubSpotDeal[];
+    paging?: { next?: { after: string } };
+  }> {
+    return this._searchModifiedObjects<HubSpotDeal>(
+      "deals",
+      ["dealname", "dealstage", "amount", "closedate", "hs_lastmodifieddate"],
+      modifiedAfter,
+      after,
+      limit,
+    );
   }
 
   // ── Notes ──────────────────────────────────────────────────────────────────
 
-  async createNote(properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
+  async createNote(
+    properties: Record<string, string | number | null>,
+  ): Promise<HubSpotCreateResult> {
     return this._request("POST", "/crm/v3/objects/notes", { properties });
   }
 
-  async searchNotesModifiedAfter(modifiedAfter: string, after?: string, limit = 100): Promise<{ results: HubSpotNote[]; paging?: { next?: { after: string } } }> {
-    return this._searchModifiedObjects<HubSpotNote>("notes", ["hs_note_body", "hs_body_preview", "hs_timestamp", "hs_lastmodifieddate"], modifiedAfter, after, limit);
+  async searchNotesModifiedAfter(
+    modifiedAfter: string,
+    after?: string,
+    limit = 100,
+  ): Promise<{
+    results: HubSpotNote[];
+    paging?: { next?: { after: string } };
+  }> {
+    return this._searchModifiedObjects<HubSpotNote>(
+      "notes",
+      [
+        "hs_note_body",
+        "hs_body_preview",
+        "hs_timestamp",
+        "hs_lastmodifieddate",
+      ],
+      modifiedAfter,
+      after,
+      limit,
+    );
   }
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
 
-  async createTask(properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
+  async createTask(
+    properties: Record<string, string | number | null>,
+  ): Promise<HubSpotCreateResult> {
     return this._request("POST", "/crm/v3/objects/tasks", { properties });
   }
 
-  async updateTask(id: string, properties: Record<string, string | number | null>): Promise<HubSpotCreateResult> {
-    return this._request("PATCH", `/crm/v3/objects/tasks/${id}`, { properties });
+  async updateTask(
+    id: string,
+    properties: Record<string, string | number | null>,
+  ): Promise<HubSpotCreateResult> {
+    return this._request("PATCH", `/crm/v3/objects/tasks/${id}`, {
+      properties,
+    });
   }
 
-  async searchTasksModifiedAfter(modifiedAfter: string, after?: string, limit = 100): Promise<{ results: HubSpotTask[]; paging?: { next?: { after: string } } }> {
-    return this._searchModifiedObjects<HubSpotTask>("tasks", ["hs_task_subject", "hs_task_body", "hs_task_status", "hs_task_priority", "hs_task_type", "hs_timestamp", "hs_lastmodifieddate"], modifiedAfter, after, limit);
+  async searchTasksModifiedAfter(
+    modifiedAfter: string,
+    after?: string,
+    limit = 100,
+  ): Promise<{
+    results: HubSpotTask[];
+    paging?: { next?: { after: string } };
+  }> {
+    return this._searchModifiedObjects<HubSpotTask>(
+      "tasks",
+      [
+        "hs_task_subject",
+        "hs_task_body",
+        "hs_task_status",
+        "hs_task_priority",
+        "hs_task_type",
+        "hs_timestamp",
+        "hs_lastmodifieddate",
+      ],
+      modifiedAfter,
+      after,
+      limit,
+    );
   }
 
   // ── Associations ───────────────────────────────────────────────────────────
 
-  async createAssociation(fromType: "companies" | "contacts" | "deals" | "notes" | "tasks", fromId: string, toType: "companies" | "contacts" | "deals" | "notes" | "tasks", toId: string): Promise<void> {
-    await this._request("PUT", `/crm/v4/objects/${fromType}/${fromId}/associations/default/${toType}/${toId}`, null);
+  async createAssociation(
+    fromType: "companies" | "contacts" | "deals" | "notes" | "tasks",
+    fromId: string,
+    toType: "companies" | "contacts" | "deals" | "notes" | "tasks",
+    toId: string,
+  ): Promise<void> {
+    await this._request(
+      "PUT",
+      `/crm/v4/objects/${fromType}/${fromId}/associations/default/${toType}/${toId}`,
+      null,
+    );
   }
 
   // ── Pipelines ──────────────────────────────────────────────────────────────
@@ -299,7 +487,10 @@ export class HubSpotClient {
   // ── Lists ──────────────────────────────────────────────────────────────────
 
   // v3 ILS Lists API (marketing/segmentation lists)
-  async createList(name: string, objectTypeId: "0-1" | "0-2" | "0-3"): Promise<HubSpotList> {
+  async createList(
+    name: string,
+    objectTypeId: "0-1" | "0-2" | "0-3",
+  ): Promise<HubSpotList> {
     return this._request("POST", "/crm/v3/lists/", {
       name,
       objectTypeId,
@@ -308,29 +499,61 @@ export class HubSpotClient {
   }
 
   async addToList(listId: string, recordIds: string[]): Promise<void> {
-    await this._request("PUT", `/crm/v3/lists/${listId}/memberships/add`, recordIds);
+    await this._request(
+      "PUT",
+      `/crm/v3/lists/${listId}/memberships/add`,
+      recordIds,
+    );
   }
 
   async removeFromList(listId: string, recordIds: string[]): Promise<void> {
-    await this._request("PUT", `/crm/v3/lists/${listId}/memberships/remove`, recordIds);
+    await this._request(
+      "PUT",
+      `/crm/v3/lists/${listId}/memberships/remove`,
+      recordIds,
+    );
   }
 
   async getLists(): Promise<{ lists: HubSpotList[] }> {
     return this._request("GET", "/crm/v3/lists/?limit=100");
   }
 
-  async getListMemberships(listId: string, after?: string, limit = 100): Promise<{ results: Array<{ recordId: string }>; paging?: { next?: { after: string } } }> {
+  async getListMemberships(
+    listId: string,
+    after?: string,
+    limit = 100,
+  ): Promise<{
+    results: Array<{ recordId: string }>;
+    paging?: { next?: { after: string } };
+  }> {
     let path = `/crm/v3/lists/${listId}/memberships?limit=${limit}`;
     if (after) path += `&after=${after}`;
     return this._request("GET", path);
   }
 
   // v1 Contact Lists API (classic lists created in the HubSpot UI)
-  async getContactLists(): Promise<{ lists: Array<{ listId: number; name: string; dynamic: boolean; filters?: unknown }>; "has-more": boolean; offset: number }> {
+  async getContactLists(): Promise<{
+    lists: Array<{
+      listId: number;
+      name: string;
+      dynamic: boolean;
+      filters?: unknown;
+    }>;
+    "has-more": boolean;
+    offset: number;
+  }> {
     return this._request("GET", "/contacts/v1/lists?count=100");
   }
 
-  async getContactListMemberships(listId: number, offset?: number, count = 100): Promise<{ contacts: Array<{ vid: number; "is-contact": boolean }>; "has-more": boolean; "vid-offset"?: number }> {
+  async getContactListMemberships(
+    listId: number,
+    offset?: number,
+    count = 100,
+  ): Promise<{
+    contacts: Array<{ vid: number; "is-contact": boolean }>;
+    "has-more": boolean;
+    "vid-offset"?: number;
+  }> {
     let path = `/contacts/v1/lists/${listId}/contacts/all?count=${count}`;
     if (offset) path += `&vidOffset=${offset}`;
     return this._request("GET", path);
@@ -338,22 +561,42 @@ export class HubSpotClient {
 
   // ── Custom Properties ──────────────────────────────────────────────────────
 
-  async getCustomProperties(objectType: string): Promise<{ results: HubSpotProperty[] }> {
+  async getCustomProperties(
+    objectType: string,
+  ): Promise<{ results: HubSpotProperty[] }> {
     return this._request("GET", `/crm/v3/properties/${objectType}`);
   }
 
-  async createPropertyGroup(objectType: string, name: string, label: string): Promise<void> {
-    await this._request("POST", `/crm/v3/properties/${objectType}/groups`, { name, label, displayOrder: -1 });
+  async createPropertyGroup(
+    objectType: string,
+    name: string,
+    label: string,
+  ): Promise<void> {
+    await this._request("POST", `/crm/v3/properties/${objectType}/groups`, {
+      name,
+      label,
+      displayOrder: -1,
+    });
   }
 
-  async createCustomProperty(objectType: string, definition: Record<string, unknown>): Promise<HubSpotProperty> {
-    return this._request("POST", `/crm/v3/properties/${objectType}`, definition);
+  async createCustomProperty(
+    objectType: string,
+    definition: Record<string, unknown>,
+  ): Promise<HubSpotProperty> {
+    return this._request(
+      "POST",
+      `/crm/v3/properties/${objectType}`,
+      definition,
+    );
   }
 
   // ── Health ─────────────────────────────────────────────────────────────────
 
   async getCompanyCount(): Promise<number> {
-    const result = await this._request<{ total: number }>("GET", "/crm/v3/objects/companies?limit=1");
+    const result = await this._request<{ total: number }>(
+      "GET",
+      "/crm/v3/objects/companies?limit=1",
+    );
     return result.total;
   }
 }

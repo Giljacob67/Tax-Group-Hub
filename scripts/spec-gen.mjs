@@ -6,7 +6,13 @@
  * artifacts/api-server/src/routes/*.ts. Regex scrape of the source; emits a
  * minimal but complete OpenAPI 3.1 document. Re-run with `pnpm spec:gen`.
  */
-import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  statSync,
+  mkdirSync,
+} from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import yaml from "yaml";
@@ -23,11 +29,18 @@ function expressToOpenApi(p) {
 
 function methodSummary(method, path) {
   const m = method.toLowerCase();
-  const seg = path.replace(/[{}]/g, "").replace(/^\/+/, "").split("/")[0] || "root";
-  const verb = {
-    get: "Get", post: "Create", put: "Replace", patch: "Update",
-    delete: "Delete", head: "Head", options: "Options",
-  }[m] || m.toUpperCase();
+  const seg =
+    path.replace(/[{}]/g, "").replace(/^\/+/, "").split("/")[0] || "root";
+  const verb =
+    {
+      get: "Get",
+      post: "Create",
+      put: "Replace",
+      patch: "Update",
+      delete: "Delete",
+      head: "Head",
+      options: "Options",
+    }[m] || m.toUpperCase();
   return `${verb} ${seg}`;
 }
 
@@ -40,10 +53,13 @@ function readPreviousTags() {
     const raw = readFileSync(outFile, "utf8");
     const parsed = yaml.parse(raw);
     return parsed?.tags || [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
-const routeRegex = /router\.(get|post|put|delete|patch|head|options)\(\s*(['"`])([^'"`]+)\2/g;
+const routeRegex =
+  /router\.(get|post|put|delete|patch|head|options)\(\s*(['"`])([^'"`]+)\2/g;
 const paths = {};
 const tags = new Set();
 let skipped = 0;
@@ -56,9 +72,14 @@ for (const file of readdirSync(routesDir)) {
   for (const m of src.matchAll(routeRegex)) {
     const method = m[1].toLowerCase();
     const path = m[3];
-    if (path.includes("(") || path.includes(")")) { skipped++; continue; }
+    if (path.includes("(") || path.includes(")")) {
+      skipped++;
+      continue;
+    }
     const openapiPath = expressToOpenApi(path);
-    const params = [...openapiPath.matchAll(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g)].map((m) => ({
+    const params = [
+      ...openapiPath.matchAll(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g),
+    ].map((m) => ({
       name: m[1],
       in: "path",
       required: true,
@@ -72,11 +93,11 @@ for (const file of readdirSync(routesDir)) {
       operationId: `${tagFor(file)}_${method}_${openapiPath.replace(/[{}]/g, "").replace(/\W+/g, "_")}`,
       parameters: params,
       responses: {
-        "200": { description: "OK" },
-        "400": { description: "Bad request" },
-        "401": { description: "Unauthorized" },
-        "404": { description: "Not found" },
-        "500": { description: "Internal server error" },
+        200: { description: "OK" },
+        400: { description: "Bad request" },
+        401: { description: "Unauthorized" },
+        404: { description: "Not found" },
+        500: { description: "Internal server error" },
       },
       security: [{ bearerAuth: [] }, { apiKeyAuth: [] }],
     };
@@ -84,7 +105,9 @@ for (const file of readdirSync(routesDir)) {
   }
 }
 
-const preservedTags = readPreviousTags().filter((t) => typeof t.name === "string");
+const preservedTags = readPreviousTags().filter(
+  (t) => typeof t.name === "string",
+);
 const mergedTags = [...preservedTags];
 for (const t of tags) {
   if (!mergedTags.find((m) => m.name === t)) mergedTags.push({ name: t });
@@ -95,7 +118,8 @@ const spec = {
   info: {
     title: "Api",
     version: "0.3.0",
-    description: "Tax Group AI Hub API — auto-generated from Express routes via scripts/spec-gen.mjs.",
+    description:
+      "Tax Group AI Hub API — auto-generated from Express routes via scripts/spec-gen.mjs.",
   },
   servers: [{ url: "/api", description: "Base API path" }],
   tags: mergedTags,
@@ -123,6 +147,14 @@ const spec = {
 
 mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(outFile, yaml.stringify(spec, { lineWidth: 120 }), "utf8");
-const total = Object.values(paths).reduce((acc, ops) => acc + Object.keys(ops).length, 0);
-console.log(`[spec-gen] wrote ${total} operations across ${Object.keys(paths).length} paths to ${relative(repoRoot, outFile)}`);
-if (skipped > 0) console.warn(`[spec-gen] ${skipped} routes were skipped (likely dynamic paths)`);
+const total = Object.values(paths).reduce(
+  (acc, ops) => acc + Object.keys(ops).length,
+  0,
+);
+console.log(
+  `[spec-gen] wrote ${total} operations across ${Object.keys(paths).length} paths to ${relative(repoRoot, outFile)}`,
+);
+if (skipped > 0)
+  console.warn(
+    `[spec-gen] ${skipped} routes were skipped (likely dynamic paths)`,
+  );

@@ -41,6 +41,7 @@ export const llmLimiter = rateLimit({
   legacyHeaders: false,
   message: {
     error: "Too Many Requests",
-    message: "LLM rate limit exceeded. Max 10 requests per minute for AI operations.",
+    message:
+      "LLM rate limit exceeded. Max 10 requests per minute for AI operations.",
   },
 });

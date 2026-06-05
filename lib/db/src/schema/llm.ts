@@ -1,4 +1,12 @@
-import { pgTable, text, serial, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  timestamp,
+  integer,
+  boolean,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -42,7 +50,9 @@ export const llmConnectionsTable = pgTable("llm_connections", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertLlmConnectionSchema = createInsertSchema(llmConnectionsTable).omit({
+export const insertLlmConnectionSchema = createInsertSchema(
+  llmConnectionsTable,
+).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -79,11 +89,13 @@ export const llmProfilesTable = pgTable("llm_profiles", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertLlmProfileSchema = createInsertSchema(llmProfilesTable).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
+export const insertLlmProfileSchema = createInsertSchema(llmProfilesTable).omit(
+  {
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  },
+);
 
 export type LlmProfile = typeof llmProfilesTable.$inferSelect;
 export type InsertLlmProfile = z.infer<typeof insertLlmProfileSchema>;

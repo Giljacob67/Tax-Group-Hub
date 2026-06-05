@@ -28,21 +28,30 @@ export function OnboardingTour({
   onFinish,
 }: OnboardingTourProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [pos, setPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
 
   useEffect(() => {
     if (!isOpen) return;
 
     if (!step.target) {
       // Center modal for welcome step
-      setPos({ top: window.innerHeight / 2 - 120, left: window.innerWidth / 2 - 160 });
+      setPos({
+        top: window.innerHeight / 2 - 120,
+        left: window.innerWidth / 2 - 160,
+      });
       return;
     }
 
     const targetEl = document.querySelector(step.target) as HTMLElement | null;
     if (!targetEl) {
       // Fallback to center if target not found
-      setPos({ top: window.innerHeight / 2 - 120, left: window.innerWidth / 2 - 160 });
+      setPos({
+        top: window.innerHeight / 2 - 120,
+        left: window.innerWidth / 2 - 160,
+      });
       return;
     }
 
@@ -66,8 +75,14 @@ export function OnboardingTour({
 
     // Clamp to viewport
     const padding = 16;
-    top = Math.max(padding, Math.min(top, window.innerHeight - tooltipH - padding));
-    left = Math.max(padding, Math.min(left, window.innerWidth - tooltipW - padding));
+    top = Math.max(
+      padding,
+      Math.min(top, window.innerHeight - tooltipH - padding),
+    );
+    left = Math.max(
+      padding,
+      Math.min(left, window.innerWidth - tooltipW - padding),
+    );
 
     setPos({ top, left });
   }, [isOpen, step, stepIndex]);
@@ -84,7 +99,10 @@ export function OnboardingTour({
           className="fixed inset-0 z-[100]"
         >
           {/* Overlay */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px]" onClick={onFinish} />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-[1px]"
+            onClick={onFinish}
+          />
 
           {/* Tooltip */}
           <motion.div
@@ -104,7 +122,9 @@ export function OnboardingTour({
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-semibold text-foreground">{step.title}</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  {step.title}
+                </h3>
               </div>
               <button
                 onClick={onFinish}
@@ -133,7 +153,12 @@ export function OnboardingTour({
 
               <div className="flex items-center gap-2">
                 {!isFirst && (
-                  <Button variant="ghost" size="sm" onClick={onPrev} className="h-8 px-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onPrev}
+                    className="h-8 px-2"
+                  >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
                 )}

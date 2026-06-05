@@ -5,7 +5,11 @@
  */
 
 import { createHmac, randomUUID } from "node:crypto";
-import { writeIntegrationLog, maskUrl, safePayloadPreview } from "./integration-logger.js";
+import {
+  writeIntegrationLog,
+  maskUrl,
+  safePayloadPreview,
+} from "./integration-logger.js";
 import { validateSafeUrl } from "./validation.js";
 
 const DISPATCH_TIMEOUT_MS = 10_000;
@@ -44,7 +48,9 @@ function httpErrorCode(status: number): string {
   return "HTTP_ERROR";
 }
 
-export async function dispatchWebhook(opts: DispatchOptions): Promise<DispatchResult> {
+export async function dispatchWebhook(
+  opts: DispatchOptions,
+): Promise<DispatchResult> {
   const correlationId = opts.correlationId ?? randomUUID();
   const integrationKey = opts.integrationKey ?? "webhooks";
   const integrationName = opts.integrationName ?? "Webhook";
@@ -57,7 +63,8 @@ export async function dispatchWebhook(opts: DispatchOptions): Promise<DispatchRe
       ok: false,
       correlationId,
       durationMs: 0,
-      errorMessage: "URL de destino inválida ou não permitida (SSRF protection).",
+      errorMessage:
+        "URL de destino inválida ou não permitida (SSRF protection).",
       errorCode: "INVALID_URL",
     };
     await writeIntegrationLog({
@@ -95,7 +102,8 @@ export async function dispatchWebhook(opts: DispatchOptions): Promise<DispatchRe
   };
 
   if (opts.secret) {
-    headers["X-TaxGroup-Signature"] = `sha256=${signPayload(bodyStr, opts.secret)}`;
+    headers["X-TaxGroup-Signature"] =
+      `sha256=${signPayload(bodyStr, opts.secret)}`;
   }
 
   let httpStatus: number | undefined;
@@ -158,9 +166,12 @@ export async function dispatchWebhook(opts: DispatchOptions): Promise<DispatchRe
 }
 
 function mapHttpError(status: number): string {
-  if (status === 401 || status === 403) return "Secret inválido ou credencial sem permissão.";
+  if (status === 401 || status === 403)
+    return "Secret inválido ou credencial sem permissão.";
   if (status === 404) return "URL do webhook ou endpoint não encontrado.";
-  if (status === 429) return "Limite de requisições atingido. Tente novamente mais tarde.";
-  if (status >= 500) return "Erro no serviço de destino. Tente novamente em instantes.";
+  if (status === 429)
+    return "Limite de requisições atingido. Tente novamente mais tarde.";
+  if (status >= 500)
+    return "Erro no serviço de destino. Tente novamente em instantes.";
   return `O servidor respondeu com status ${status}.`;
 }

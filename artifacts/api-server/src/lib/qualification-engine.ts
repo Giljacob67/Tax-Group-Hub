@@ -12,11 +12,18 @@
  */
 
 import {
-  QUALIFICATION_TIERS, type QualificationTier, type QualificationResult, type InsightItem,
-  TEMPERATURA_SUGERIDA, type TemperaturaSugerida,
-  MATURIDADE_NIVEIS, type MaturidadeNivel,
-  URGENCIA_NIVEIS, type UrgenciaNivel,
-  RISCO_NIVEIS, type RiscoNivel,
+  QUALIFICATION_TIERS,
+  type QualificationTier,
+  type QualificationResult,
+  type InsightItem,
+  TEMPERATURA_SUGERIDA,
+  type TemperaturaSugerida,
+  MATURIDADE_NIVEIS,
+  type MaturidadeNivel,
+  URGENCIA_NIVEIS,
+  type UrgenciaNivel,
+  RISCO_NIVEIS,
+  type RiscoNivel,
 } from "@workspace/db/crm-constants";
 
 export type ContactForQualification = {
@@ -115,7 +122,10 @@ export function buildQualificationPrompt(c: ContactForQualification): string {
 Gere o JSON de qualificacao conforme schema.`;
 }
 
-export function parseQualificationResult(raw: any, fallbackReasoning: string): QualificationResult {
+export function parseQualificationResult(
+  raw: any,
+  fallbackReasoning: string,
+): QualificationResult {
   const safe: QualificationResult = {
     score: 0,
     tier: "D",
@@ -149,9 +159,21 @@ export function parseQualificationResult(raw: any, fallbackReasoning: string): Q
   safe.confidence = clampInt(raw.confidence, 0, 100, 50);
 
   // Enum fields
-  safe.temperatura_sugerida = normalizeEnum<TemperaturaSugerida>(raw.temperatura_sugerida, TEMPERATURA_SUGERIDA, "frio");
-  safe.maturidade = normalizeEnum<MaturidadeNivel>(raw.maturidade, MATURIDADE_NIVEIS, "baixa");
-  safe.urgencia = normalizeEnum<UrgenciaNivel>(raw.urgencia, URGENCIA_NIVEIS, "baixa");
+  safe.temperatura_sugerida = normalizeEnum<TemperaturaSugerida>(
+    raw.temperatura_sugerida,
+    TEMPERATURA_SUGERIDA,
+    "frio",
+  );
+  safe.maturidade = normalizeEnum<MaturidadeNivel>(
+    raw.maturidade,
+    MATURIDADE_NIVEIS,
+    "baixa",
+  );
+  safe.urgencia = normalizeEnum<UrgenciaNivel>(
+    raw.urgencia,
+    URGENCIA_NIVEIS,
+    "baixa",
+  );
   safe.risco = normalizeEnum<RiscoNivel>(raw.risco, RISCO_NIVEIS, "medio");
 
   // Free text fields
@@ -159,8 +181,10 @@ export function parseQualificationResult(raw: any, fallbackReasoning: string): Q
   safe.segmento_inferido = asStringOrNull(raw.segmento_inferido);
   safe.potencial_comercial = asStringOrNull(raw.potencial_comercial);
   safe.produto_recomendado = asStringOrNull(raw.produto_recomendado);
-  safe.proximo_passo = typeof raw.proximo_passo === "string" ? raw.proximo_passo : "";
-  safe.reasoning = typeof raw.reasoning === "string" ? raw.reasoning : fallbackReasoning;
+  safe.proximo_passo =
+    typeof raw.proximo_passo === "string" ? raw.proximo_passo : "";
+  safe.reasoning =
+    typeof raw.reasoning === "string" ? raw.reasoning : fallbackReasoning;
 
   // Array fields
   safe.sinais_oportunidade = asStringArray(raw.sinais_oportunidade);
@@ -188,7 +212,8 @@ function clampInt(v: any, min: number, max: number, def: number): number {
 function normalizeTier(v: any, score: number): QualificationTier {
   if (typeof v === "string") {
     const up = v.toUpperCase();
-    if ((QUALIFICATION_TIERS as readonly string[]).includes(up)) return up as QualificationTier;
+    if ((QUALIFICATION_TIERS as readonly string[]).includes(up))
+      return up as QualificationTier;
   }
   if (score >= 70) return "A";
   if (score >= 40) return "B";
@@ -196,8 +221,13 @@ function normalizeTier(v: any, score: number): QualificationTier {
   return "D";
 }
 
-function normalizeEnum<T extends string>(v: any, allowed: readonly T[], def: T): T {
-  if (typeof v === "string" && (allowed as readonly string[]).includes(v)) return v as T;
+function normalizeEnum<T extends string>(
+  v: any,
+  allowed: readonly T[],
+  def: T,
+): T {
+  if (typeof v === "string" && (allowed as readonly string[]).includes(v))
+    return v as T;
   return def;
 }
 
@@ -208,18 +238,25 @@ function asStringOrNull(v: any): string | null {
 
 function asStringArray(v: any): string[] {
   if (!Array.isArray(v)) return [];
-  return v.filter(x => typeof x === "string" && x.trim().length > 0).map(x => x.trim());
+  return v
+    .filter((x) => typeof x === "string" && x.trim().length > 0)
+    .map((x) => x.trim());
 }
 
-function asInsightArray(v: any, expectedType: InsightItem["tipo"]): InsightItem[] {
+function asInsightArray(
+  v: any,
+  expectedType: InsightItem["tipo"],
+): InsightItem[] {
   if (!Array.isArray(v)) return [];
   return v
-    .map(x => {
+    .map((x) => {
       if (!x || typeof x !== "object") return null;
       const texto = typeof x.texto === "string" ? x.texto.trim() : null;
       if (!texto) return null;
       const confianca = normalizeEnum<"baixa" | "media" | "alta">(
-        x.confianca, ["baixa", "media", "alta"], "media"
+        x.confianca,
+        ["baixa", "media", "alta"],
+        "media",
       );
       return { tipo: expectedType, texto, confianca };
     })
