@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -225,6 +225,7 @@ function MiniSpark({ data, color }: { data: number[]; color: string }) {
 export default function Dashboard() {
   usePageTitle("Command Center");
   const { isDemo } = useDemoMode();
+  const [, navigate] = useLocation();
   const { data: agentsData, isLoading: isLoadingAgents, isError: agentsError } = useListAgents();
   const { data: convData, isLoading: isLoadingConvs, isError: convsError } = useListConversations();
 
@@ -313,6 +314,7 @@ export default function Dashboard() {
       icon: Building2,
       spark: [2, 4, 3, 5, 6, 7, 8, 9, 8, 10],
       color: CHART_GREEN,
+      href: "/crm?tab=contacts",
     },
     {
       label: "Leads quentes",
@@ -320,6 +322,7 @@ export default function Dashboard() {
       icon: Flame,
       spark: [0, 1, 2, 3, 5, 7, 8, 10, 12, 15],
       color: CHART_GOLD,
+      href: "/crm?filter=temperature:quente",
     },
     {
       label: "Propostas abertas",
@@ -327,6 +330,7 @@ export default function Dashboard() {
       icon: FileText,
       spark: [1, 2, 3, 5, 4, 6, 8, 7, 9, 10],
       color: CHART_GREEN,
+      href: "/crm?tab=pipeline",
     },
     {
       label: "Receita potencial",
@@ -337,6 +341,7 @@ export default function Dashboard() {
       icon: DollarSign,
       spark: [10, 12, 15, 14, 18, 20, 22, 25, 28, 30],
       color: CHART_GREEN,
+      href: "/crm?tab=pipeline",
     },
     {
       label: "Ações hoje",
@@ -344,6 +349,7 @@ export default function Dashboard() {
       icon: Clock,
       spark: [0, 2, 4, 3, 5, 7, 6, 8, 10, 9],
       color: CHART_GOLD,
+      href: "/crm?tab=today",
     },
     {
       label: "Campanhas ativas",
@@ -351,6 +357,7 @@ export default function Dashboard() {
       icon: Zap,
       spark: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
       color: CHART_GREEN,
+      href: "/automations",
     },
   ];
 
@@ -444,26 +451,27 @@ export default function Dashboard() {
             className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3"
           >
             {metrics.map((m) => (
-              <motion.div
-                key={m.label}
-                variants={itemVariants}
-                className="group relative rounded-xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-primary/30 transition-colors cursor-default"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-colors">
-                    <m.icon className="w-4 h-4" style={{ color: m.color }} />
+              <Link href={m.href} key={m.label}>
+                <motion.div
+                  variants={itemVariants}
+                  className="group relative rounded-xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-primary/30 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-colors">
+                      <m.icon className="w-4 h-4" style={{ color: m.color }} />
+                    </div>
+                    <MiniSpark data={m.spark} color={m.color} />
                   </div>
-                  <MiniSpark data={m.spark} color={m.color} />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold tracking-tight">
-                    {m.value}
+                  <div>
+                    <div className="text-2xl font-bold tracking-tight">
+                      {m.value}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                      {m.label}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                    {m.label}
-                  </div>
-                </div>
-              </motion.div>
+                </motion.div>
+              </Link>
             ))}
           </motion.div>
         )}
@@ -526,8 +534,14 @@ export default function Dashboard() {
                 })
               ) : (
                 <div className="col-span-full text-center py-6 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
-                  Nenhum segmento identificado. Adicione empresas ao CRM com
-                  CNAE ou tags para classificação automática.
+                  <p>Nenhum segmento identificado. Adicione empresas ao CRM com</p>
+                  <p>CNAE ou tags para classificação automática.</p>
+                  <Link
+                    href="/crm?tab=contacts"
+                    className="inline-flex items-center gap-1 mt-3 text-xs text-primary hover:underline"
+                  >
+                    <Building2 className="w-3 h-3" /> Ir para o CRM
+                  </Link>
                 </div>
               )}
             </div>
@@ -917,6 +931,10 @@ export default function Dashboard() {
               icon={Bot}
               title="Nenhum agente configurado"
               description="Configure agentes especializados para apoiar prospecção, diagnóstico, proposta e follow-up comercial."
+              action={{
+                label: "Ver Agentes",
+                onClick: () => navigate("/agent/coordenador-geral-tax-group"),
+              }}
             />
           ) : (
             <motion.div

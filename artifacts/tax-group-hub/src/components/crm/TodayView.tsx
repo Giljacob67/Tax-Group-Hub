@@ -217,21 +217,24 @@ function StatCard({
   count,
   color,
   urgent,
+  href,
 }: {
   icon: any;
   label: string;
   count: number;
   color: string;
   urgent?: boolean;
+  href?: string;
 }) {
   if (count === 0) return null;
-  return (
+  
+  const content = (
     <div
       className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border ${
         urgent
           ? "border-red-500/30 bg-red-500/5"
           : "border-border/50 bg-muted/20"
-      }`}
+      } ${href ? "cursor-pointer hover:border-primary/50 hover:bg-muted/40 transition-colors" : ""}`}
     >
       <div
         className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}
@@ -248,6 +251,11 @@ function StatCard({
       </div>
     </div>
   );
+  
+  if (href) {
+    return <a href={href}>{content}</a>;
+  }
+  return content;
 }
 
 // ─── Main TodayView ─────────────────────────────────────────────────────────
@@ -366,18 +374,21 @@ export default function TodayView() {
               count={summary.followupVencidos}
               color="bg-red-500/10 text-red-400"
               urgent
+              href="/crm?tab=today&filter=overdue-followups"
             />
             <StatCard
               icon={Calendar}
               label="Follow-ups hoje"
               count={summary.followupHoje}
               color="bg-amber-500/10 text-amber-400"
+              href="/crm?tab=today&filter=today-followups"
             />
             <StatCard
               icon={Handshake}
               label="Reunioes hoje"
               count={summary.reunioesHoje}
               color="bg-purple-500/10 text-purple-400"
+              href="/crm?tab=today&filter=today-meetings"
             />
             <StatCard
               icon={Clock3}
@@ -385,48 +396,56 @@ export default function TodayView() {
               count={summary.tarefasVencidas}
               color="bg-red-500/10 text-red-400"
               urgent
+              href="/crm?tab=today&filter=overdue-tasks"
             />
             <StatCard
               icon={Flame}
               label="Leads quentes"
               count={summary.leadsQuentes}
               color="bg-orange-500/10 text-orange-400"
+              href="/crm?tab=contacts&filter=temperature:quente"
             />
             <StatCard
               icon={Target}
               label="Propostas abertas"
               count={summary.propostasAbertas}
               color="bg-cyan-500/10 text-cyan-400"
+              href="/crm?tab=pipeline"
             />
             <StatCard
               icon={Send}
               label="Aguardando Matriz"
               count={summary.aguardandoMatriz}
               color="bg-pink-500/10 text-pink-400"
+              href="/crm?tab=pipeline&filter=aguardando_matriz"
             />
             <StatCard
               icon={FileWarning}
               label="Pendencia documental"
               count={summary.pendenciaDocumental}
               color="bg-red-500/10 text-red-400"
+              href="/crm?tab=pipeline&filter=pendencia_documental"
             />
             <StatCard
               icon={TrendingUp}
               label="Em negociacao"
               count={summary.emNegociacao}
               color="bg-indigo-500/10 text-indigo-400"
+              href="/crm?tab=pipeline&filter=negociacao"
             />
             <StatCard
               icon={Building2}
               label="Sem atividade 7d"
               count={summary.semAtividade7d}
               color="bg-gray-500/10 text-gray-400"
+              href="/crm?tab=contacts&filter=semAtividadeDias:7"
             />
             <StatCard
               icon={Building2}
               label="Sem atividade 14d"
               count={summary.semAtividade14d}
               color="bg-gray-500/10 text-gray-400"
+              href="/crm?tab=contacts&filter=semAtividadeDias:14"
             />
             <StatCard
               icon={CheckCircle2}

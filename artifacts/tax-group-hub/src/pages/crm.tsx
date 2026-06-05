@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useState, useRef, lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import {
   Building2,
@@ -11,6 +12,7 @@ import {
   Briefcase,
   RefreshCw,
   ChevronRight,
+  ChevronLeft,
   X,
   Clock,
   MessageSquare,
@@ -51,6 +53,7 @@ import {
   Zap,
   Compass,
   ShoppingCart,
+  Sparkles,
 } from "lucide-react";
 import { useDemoMode } from "@/hooks/use-demo-mode";
 import { DEMO_CONTACTS, DEMO_DEALS } from "@/lib/demo-data";
@@ -101,6 +104,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -154,6 +163,35 @@ import {
   SYSTEM_VIEWS,
   SYSTEM_VIEW_CATEGORIES,
 } from "@workspace/db/crm-constants";
+
+const PIPELINE_PHASES = [
+  {
+    name: "Prospecção",
+    stages: ["lead_novo", "qualificacao_comercial", "reuniao_agendada"],
+    color: "blue",
+  },
+  {
+    name: "Diagnóstico",
+    stages: ["diagnostico_comercial", "enviado_para_matriz", "aguardando_matriz"],
+    color: "violet",
+  },
+  {
+    name: "Proposta",
+    stages: ["proposta_pronta", "apresentacao_ao_cliente", "negociacao"],
+    color: "amber",
+  },
+  {
+    name: "Fechamento",
+    stages: ["fechado_ganho", "perdido"],
+    color: "emerald",
+  },
+  {
+    name: "Pós-Venda",
+    stages: ["onboarding_cliente", "execucao_pela_matriz", "acompanhamento_pendencias", "pos_venda_expansao", "encerrado"],
+    color: "gray",
+    collapsible: true,
+  },
+];
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type CrmSavedView = {
@@ -620,6 +658,24 @@ export default function CRMPage() {
               <h1 className="text-xl font-bold tracking-tight text-foreground">
                 CRM & Pipeline
               </h1>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Buscar CNPJ ou empresa..."
+                  className="w-64 pl-9 pr-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const value = (e.target as HTMLInputElement).value.trim();
+                      if (value.length === 14 && /^\d{14}$/.test(value)) {
+                        setActiveTab("contacts");
+                      } else if (value.length > 2) {
+                        setActiveTab("contacts");
+                      }
+                    }
+                  }}
+                />
+              </div>
               <TabsList className="bg-muted/50 border border-border/50 h-auto flex-wrap">
                 <TabsTrigger
                   value="today"
@@ -644,60 +700,45 @@ export default function CRMPage() {
                 >
                   Empresas
                 </TabsTrigger>
-                <TabsTrigger
-                  value="timeline"
-                  className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  Atividades
-                </TabsTrigger>
-                <TabsTrigger
-                  value="alerts"
-                  className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  Alertas
-                </TabsTrigger>
-                <TabsTrigger
-                  value="automations"
-                  className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  Automações
-                </TabsTrigger>
-                <TabsTrigger
-                  value="queues"
-                  className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  Filas
-                </TabsTrigger>
-                <Can permission="canViewDashboards">
-                  <TabsTrigger
-                    value="quality"
-                    className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  >
-                    Qualidade
-                  </TabsTrigger>
-                </Can>
-                <Can permission="canViewAudit">
-                  <TabsTrigger
-                    value="audit"
-                    className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  >
-                    Governança
-                  </TabsTrigger>
-                </Can>
-                <Can permission="canManageUsers">
-                  <TabsTrigger
-                    value="roles"
-                    className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  >
-                    Usuários
-                  </TabsTrigger>
-                </Can>
-                <TabsTrigger
-                  value="dashboard"
-                  className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  Dashboards
-                </TabsTrigger>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="text-xs px-3 py-1.5 rounded-md hover:bg-muted/50 flex items-center gap-1 transition-colors">
+                      Mais <ChevronDown className="w-3 h-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => setActiveTab("timeline")}>
+                      Atividades
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setActiveTab("alerts")}>
+                      Alertas
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setActiveTab("dashboard")}>
+                      Dashboards
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setActiveTab("automations")}>
+                      Automações
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setActiveTab("queues")}>
+                      Filas
+                    </DropdownMenuItem>
+                    <Can permission="canViewDashboards">
+                      <DropdownMenuItem onClick={() => setActiveTab("quality")}>
+                        Qualidade
+                      </DropdownMenuItem>
+                    </Can>
+                    <Can permission="canViewAudit">
+                      <DropdownMenuItem onClick={() => setActiveTab("audit")}>
+                        Governança
+                      </DropdownMenuItem>
+                    </Can>
+                    <Can permission="canManageUsers">
+                      <DropdownMenuItem onClick={() => setActiveTab("roles")}>
+                        Usuários
+                      </DropdownMenuItem>
+                    </Can>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TabsList>
             </div>
             {(activeTab === "contacts" || activeTab === "today") && (
@@ -2103,6 +2144,11 @@ function ContactsView({
                 "Importe uma lista de CNPJs ou adicione uma empresa-alvo para iniciar a priorização por IA."
               )}
             </p>
+            {activeFilterCount === 0 && (
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <AddLeadDialog />
+              </div>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -2390,6 +2436,7 @@ function ContactDetailPanel({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const [detailTab, setDetailTab] = useState("info");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -2775,6 +2822,24 @@ function ContactDetailPanel({
               <ExternalLink className="w-3 h-3" /> Site
             </a>
           )}
+          <button
+            onClick={() => {
+              const context = {
+                contactId: contact.id,
+                cnpj: contact.cnpj,
+                razaoSocial: contact.razaoSocial,
+                segmento: contact.segmento,
+                score: contact.aiScore,
+              };
+              navigate(
+                `/agent/diagnostico-cnpj?context=${encodeURIComponent(JSON.stringify(context))}`,
+              );
+            }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-xs text-primary hover:text-primary/80 transition-colors border border-primary/20"
+            title="Analisar com IA"
+          >
+            <Sparkles className="w-3 h-3" /> Analisar com IA
+          </button>
         </div>
       </div>
 
@@ -4435,6 +4500,21 @@ function PipelineKanbanView() {
   const [addingInStage, setAddingInStage] = useState<string | null>(null);
   const [activePipelineId, setActivePipelineId] = useState("default");
   const [showPipelineMgr, setShowPipelineMgr] = useState(false);
+  const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(
+    () => new Set(PIPELINE_PHASES.filter((p) => p.collapsible).map((p) => p.name))
+  );
+
+  const togglePhase = (phaseName: string) => {
+    setCollapsedPhases((prev) => {
+      const next = new Set(prev);
+      if (next.has(phaseName)) {
+        next.delete(phaseName);
+      } else {
+        next.add(phaseName);
+      }
+      return next;
+    });
+  };
 
   // Forecast goal — must be declared before any conditional return
   const MONTHLY_GOAL_KEY = "crm_monthly_goal";
@@ -4759,7 +4839,56 @@ function PipelineKanbanView() {
           className="flex gap-3 pb-4 h-full"
           style={{ minWidth: "max-content" }}
         >
-          {stages.map((stageId) => {
+          {PIPELINE_PHASES.map((phase) => {
+            const phaseStages = stages.filter((s: string) => phase.stages.includes(s));
+            if (phaseStages.length === 0) return null;
+            
+            const isCollapsed = collapsedPhases.has(phase.name);
+            const phaseDeals = phaseStages.flatMap((s: string) => (pipeline[s] || []) as Deal[]);
+            const phaseValue = phaseDeals.reduce((s, d) => s + (parseFloat(d.value || "0") || 0), 0);
+            
+            const phaseColors: Record<string, string> = {
+              blue: "border-t-blue-500 bg-blue-500/5",
+              violet: "border-t-violet-500 bg-violet-500/5",
+              amber: "border-t-amber-500 bg-amber-500/5",
+              emerald: "border-t-emerald-500 bg-emerald-500/5",
+              gray: "border-t-gray-500 bg-gray-500/5",
+            };
+            
+            return (
+              <div key={phase.name} className="flex gap-2">
+                {/* Phase header */}
+                <div className={`w-8 flex-shrink-0 rounded-xl border border-border/50 border-t-2 ${phaseColors[phase.color]} flex flex-col items-center justify-start pt-3`}>
+                  <button
+                    onClick={() => togglePhase(phase.name)}
+                    className="writing-mode-vertical text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                    style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+                    title={isCollapsed ? `Expandir ${phase.name}` : `Colapsar ${phase.name}`}
+                  >
+                    {phase.name}
+                  </button>
+                  <span className="text-[9px] font-mono bg-muted rounded-full px-1 py-0.5 text-muted-foreground mt-2">
+                    {phaseDeals.length}
+                  </span>
+                  {phaseValue > 0 && (
+                    <span className="text-[9px] text-muted-foreground font-mono mt-1">
+                      {formatCurrencyShort(phaseValue)}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => togglePhase(phase.name)}
+                    className="mt-auto mb-2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="w-3 h-3" />
+                    ) : (
+                      <ChevronLeft className="w-3 h-3" />
+                    )}
+                  </button>
+                </div>
+                
+                {/* Phase columns */}
+                {!isCollapsed && phaseStages.map((stageId: string) => {
             const deals = (pipeline[stageId] || []) as Deal[];
             const dict = STAGE_DICT[stageId] || {
               label: stageId.toUpperCase(),
@@ -4860,6 +4989,9 @@ function PipelineKanbanView() {
                     ))
                   )}
                 </div>
+              </div>
+              );
+            })}
               </div>
             );
           })}

@@ -29,6 +29,7 @@ import {
   useGetBrandingConfig,
   useUpdateBrandingConfig,
   useUploadBrandingLogo,
+  useGetCrmMe,
 } from "@workspace/api-client-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -521,6 +522,8 @@ function BrandingSection() {
 export default function SettingsPage() {
   usePageTitle("Configurações");
   const [section, setSection] = useState("llm");
+  const { data: userData } = useGetCrmMe();
+  const isAdmin = userData?.user?.roles?.some((r: any) => r.role === "admin" && r.isActive) ?? false;
 
   return (
     <div className="h-full flex overflow-hidden" data-tour="settings">
@@ -543,6 +546,12 @@ export default function SettingsPage() {
             {item.label}
           </button>
         ))}
+        {!isAdmin && (
+          <div className="mt-auto px-3 py-2 text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-lg">
+            <Crown className="w-3 h-3 inline mr-1" />
+            Modo visualização
+          </div>
+        )}
       </div>
 
       {/* Mobile section selector */}

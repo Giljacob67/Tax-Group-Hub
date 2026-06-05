@@ -20,6 +20,7 @@ import {
   FileText,
   Sun,
   Moon,
+  HelpCircle,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useListAgents } from "@workspace/api-client-react";
@@ -43,7 +44,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useBranding } from "../contexts/BrandingContext";
+import { useGetCrmMe } from "@workspace/api-client-react";
 
 const BLOCKS = [
   {
@@ -145,6 +152,8 @@ export function AppSidebar() {
   const { open } = useSidebar();
   const [search, setSearch] = useState("");
   const { theme, toggle } = useTheme();
+  const { data: userData } = useGetCrmMe();
+  const isAdmin = userData?.user?.roles?.some((r: any) => r.role === "admin" && r.isActive) ?? false;
 
   const logoUrl = branding.logoStorageKey
     ? `/uploads/${branding.logoStorageKey}`
@@ -263,6 +272,63 @@ export function AppSidebar() {
         {/* Agent list — only when expanded */}
         {open && (
           <>
+            {/* Agent guide */}
+            <SidebarGroup className="mt-2 mb-1">
+              <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+                <HelpCircle className="w-3 h-3" />
+                Qual agente usar?
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="w-full text-left px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors">
+                      Ver guia rápido
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 ml-2" align="start">
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <HelpCircle className="w-4 h-4 text-primary" />
+                        Qual agente usar?
+                      </h4>
+                      <div className="space-y-2 text-xs">
+                        <div className="p-2 bg-muted/50 rounded-lg">
+                          <strong className="text-foreground">Acabei de receber um lead</strong>
+                          <div className="text-muted-foreground mt-0.5">
+                            → <button onClick={() => navigate("/agent/diagnostico-cnpj")} className="text-primary hover:underline">Diagnóstico CNPJ</button>
+                          </div>
+                        </div>
+                        <div className="p-2 bg-muted/50 rounded-lg">
+                          <strong className="text-foreground">Vou fazer o primeiro contato</strong>
+                          <div className="text-muted-foreground mt-0.5">
+                            → <button onClick={() => navigate("/agent/prospeccao-comercial")} className="text-primary hover:underline">Prospecção Comercial</button>
+                          </div>
+                        </div>
+                        <div className="p-2 bg-muted/50 rounded-lg">
+                          <strong className="text-foreground">Cliente fez uma objeção</strong>
+                          <div className="text-muted-foreground mt-0.5">
+                            → <button onClick={() => navigate("/agent/reversao-objecoes")} className="text-primary hover:underline">Reversão de Objeções</button>
+                          </div>
+                        </div>
+                        <div className="p-2 bg-muted/50 rounded-lg">
+                          <strong className="text-foreground">Cliente não respondeu</strong>
+                          <div className="text-muted-foreground mt-0.5">
+                            → <button onClick={() => navigate("/agent/follow-up")} className="text-primary hover:underline">Follow-Up</button>
+                          </div>
+                        </div>
+                        <div className="p-2 bg-muted/50 rounded-lg">
+                          <strong className="text-foreground">Preciso preparar uma reunião</strong>
+                          <div className="text-muted-foreground mt-0.5">
+                            → <button onClick={() => navigate("/agent/roteiro-reuniao")} className="text-primary hover:underline">Roteiro de Reunião</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
             {isLoading ? (
               <div className="flex justify-center p-4">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />

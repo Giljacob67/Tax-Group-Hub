@@ -431,7 +431,7 @@ export default function AiQualityPage() {
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      Fontes RAG visíveis por mensagem — usuário sabe de onde
+                      Fontes consultadas visíveis por mensagem — usuário sabe de onde
                       vem a informação
                     </div>
                     <div className="flex items-center gap-2">
@@ -440,7 +440,7 @@ export default function AiQualityPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      Instrução de incerteza injetada quando sem contexto RAG
+                      Instrução de incerteza injetada quando sem fontes consultadas
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -448,7 +448,7 @@ export default function AiQualityPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      Metadados RAG salvos no banco por mensagem (auditável)
+                      Metadados de fontes salvos no banco por mensagem (auditável)
                     </div>
                   </div>
                 </div>

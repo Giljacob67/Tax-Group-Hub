@@ -294,6 +294,13 @@ export default function AutomationsPage() {
                   Crie sequências de WhatsApp e e-mail para nurturing automático
                   de leads qualificados.
                 </p>
+                <Button
+                  onClick={() => setTab("enrollments")}
+                  className="mt-4"
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Inscrever Contato
+                </Button>
               </div>
             ) : (
               <div className="space-y-3">

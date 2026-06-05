@@ -820,7 +820,7 @@ function DeliverableEditor({
           <button
             onClick={() => setShowSources((v) => !v)}
             className={`p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors ${showSources ? "bg-muted text-foreground" : ""}`}
-            title="Fontes RAG"
+            title="Fontes Consultadas"
           >
             <BookOpen className="w-4 h-4" />
           </button>
@@ -951,12 +951,12 @@ function DeliverableEditor({
             {showSources && (
               <div className="p-4">
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5" /> Fontes RAG (
+                  <BookOpen className="w-3.5 h-3.5" /> Fontes Consultadas (
                   {sources.length})
                 </h4>
                 {sources.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    Nenhuma fonte RAG utilizada.
+                    Nenhuma fonte consultada.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -1007,7 +1007,7 @@ function DeliverableEditor({
                   {[
                     "Resultados não apresentados como garantia",
                     "Hipóteses marcadas como [PREMISSA]",
-                    "Fontes RAG rastreáveis",
+                    "Fontes consultadas rastreáveis",
                     "Requer revisão humana antes do envio",
                     "Diagnóstico final depende de análise técnica",
                   ].map((item, i) => (

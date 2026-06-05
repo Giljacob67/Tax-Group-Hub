@@ -150,7 +150,7 @@ const TABS = [
   { id: "documents", label: "Documentos", icon: FileText },
   { id: "sources", label: "Fontes", icon: Network },
   { id: "indexing", label: "Indexação", icon: Layers },
-  { id: "search", label: "Busca Semântica", icon: Search },
+  { id: "search", label: "Buscar na Base", icon: Search },
   { id: "logs", label: "Logs", icon: List },
   { id: "settings", label: "Configurações", icon: Settings },
 ] as const;
@@ -685,7 +685,7 @@ function DocumentsTable({
                       <button
                         onClick={() => onViewChunks(doc)}
                         className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                        title="Ver chunks"
+                        title="Ver fragmentos"
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
@@ -1403,7 +1403,7 @@ function LogsTab({ docs }: { docs: KnowledgeDoc[] }) {
               <td className="px-4 py-2.5 hidden lg:table-cell text-xs text-muted-foreground">
                 {e.doc.status === "processed" &&
                   e.event === "document.indexed" &&
-                  `${e.doc.chunkCount} chunks`}
+                  `${e.doc.chunkCount} fragmentos`}
                 {e.doc.status === "error" && e.event === "document.failed" && (
                   <span className="text-red-400/80 truncate block max-w-[200px]">
                     {e.doc.errorLog?.slice(0, 80)}
@@ -1461,10 +1461,10 @@ function SettingsTab() {
         <h3 className="font-semibold mb-3">Parâmetros de Indexação</h3>
         <div className="grid grid-cols-2 gap-3 text-sm">
           {[
-            ["Tamanho do chunk", "800 palavras"],
+            ["Tamanho do fragmento", "800 palavras"],
             ["Sobreposição (overlap)", "200 palavras"],
             ["Similaridade mínima", "0.25 (cosine)"],
-            ["Resultados por busca", "8 chunks"],
+            ["Resultados por busca", "8 fragmentos"],
           ].map(([k, v]) => (
             <div
               key={k}
@@ -1829,7 +1829,7 @@ export default function KnowledgeBase() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir documento?</AlertDialogTitle>
             <AlertDialogDescription>
-              O documento e todos os seus chunks serão removidos da base de
+              O documento e todos os seus fragmentos serão removidos da base de
               conhecimento. Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>

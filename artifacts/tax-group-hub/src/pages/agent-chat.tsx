@@ -56,6 +56,7 @@ import {
   useListLlmConnections,
   useExportConversation,
   useSubmitAiFeedback,
+  useGetCrmMe,
   // useGetAvailableModels, // replaced by ModelSelector from Model Hub
   getListConversationsQueryKey,
   getGetConversationQueryKey,
@@ -92,6 +93,8 @@ export default function AgentChat() {
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [, navigate] = useLocation();
+  const { data: userData } = useGetCrmMe();
+  const isAdmin = userData?.user?.roles?.some((r: any) => r.role === "admin" && r.isActive) ?? false;
 
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -212,6 +215,21 @@ export default function AgentChat() {
     setIsCreatingNewChat(false);
     setCustomSystemPrompt(null);
     setShowDesignStudio(false);
+  }, [agentId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const contextParam = params.get("context");
+    if (contextParam && agentId && !activeConvId) {
+      try {
+        const context = JSON.parse(decodeURIComponent(contextParam));
+        const message = `Analise o CNPJ ${context.cnpj} (${context.razaoSocial}) do segmento ${context.segmento || "não informado"}. Score atual: ${context.score || "não pontuado"}.`;
+        handleCreateAndSend(message);
+        window.history.replaceState({}, "", `/agent/${agentId}`);
+      } catch (e) {
+        console.error("Erro ao processar contexto do CRM:", e);
+      }
+    }
   }, [agentId]);
 
   const handleNewChat = () => {
@@ -761,19 +779,21 @@ export default function AgentChat() {
                 <Download className="w-4 h-4" />
               </button>
             )}
-            <button
-              onClick={() => {
-                setEditingPrompt(
-                  customSystemPrompt || agent.systemPrompt || "",
-                );
-                setShowSystemPrompt(true);
-              }}
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-              title="Configurações avançadas"
-              aria-label="Configurações avançadas"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setEditingPrompt(
+                    customSystemPrompt || agent.systemPrompt || "",
+                  );
+                  setShowSystemPrompt(true);
+                }}
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+                title="Configurações avançadas"
+                aria-label="Configurações avançadas"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </header>
 
@@ -962,7 +982,7 @@ export default function AgentChat() {
                             high: "Alta confiança",
                             medium: "Confiança média",
                             low: "Baixa confiança",
-                            none: "Sem contexto RAG",
+                            none: "Resposta sem fontes consultadas",
                           };
                           const isOpen = expandedSources[msg.id];
                           return (
@@ -1182,12 +1202,14 @@ export default function AgentChat() {
               <Send className="w-4 h-4" />
             </button>
           </div>
-          <div className="text-center mt-2 text-[11px] text-muted-foreground flex items-center justify-center gap-2">
-            <Cpu className="w-3 h-3" /> {displayModel}
-            {customSystemPrompt && (
-              <span className="text-primary">• Instrução customizada</span>
-            )}
-          </div>
+          {isAdmin && (
+            <div className="text-center mt-2 text-[11px] text-muted-foreground flex items-center justify-center gap-2">
+              <Cpu className="w-3 h-3" /> {displayModel}
+              {customSystemPrompt && (
+                <span className="text-primary">• Instrução customizada</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1267,21 +1289,23 @@ export default function AgentChat() {
               </Link>
             </div>
           </div>
-          <div className="pt-3 border-t border-border">
-            <div className="text-[11px] text-muted-foreground mb-1">
-              Configuração avançada
-            </div>
-            <ModelSelector
-              value={selectedConnection?.id || null}
-              onChange={handleSelectConnection}
-              placeholder="Modelo padrão"
-            />
-            {customSystemPrompt && (
-              <div className="mt-2 text-[11px] text-primary flex items-center gap-1">
-                <Settings className="w-3 h-3" /> Instrução customizada ativa
+          {isAdmin && (
+            <div className="pt-3 border-t border-border">
+              <div className="text-[11px] text-muted-foreground mb-1">
+                Configuração avançada
               </div>
-            )}
-          </div>
+              <ModelSelector
+                value={selectedConnection?.id || null}
+                onChange={handleSelectConnection}
+                placeholder="Modelo padrão"
+              />
+              {customSystemPrompt && (
+                <div className="mt-2 text-[11px] text-primary flex items-center gap-1">
+                  <Settings className="w-3 h-3" /> Instrução customizada ativa
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1336,7 +1360,7 @@ export default function AgentChat() {
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" /> System Prompt — {agent.name}
+              <Settings className="w-5 h-5" /> Instruções do Agente — {agent.name}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
@@ -1457,7 +1481,10 @@ export default function AgentChat() {
                 ))}
                 {!filteredConversations?.length && (
                   <div className="text-center py-8 text-sm text-muted-foreground">
-                    Nenhuma conversa ainda
+                    <p>Nenhuma conversa ainda</p>
+                    <p className="text-xs mt-1">
+                      Clique no botão <Plus className="w-3 h-3 inline" /> acima para iniciar
+                    </p>
                   </div>
                 )}
               </div>
