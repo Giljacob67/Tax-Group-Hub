@@ -1,7 +1,7 @@
 {
   "version": 2,
   "framework": null,
-  "buildCommand": "pnpm run build && node scripts/apply-migrations.mjs",
+  "buildCommand": "pnpm run build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "artifacts/tax-group-hub/dist",
   "functions": {
