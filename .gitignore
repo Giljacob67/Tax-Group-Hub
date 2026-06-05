@@ -10,6 +10,7 @@ out-tsc
 
 # dependencies
 node_modules
+package-lock.json
 
 # IDEs and editors
 /.idea
@@ -73,3 +74,4 @@ docs/PULL_REQUEST_fix-audit-producao-vercel.md
 
 # Local context saves (work-in-progress notes, not source)
 .context/
+.vercel
