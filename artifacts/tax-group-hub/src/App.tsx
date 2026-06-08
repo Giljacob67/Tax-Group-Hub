@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeContext, type Theme } from "./contexts/ThemeContext";
+import { AuthProvider } from "./contexts/AuthContext";
 import LandingPage from "./pages/landing";
 
 import { AppSidebar } from "./components/app-sidebar";
@@ -12,6 +13,7 @@ import { ErrorBoundary } from "./components/error-boundary";
 import { PageTransition } from "./components/page-transition";
 import { BrandingProvider } from "./contexts/BrandingContext";
 import { OnboardingTour } from "./components/onboarding-tour";
+import { ProtectedRoute } from "./components/protected-route";
 import { useOnboarding, TOUR_STEPS } from "./hooks/use-onboarding";
 
 const Dashboard = lazy(() => import("./pages/dashboard"));
@@ -24,6 +26,7 @@ const SettingsPage = lazy(() => import("./pages/settings"));
 const AnalyticsPage = lazy(() => import("./pages/analytics"));
 const AiQualityPage = lazy(() => import("./pages/ai-quality"));
 const DeliverablesPage = lazy(() => import("./pages/deliverables"));
+const LoginPage = lazy(() => import("./pages/login"));
 const NotFound = lazy(() => import("./pages/not-found"));
 
 const queryClient = new QueryClient({
@@ -103,74 +106,99 @@ function Router() {
       <Route path="/">
         <LandingPage />
       </Route>
+      <Route path="/login">
+        <Suspense fallback={<PageLoader />}>
+          <LoginPage />
+        </Suspense>
+      </Route>
       <Route path="/command-center">
         <AnimatedRoute>
-          <Suspense fallback={<PageLoader />}>
-            <Dashboard />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <Dashboard />
+            </Suspense>
+          </ProtectedRoute>
         </AnimatedRoute>
       </Route>
       <Route path="/crm">
         <AnimatedRoute>
-          <Suspense fallback={<PageLoader />}>
-            <CRMPage />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <CRMPage />
+            </Suspense>
+          </ProtectedRoute>
         </AnimatedRoute>
       </Route>
       <Route path="/agent/:id">
         <AnimatedRoute>
-          <Suspense fallback={<PageLoader />}>
-            <AgentChat />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <AgentChat />
+            </Suspense>
+          </ProtectedRoute>
         </AnimatedRoute>
       </Route>
       <Route path="/knowledge">
         <AnimatedRoute>
-          <Suspense fallback={<PageLoader />}>
-            <KnowledgeBase />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <KnowledgeBase />
+            </Suspense>
+          </ProtectedRoute>
         </AnimatedRoute>
       </Route>
       <Route path="/automations">
         <AnimatedRoute>
-          <Suspense fallback={<PageLoader />}>
-            <AutomationsPage />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <AutomationsPage />
+            </Suspense>
+          </ProtectedRoute>
         </AnimatedRoute>
       </Route>
       <Route path="/integrations">
         <AnimatedRoute>
-          <Suspense fallback={<PageLoader />}>
-            <Integrations />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <Integrations />
+            </Suspense>
+          </ProtectedRoute>
         </AnimatedRoute>
       </Route>
       <Route path="/settings">
         <AnimatedRoute>
-          <Suspense fallback={<PageLoader />}>
-            <SettingsPage />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <SettingsPage />
+            </Suspense>
+          </ProtectedRoute>
         </AnimatedRoute>
       </Route>
       <Route path="/ai-quality">
         <AnimatedRoute>
-          <Suspense fallback={<PageLoader />}>
-            <AiQualityPage />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <AiQualityPage />
+            </Suspense>
+          </ProtectedRoute>
         </AnimatedRoute>
       </Route>
       <Route path="/deliverables">
         <AnimatedRoute>
-          <Suspense fallback={<PageLoader />}>
-            <DeliverablesPage />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <DeliverablesPage />
+            </Suspense>
+          </ProtectedRoute>
         </AnimatedRoute>
       </Route>
       <Route path="/analytics">
         <AnimatedRoute>
-          <Suspense fallback={<PageLoader />}>
-            <AnalyticsPage />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <AnalyticsPage />
+            </Suspense>
+          </ProtectedRoute>
         </AnimatedRoute>
       </Route>
       <Route>
@@ -204,12 +232,14 @@ function App() {
       <ThemeContext.Provider value={{ theme, toggle }}>
         <BrandingProvider>
           <QueryClientProvider client={queryClient}>
-            <TooltipProvider>
-              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                <Router />
-              </WouterRouter>
-              <Toaster />
-            </TooltipProvider>
+            <AuthProvider>
+              <TooltipProvider>
+                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                  <Router />
+                </WouterRouter>
+                <Toaster />
+              </TooltipProvider>
+            </AuthProvider>
           </QueryClientProvider>
         </BrandingProvider>
       </ThemeContext.Provider>

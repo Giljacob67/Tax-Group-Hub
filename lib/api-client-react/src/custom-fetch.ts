@@ -298,6 +298,14 @@ export async function customFetch<T = unknown>(
     headersInit,
   );
 
+  // Inject auth token from localStorage if available
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("taxgroup_auth_token");
+    if (token && !headers.has("authorization")) {
+      headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
   if (
     typeof init.body === "string" &&
     !headers.has("content-type") &&
@@ -313,6 +321,16 @@ export async function customFetch<T = unknown>(
   const requestInfo = { method, url: resolveUrl(input) };
 
   const response = await fetch(input, { ...init, method, headers });
+
+  // Handle 401 Unauthorized - redirect to login
+  if (response.status === 401 && typeof window !== "undefined") {
+    const currentPath = window.location.pathname;
+    if (currentPath !== "/login" && currentPath !== "/") {
+      localStorage.removeItem("taxgroup_auth_token");
+      localStorage.removeItem("taxgroup_auth_user");
+      window.location.href = "/login";
+    }
+  }
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

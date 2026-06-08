@@ -21,6 +21,7 @@
     "@workspace/empresaqui": "workspace:*",
     "@workspace/hubspot": "workspace:*",
     "ai": "^6.0.154",
+    "bcryptjs": "^3.0.3",
     "busboy": "^1.6.0",
     "cors": "^2",
     "drizzle-orm": "catalog:",
@@ -38,6 +39,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",

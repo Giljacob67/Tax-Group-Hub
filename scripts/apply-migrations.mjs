@@ -246,6 +246,7 @@ async function main() {
     "crm_qualification_history",
     "crm_next_step_history",
     "app_user_roles",
+    "app_users",
   ];
   for (const t of tables) {
     const r = await sql(

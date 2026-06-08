@@ -15,6 +15,7 @@ import crmRouter from "./crm.js";
 import llmConnectionsRouter from "./llm-connections.js";
 import aiQualityRouter from "./ai-quality.js";
 import deliverablesRouter from "./deliverables.js";
+import authRouter from "./auth.js";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(llmConnectionsRouter);
 router.use("/crm", crmRouter);
 router.use(aiQualityRouter);
 router.use(deliverablesRouter);
+router.use("/auth", authRouter);
 
 export default router;

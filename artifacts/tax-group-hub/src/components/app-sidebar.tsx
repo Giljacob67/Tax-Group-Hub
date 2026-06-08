@@ -51,6 +51,8 @@ import {
 } from "@/components/ui/popover";
 import { useBranding } from "../contexts/BrandingContext";
 import { useGetCrmMe } from "@workspace/api-client-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { LogOut } from "lucide-react";
 
 const BLOCKS = [
   {
@@ -153,6 +155,7 @@ export function AppSidebar() {
   const [search, setSearch] = useState("");
   const { theme, toggle } = useTheme();
   const { data: userData } = useGetCrmMe();
+  const { logout, user } = useAuth();
   const isAdmin = userData?.user?.roles?.some((r: any) => r.role === "admin" && r.isActive) ?? false;
 
   const logoUrl = branding.logoStorageKey
@@ -448,6 +451,33 @@ export function AppSidebar() {
               </Tooltip>
             </SidebarMenuItem>
           ))}
+
+          {/* User info and logout */}
+          {user && (
+            <SidebarMenuItem>
+              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="truncate flex-1">{user.name}</span>
+              </div>
+            </SidebarMenuItem>
+          )}
+
+          {/* Logout button */}
+          <SidebarMenuItem>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarMenuButton onClick={logout} className="cursor-pointer">
+                  <LogOut className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                  <span className="text-sm">Sair</span>
+                </SidebarMenuButton>
+              </TooltipTrigger>
+              {!open && (
+                <TooltipContent side="right">Sair do sistema</TooltipContent>
+              )}
+            </Tooltip>
+          </SidebarMenuItem>
 
           {/* Theme toggle */}
           <SidebarMenuItem>

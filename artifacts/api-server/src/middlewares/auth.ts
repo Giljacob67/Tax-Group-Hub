@@ -82,6 +82,7 @@ const PUBLIC_PATHS: ReadonlyArray<string> = [
   "/llm/validate",
   "/llm/discover",
   "/llm/models/static",
+  "/auth/login",
 ];
 
 const PUBLIC_GET_PATHS: ReadonlyArray<string> = [
