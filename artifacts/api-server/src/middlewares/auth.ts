@@ -87,6 +87,8 @@ const PUBLIC_PATHS: ReadonlyArray<string> = [
   "/auth/reset-password",
   "/auth/verify-reset-token",
   "/auth/2fa/complete-login",
+  "/setup",
+  "/setup/status",
 ];
 
 const PUBLIC_GET_PATHS: ReadonlyArray<string> = [

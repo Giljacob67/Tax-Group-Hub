@@ -17,6 +17,7 @@ import aiQualityRouter from "./ai-quality.js";
 import deliverablesRouter from "./deliverables.js";
 import authRouter from "./auth.js";
 import auth2faRouter from "./auth-2fa.js";
+import setupRouter from "./setup.js";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(aiQualityRouter);
 router.use(deliverablesRouter);
 router.use("/auth", authRouter);
 router.use("/auth", auth2faRouter);
+router.use(setupRouter);
 
 export default router;
