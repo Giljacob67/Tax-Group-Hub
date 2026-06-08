@@ -1,11 +1,13 @@
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { randomBytes } from "node:crypto";
 import { db } from "@workspace/db";
-import { appUsersTable, appUserRolesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { appUsersTable, appUserRolesTable, passwordResetTokensTable, auditLogsTable } from "@workspace/db";
+import { eq, and, gt, desc } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
 import { requireUserId, isRealUser } from "../middlewares/auth.js";
+import { logAudit } from "../lib/audit.js";
 
 const router = Router();
 
@@ -66,12 +68,37 @@ router.post("/login", async (req: Request, res: Response) => {
         ),
       );
 
-    // Generate JWT
+    // Get JWT secret
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       apiError(res, 500, "JWT_SECRET não configurado no servidor.");
       return;
     }
+
+    // Check if 2FA is enabled
+    if (user.totpEnabled && user.totpSecret) {
+      // Return 2FA required status with temporary token
+      const tempToken = jwt.sign(
+        {
+          sub: String(user.id),
+          userId: String(user.id),
+          email: user.email,
+          pending2FA: true,
+        },
+        jwtSecret,
+        { expiresIn: "5m" }
+      );
+
+      res.json({
+        success: true,
+        requires2FA: true,
+        tempToken,
+        userId: user.id,
+      });
+      return;
+    }
+
+    // Generate JWT
 
     const token = jwt.sign(
       {
@@ -93,6 +120,14 @@ router.post("/login", async (req: Request, res: Response) => {
         name: user.name,
         roles: roles.map((r) => ({ role: r.role, scope: r.scope })),
       },
+    });
+
+    // Log successful login
+    logAudit(req, {
+      action: "user.login",
+      resourceType: "auth",
+      resourceId: String(user.id),
+      details: { email: user.email },
     });
   } catch (err: any) {
     apiError(res, 500, `Erro ao fazer login: ${err.message}`);
@@ -184,6 +219,14 @@ router.post("/register", async (req: Request, res: Response) => {
         email: newUser.email,
         name: newUser.name,
       },
+    });
+
+    // Log user creation
+    logAudit(req, {
+      action: "admin.user_created",
+      resourceType: "user",
+      resourceId: String(newUser.id),
+      details: { email: newUser.email, name: newUser.name, roles },
     });
   } catch (err: any) {
     if (err.statusCode) {
@@ -348,6 +391,14 @@ router.delete("/users/:id", async (req: Request, res: Response) => {
     }
 
     res.json({ success: true, message: "Usuário desativado." });
+
+    // Log user deactivation
+    logAudit(req, {
+      action: "admin.user_deactivated",
+      resourceType: "user",
+      resourceId: String(targetId),
+      details: { email: updated.email, name: updated.name },
+    });
   } catch (err: any) {
     if (err.statusCode) {
       apiError(res, err.statusCode, err.message);
@@ -401,12 +452,221 @@ router.post("/users/:id/reset-password", async (req: Request, res: Response) => 
     }
 
     res.json({ success: true, message: "Senha resetada com sucesso." });
+
+    // Log password reset
+    logAudit(req, {
+      action: "admin.password_reset",
+      resourceType: "user",
+      resourceId: String(targetId),
+      details: { email: updated.email, name: updated.name },
+    });
   } catch (err: any) {
     if (err.statusCode) {
       apiError(res, err.statusCode, err.message);
       return;
     }
     apiError(res, 500, `Erro ao resetar senha: ${err.message}`);
+  }
+});
+
+// ─── POST /api/auth/forgot-password — Request password reset ────────────────
+router.post("/forgot-password", async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body as { email?: string };
+
+    if (!email) {
+      apiError(res, 400, "Email é obrigatório.");
+      return;
+    }
+
+    // Find user by email
+    const [user] = await db
+      .select()
+      .from(appUsersTable)
+      .where(
+        and(
+          eq(appUsersTable.email, email.toLowerCase().trim()),
+          eq(appUsersTable.isActive, true),
+        ),
+      )
+      .limit(1);
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      res.json({
+        success: true,
+        message: "Se o email estiver cadastrado, você receberá instruções para resetar a senha.",
+      });
+      return;
+    }
+
+    // Generate reset token
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Invalidate any existing tokens for this user
+    await db
+      .update(passwordResetTokensTable)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokensTable.userId, user.id));
+
+    // Create new token
+    await db.insert(passwordResetTokensTable).values({
+      userId: user.id,
+      token,
+      expiresAt,
+    });
+
+    // In production, send email with reset link
+    // For now, return the token in the response (admin can share it)
+    const resetLink = `${process.env.APP_URL || "https://tax-group-hub.vercel.app"}/reset-password?token=${token}`;
+
+    res.json({
+      success: true,
+      message: "Se o email estiver cadastrado, você receberá instruções para resetar a senha.",
+      // Only include resetLink in development or for admin users
+      ...(process.env.NODE_ENV !== "production" && { resetLink, token }),
+    });
+  } catch (err: any) {
+    apiError(res, 500, `Erro ao solicitar reset de senha: ${err.message}`);
+  }
+});
+
+// ─── POST /api/auth/reset-password — Reset password with token ──────────────
+router.post("/reset-password", async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body as {
+      token?: string;
+      newPassword?: string;
+    };
+
+    if (!token || !newPassword) {
+      apiError(res, 400, "Token e nova senha são obrigatórios.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      apiError(res, 400, "Senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+
+    // Find valid token
+    const [resetToken] = await db
+      .select()
+      .from(passwordResetTokensTable)
+      .where(
+        and(
+          eq(passwordResetTokensTable.token, token),
+          gt(passwordResetTokensTable.expiresAt, new Date()),
+          eq(passwordResetTokensTable.usedAt, null as any),
+        ),
+      )
+      .limit(1);
+
+    if (!resetToken) {
+      apiError(res, 400, "Token inválido ou expirado.");
+      return;
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    // Update user password
+    await db
+      .update(appUsersTable)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(appUsersTable.id, resetToken.userId));
+
+    // Mark token as used
+    await db
+      .update(passwordResetTokensTable)
+      .set({ usedAt: new Date() })
+      .where(eq(passwordResetTokensTable.id, resetToken.id));
+
+    res.json({ success: true, message: "Senha resetada com sucesso." });
+  } catch (err: any) {
+    apiError(res, 500, `Erro ao resetar senha: ${err.message}`);
+  }
+});
+
+// ─── GET /api/auth/verify-reset-token — Verify if reset token is valid ──────
+router.get("/verify-reset-token", async (req: Request, res: Response) => {
+  try {
+    const { token } = req.query as { token?: string };
+
+    if (!token) {
+      apiError(res, 400, "Token é obrigatório.");
+      return;
+    }
+
+    const [resetToken] = await db
+      .select()
+      .from(passwordResetTokensTable)
+      .where(
+        and(
+          eq(passwordResetTokensTable.token, token),
+          gt(passwordResetTokensTable.expiresAt, new Date()),
+          eq(passwordResetTokensTable.usedAt, null as any),
+        ),
+      )
+      .limit(1);
+
+    res.json({ valid: !!resetToken });
+  } catch (err: any) {
+    apiError(res, 500, `Erro ao verificar token: ${err.message}`);
+  }
+});
+
+// ─── GET /api/auth/audit-logs — List audit logs (admin only) ────────────────
+router.get("/audit-logs", async (req: Request, res: Response) => {
+  try {
+    const actorId = requireUserId(req);
+
+    // Check if actor is admin
+    const actorRoles = await db
+      .select()
+      .from(appUserRolesTable)
+      .where(
+        and(
+          eq(appUserRolesTable.userId, actorId),
+          eq(appUserRolesTable.isActive, true),
+          eq(appUserRolesTable.role, "admin" as any),
+        ),
+      );
+
+    if (actorRoles.length === 0) {
+      apiError(res, 403, "Apenas administradores podem visualizar logs de auditoria.");
+      return;
+    }
+
+    const limit = Math.min(Number(req.query.limit) || 100, 1000);
+    const offset = Number(req.query.offset) || 0;
+
+    const logs = await db
+      .select()
+      .from(auditLogsTable)
+      .orderBy(desc(auditLogsTable.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const allLogs = await db.select({ id: auditLogsTable.id }).from(auditLogsTable);
+    const count = allLogs.length;
+
+    res.json({
+      success: true,
+      logs,
+      pagination: {
+        total: count,
+        limit,
+        offset,
+      },
+    });
+  } catch (err: any) {
+    if (err.statusCode) {
+      apiError(res, err.statusCode, err.message);
+      return;
+    }
+    apiError(res, 500, `Erro ao buscar logs de auditoria: ${err.message}`);
   }
 });
 

@@ -1,105 +1,141 @@
-/**
- * CRM Phase 4 — Audit Logger
- *
- * Grava eventos sensíveis em crm_audit_log. Diferencia origem
- * (manual | ia | automation | integration) e registra antes/depois.
- *
- * Falha silenciosamente para não bloquear a operação principal.
- */
-
 import { db } from "@workspace/db";
-import { crmAuditLogTable } from "@workspace/db";
-import type {
-  AuditAction,
-  AuditActorType,
-  AuditEntityType,
-} from "@workspace/db/crm-constants";
+import { auditLogsTable, appUsersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import type { Request } from "express";
 
-export type AuditInput = {
-  userId: string;
-  actorId?: string;
-  actorType?: AuditActorType;
-  entityType: AuditEntityType;
-  entityId: number;
+export type AuditAction =
+  | "user.created"
+  | "user.deactivated"
+  | "user.password_reset"
+  | "user.login"
+  | "user.login_failed"
+  | "user.2fa_enabled"
+  | "user.2fa_disabled"
+  | "admin.user_created"
+  | "admin.user_deactivated"
+  | "admin.password_reset"
+  | "crm.sensitive_change";
+
+export interface AuditLogData {
   action: AuditAction;
-  fieldName?: string | null;
-  oldValue?: string | null;
-  newValue?: string | null;
-  context?: Record<string, any>;
-  ipAddress?: string;
-  userAgent?: string;
-};
+  resourceType: "user" | "auth" | "system" | "crm";
+  resourceId?: string;
+  details?: Record<string, any>;
+}
 
-export async function logAudit(input: AuditInput): Promise<void> {
+interface LegacyAuditLogData {
+  userId?: string;
+  actorType?: string;
+  entityType?: string;
+  entityId?: string | number;
+  action: string;
+  fieldName?: string;
+  oldValue?: any;
+  newValue?: any;
+  context?: Record<string, any>;
+}
+
+export async function logAudit(
+  reqOrData: Request | LegacyAuditLogData,
+  data?: AuditLogData
+): Promise<void> {
   try {
-    await db.insert(crmAuditLogTable).values({
-      userId: input.userId,
-      actorId: input.actorId || null,
-      actorType: input.actorType || "user",
-      entityType: input.entityType,
-      entityId: input.entityId,
-      action: input.action,
-      fieldName: input.fieldName || null,
-      oldValue: input.oldValue != null ? String(input.oldValue) : null,
-      newValue: input.newValue != null ? String(input.newValue) : null,
-      context: input.context || null,
-      ipAddress: input.ipAddress || null,
-      userAgent: input.userAgent || null,
+    // Handle legacy signature (single object argument)
+    if (!("headers" in reqOrData)) {
+      const legacy = reqOrData;
+      const ipAddress = null;
+      const userAgent = null;
+
+      await db.insert(auditLogsTable).values({
+        actorId: legacy.userId && legacy.userId !== "service" && legacy.userId !== "dev-user" ? Number(legacy.userId) : null,
+        actorEmail: null,
+        action: `${legacy.actorType || "system"}.${legacy.action}`,
+        resourceType: (legacy.entityType as any) || "system",
+        resourceId: legacy.entityId ? String(legacy.entityId) : null,
+        details: {
+          fieldName: legacy.fieldName,
+          oldValue: legacy.oldValue,
+          newValue: legacy.newValue,
+          ...legacy.context,
+        },
+        ipAddress,
+        userAgent,
+      });
+      return;
+    }
+
+    // Handle new signature (req, data)
+    const req = reqOrData;
+    if (!data) return;
+
+    const userId = req.userId;
+    let actorEmail: string | null = null;
+
+    if (userId && userId !== "service" && userId !== "dev-user") {
+      const [user] = await db
+        .select({ email: appUsersTable.email })
+        .from(appUsersTable)
+        .where(eq(appUsersTable.id, Number(userId)))
+        .limit(1);
+      actorEmail = user?.email || null;
+    }
+
+    const ipAddress =
+      req.headers["x-forwarded-for"]?.toString().split(",")[0].trim() ||
+      req.socket.remoteAddress ||
+      null;
+
+    const userAgent = req.headers["user-agent"] || null;
+
+    await db.insert(auditLogsTable).values({
+      actorId: userId && userId !== "service" && userId !== "dev-user" ? Number(userId) : null,
+      actorEmail,
+      action: data.action,
+      resourceType: data.resourceType,
+      resourceId: data.resourceId,
+      details: data.details,
+      ipAddress,
+      userAgent,
     });
   } catch (err) {
-    console.error("[audit] failed to log:", err);
+    console.error("Failed to write audit log:", err);
   }
 }
 
-/**
- * Compara objeto antigo com novo e gera entradas de auditoria para
- * os campos sensíveis que mudaram.
- */
-export async function logSensitiveChanges(opts: {
-  userId: string;
-  actorType?: AuditActorType;
-  entityType: AuditEntityType;
-  entityId: number;
-  oldObj: Record<string, any> | null;
-  newObj: Record<string, any>;
-  sensitiveFields: string[];
-  action?: AuditAction;
-  context?: Record<string, any>;
-}): Promise<void> {
-  const {
-    userId,
-    actorType,
-    entityType,
-    entityId,
-    oldObj,
-    newObj,
-    sensitiveFields,
-    action,
-    context,
-  } = opts;
-  const oldVal = oldObj || {};
+export async function logSensitiveChanges(
+  req: Request,
+  changes: Array<{ field: string; oldValue: any; newValue: any }>
+): Promise<void> {
+  try {
+    const userId = req.userId;
+    let actorEmail: string | null = null;
 
-  for (const field of sensitiveFields) {
-    const oldV = oldVal[field];
-    const newV = newObj[field];
-    if (JSON.stringify(oldV) !== JSON.stringify(newV)) {
-      await logAudit({
-        userId,
-        actorType: actorType || "user",
-        entityType,
-        entityId,
-        action:
-          action ||
-          (field === "status"
-            ? "status_change"
-            : field === "stage"
-              ? "stage_change"
-              : "update"),
-        fieldName: field,
-        oldValue: oldV != null ? String(oldV) : null,
-        newValue: newV != null ? String(newV) : null,
-        context,
-      });
+    if (userId && userId !== "service" && userId !== "dev-user") {
+      const [user] = await db
+        .select({ email: appUsersTable.email })
+        .from(appUsersTable)
+        .where(eq(appUsersTable.id, Number(userId)))
+        .limit(1);
+      actorEmail = user?.email || null;
     }
+
+    const ipAddress =
+      req.headers["x-forwarded-for"]?.toString().split(",")[0].trim() ||
+      req.socket.remoteAddress ||
+      null;
+
+    const userAgent = req.headers["user-agent"] || null;
+
+    await db.insert(auditLogsTable).values({
+      actorId: userId && userId !== "service" && userId !== "dev-user" ? Number(userId) : null,
+      actorEmail,
+      action: "crm.sensitive_change",
+      resourceType: "crm",
+      details: { changes },
+      ipAddress,
+      userAgent,
+    });
+  } catch (err) {
+    console.error("Failed to write sensitive changes audit log:", err);
   }
 }

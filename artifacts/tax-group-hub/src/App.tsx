@@ -26,6 +26,11 @@ const SettingsPage = lazy(() => import("./pages/settings"));
 const AnalyticsPage = lazy(() => import("./pages/analytics"));
 const AiQualityPage = lazy(() => import("./pages/ai-quality"));
 const DeliverablesPage = lazy(() => import("./pages/deliverables"));
+const UserManagementPage = lazy(() => import("./pages/user-management"));
+const ForgotPasswordPage = lazy(() => import("./pages/forgot-password"));
+const ResetPasswordPage = lazy(() => import("./pages/reset-password"));
+const TwoFactorPage = lazy(() => import("./pages/two-factor"));
+const AuditLogsPage = lazy(() => import("./pages/audit-logs"));
 const LoginPage = lazy(() => import("./pages/login"));
 const NotFound = lazy(() => import("./pages/not-found"));
 
@@ -110,6 +115,34 @@ function Router() {
         <Suspense fallback={<PageLoader />}>
           <LoginPage />
         </Suspense>
+      </Route>
+      <Route path="/forgot-password">
+        <Suspense fallback={<PageLoader />}>
+          <ForgotPasswordPage />
+        </Suspense>
+      </Route>
+      <Route path="/reset-password">
+        <Suspense fallback={<PageLoader />}>
+          <ResetPasswordPage />
+        </Suspense>
+      </Route>
+      <Route path="/2fa">
+        <AnimatedRoute>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <TwoFactorPage />
+            </Suspense>
+          </ProtectedRoute>
+        </AnimatedRoute>
+      </Route>
+      <Route path="/audit-logs">
+        <AnimatedRoute>
+          <ProtectedRoute requireAdmin>
+            <Suspense fallback={<PageLoader />}>
+              <AuditLogsPage />
+            </Suspense>
+          </ProtectedRoute>
+        </AnimatedRoute>
       </Route>
       <Route path="/command-center">
         <AnimatedRoute>
@@ -197,6 +230,15 @@ function Router() {
           <ProtectedRoute>
             <Suspense fallback={<PageLoader />}>
               <AnalyticsPage />
+            </Suspense>
+          </ProtectedRoute>
+        </AnimatedRoute>
+      </Route>
+      <Route path="/users">
+        <AnimatedRoute>
+          <ProtectedRoute requireAdmin>
+            <Suspense fallback={<PageLoader />}>
+              <UserManagementPage />
             </Suspense>
           </ProtectedRoute>
         </AnimatedRoute>

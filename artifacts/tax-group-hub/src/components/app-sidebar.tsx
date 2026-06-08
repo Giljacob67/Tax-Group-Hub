@@ -52,7 +52,7 @@ import {
 import { useBranding } from "../contexts/BrandingContext";
 import { useGetCrmMe } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut } from "lucide-react";
+import { LogOut, UserCog, Shield } from "lucide-react";
 
 const BLOCKS = [
   {
@@ -155,8 +155,7 @@ export function AppSidebar() {
   const [search, setSearch] = useState("");
   const { theme, toggle } = useTheme();
   const { data: userData } = useGetCrmMe();
-  const { logout, user } = useAuth();
-  const isAdmin = userData?.user?.roles?.some((r: any) => r.role === "admin" && r.isActive) ?? false;
+  const { logout, user, isAdmin } = useAuth();
 
   const logoUrl = branding.logoStorageKey
     ? `/uploads/${branding.logoStorageKey}`
@@ -463,6 +462,65 @@ export function AppSidebar() {
               </div>
             </SidebarMenuItem>
           )}
+
+          {/* Admin: User management */}
+          {isAdmin && (
+            <>
+              <SidebarMenuItem>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={location === "/users"}
+                      onClick={() => navigate("/users")}
+                      className="cursor-pointer"
+                    >
+                      <UserCog className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-sm">Usuários</span>
+                    </SidebarMenuButton>
+                  </TooltipTrigger>
+                  {!open && (
+                    <TooltipContent side="right">Gerenciar usuários</TooltipContent>
+                  )}
+                </Tooltip>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={location === "/audit-logs"}
+                      onClick={() => navigate("/audit-logs")}
+                      className="cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-sm">Logs</span>
+                    </SidebarMenuButton>
+                  </TooltipTrigger>
+                  {!open && (
+                    <TooltipContent side="right">Logs de auditoria</TooltipContent>
+                  )}
+                </Tooltip>
+              </SidebarMenuItem>
+            </>
+          )}
+
+          {/* 2FA Settings */}
+          <SidebarMenuItem>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarMenuButton
+                  isActive={location === "/2fa"}
+                  onClick={() => navigate("/2fa")}
+                  className="cursor-pointer"
+                >
+                  <Shield className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                  <span className="text-sm">2FA</span>
+                </SidebarMenuButton>
+              </TooltipTrigger>
+              {!open && (
+                <TooltipContent side="right">Autenticação em dois fatores</TooltipContent>
+              )}
+            </Tooltip>
+          </SidebarMenuItem>
 
           {/* Logout button */}
           <SidebarMenuItem>
