@@ -60,21 +60,20 @@ app.use(
       callback: (err: Error | null, allow?: boolean) => void,
     ) {
       const allowed = getOrigins();
-      // Allow requests with no origin (same-origin, server-to-server, mobile apps)
-      // but only if we have explicit allowed origins configured
+      
+      // Allow requests with no origin (same-origin, server-to-server, health checks)
+      // This is safe because we're behind Vercel's proxy which handles actual CORS
       if (!origin) {
-        // In production, require explicit origin match
-        if (process.env.NODE_ENV === "production") {
-          callback(new Error("Not allowed by CORS: missing origin"));
-          return;
-        }
-        // In development, allow same-origin requests
         callback(null, true);
         return;
       }
+      
+      // Check if origin is in allowed list
       if (allowed.includes(origin)) {
         callback(null, true);
       } else {
+        // Log blocked origin for debugging
+        console.warn(`CORS blocked origin: ${origin}`);
         callback(new Error("Not allowed by CORS"));
       }
     },
