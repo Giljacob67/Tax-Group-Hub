@@ -273,6 +273,33 @@ router.post("/setup", async (req: Request, res: Response) => {
 // ─── GET /api/setup/status — Check if setup is needed ───────────────────────
 router.get("/setup/status", async (req: Request, res: Response) => {
   try {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      res.json({
+        success: true,
+        hasAdmin: false,
+        needsSetup: true,
+        error: "DATABASE_URL not set",
+      });
+      return;
+    }
+
+    const cleanUrl = databaseUrl.trim();
+    const sql = neon(cleanUrl);
+    
+    // Test connection
+    try {
+      await sql`SELECT 1`;
+    } catch (e: any) {
+      res.json({
+        success: true,
+        hasAdmin: false,
+        needsSetup: true,
+        error: `DB connection failed: ${e.message}`,
+      });
+      return;
+    }
+
     const users = await db.select({ id: appUsersTable.id }).from(appUsersTable).limit(1);
     const hasAdmin = users.length > 0;
 
@@ -282,7 +309,6 @@ router.get("/setup/status", async (req: Request, res: Response) => {
       needsSetup: !hasAdmin,
     });
   } catch (err: any) {
-    // Table doesn't exist yet
     res.json({
       success: true,
       hasAdmin: false,
