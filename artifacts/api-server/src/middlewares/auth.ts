@@ -89,6 +89,7 @@ const PUBLIC_PATHS: ReadonlyArray<string> = [
   "/auth/2fa/complete-login",
   "/setup",
   "/setup/status",
+  "/setup/migrate",
 ];
 
 const PUBLIC_GET_PATHS: ReadonlyArray<string> = [
