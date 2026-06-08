@@ -309,8 +309,27 @@ router.post("/setup/migrate", async (req: Request, res: Response) => {
       return;
     }
 
-    const sql = neon(databaseUrl);
+    // Clean up DATABASE_URL (remove trailing newlines)
+    const cleanUrl = databaseUrl.trim();
+    
+    let sql;
+    try {
+      sql = neon(cleanUrl);
+    } catch (e: any) {
+      apiError(res, 500, `Erro ao conectar ao banco: ${e.message}`);
+      return;
+    }
+
     const results: string[] = [];
+
+    // Test connection first
+    try {
+      await sql`SELECT 1`;
+      results.push("Database connection OK");
+    } catch (e: any) {
+      apiError(res, 500, `Erro de conexão: ${e.message}`);
+      return;
+    }
 
     // Migration 007: schema_migrations + CRM indexes
     const migration007 = [
