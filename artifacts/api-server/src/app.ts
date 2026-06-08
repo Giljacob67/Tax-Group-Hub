@@ -60,7 +60,19 @@ app.use(
       callback: (err: Error | null, allow?: boolean) => void,
     ) {
       const allowed = getOrigins();
-      if (!origin || allowed.includes(origin)) {
+      // Allow requests with no origin (same-origin, server-to-server, mobile apps)
+      // but only if we have explicit allowed origins configured
+      if (!origin) {
+        // In production, require explicit origin match
+        if (process.env.NODE_ENV === "production") {
+          callback(new Error("Not allowed by CORS: missing origin"));
+          return;
+        }
+        // In development, allow same-origin requests
+        callback(null, true);
+        return;
+      }
+      if (allowed.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
