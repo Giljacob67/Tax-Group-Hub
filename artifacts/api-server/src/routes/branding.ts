@@ -5,6 +5,7 @@ import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
 import { apiError } from "../lib/api-response.js";
+import { requireUserId, isRealUser } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
@@ -84,11 +85,18 @@ router.get("/branding/resolve", async (req, res) => {
  */
 router.get("/branding/config", async (req, res) => {
   try {
-    const userId = req.userId ?? "system";
+    if (!isRealUser(req.userId)) {
+      res.json({
+        companyName: "Tax Group Hub",
+        primaryColor: "#3b82f6",
+        logoUrl: null,
+      });
+      return;
+    }
     const [branding] = await db
       .select()
       .from(tenantBrandingTable)
-      .where(eq(tenantBrandingTable.userId, userId))
+      .where(eq(tenantBrandingTable.userId, req.userId))
       .limit(1);
 
     res.json(branding || { message: "Nenhuma configuração encontrada" });
@@ -103,7 +111,7 @@ router.get("/branding/config", async (req, res) => {
  */
 router.post("/branding/update", async (req, res) => {
   try {
-    const userId = req.userId ?? "system";
+    const userId = requireUserId(req);
     const { companyName, primaryColor, customDomain } = req.body;
 
     const [existing] = await db
@@ -137,7 +145,7 @@ router.post("/branding/update", async (req, res) => {
  */
 router.post("/branding/logo", upload.single("logo"), async (req, res) => {
   try {
-    const userId = req.userId ?? "system";
+    const userId = requireUserId(req);
     if (!req.file) {
       apiError(res, 400, "No file uploaded");
       return;

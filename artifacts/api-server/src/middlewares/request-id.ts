@@ -11,7 +11,10 @@ declare global {
 }
 
 export const requestId = (req: Request, res: Response, next: NextFunction) => {
-  const id = (req.headers["x-request-id"] as string) || uuidv4();
+  const raw = req.headers["x-request-id"];
+  const id = typeof raw === "string" && /^[\w\-.]{1,64}$/.test(raw)
+    ? raw
+    : uuidv4();
   req.id = id;
   res.setHeader("X-Request-ID", id);
   next();

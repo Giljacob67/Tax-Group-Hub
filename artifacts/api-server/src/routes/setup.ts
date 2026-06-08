@@ -265,8 +265,9 @@ router.post("/setup", async (req: Request, res: Response) => {
       results,
       user: { id: newUser.id, email: newUser.email, name: newUser.name },
     });
-  } catch (err: any) {
-    apiError(res, 500, `Erro no setup: ${err.message}`);
+  } catch (err) {
+    console.error("[setup]", err);
+    apiError(res, 500, "Erro interno no setup.");
   }
 });
 
@@ -287,15 +288,14 @@ router.get("/setup/status", async (req: Request, res: Response) => {
     const cleanUrl = databaseUrl.trim();
     const sql = neon(cleanUrl);
     
-    // Test connection
     try {
       await sql`SELECT 1`;
-    } catch (e: any) {
+    } catch {
       res.json({
         success: true,
         hasAdmin: false,
         needsSetup: true,
-        error: `DB connection failed: ${e.message}`,
+        error: "DB connection failed",
       });
       return;
     }
@@ -308,12 +308,12 @@ router.get("/setup/status", async (req: Request, res: Response) => {
       hasAdmin,
       needsSetup: !hasAdmin,
     });
-  } catch (err: any) {
+  } catch {
     res.json({
       success: true,
       hasAdmin: false,
       needsSetup: true,
-      error: err.message,
+      error: "Setup status check failed",
     });
   }
 });
@@ -396,8 +396,9 @@ router.post("/setup/migrate", async (req: Request, res: Response) => {
       message: "Migrations aplicadas.",
       results,
     });
-  } catch (err: any) {
-    apiError(res, 500, `Erro ao aplicar migrations: ${err.message}`);
+  } catch (err) {
+    console.error("[setup/migrate]", err);
+    apiError(res, 500, "Erro interno ao aplicar migrations.");
   }
 });
 

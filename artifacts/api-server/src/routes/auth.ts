@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { randomBytes } from "node:crypto";
 import { db } from "@workspace/db";
 import { appUsersTable, appUserRolesTable, passwordResetTokensTable, auditLogsTable } from "@workspace/db";
-import { eq, and, gt, desc } from "drizzle-orm";
+import { eq, and, gt, desc, count } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
 import { requireUserId, isRealUser } from "../middlewares/auth.js";
 import { logAudit } from "../lib/audit.js";
@@ -129,8 +129,9 @@ router.post("/login", async (req: Request, res: Response) => {
       resourceId: String(user.id),
       details: { email: user.email },
     });
-  } catch (err: any) {
-    apiError(res, 500, `Erro ao fazer login: ${err.message}`);
+  } catch (err) {
+    console.error("[auth/login]", err);
+    apiError(res, 500, "Erro interno ao fazer login.");
   }
 });
 
@@ -233,7 +234,7 @@ router.post("/register", async (req: Request, res: Response) => {
       apiError(res, err.statusCode, err.message);
       return;
     }
-    apiError(res, 500, `Erro ao criar usuário: ${err.message}`);
+    apiError(res, 500, "Erro interno ao criar usuário.");
   }
 });
 
@@ -282,7 +283,7 @@ router.get("/me", async (req: Request, res: Response) => {
       apiError(res, err.statusCode, err.message);
       return;
     }
-    apiError(res, 500, `Erro ao buscar usuário: ${err.message}`);
+    apiError(res, 500, "Erro interno ao buscar usuário.");
   }
 });
 
@@ -345,7 +346,7 @@ router.get("/users", async (req: Request, res: Response) => {
       apiError(res, err.statusCode, err.message);
       return;
     }
-    apiError(res, 500, `Erro ao listar usuários: ${err.message}`);
+    apiError(res, 500, "Erro interno ao listar usuários.");
   }
 });
 
@@ -404,7 +405,7 @@ router.delete("/users/:id", async (req: Request, res: Response) => {
       apiError(res, err.statusCode, err.message);
       return;
     }
-    apiError(res, 500, `Erro ao desativar usuário: ${err.message}`);
+    apiError(res, 500, "Erro interno ao desativar usuário.");
   }
 });
 
@@ -465,7 +466,7 @@ router.post("/users/:id/reset-password", async (req: Request, res: Response) => 
       apiError(res, err.statusCode, err.message);
       return;
     }
-    apiError(res, 500, `Erro ao resetar senha: ${err.message}`);
+    apiError(res, 500, "Erro interno ao resetar senha.");
   }
 });
 
@@ -527,7 +528,7 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
       message: "Se o email estiver cadastrado, você receberá instruções para resetar a senha.",
     });
   } catch (err: any) {
-    apiError(res, 500, `Erro ao solicitar reset de senha: ${err.message}`);
+    apiError(res, 500, "Erro interno ao solicitar reset de senha.");
   }
 });
 
@@ -584,7 +585,7 @@ router.post("/reset-password", async (req: Request, res: Response) => {
 
     res.json({ success: true, message: "Senha resetada com sucesso." });
   } catch (err: any) {
-    apiError(res, 500, `Erro ao resetar senha: ${err.message}`);
+    apiError(res, 500, "Erro interno ao resetar senha.");
   }
 });
 
@@ -612,7 +613,7 @@ router.get("/verify-reset-token", async (req: Request, res: Response) => {
 
     res.json({ valid: !!resetToken });
   } catch (err: any) {
-    apiError(res, 500, `Erro ao verificar token: ${err.message}`);
+    apiError(res, 500, "Erro interno ao verificar token.");
   }
 });
 
@@ -648,14 +649,16 @@ router.get("/audit-logs", async (req: Request, res: Response) => {
       .limit(limit)
       .offset(offset);
 
-    const allLogs = await db.select({ id: auditLogsTable.id }).from(auditLogsTable);
-    const count = allLogs.length;
+    const [countResult] = await db
+      .select({ total: count() })
+      .from(auditLogsTable);
+    const total = Number(countResult?.total ?? 0);
 
     res.json({
       success: true,
       logs,
       pagination: {
-        total: count,
+        total,
         limit,
         offset,
       },
@@ -665,7 +668,7 @@ router.get("/audit-logs", async (req: Request, res: Response) => {
       apiError(res, err.statusCode, err.message);
       return;
     }
-    apiError(res, 500, `Erro ao buscar logs de auditoria: ${err.message}`);
+    apiError(res, 500, "Erro interno ao buscar logs de auditoria.");
   }
 });
 
