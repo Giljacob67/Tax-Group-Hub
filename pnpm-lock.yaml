@@ -93,6 +93,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.52
         version: 3.0.67(zod@3.25.76)
+      '@neondatabase/serverless':
+        specifier: ^0.10.4
+        version: 0.10.4
       '@vercel/blob':
         specifier: ^2.3.3
         version: 2.4.0
