@@ -1,12 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
-import { appUsersTable, appUserRolesTable, auditLogsTable, passwordResetTokensTable } from "@workspace/db";
+import { appUsersTable, appUserRolesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
 import { readFile, readdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { neon } from "@neondatabase/serverless";
 
 const router = Router();
@@ -14,6 +14,118 @@ const router = Router();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DRIZZLE_DIR = join(__dirname, "..", "..", "..", "lib", "db", "drizzle");
 const MIGRATIONS_DIR = join(__dirname, "..", "..", "..", "lib", "db", "migrations");
+
+function splitSqlStatements(sqlText: string): string[] {
+  const out: string[] = [];
+  let buf = "";
+  let i = 0;
+  let inSingle = false;
+  let inDouble = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+  let dollarTag: string | null = null;
+  const n = sqlText.length;
+  while (i < n) {
+    const c = sqlText[i];
+    const next = sqlText[i + 1];
+
+    if (inLineComment) {
+      if (c === "\n") inLineComment = false;
+      buf += c;
+      i++;
+      continue;
+    }
+    if (inBlockComment) {
+      if (c === "*" && next === "/") {
+        buf += "*/";
+        i += 2;
+        inBlockComment = false;
+        continue;
+      }
+      buf += c;
+      i++;
+      continue;
+    }
+    if (inSingle) {
+      if (c === "'" && next === "'") {
+        buf += "''";
+        i += 2;
+        continue;
+      }
+      if (c === "'") inSingle = false;
+      buf += c;
+      i++;
+      continue;
+    }
+    if (inDouble) {
+      if (c === '"' && next === '"') {
+        buf += '""';
+        i += 2;
+        continue;
+      }
+      if (c === '"') inDouble = false;
+      buf += c;
+      i++;
+      continue;
+    }
+    if (dollarTag) {
+      if (c === "$" && sqlText.startsWith(dollarTag, i)) {
+        buf += dollarTag;
+        i += dollarTag.length;
+        dollarTag = null;
+        continue;
+      }
+      buf += c;
+      i++;
+      continue;
+    }
+    if (c === "-" && next === "-") {
+      inLineComment = true;
+      buf += "--";
+      i += 2;
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      inBlockComment = true;
+      buf += "/*";
+      i += 2;
+      continue;
+    }
+    if (c === "'") {
+      inSingle = true;
+      buf += c;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inDouble = true;
+      buf += c;
+      i++;
+      continue;
+    }
+    if (c === "$") {
+      const m = /^\$(\w*)\$/.exec(sqlText.slice(i));
+      if (m) {
+        dollarTag = m[0];
+        buf += dollarTag;
+        i += dollarTag.length;
+        continue;
+      }
+    }
+    if (c === ";") {
+      const trimmed = buf.trim();
+      if (trimmed.length > 0) out.push(trimmed);
+      buf = "";
+      i++;
+      continue;
+    }
+    buf += c;
+    i++;
+  }
+  const tail = buf.trim();
+  if (tail.length > 0) out.push(tail);
+  return out;
+}
 
 // ─── POST /api/setup — One-time setup (migrations + first admin) ────────────
 router.post("/setup", async (req: Request, res: Response) => {
@@ -57,12 +169,22 @@ router.post("/setup", async (req: Request, res: Response) => {
         .filter((f) => f.endsWith(".sql"))
         .sort();
       for (const f of drizzleFiles) {
-        const text = await readFile(join(DRIZZLE_DIR, f), "utf-8");
-        await sql(text);
+        let text = await readFile(join(DRIZZLE_DIR, f), "utf-8");
+        const statements = splitSqlStatements(text);
+        for (const stmt of statements) {
+          try {
+            await sql(stmt);
+          } catch (e: any) {
+            // Ignore "already exists" errors
+            if (!e.message.includes("already exists")) {
+              results.push(`Warning in ${f}: ${e.message.slice(0, 100)}`);
+            }
+          }
+        }
         results.push(`Applied drizzle: ${f}`);
       }
     } catch (err: any) {
-      results.push(`Drizzle migrations warning: ${err.message}`);
+      results.push(`Drizzle migrations error: ${err.message}`);
     }
 
     // Apply custom migrations
@@ -71,12 +193,21 @@ router.post("/setup", async (req: Request, res: Response) => {
         .filter((f) => f.endsWith(".sql"))
         .sort();
       for (const f of customFiles) {
-        const text = await readFile(join(MIGRATIONS_DIR, f), "utf-8");
-        await sql(text);
+        let text = await readFile(join(MIGRATIONS_DIR, f), "utf-8");
+        const statements = splitSqlStatements(text);
+        for (const stmt of statements) {
+          try {
+            await sql(stmt);
+          } catch (e: any) {
+            if (!e.message.includes("already exists")) {
+              results.push(`Warning in ${f}: ${e.message.slice(0, 100)}`);
+            }
+          }
+        }
         results.push(`Applied custom: ${f}`);
       }
     } catch (err: any) {
-      results.push(`Custom migrations warning: ${err.message}`);
+      results.push(`Custom migrations error: ${err.message}`);
     }
 
     // Check if admin already exists
@@ -143,7 +274,13 @@ router.get("/setup/status", async (req: Request, res: Response) => {
       needsSetup: !hasAdmin,
     });
   } catch (err: any) {
-    apiError(res, 500, `Erro ao verificar status: ${err.message}`);
+    // Table doesn't exist yet
+    res.json({
+      success: true,
+      hasAdmin: false,
+      needsSetup: true,
+      error: err.message,
+    });
   }
 });
 
