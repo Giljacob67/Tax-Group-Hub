@@ -29,25 +29,7 @@ const getOrigins = (): string[] => {
 };
 
 // Security headers (CSP, X-Content-Type-Options, X-Frame-Options, etc.)
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:", "https:"],
-        fontSrc: ["'self'", "data:"],
-        connectSrc: ["'self'", "https:", "wss:"],
-        frameSrc: ["'none'"],
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"],
-        formAction: ["'self'"],
-      },
-    },
-    crossOriginEmbedderPolicy: false,
-  }),
-);
+app.use(helmet());
 
 // Request ID tracing
 app.use(requestId);
@@ -60,19 +42,7 @@ app.use(
       callback: (err: Error | null, allow?: boolean) => void,
     ) {
       const allowed = getOrigins();
-      // Allow requests with no origin (same-origin, server-to-server, mobile apps)
-      // but only if we have explicit allowed origins configured
-      if (!origin) {
-        // In production, require explicit origin match
-        if (process.env.NODE_ENV === "production") {
-          callback(new Error("Not allowed by CORS: missing origin"));
-          return;
-        }
-        // In development, allow same-origin requests
-        callback(null, true);
-        return;
-      }
-      if (allowed.includes(origin)) {
+      if (!origin || allowed.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
