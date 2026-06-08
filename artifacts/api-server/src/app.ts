@@ -6,6 +6,8 @@ import {
   apiLimiter,
   llmLimiter,
   uploadLimiter,
+  authLimiter,
+  loginLimiter,
 } from "./middlewares/rate-limit.js";
 import { requestId } from "./middlewares/request-id.js";
 import { errorHandler } from "./middlewares/error-handler.js";
@@ -40,7 +42,19 @@ app.use(
       callback: (err: Error | null, allow?: boolean) => void,
     ) {
       const allowed = getOrigins();
-      if (!origin || allowed.includes(origin)) {
+      // Allow requests with no origin (same-origin, server-to-server, mobile apps)
+      // but only if we have explicit allowed origins configured
+      if (!origin) {
+        // In production, require explicit origin match
+        if (process.env.NODE_ENV === "production") {
+          callback(new Error("Not allowed by CORS: missing origin"));
+          return;
+        }
+        // In development, allow same-origin requests
+        callback(null, true);
+        return;
+      }
+      if (allowed.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -78,6 +92,15 @@ app.use("/api/orchestrate", llmLimiter);
 
 // Upload-specific rate limit (separate from general API limiter)
 app.use("/api/knowledge/upload", uploadLimiter);
+
+// Auth-specific rate limits (protect against brute-force)
+app.use("/api/auth/login", loginLimiter);
+app.use("/api/auth/forgot-password", authLimiter);
+app.use("/api/auth/reset-password", authLimiter);
+app.use("/api/auth/2fa/validate", authLimiter);
+app.use("/api/auth/2fa/complete-login", authLimiter);
+app.use("/api/auth/2fa/verify", authLimiter);
+app.use("/api/setup", authLimiter);
 
 // Routes
 app.use("/api", router);

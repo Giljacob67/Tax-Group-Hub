@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { appUsersTable, appUserRolesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
+import { safeCompare } from "../middlewares/auth.js";
 import { readFile, readdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -130,6 +131,13 @@ function splitSqlStatements(sqlText: string): string[] {
 // ─── POST /api/setup — One-time setup (migrations + first admin) ────────────
 router.post("/setup", async (req: Request, res: Response) => {
   try {
+    // Check if setup has already been completed (admin exists)
+    const existingUsers = await db.select({ id: appUsersTable.id }).from(appUsersTable).limit(1);
+    if (existingUsers.length > 0) {
+      apiError(res, 403, "Setup já foi realizado. Este endpoint está desabilitado.");
+      return;
+    }
+
     const { setupKey, email, name, password } = req.body as {
       setupKey?: string;
       email?: string;
@@ -139,7 +147,7 @@ router.post("/setup", async (req: Request, res: Response) => {
 
     // Verify setup key
     const expectedKey = process.env.SETUP_KEY;
-    if (!expectedKey || !setupKey || setupKey !== expectedKey) {
+    if (!expectedKey || !setupKey || typeof setupKey !== "string" || !safeCompare(setupKey, expectedKey)) {
       apiError(res, 403, "Chave de setup inválida.");
       return;
     }

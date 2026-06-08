@@ -517,15 +517,14 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
       expiresAt,
     });
 
-    // In production, send email with reset link
-    // For now, return the token in the response (admin can share it)
-    const resetLink = `${process.env.APP_URL || "https://tax-group-hub.vercel.app"}/reset-password?token=${token}`;
+    // TODO: In production, send email with reset link
+    // const resetLink = `${process.env.APP_URL || "https://tax-group-hub.vercel.app"}/reset-password?token=${token}`;
+    // await sendEmail(user.email, "Reset de senha", `Clique aqui: ${resetLink}`);
 
+    // Never return the token in the response — it should only be delivered via email
     res.json({
       success: true,
       message: "Se o email estiver cadastrado, você receberá instruções para resetar a senha.",
-      // Only include resetLink in development or for admin users
-      ...(process.env.NODE_ENV !== "production" && { resetLink, token }),
     });
   } catch (err: any) {
     apiError(res, 500, `Erro ao solicitar reset de senha: ${err.message}`);

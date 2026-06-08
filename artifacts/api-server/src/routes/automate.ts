@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAgentById } from "../lib/agents-data.js";
 import { callLLM } from "../lib/llm-client.js";
+import { safeCompare } from "../middlewares/auth.js";
 import {
   db,
   pipelineExecutionsTable,
@@ -1019,7 +1020,7 @@ async function handleProcessSequences(req: any, res: any) {
   const xCronSecret = req.headers["x-cron-secret"];
   const hasCronSecret = !!process.env.CRON_SECRET;
   if (hasCronSecret && req.userId !== "system") {
-    if (!xCronSecret || xCronSecret !== process.env.CRON_SECRET) {
+    if (!xCronSecret || typeof xCronSecret !== "string" || !safeCompare(xCronSecret, process.env.CRON_SECRET!)) {
       apiError(res, 403, "Invalid or missing cron secret");
       return;
     }

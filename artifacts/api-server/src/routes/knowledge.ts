@@ -7,6 +7,7 @@ import PDFParser from "pdf2json";
 import mammoth from "mammoth";
 import { validateIdParam } from "../lib/validation.js";
 import { apiError } from "../lib/api-response.js";
+import { safeCompare } from "../middlewares/auth.js";
 import { generateClientTokenFromReadWriteToken } from "@vercel/blob/client";
 import { get } from "@vercel/blob";
 
@@ -838,7 +839,7 @@ async function handleProcessQueue(req: any, res: any) {
   const xCronSecret = req.headers["x-cron-secret"];
   const hasCronSecret = !!process.env.CRON_SECRET;
   if (hasCronSecret && req.userId !== "system") {
-    if (!xCronSecret || xCronSecret !== process.env.CRON_SECRET) {
+    if (!xCronSecret || typeof xCronSecret !== "string" || !safeCompare(xCronSecret, process.env.CRON_SECRET!)) {
       apiError(res, 403, "Invalid or missing cron secret");
       return;
     }

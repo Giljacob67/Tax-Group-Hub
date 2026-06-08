@@ -395,7 +395,7 @@ router.get("/webhooks/whatsapp/:channelId", async (req, res) => {
 
     const expectedToken = (config?.config as Record<string, unknown> | null)
       ?.verifyToken;
-    if (mode === "subscribe" && token === expectedToken) {
+    if (mode === "subscribe" && typeof token === "string" && typeof expectedToken === "string" && safeCompare(token, expectedToken)) {
       res.status(200).send(challenge);
     } else {
       res.sendStatus(403);

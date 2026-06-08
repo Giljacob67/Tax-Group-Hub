@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import jwt from "jsonwebtoken";
 import { authenticator } from "otplib";
 import QRCode from "qrcode";
+import { randomBytes } from "node:crypto";
 import { db } from "@workspace/db";
 import { appUsersTable, appUserRolesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -109,9 +110,9 @@ router.post("/2fa/verify", async (req: Request, res: Response) => {
       })
       .where(eq(appUsersTable.id, Number(userId)));
 
-    // Generate backup codes
+    // Generate backup codes using cryptographically secure random
     const backupCodes = Array.from({ length: 10 }, () =>
-      Math.random().toString(36).substring(2, 8).toUpperCase()
+      randomBytes(4).toString("hex").toUpperCase()
     );
 
     res.json({
@@ -230,13 +231,33 @@ router.get("/2fa/status", async (req: Request, res: Response) => {
   }
 });
 
-// ─── POST /api/auth/2fa/validate — Validate 2FA token during login ──────────
+// ─── POST /api/auth/2fa/validate — Validate 2FA token (requires tempToken) ──
 router.post("/2fa/validate", async (req: Request, res: Response) => {
   try {
-    const { userId, token } = req.body as { userId?: number; token?: string };
+    const { tempToken, token } = req.body as { tempToken?: string; token?: string };
 
-    if (!userId || !token) {
-      apiError(res, 400, "userId e token são obrigatórios.");
+    if (!tempToken || !token) {
+      apiError(res, 400, "tempToken e token são obrigatórios.");
+      return;
+    }
+
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      apiError(res, 500, "JWT_SECRET não configurado.");
+      return;
+    }
+
+    // Verify temp token (proves user already authenticated with password)
+    let decoded: any;
+    try {
+      decoded = jwt.verify(tempToken, jwtSecret) as any;
+    } catch {
+      apiError(res, 401, "Token temporário inválido ou expirado.");
+      return;
+    }
+
+    if (!decoded.pending2FA || !decoded.userId) {
+      apiError(res, 400, "Token temporário inválido.");
       return;
     }
 
@@ -244,7 +265,7 @@ router.post("/2fa/validate", async (req: Request, res: Response) => {
     const [user] = await db
       .select()
       .from(appUsersTable)
-      .where(eq(appUsersTable.id, userId))
+      .where(eq(appUsersTable.id, Number(decoded.userId)))
       .limit(1);
 
     if (!user || !user.totpSecret || !user.totpEnabled) {
