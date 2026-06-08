@@ -292,4 +292,54 @@ router.get("/setup/status", async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /api/setup/migrate — Apply pending migrations (admin only) ────────
+router.post("/setup/migrate", async (req: Request, res: Response) => {
+  try {
+    const { setupKey } = req.body as { setupKey?: string };
+
+    const expectedKey = process.env.SETUP_KEY;
+    if (!expectedKey || !setupKey || typeof setupKey !== "string" || !safeCompare(setupKey, expectedKey)) {
+      apiError(res, 403, "Chave de setup inválida.");
+      return;
+    }
+
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      apiError(res, 500, "DATABASE_URL não configurado.");
+      return;
+    }
+
+    const sql = neon(databaseUrl);
+    const results: string[] = [];
+
+    // Apply only the new migrations (007+)
+    const customFiles = (await readdir(MIGRATIONS_DIR))
+      .filter((f) => f.endsWith(".sql") && f >= "007")
+      .sort();
+
+    for (const f of customFiles) {
+      const text = await readFile(join(MIGRATIONS_DIR, f), "utf-8");
+      const statements = splitSqlStatements(text);
+      for (const stmt of statements) {
+        try {
+          await sql(stmt);
+        } catch (e: any) {
+          if (!e.message.includes("already exists")) {
+            results.push(`Warning in ${f}: ${e.message.slice(0, 100)}`);
+          }
+        }
+      }
+      results.push(`Applied: ${f}`);
+    }
+
+    res.json({
+      success: true,
+      message: "Migrations aplicadas.",
+      results,
+    });
+  } catch (err: any) {
+    apiError(res, 500, `Erro ao aplicar migrations: ${err.message}`);
+  }
+});
+
 export default router;
