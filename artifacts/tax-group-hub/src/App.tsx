@@ -32,7 +32,6 @@ const ResetPasswordPage = lazy(() => import("./pages/reset-password"));
 const TwoFactorPage = lazy(() => import("./pages/two-factor"));
 const AuditLogsPage = lazy(() => import("./pages/audit-logs"));
 const LoginPage = lazy(() => import("./pages/login"));
-const AgroLandingPage = lazy(() => import("./pages/agro/landing"));
 const NotFound = lazy(() => import("./pages/not-found"));
 
 const queryClient = new QueryClient({
@@ -112,11 +111,7 @@ function Router() {
       <Route path="/">
         <LandingPage />
       </Route>
-      <Route path="/agro">
-        <Suspense fallback={<PageLoader />}>
-          <AgroLandingPage />
-        </Suspense>
-      </Route>
+
       <Route path="/login">
         <Suspense fallback={<PageLoader />}>
           <LoginPage />

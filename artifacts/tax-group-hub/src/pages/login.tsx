@@ -42,7 +42,12 @@ export default function LoginPage() {
         return;
       }
 
-      await login(email, password);
+      // Save token and user directly to localStorage before redirect
+      localStorage.setItem("taxgroup_auth_token", data.token);
+      localStorage.setItem("taxgroup_auth_user", JSON.stringify(data.user));
+      
+      // Force reload to ensure AuthContext picks up the new state
+      window.location.href = "/command-center";
     } catch (err: any) {
       setError(err.message || "Erro ao fazer login. Verifique suas credenciais.");
     }
