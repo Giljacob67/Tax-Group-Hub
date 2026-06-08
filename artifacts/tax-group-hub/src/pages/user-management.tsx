@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -205,11 +205,15 @@ export default function UserManagementPage() {
     },
   });
 
-  const filteredUsers = users?.filter(
-    (u) =>
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredUsers = useMemo(() => {
+    if (!users) return undefined;
+    const lowerSearch = search.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(lowerSearch) ||
+        u.email.toLowerCase().includes(lowerSearch)
+    );
+  }, [users, search]);
 
   if (!isAdmin) {
     return (

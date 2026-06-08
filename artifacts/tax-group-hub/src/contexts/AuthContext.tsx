@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { useLocation } from "wouter";
 
 interface User {
@@ -23,21 +23,28 @@ const TOKEN_KEY = "taxgroup_auth_token";
 const USER_KEY = "taxgroup_auth_user";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const stored = localStorage.getItem(USER_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem(TOKEN_KEY);
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [, navigate] = useLocation();
 
   const isAdmin = user?.roles?.some((r) => r.role === "admin") ?? false;
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem(TOKEN_KEY);
+    const storedUser = localStorage.getItem(USER_KEY);
+
+    if (storedToken && storedUser) {
+      setToken(storedToken);
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch {
+        localStorage.removeItem(USER_KEY);
+        localStorage.removeItem(TOKEN_KEY);
+      }
+    }
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -55,36 +62,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+  const login = useCallback(async (email: string, password: string) => {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Erro ao fazer login");
-      }
-
-      setToken(data.token);
-      setUser(data.user);
-      navigate("/command-center");
-    } finally {
-      setIsLoading(false);
+    if (!response.ok) {
+      throw new Error(data.message || "Erro ao fazer login");
     }
-  };
 
-  const logout = () => {
+    if (data.requires2FA) {
+      throw new Error("2FA_REQUIRED");
+    }
+
+    setToken(data.token);
+    setUser(data.user);
+    navigate("/command-center");
+  }, [navigate]);
+
+  const logout = useCallback(() => {
     setToken(null);
     setUser(null);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     navigate("/login");
-  };
+  }, [navigate]);
 
   return (
     <AuthContext.Provider value={{ user, token, isLoading, login, logout, isAdmin }}>

@@ -692,13 +692,19 @@ router.get("/knowledge/:id/chunks", async (req, res) => {
     );
     const offset = (page - 1) * pageSize;
 
+    const userId = req.userId;
+
     const [doc] = await db
       .select({
         id: knowledgeDocumentsTable.id,
         filename: knowledgeDocumentsTable.filename,
       })
       .from(knowledgeDocumentsTable)
-      .where(eq(knowledgeDocumentsTable.id, id));
+      .where(
+        userId && userId !== "default" && userId !== "dev-user" && userId !== "service"
+          ? and(eq(knowledgeDocumentsTable.id, id), eq(knowledgeDocumentsTable.userId, userId))
+          : eq(knowledgeDocumentsTable.id, id),
+      );
 
     if (!doc) {
       apiError(res, 404, "Documento não encontrado");
@@ -754,10 +760,16 @@ router.post("/knowledge/:id/reindex", async (req, res) => {
       return;
     }
 
+    const userId = req.userId;
+
     const [doc] = await db
       .select()
       .from(knowledgeDocumentsTable)
-      .where(eq(knowledgeDocumentsTable.id, id));
+      .where(
+        userId && userId !== "default" && userId !== "dev-user" && userId !== "service"
+          ? and(eq(knowledgeDocumentsTable.id, id), eq(knowledgeDocumentsTable.userId, userId))
+          : eq(knowledgeDocumentsTable.id, id),
+      );
 
     if (!doc) {
       apiError(res, 404, "Documento não encontrado");

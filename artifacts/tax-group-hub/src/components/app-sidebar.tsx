@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useListAgents } from "@workspace/api-client-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -161,13 +161,15 @@ export function AppSidebar() {
     ? `/uploads/${branding.logoStorageKey}`
     : `${import.meta.env.BASE_URL}images/logo-x-branco.svg`;
 
-  const filteredAgents = search.trim()
-    ? data?.agents?.filter(
-        (a) =>
-          a.name.toLowerCase().includes(search.toLowerCase()) ||
-          (a.description || "").toLowerCase().includes(search.toLowerCase()),
-      )
-    : null;
+  const filteredAgents = useMemo(() => {
+    if (!search.trim() || !data?.agents) return null;
+    const lowerSearch = search.toLowerCase();
+    return data.agents.filter(
+      (a) =>
+        a.name.toLowerCase().includes(lowerSearch) ||
+        (a.description || "").toLowerCase().includes(lowerSearch),
+    );
+  }, [search, data?.agents]);
 
   return (
     <Sidebar

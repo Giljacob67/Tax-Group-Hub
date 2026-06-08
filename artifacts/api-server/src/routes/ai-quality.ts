@@ -224,6 +224,15 @@ router.delete("/ai-quality/test-cases/:id", async (req, res) => {
     const id = validateIdParam(req.params.id);
     if (!id) return apiError(res, 400, "Invalid id");
 
+    const userId = req.userId;
+    if (isRealUser(userId)) {
+      const [tc] = await db
+        .select()
+        .from(aiTestCasesTable)
+        .where(and(eq(aiTestCasesTable.id, id), eq(aiTestCasesTable.userId, userId)));
+      if (!tc) return apiError(res, 404, "Test case not found");
+    }
+
     await db.delete(aiTestCasesTable).where(eq(aiTestCasesTable.id, id));
     res.json({ ok: true });
   } catch (err) {
@@ -238,10 +247,15 @@ router.post("/ai-quality/test-cases/:id/run", async (req, res) => {
     const id = validateIdParam(req.params.id);
     if (!id) return apiError(res, 400, "Invalid id");
 
+    const userId = req.userId;
     const [testCase] = await db
       .select()
       .from(aiTestCasesTable)
-      .where(eq(aiTestCasesTable.id, id));
+      .where(
+        isRealUser(userId)
+          ? and(eq(aiTestCasesTable.id, id), eq(aiTestCasesTable.userId, userId))
+          : eq(aiTestCasesTable.id, id),
+      );
     if (!testCase) return apiError(res, 404, "Test case not found");
 
     const agent = getAgentById(testCase.agentId);
@@ -360,6 +374,15 @@ router.get("/ai-quality/test-cases/:id/runs", async (req, res) => {
   try {
     const id = validateIdParam(req.params.id);
     if (!id) return apiError(res, 400, "Invalid id");
+
+    const userId = req.userId;
+    if (isRealUser(userId)) {
+      const [tc] = await db
+        .select()
+        .from(aiTestCasesTable)
+        .where(and(eq(aiTestCasesTable.id, id), eq(aiTestCasesTable.userId, userId)));
+      if (!tc) return apiError(res, 404, "Test case not found");
+    }
 
     const rows = await db
       .select()

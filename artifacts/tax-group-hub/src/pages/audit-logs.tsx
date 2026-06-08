@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -102,17 +102,21 @@ export default function AuditLogsPage() {
     enabled: !!token && isAdmin,
   });
 
-  const filteredLogs = data?.logs?.filter((log) => {
-    const matchesSearch =
-      !search ||
-      log.actorEmail?.toLowerCase().includes(search.toLowerCase()) ||
-      log.action.toLowerCase().includes(search.toLowerCase()) ||
-      log.resourceId?.toLowerCase().includes(search.toLowerCase());
+  const filteredLogs = useMemo(() => {
+    if (!data?.logs) return undefined;
+    return data.logs.filter((log) => {
+      const lowerSearch = search.toLowerCase();
+      const matchesSearch =
+        !search ||
+        log.actorEmail?.toLowerCase().includes(lowerSearch) ||
+        log.action.toLowerCase().includes(lowerSearch) ||
+        log.resourceId?.toLowerCase().includes(lowerSearch);
 
-    const matchesAction = actionFilter === "all" || log.action === actionFilter;
+      const matchesAction = actionFilter === "all" || log.action === actionFilter;
 
-    return matchesSearch && matchesAction;
-  });
+      return matchesSearch && matchesAction;
+    });
+  }, [data?.logs, search, actionFilter]);
 
   if (!isAdmin) {
     return (

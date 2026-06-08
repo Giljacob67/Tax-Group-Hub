@@ -42,11 +42,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Save token and user directly to localStorage before redirect
       localStorage.setItem("taxgroup_auth_token", data.token);
       localStorage.setItem("taxgroup_auth_user", JSON.stringify(data.user));
-      
-      // Force reload to ensure AuthContext picks up the new state
       window.location.href = "/command-center";
     } catch (err: any) {
       setError(err.message || "Erro ao fazer login. Verifique suas credenciais.");
@@ -66,10 +63,7 @@ export default function LoginPage() {
       const response = await fetch("/api/auth/2fa/complete-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tempToken,
-          token: twoFactorToken,
-        }),
+        body: JSON.stringify({ tempToken, token: twoFactorToken }),
       });
 
       const data = await response.json();
@@ -78,7 +72,6 @@ export default function LoginPage() {
         throw new Error(data.message || "Token 2FA inválido");
       }
 
-      // Store token and user
       localStorage.setItem("taxgroup_auth_token", data.token);
       localStorage.setItem("taxgroup_auth_user", JSON.stringify(data.user));
       window.location.href = "/command-center";

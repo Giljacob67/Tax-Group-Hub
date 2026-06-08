@@ -322,12 +322,14 @@ export async function customFetch<T = unknown>(
 
   const response = await fetch(input, { ...init, method, headers });
 
-  // Handle 401 Unauthorized - redirect to login
+  // Handle 401 Unauthorized - clear auth state and redirect to login
   if (response.status === 401 && typeof window !== "undefined") {
     const currentPath = window.location.pathname;
-    if (currentPath !== "/login" && currentPath !== "/") {
+    if (currentPath !== "/login" && currentPath !== "/" && currentPath !== "/forgot-password" && currentPath !== "/reset-password") {
       localStorage.removeItem("taxgroup_auth_token");
       localStorage.removeItem("taxgroup_auth_user");
+      // Use a custom event to notify AuthContext
+      window.dispatchEvent(new CustomEvent("auth:logout"));
       window.location.href = "/login";
     }
   }

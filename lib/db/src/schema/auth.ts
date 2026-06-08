@@ -7,6 +7,8 @@ import {
   text,
   integer,
   jsonb,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const appUsersTable = pgTable("app_users", {
@@ -33,7 +35,10 @@ export const passwordResetTokensTable = pgTable("password_reset_tokens", {
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("idx_password_reset_tokens_user_id").on(t.userId),
+  index("idx_password_reset_tokens_expires_at").on(t.expiresAt),
+]);
 
 export type PasswordResetToken = typeof passwordResetTokensTable.$inferSelect;
 export type NewPasswordResetToken = typeof passwordResetTokensTable.$inferInsert;
@@ -49,7 +54,22 @@ export const auditLogsTable = pgTable("audit_logs", {
   ipAddress: varchar("ip_address", { length: 45 }),
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("idx_audit_logs_actor_id").on(t.actorId),
+  index("idx_audit_logs_action").on(t.action),
+  index("idx_audit_logs_resource_type").on(t.resourceType),
+  index("idx_audit_logs_created_at").on(t.createdAt),
+]);
 
 export type AuditLog = typeof auditLogsTable.$inferSelect;
 export type NewAuditLog = typeof auditLogsTable.$inferInsert;
+
+export const schemaMigrationsTable = pgTable("_schema_migrations", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
+  appliedAt: timestamp("applied_at").notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("idx_schema_migrations_name").on(t.name),
+]);
+
+export type SchemaMigration = typeof schemaMigrationsTable.$inferSelect;

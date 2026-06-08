@@ -383,6 +383,13 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       return;
     }
 
+    if (userId && userId !== "default" && userId !== "dev-user" && userId !== "service") {
+      if (conv.userId !== userId) {
+        apiError(res, 403, "Forbidden");
+        return;
+      }
+    }
+
     const agent = getAgentById(conv.agentId);
     if (!agent) {
       apiError(res, 404, "Agent not found");

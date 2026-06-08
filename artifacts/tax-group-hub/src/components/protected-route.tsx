@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Redirect } from "wouter";
+import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -8,14 +9,23 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { token, isAdmin, user } = useAuth();
+  const { token, isAdmin, user, isLoading } = useAuth();
 
-  // Not authenticated
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="text-xs text-muted-foreground">Verificando autenticação...</span>
+        </div>
+      </div>
+    );
+  }
+
   if (!token || !user) {
     return <Redirect to="/login" />;
   }
 
-  // Requires admin but user is not admin
   if (requireAdmin && !isAdmin) {
     return (
       <div className="h-full flex items-center justify-center p-8">

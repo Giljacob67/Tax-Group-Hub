@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -13,6 +13,7 @@ import {
   Copy,
   Check,
   AlertCircle,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,14 @@ import {
   Alert,
   AlertDescription,
 } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface TwoFactorStatus {
   enabled: boolean;
@@ -49,9 +58,15 @@ export default function TwoFactorPage() {
   const [verifyToken, setVerifyToken] = useState("");
   const [password, setPassword] = useState("");
   const [copied, setCopied] = useState(false);
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  const [showBackupDialog, setShowBackupDialog] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchStatus();
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, []);
 
   const fetchStatus = async () => {
@@ -105,12 +120,11 @@ export default function TwoFactorPage() {
       });
       const data = await res.json();
       if (data.success) {
-        toast({ title: "2FA ativado com sucesso!" });
         if (data.backupCodes) {
-          toast({
-            title: "Códigos de backup gerados",
-            description: "Guarde estes códigos em local seguro: " + data.backupCodes.join(", "),
-          });
+          setBackupCodes(data.backupCodes);
+          setShowBackupDialog(true);
+        } else {
+          toast({ title: "2FA ativado com sucesso!" });
         }
         setSetupData(null);
         setVerifyToken("");
@@ -155,8 +169,28 @@ export default function TwoFactorPage() {
     if (setupData) {
       navigator.clipboard.writeText(setupData.secret);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const copyBackupCodes = () => {
+    if (backupCodes) {
+      navigator.clipboard.writeText(backupCodes.join("\n"));
+      toast({ title: "Códigos copiados!" });
+    }
+  };
+
+  const downloadBackupCodes = () => {
+    if (!backupCodes) return;
+    const content = `Tax Group Hub - Códigos de Backup 2FA\nGerado em: ${new Date().toLocaleDateString("pt-BR")}\n\n${backupCodes.join("\n")}\n\nGuarde estes códigos em local seguro. Cada código pode ser usado uma vez.`;
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "taxgroup-backup-codes.txt";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (isLoading) {
@@ -343,6 +377,56 @@ export default function TwoFactorPage() {
             </CardContent>
           </Card>
         )}
+
+        <Dialog open={showBackupDialog} onOpenChange={(open) => {
+          if (!open) {
+            setShowBackupDialog(false);
+            setBackupCodes(null);
+          }
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-green-500" />
+                2FA Ativado com Sucesso!
+              </DialogTitle>
+              <DialogDescription>
+                Guarde estes códigos de backup em local seguro. Cada código pode ser usado uma vez caso perca acesso ao seu app autenticador.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Estes códigos não serão mostrados novamente. Salve-os agora!
+                </AlertDescription>
+              </Alert>
+              <div className="grid grid-cols-2 gap-2 p-4 bg-muted rounded-lg font-mono text-sm">
+                {backupCodes?.map((code, i) => (
+                  <div key={i} className="text-center py-1">{code}</div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={copyBackupCodes}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copiar
+                </Button>
+                <Button variant="outline" className="flex-1" onClick={downloadBackupCodes}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => {
+                setShowBackupDialog(false);
+                setBackupCodes(null);
+              }}>
+                Guardei meus códigos
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
