@@ -57,6 +57,16 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 
+// ─── Authenticated fetch helper ─────────────────────────────────────────────
+const authFetch = async (url: string, init?: RequestInit): Promise<Response> => {
+  const headers = new Headers(init?.headers);
+  const token = localStorage.getItem("taxgroup_auth_token");
+  if (token && !headers.has("authorization")) {
+    headers.set("authorization", `Bearer ${token}`);
+  }
+  return fetch(url, { ...init, headers });
+};
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface KnowledgeDoc {
@@ -358,7 +368,7 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
-          const r = await fetch("/api/knowledge/upload", {
+          const r = await authFetch("/api/knowledge/upload", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             signal: controller.signal,
@@ -1118,7 +1128,7 @@ function SemanticSearchTab() {
       if (category) body.category = category;
       if (product) body.product = product;
 
-      const r = await fetch("/api/knowledge/search", {
+      const r = await authFetch("/api/knowledge/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -1513,7 +1523,7 @@ function ChunksModal({
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/knowledge/${doc.id}/chunks?page=${page}&pageSize=${pageSize}`)
+    authFetch(`/api/knowledge/${doc.id}/chunks?page=${page}&pageSize=${pageSize}`)
       .then((r) => r.json())
       .then((d: any) => {
         setChunks(d.chunks ?? []);
@@ -1632,7 +1642,7 @@ export default function KnowledgeBase() {
   const docsSummaryKey = docs.map((d) => `${d.id}:${d.status}`).join(",");
 
   useEffect(() => {
-    fetch("/api/knowledge/health")
+    authFetch("/api/knowledge/health")
       .then((r) => r.json())
       .then((d: any) => setHealth(d))
       .catch(() => {});
@@ -1645,7 +1655,7 @@ export default function KnowledgeBase() {
   useEffect(() => {
     if (activeTab !== "sources") return;
     setSourcesLoading(true);
-    fetch("/api/knowledge/sources")
+    authFetch("/api/knowledge/sources")
       .then((r) => r.json())
       .then((d: any) => setSources(d.sources ?? []))
       .catch(() => {})
@@ -1670,7 +1680,7 @@ export default function KnowledgeBase() {
   const handleReindex = async (id: string) => {
     setReindexing((prev) => new Set(prev).add(id));
     try {
-      const r = await fetch(`/api/knowledge/${id}/reindex`, { method: "POST" });
+      const r = await authFetch(`/api/knowledge/${id}/reindex`, { method: "POST" });
       const d = await r.json();
       if (!r.ok) throw new Error((d as any).error ?? "Falha ao reindexar");
       toast({ title: "Reindexação iniciada", description: (d as any).message });

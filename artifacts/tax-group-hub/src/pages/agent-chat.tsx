@@ -267,9 +267,15 @@ export default function AgentChat() {
         });
       }
 
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const token = localStorage.getItem("taxgroup_auth_token");
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`/api/conversations/${convId}/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           content: text.trim(),
           useKnowledgeBase: true,

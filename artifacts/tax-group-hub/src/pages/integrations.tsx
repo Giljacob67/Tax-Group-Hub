@@ -141,14 +141,21 @@ interface TestResult {
 
 // ── API fetch helpers ──────────────────────────────────────────────────────
 
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(url, init);
+const apiFetch = async <T,>(url: string, init?: RequestInit): Promise<T> => {
+  const headers = new Headers(init?.headers);
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("taxgroup_auth_token");
+    if (token && !headers.has("authorization")) {
+      headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+  const r = await fetch(url, { ...init, headers });
   if (!r.ok) {
     const err = await r.json().catch(() => ({ message: r.statusText }));
     throw new Error((err as { message?: string }).message ?? r.statusText);
   }
   return r.json() as Promise<T>;
-}
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
