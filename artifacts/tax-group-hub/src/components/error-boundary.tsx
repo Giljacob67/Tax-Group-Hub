@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <p className="text-muted-foreground mb-4">
               Ocorreu um erro inesperado. Tente recarregar a página.
             </p>
-            {this.state.error && (
+            {this.state.error && import.meta.env.DEV && (
               <details className="text-left mb-4">
                 <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
                   Detalhes do erro

@@ -803,6 +803,117 @@ router.get("/contacts/summary", async (req: Request, res: Response) => {
   }
 });
 
+// ─── KPIs do Funil ────────────────────────────────────────────────────────────
+// GET /api/crm/kpis — KPIs consolidados para o Command Center
+// Retorna métricas agregadas de forma leve e eficiente
+router.get("/kpis", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+
+    const [contacts, deals, tasks, activities] = await Promise.all([
+      db.select().from(crmContactsTable).where(eq(crmContactsTable.userId, userId)),
+      db.select().from(crmDealsTable).where(eq(crmDealsTable.userId, userId)),
+      db.select().from(crmTasksTable).where(eq(crmTasksTable.userId, userId)),
+      db
+        .select()
+        .from(crmActivitiesTable)
+        .where(eq(crmActivitiesTable.userId, userId))
+        .orderBy(desc(crmActivitiesTable.createdAt))
+        .limit(20),
+    ]);
+
+    const totalEmpresas = contacts.length;
+    const leadsQuentes = contacts.filter((c) => (c.aiScore ?? 0) >= 70).length;
+
+    const activeDeals = deals.filter(
+      (d) => !["fechado_ganho", "perdido", "stand_by", "encerrado"].includes(d.stage),
+    );
+    const propostasAbertas = activeDeals.length;
+    const receitaPotencial = activeDeals.reduce(
+      (s, d) => s + (parseFloat(d.value || "0") || 0),
+      0,
+    );
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const acoesHoje = tasks.filter((t) => {
+      if (t.status === "done" || t.status === "cancelled") return false;
+      if (!t.dueDate) return false;
+      const due = new Date(t.dueDate);
+      return due >= today && due < tomorrow;
+    }).length;
+
+    const acoesAtrasadas = tasks.filter((t) => {
+      if (t.status === "done" || t.status === "cancelled") return false;
+      if (!t.dueDate) return false;
+      return new Date(t.dueDate) < today;
+    }).length;
+
+    const porSegmento: Record<string, number> = {};
+    for (const c of contacts) {
+      const seg = c.setor || c.segmento || "outros";
+      porSegmento[seg] = (porSegmento[seg] || 0) + 1;
+    }
+
+    const porTemperatura: Record<string, number> = { quente: 0, morno: 0, frio: 0 };
+    for (const c of contacts) {
+      const t = (c.temperatura || "").toLowerCase();
+      if (t === "quente" || t === "burning") porTemperatura.quente++;
+      else if (t === "morno") porTemperatura.morno++;
+      else if (t) porTemperatura.frio++;
+    }
+
+    const porStatus: Record<string, number> = {};
+    for (const c of contacts) {
+      const s = c.status || "unknown";
+      porStatus[s] = (porStatus[s] || 0) + 1;
+    }
+
+    const dealsPorEstagio: Record<string, number> = {};
+    for (const d of deals) {
+      dealsPorEstagio[d.stage] = (dealsPorEstagio[d.stage] || 0) + 1;
+    }
+
+    const ultimasMovimentacoes = activities.slice(0, 10).map((a) => ({
+      id: a.id,
+      type: a.type,
+      subject: a.subject,
+      contactId: a.contactId,
+      createdAt: a.createdAt,
+    }));
+
+    const wonDeals = deals.filter((d) => d.stage === "fechado_ganho");
+    const lostDeals = deals.filter((d) => d.stage === "perdido");
+    const winRate =
+      wonDeals.length + lostDeals.length > 0
+        ? Math.round((wonDeals.length / (wonDeals.length + lostDeals.length)) * 100)
+        : 0;
+
+    res.json({
+      success: true,
+      kpis: {
+        totalEmpresas,
+        leadsQuentes,
+        propostasAbertas,
+        receitaPotencial,
+        acoesHoje,
+        acoesAtrasadas,
+        winRate,
+        porSegmento,
+        porTemperatura,
+        porStatus,
+        dealsPorEstagio,
+        ultimasMovimentacoes,
+      },
+    });
+  } catch (err: any) {
+    logAndApiError(res, err, 500, "Failed to get KPIs");
+  }
+});
+
 // ─── Contacts: Bulk Temperature Update ─────────────────────────────────────
 // POST /api/crm/contacts/bulk-update-temperature  body: { ids: number[], temperatura: string }
 router.post(

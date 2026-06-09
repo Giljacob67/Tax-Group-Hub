@@ -67,10 +67,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      headroom-ai:
-        specifier: ^0.22.4
-        version: 0.22.4(@ai-sdk/provider@3.0.10)(ai@6.0.196(zod@3.25.76))
     devDependencies:
       prettier:
         specifier: ^3.8.1
@@ -3539,24 +3535,6 @@ packages:
 
   hast-util-whitespace@3.0.0:
     resolution: {integrity: sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw==}
-
-  headroom-ai@0.22.4:
-    resolution: {integrity: sha512-9a0rgB/jsWe8gs/ggyUwe6E8DYwKAuBvlUml2ApwlUjb5EfJ611X6X+WG0SiXw3nO6sdyV1/+Ah5uw9P7ecnjw==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      '@ai-sdk/provider': '>=1.0.0'
-      '@anthropic-ai/sdk': '>=0.30.0'
-      ai: '>=6.0.0'
-      openai: '>=4.0.0'
-    peerDependenciesMeta:
-      '@ai-sdk/provider':
-        optional: true
-      '@anthropic-ai/sdk':
-        optional: true
-      ai:
-        optional: true
-      openai:
-        optional: true
 
   helmet@8.2.0:
     resolution: {integrity: sha512-DRgTIUgnWcJ62KyarxxziuqYxKGnR6Rgg19BlbucN/dpmJbl1XOit6qvoOX0ZT+HhWe5OUVhU/a1zpGyc1xA0Q==}
@@ -7892,11 +7870,6 @@ snapshots:
   hast-util-whitespace@3.0.0:
     dependencies:
       '@types/hast': 3.0.4
-
-  headroom-ai@0.22.4(@ai-sdk/provider@3.0.10)(ai@6.0.196(zod@3.25.76)):
-    optionalDependencies:
-      '@ai-sdk/provider': 3.0.10
-      ai: 6.0.196(zod@3.25.76)
 
   helmet@8.2.0: {}
 

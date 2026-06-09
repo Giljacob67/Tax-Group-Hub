@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +10,7 @@ import { Loader2, AlertCircle, KeyRound } from "lucide-react";
 
 export default function LoginPage() {
   const { login, isLoading } = useAuth();
+  const [, navigate] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export default function LoginPage() {
 
       localStorage.setItem("taxgroup_auth_token", data.token);
       localStorage.setItem("taxgroup_auth_user", JSON.stringify(data.user));
-      window.location.href = "/command-center";
+      navigate("/command-center");
     } catch (err: any) {
       setError(err.message || "Erro ao fazer login. Verifique suas credenciais.");
     }
@@ -74,7 +76,7 @@ export default function LoginPage() {
 
       localStorage.setItem("taxgroup_auth_token", data.token);
       localStorage.setItem("taxgroup_auth_user", JSON.stringify(data.user));
-      window.location.href = "/command-center";
+      navigate("/command-center");
     } catch (err: any) {
       setError(err.message || "Token 2FA inválido");
     }

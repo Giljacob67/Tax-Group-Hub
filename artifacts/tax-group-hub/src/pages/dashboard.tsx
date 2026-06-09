@@ -48,6 +48,7 @@ import {
   useListCrmTasks,
   useListAutomationSequences,
   useHealthCheck,
+  useListCrmKpis,
 } from "@workspace/api-client-react";
 import {
   SkeletonMetricsGrid,
@@ -224,6 +225,10 @@ export default function Dashboard() {
     query: { refetchInterval: 30000 },
   } as any);
 
+  const { data: kpisData } = useListCrmKpis({
+    query: { staleTime: 60_000 },
+  } as any);
+
   const { data: contactsApiResponse, isError: contactsError } = useListCrmContacts({ limit: 1000 }, {
     query: { staleTime: 60_000 },
   } as any);
@@ -279,23 +284,26 @@ export default function Dashboard() {
 
   const activeSeqs =
     seqData?.sequences?.filter((s: any) => s.isActive).length ?? 0;
+  
+  // Use KPIs from endpoint when available, fallback to client-side calculation
+  const kpis = kpisData?.kpis;
   const totalContacts =
     isDemo && demoContacts.length > 0
       ? demoContacts.length
-      : (contactsData?.total ?? 0);
+      : (kpis?.totalEmpresas ?? contactsData?.total ?? 0);
   const hotLeads =
     isDemo && demoContacts.length > 0
       ? demoContacts.filter((c) => c.aiScore >= 70).length
-      : (contactsData?.hot ?? 0);
+      : (kpis?.leadsQuentes ?? contactsData?.hot ?? 0);
   const openDeals =
     isDemo && demoContacts.length > 0
       ? demoContacts.filter((c) => c.status === "opportunity").length
-      : (contactsData?.deals ?? 0);
+      : (kpis?.propostasAbertas ?? contactsData?.deals ?? 0);
   const potentialRevenue =
     isDemo && demoDeals.length > 0
       ? demoDeals.reduce((s, d) => s + (parseFloat(d.value) || 0), 0)
-      : (pipelineData?.meta?.totalValue ?? 0);
-  const pendingTasks = effectiveTasks.filter(
+      : (kpis?.receitaPotencial ?? pipelineData?.meta?.totalValue ?? 0);
+  const pendingTasks = kpis?.acoesHoje ?? effectiveTasks.filter(
     (t: any) =>
       t.dueDate &&
       new Date(t.dueDate) <= new Date(new Date().setHours(23, 59, 59, 999)),

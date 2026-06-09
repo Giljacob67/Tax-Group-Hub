@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +12,7 @@ export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [resetInfo, setResetInfo] = useState<{ resetLink?: string; token?: string } | null>(null);
-
+  const [, navigate] = useLocation();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -32,9 +32,6 @@ export default function ForgotPasswordPage() {
       }
 
       setSuccess(true);
-      if (data.resetLink) {
-        setResetInfo(data);
-      }
     } catch (err: any) {
       setError(err.message || "Erro ao solicitar reset de senha. Tente novamente.");
     } finally {
@@ -71,37 +68,10 @@ export default function ForgotPasswordPage() {
                   </AlertDescription>
                 </Alert>
 
-                {resetInfo?.resetLink && (
-                  <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
-                    <p className="text-sm font-medium text-foreground mb-2">
-                      Link de recuperação (apenas desenvolvimento):
-                    </p>
-                    <div className="flex gap-2">
-                      <Input
-                        value={resetInfo.resetLink}
-                        readOnly
-                        className="text-xs font-mono"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(resetInfo.resetLink!);
-                        }}
-                      >
-                        Copiar
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Em produção, este link seria enviado por email.
-                    </p>
-                  </div>
-                )}
-
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => window.location.href = "/login"}
+                  onClick={() => navigate("/login")}
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Voltar para o login
@@ -150,7 +120,7 @@ export default function ForgotPasswordPage() {
                   type="button"
                   variant="link"
                   className="w-full"
-                  onClick={() => window.location.href = "/login"}
+                  onClick={() => navigate("/login")}
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Voltar para o login

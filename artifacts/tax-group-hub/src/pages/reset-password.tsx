@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearch } from "wouter";
+import { useSearch, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { Loader2, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react";
 
 export default function ResetPasswordPage() {
   const searchParams = useSearch();
+  const [, navigate] = useLocation();
   const token = new URLSearchParams(searchParams).get("token") || "";
 
   const [password, setPassword] = useState("");
@@ -114,7 +115,7 @@ export default function ResetPasswordPage() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => window.location.href = "/forgot-password"}
+                  onClick={() => navigate("/forgot-password")}
                 >
                   Solicitar novo link
                 </Button>
@@ -129,7 +130,7 @@ export default function ResetPasswordPage() {
                 </Alert>
                 <Button
                   className="w-full"
-                  onClick={() => window.location.href = "/login"}
+                  onClick={() => navigate("/login")}
                 >
                   Ir para o login
                 </Button>
@@ -191,7 +192,7 @@ export default function ResetPasswordPage() {
                   type="button"
                   variant="link"
                   className="w-full"
-                  onClick={() => window.location.href = "/login"}
+                  onClick={() => navigate("/login")}
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Voltar para o login

@@ -8,6 +8,7 @@ import { eq, and, gt, desc, count } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
 import { requireUserId, isRealUser } from "../middlewares/auth.js";
 import { logAudit } from "../lib/audit.js";
+import logger from "../lib/logger.js";
 
 const router = Router();
 
@@ -130,7 +131,7 @@ router.post("/login", async (req: Request, res: Response) => {
       details: { email: user.email },
     });
   } catch (err) {
-    console.error("[auth/login]", err);
+    logger.error({ err }, "[auth/login]");
     apiError(res, 500, "Erro interno ao fazer login.");
   }
 });

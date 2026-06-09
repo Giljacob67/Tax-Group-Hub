@@ -1492,6 +1492,30 @@ export type ListCrmTags200 = {
   tags: string[];
 };
 
+export type ListCrmKpis200 = {
+  success: boolean;
+  kpis: {
+    totalEmpresas: number;
+    leadsQuentes: number;
+    propostasAbertas: number;
+    receitaPotencial: number;
+    acoesHoje: number;
+    acoesAtrasadas: number;
+    winRate: number;
+    porSegmento: Record<string, number>;
+    porTemperatura: Record<string, number>;
+    porStatus: Record<string, number>;
+    dealsPorEstagio: Record<string, number>;
+    ultimasMovimentacoes: Array<{
+      id: number;
+      type: string;
+      subject: string | null;
+      contactId: number;
+      createdAt: string;
+    }>;
+  };
+};
+
 export type ListCrmDealsParams = {
   stage?: string;
   contactId?: number;

@@ -323,9 +323,11 @@ export async function customFetch<T = unknown>(
   const response = await fetch(input, { ...init, method, headers });
 
   // Handle 401 Unauthorized - clear auth state and redirect to login
+  // Skip redirect in demo mode (?demo=1) so demo pages can show mock data
   if (response.status === 401 && typeof window !== "undefined") {
     const currentPath = window.location.pathname;
-    if (currentPath !== "/login" && currentPath !== "/" && currentPath !== "/forgot-password" && currentPath !== "/reset-password") {
+    const isDemo = new URL(window.location.href).searchParams.get("demo") === "1";
+    if (!isDemo && currentPath !== "/login" && currentPath !== "/" && currentPath !== "/forgot-password" && currentPath !== "/reset-password") {
       localStorage.removeItem("taxgroup_auth_token");
       localStorage.removeItem("taxgroup_auth_user");
       // Use a custom event to notify AuthContext

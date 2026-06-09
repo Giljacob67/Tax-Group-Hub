@@ -150,6 +150,7 @@ import type {
   ListCrmContactsParams,
   ListCrmDeals200,
   ListCrmDealsParams,
+  ListCrmKpis200,
   ListCrmPipelines200,
   ListCrmQualificationHistory200,
   ListCrmRoles200,
@@ -6154,6 +6155,77 @@ export function useListCrmTags<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListCrmTagsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get funnel KPIs for Command Center
+ */
+export const getListCrmKpisUrl = () => {
+  return `/api/crm/kpis`;
+};
+
+export const listCrmKpis = async (
+  options?: RequestInit,
+): Promise<ListCrmKpis200> => {
+  return customFetch<ListCrmKpis200>(getListCrmKpisUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCrmKpisQueryKey = () => {
+  return [`/api/crm/kpis`] as const;
+};
+
+export const getListCrmKpisQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCrmKpis>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCrmKpis>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCrmKpisQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrmKpis>>> = ({
+    signal,
+  }) => listCrmKpis({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCrmKpis>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCrmKpisQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCrmKpis>>
+>;
+export type ListCrmKpisQueryError = ErrorType<unknown>;
+
+export function useListCrmKpis<
+  TData = Awaited<ReturnType<typeof listCrmKpis>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCrmKpis>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCrmKpisQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

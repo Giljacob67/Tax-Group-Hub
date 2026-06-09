@@ -8,8 +8,19 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
 }
 
+function isDemoMode(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const url = new URL(window.location.href);
+    return url.searchParams.get("demo") === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
   const { token, isAdmin, user, isLoading } = useAuth();
+  const demo = isDemoMode();
 
   if (isLoading) {
     return (
@@ -22,7 +33,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     );
   }
 
-  if (!token || !user) {
+  if (!demo && (!token || !user)) {
     return <Redirect to="/login" />;
   }
 

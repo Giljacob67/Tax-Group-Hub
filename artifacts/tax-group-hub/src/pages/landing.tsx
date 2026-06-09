@@ -214,7 +214,7 @@ export default function LandingPage() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/?demo=1">
+            <Link href="/command-center?demo=1">
               <button className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-xs font-medium hover:bg-muted transition-colors">
                 <Sparkles className="w-3.5 h-3.5" />
                 Modo demo
@@ -279,11 +279,11 @@ export default function LandingPage() {
                   Entrar no Command Center
                 </button>
               </Link>
-              <Link href="/?demo=1">
+              <Link href="/command-center?demo=1">
                 <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-border bg-background text-sm font-medium hover:bg-muted transition-colors">
-                  <Sparkles className="w-4 h-4" />
-                  Iniciar modo demo
-                </button>
+                    <Sparkles className="w-4 h-4" />
+                    Iniciar modo demo
+                    </button>
               </Link>
             </motion.div>
           </motion.div>
@@ -532,11 +532,11 @@ export default function LandingPage() {
                   Entrar no Command Center
                 </button>
               </Link>
-              <Link href="/?demo=1">
+              <Link href="/command-center?demo=1">
                 <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-border bg-background text-sm font-medium hover:bg-muted transition-colors">
-                  <Sparkles className="w-4 h-4" />
-                  Iniciar modo demo
-                </button>
+                    <Sparkles className="w-4 h-4" />
+                    Iniciar modo demo
+                    </button>
               </Link>
             </div>
           </motion.div>

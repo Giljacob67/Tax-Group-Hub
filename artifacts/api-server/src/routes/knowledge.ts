@@ -10,6 +10,7 @@ import { apiError } from "../lib/api-response.js";
 import { safeCompare } from "../middlewares/auth.js";
 import { generateClientTokenFromReadWriteToken } from "@vercel/blob/client";
 import { get } from "@vercel/blob";
+import logger from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -188,12 +189,12 @@ export async function processDocumentAsync(
       })
       .where(eq(knowledgeDocumentsTable.id, docId));
 
-    console.log(
+    logger.info(
       `[Knowledge] Doc ${docId} (${filename}) OK — ${chunks.length} chunks`,
     );
   } catch (err) {
     const msg = (err as Error).message || String(err);
-    console.error(`[Knowledge] Doc ${docId} failed:`, msg);
+    logger.error(`[Knowledge] Doc ${docId} failed: ${msg}`);
     await db
       .update(knowledgeDocumentsTable)
       .set({ status: "error", errorLog: msg })
@@ -255,7 +256,7 @@ router.get("/knowledge/health", async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error("Knowledge health error:", err);
+    logger.error({ err }, "Knowledge health error");
     apiError(res, 500, "Failed to get knowledge health");
   }
 });
@@ -292,7 +293,7 @@ router.get("/knowledge", async (req, res) => {
 
     res.json({ documents: documents.map(mapDoc) });
   } catch (err) {
-    console.error("Knowledge list error:", err);
+    logger.error({ err }, "Knowledge list error");
     apiError(res, 500, "Failed to list documents");
   }
 });
@@ -321,7 +322,7 @@ router.post("/knowledge/upload-token", async (req, res) => {
     });
     res.json({ token, pathname });
   } catch (err) {
-    console.error("[UploadToken] error:", err);
+    logger.error({ err }, "[UploadToken] error");
     apiError(res, 500, "Falha ao gerar token de upload");
   }
 });
@@ -358,7 +359,7 @@ async function downloadBlob(url: string): Promise<Buffer> {
         return Buffer.concat(chunks);
       }
     } catch (sdkErr: any) {
-      console.warn(`[downloadBlob] SDK get() falhou: ${sdkErr.message}`);
+      logger.warn(`[downloadBlob] SDK get() falhou: ${sdkErr.message}`);
     }
   }
 
@@ -379,6 +380,7 @@ router.post("/knowledge/upload", async (req, res) => {
   try {
     const {
       blobUrl,
+      fileData,
       filename,
       mimetype,
       agentId,
@@ -388,12 +390,13 @@ router.post("/knowledge/upload", async (req, res) => {
       tags,
     } = req.body ?? {};
 
-    if (!blobUrl || typeof blobUrl !== "string") {
-      apiError(res, 400, "Campo blobUrl obrigatório.");
-      return;
-    }
     if (!filename || typeof filename !== "string") {
       apiError(res, 400, "Campo filename obrigatório.");
+      return;
+    }
+
+    if (!blobUrl && !fileData) {
+      apiError(res, 400, "Campo blobUrl ou fileData obrigatório.");
       return;
     }
 
@@ -420,28 +423,43 @@ router.post("/knowledge/upload", async (req, res) => {
         : tags
       : [];
 
-    // Download file from Blob to get size
-    console.log("[Upload] downloading from Blob:", blobUrl);
     let buffer: Buffer;
-    try {
-      buffer = await withTimeout(
-        downloadBlob(blobUrl),
-        15000,
-        "Download do Blob",
-      );
-    } catch (e: any) {
-      console.error("[Upload] download error:", e.message);
-      apiError(res, 500, "Falha ao baixar arquivo do storage.");
+    let effectiveBlobUrl: string | null = blobUrl || null;
+
+    if (fileData && typeof fileData === "string") {
+      logger.info({ filename }, "[Upload] decoding base64 fileData");
+      try {
+        buffer = Buffer.from(fileData, "base64");
+      } catch (e: any) {
+        logger.error({ err: e }, "[Upload] base64 decode error");
+        apiError(res, 400, "Falha ao decodificar fileData base64.");
+        return;
+      }
+    } else if (blobUrl) {
+      logger.info({ blobUrl }, "[Upload] downloading from Blob");
+      try {
+        buffer = await withTimeout(
+          downloadBlob(blobUrl),
+          15000,
+          "Download do Blob",
+        );
+      } catch (e: any) {
+        logger.error({ err: e }, "[Upload] download error");
+        apiError(res, 500, "Falha ao baixar arquivo do storage.");
+        return;
+      }
+    } else {
+      apiError(res, 400, "Campo blobUrl ou fileData obrigatório.");
       return;
     }
 
     const fileSize = buffer.length;
-    console.log("[Upload] received:", filename, fileSize, "bytes");
+    logger.info({ filename, fileSize }, "[Upload] received");
 
     const SYNC_THRESHOLD = 2 * 1024 * 1024; // 2 MB
     const isSmall = fileSize < SYNC_THRESHOLD;
 
-    console.log("[Upload] inserting DB record...");
+    logger.info("[Upload] inserting DB record...");
     const [doc] = await db
       .insert(knowledgeDocumentsTable)
       .values({
@@ -458,7 +476,7 @@ router.post("/knowledge/upload", async (req, res) => {
         product: product || null,
         origin: origin || "upload",
         tags: parsedTags.length > 0 ? parsedTags : null,
-        blobUrl,
+        blobUrl: effectiveBlobUrl,
       })
       .returning();
 
@@ -473,7 +491,7 @@ router.post("/knowledge/upload", async (req, res) => {
           .select()
           .from(knowledgeDocumentsTable)
           .where(eq(knowledgeDocumentsTable.id, doc.id));
-        console.log(`[Upload] doc ${doc.id} processado sincronamente`);
+        logger.info(`[Upload] doc ${doc.id} processado sincronamente`);
         res.status(200).json({
           success: true,
           message: "Documento processado com sucesso.",
@@ -482,10 +500,7 @@ router.post("/knowledge/upload", async (req, res) => {
         return;
       } catch (procErr: any) {
         const msg = procErr?.message || String(procErr);
-        console.error(
-          `[Upload] doc ${doc.id} falha no processamento rápido:`,
-          msg,
-        );
+        logger.error(`[Upload] doc ${doc.id} falha no processamento rápido: ${msg}`);
         await db
           .update(knowledgeDocumentsTable)
           .set({ status: "pending", errorLog: msg })
@@ -494,14 +509,14 @@ router.post("/knowledge/upload", async (req, res) => {
       }
     }
 
-    console.log(`[Upload] 200 → doc ${doc.id} enfileirado`);
+    logger.info(`[Upload] 200 → doc ${doc.id} enfileirado`);
     res.status(200).json({
       success: true,
       message: "Documento recebido e enfileirado para processamento.",
       document: mapDoc(doc),
     });
   } catch (err) {
-    console.error("[Upload] error:", err);
+    logger.error({ err }, "[Upload] error");
     apiError(res, 500, "Falha no upload do documento");
   }
 });
@@ -554,7 +569,7 @@ router.get("/knowledge/sources", async (req, res) => {
 
     res.json({ sources });
   } catch (err) {
-    console.error("Knowledge sources error:", err);
+    logger.error({ err }, "Knowledge sources error");
     apiError(res, 500, "Failed to get sources");
   }
 });
@@ -630,7 +645,7 @@ router.post("/knowledge/search", async (req, res) => {
           })),
       });
     } catch (embErr) {
-      console.error("Vector search error:", embErr);
+      logger.error({ err: embErr }, "Vector search error");
       // Fallback: text search if embeddings unavailable
       const userFilter =
         req.userId && req.userId !== "default" && req.userId !== "dev-user"
@@ -670,7 +685,7 @@ router.post("/knowledge/search", async (req, res) => {
       });
     }
   } catch (err) {
-    console.error("Knowledge search error:", err);
+    logger.error({ err }, "Knowledge search error");
     apiError(res, 500, "Falha na busca");
   }
 });
@@ -745,7 +760,7 @@ router.get("/knowledge/:id/chunks", async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error("Knowledge chunks error:", err);
+    logger.error({ err }, "Knowledge chunks error");
     apiError(res, 500, "Falha ao carregar chunks");
   }
 });
@@ -797,7 +812,7 @@ router.post("/knowledge/:id/reindex", async (req, res) => {
     // Processamento assíncrono após resposta — cron job ou próxima execução vai pegar
     // Não processamos aqui para não estourar timeout da request
   } catch (err) {
-    console.error("Knowledge reindex error:", err);
+    logger.error({ err }, "Knowledge reindex error");
     apiError(res, 500, "Falha ao reindexar");
   }
 });
@@ -834,7 +849,7 @@ router.delete("/knowledge/:id", async (req, res) => {
       .where(eq(knowledgeDocumentsTable.id, id));
     res.json({ success: true });
   } catch (err) {
-    console.error("Knowledge delete error:", err);
+    logger.error({ err }, "Knowledge delete error");
     apiError(res, 500, "Falha ao excluir documento");
   }
 });
@@ -881,7 +896,7 @@ async function handleProcessQueue(req: any, res: any) {
       .orderBy(knowledgeDocumentsTable.createdAt)
       .limit(5);
 
-    console.log(`[Cron KB] ${pending.length} documento(s) para processar`);
+    logger.info(`[Cron KB] ${pending.length} documento(s) para processar`);
 
     let processed = 0;
     let failed = 0;
@@ -898,24 +913,18 @@ async function handleProcessQueue(req: any, res: any) {
             `Download Blob doc ${doc.id}`,
           );
         } catch (e: any) {
-          console.error(
-            `[Cron KB] Doc ${doc.id} falha ao baixar do Blob:`,
-            e.message,
-          );
+          logger.error(`[Cron KB] Doc ${doc.id} falha ao baixar do Blob: ${e.message}`);
         }
       } else if (doc.fileData) {
         try {
           buffer = Buffer.from(doc.fileData, "base64");
         } catch (e: any) {
-          console.error(
-            `[Cron KB] Doc ${doc.id} fileData inválido:`,
-            e.message,
-          );
+          logger.error(`[Cron KB] Doc ${doc.id} fileData inválido: ${e.message}`);
         }
       }
 
       if (!buffer) {
-        console.log(`[Cron KB] Doc ${doc.id} sem arquivo disponível — pulando`);
+        logger.info(`[Cron KB] Doc ${doc.id} sem arquivo disponível — pulando`);
         await db
           .update(knowledgeDocumentsTable)
           .set({
@@ -932,10 +941,7 @@ async function handleProcessQueue(req: any, res: any) {
         await processDocumentAsync(doc.id, buffer, doc.fileType, doc.filename);
         processed++;
       } catch (err: any) {
-        console.error(
-          `[Cron KB] Doc ${doc.id} falha no processamento:`,
-          err.message,
-        );
+        logger.error(`[Cron KB] Doc ${doc.id} falha no processamento: ${err.message}`);
         failed++;
       }
     }
@@ -947,7 +953,7 @@ async function handleProcessQueue(req: any, res: any) {
       remaining: Math.max(0, pending.length - processed - failed),
     });
   } catch (err) {
-    console.error("[Cron KB] Erro no process-queue:", err);
+    logger.error({ err }, "[Cron KB] Erro no process-queue");
     apiError(res, 500, "Falha no processamento da fila");
   }
 }

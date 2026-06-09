@@ -6,6 +6,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { apiError } from "../lib/api-response.js";
 import { requireUserId, isRealUser } from "../middlewares/auth.js";
+import logger from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -74,7 +75,7 @@ router.get("/branding/resolve", async (req, res) => {
       logoUrl: null, // Frontend will show default logo
     });
   } catch (err) {
-    console.error("[Branding] Resolve error:", err);
+    logger.error({ err }, "[Branding] Resolve error");
     apiError(res, 500, "Failed to resolve branding");
   }
 });

@@ -1,17 +1,7 @@
 import { Router, type IRouter } from "express";
-import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-
-function safeCompare(a: string, b: string): boolean {
-  const ba = Buffer.from(a);
-  const bb = Buffer.from(b);
-  const len = Math.max(ba.length, bb.length);
-  const baPadded = Buffer.alloc(len);
-  const bbPadded = Buffer.alloc(len);
-  ba.copy(baPadded);
-  bb.copy(bbPadded);
-  return timingSafeEqual(baPadded, bbPadded) && ba.length === bb.length;
-}
+import { safeCompare } from "../middlewares/auth.js";
+import logger from "../lib/logger.js";
 import {
   db,
   conversationsTable,
@@ -99,10 +89,10 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
 
   const parsed = TelegramUpdate.safeParse(req.body);
   if (!parsed.success) {
-    console.warn("[Webhook Telegram] invalid payload", {
+    logger.warn({
       reqId,
       errors: parsed.error.flatten(),
-    });
+    }, "[Webhook Telegram] invalid payload");
     res.sendStatus(200);
     return;
   }
@@ -147,7 +137,7 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
     }
 
     if (!config) {
-      console.warn(
+      logger.warn(
         `[Webhook] No configuration found for Telegram webhookId: ${webhookId.substring(0, 10)}...`,
       );
       return;
@@ -162,7 +152,7 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
         (!receivedSecret ||
           !safeCompare(String(receivedSecret), expectedSecret))
       ) {
-        console.warn(
+        logger.warn(
           `[Webhook] Invalid secret for Telegram config ${config.id}`,
         );
         return;
@@ -303,9 +293,9 @@ router.post("/webhooks/telegram/:webhookId", async (req, res) => {
         latencyMs: llmResponse.executionTimeMs,
         platform: "telegram",
       })
-      .catch((e: Error) => console.error("[Analytics] Telegram log error:", e));
+      .catch((e: Error) => logger.error({ err: e }, "[Analytics] Telegram log error"));
   } catch (err: any) {
-    console.error("[Webhook Telegram Error]", { reqId, err });
+    logger.error({ reqId, err }, "[Webhook Telegram Error]");
   } finally {
     // Always ACK to prevent Telegram from retrying
     if (!res.headersSent) res.sendStatus(200);
@@ -401,7 +391,7 @@ router.get("/webhooks/whatsapp/:channelId", async (req, res) => {
       res.sendStatus(403);
     }
   } catch (err) {
-    console.error("[Webhook WhatsApp] GET verification error:", err);
+    logger.error({ err }, "[Webhook WhatsApp] GET verification error");
     res.sendStatus(403);
   }
 });
@@ -422,10 +412,10 @@ router.post("/webhooks/whatsapp/:channelId", async (req, res) => {
 
   const parsed = WhatsAppWebhookPayload.safeParse(req.body);
   if (!parsed.success) {
-    console.warn("[Webhook WhatsApp] invalid payload", {
+    logger.warn({
       reqId,
       errors: parsed.error.flatten(),
-    });
+    }, "[Webhook WhatsApp] invalid payload");
     res.sendStatus(200);
     return;
   }
@@ -456,14 +446,14 @@ router.post("/webhooks/whatsapp/:channelId", async (req, res) => {
       .limit(1);
 
     if (!config) {
-      console.warn(`[Webhook WhatsApp] No config for channelId: ${channelId}`);
+      logger.warn(`[Webhook WhatsApp] No config for channelId: ${channelId}`);
       return;
     }
 
     const configData = config.config as Record<string, unknown> | null;
     const accessToken = String(configData?.accessToken ?? "");
     if (!accessToken) {
-      console.warn(
+      logger.warn(
         `[Webhook WhatsApp] No accessToken in config for channel ${channelId}`,
       );
       return;
@@ -598,9 +588,9 @@ router.post("/webhooks/whatsapp/:channelId", async (req, res) => {
         latencyMs: llmResponse.executionTimeMs,
         platform: "whatsapp",
       })
-      .catch((e: Error) => console.error("[Analytics] WhatsApp log error:", e));
+      .catch((e: Error) => logger.error({ err: e }, "[Analytics] WhatsApp log error"));
   } catch (err: unknown) {
-    console.error("[Webhook WhatsApp] error", { reqId, err });
+    logger.error({ reqId, err }, "[Webhook WhatsApp] error");
   } finally {
     if (!res.headersSent) res.sendStatus(200);
   }
@@ -642,9 +632,9 @@ router.post("/webhooks/crm/inbound", async (req, res) => {
 
   const parsed = CrmInboundPayload.safeParse(req.body);
   if (!parsed.success) {
-    console.warn("[Webhook CRM] invalid payload — expected an object", {
+    logger.warn({
       reqId,
-    });
+    }, "[Webhook CRM] invalid payload — expected an object");
     res.sendStatus(200);
     return;
   }
@@ -703,10 +693,9 @@ router.post("/webhooks/crm/inbound", async (req, res) => {
       // AI scoring in background — also auto-creates deal if score >= 60
       setImmediate(() => {
         enrichContact(newContact.id, tenantId).catch((err: Error) =>
-          console.error(
-            "[Enrichment] Webhook enrich failed for contact",
-            newContact.id,
-            err,
+          logger.error(
+            { err, contactId: newContact.id },
+            "[Enrichment] Webhook enrich failed",
           ),
         );
       });
@@ -745,7 +734,7 @@ router.post("/webhooks/crm/inbound", async (req, res) => {
       });
     }
   } catch (err: any) {
-    console.error("[Webhook CRM Inbound Error]", { reqId, tenantId, err });
+    logger.error({ reqId, tenantId, err }, "[Webhook CRM Inbound Error]");
   } finally {
     if (!res.headersSent) res.sendStatus(200);
   }

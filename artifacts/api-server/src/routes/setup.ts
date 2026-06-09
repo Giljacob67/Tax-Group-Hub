@@ -9,6 +9,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { neon } from "@neondatabase/serverless";
+import logger from "../lib/logger.js";
 
 const router = Router();
 
@@ -266,7 +267,7 @@ router.post("/setup", async (req: Request, res: Response) => {
       user: { id: newUser.id, email: newUser.email, name: newUser.name },
     });
   } catch (err) {
-    console.error("[setup]", err);
+    logger.error({ err }, "[setup]");
     apiError(res, 500, "Erro interno no setup.");
   }
 });
@@ -397,7 +398,7 @@ router.post("/setup/migrate", async (req: Request, res: Response) => {
       results,
     });
   } catch (err) {
-    console.error("[setup/migrate]", err);
+    logger.error({ err }, "[setup/migrate]");
     apiError(res, 500, "Erro interno ao aplicar migrations.");
   }
 });

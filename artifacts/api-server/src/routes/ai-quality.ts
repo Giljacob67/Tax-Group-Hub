@@ -17,6 +17,7 @@ import { isRealUser } from "../middlewares/auth.js";
 import { generateEmbeddings, callLLM } from "../lib/llm-client.js";
 import { getAgentById } from "../lib/agents-data.js";
 import { getConfigValue } from "./settings.js";
+import logger from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -63,7 +64,7 @@ router.post("/ai-quality/feedback", async (req, res) => {
 
     res.json({ ok: true, id: saved.id });
   } catch (err) {
-    console.error("[ai-quality] feedback error:", err);
+    logger.error({ err }, "[ai-quality] feedback error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -123,7 +124,7 @@ router.get("/ai-quality/summary", async (req, res) => {
       negativeFeedback: Number(feedbackSummary.negativeCount) || 0,
     });
   } catch (err) {
-    console.error("[ai-quality] summary error:", err);
+    logger.error({ err }, "[ai-quality] summary error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -152,7 +153,7 @@ router.get("/ai-quality/runs", async (req, res) => {
 
     res.json({ runs: rows, total: Number(total), limit, offset });
   } catch (err) {
-    console.error("[ai-quality] runs error:", err);
+    logger.error({ err }, "[ai-quality] runs error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -177,7 +178,7 @@ router.get("/ai-quality/test-cases", async (req, res) => {
 
     res.json({ testCases: rows });
   } catch (err) {
-    console.error("[ai-quality] test-cases list error:", err);
+    logger.error({ err }, "[ai-quality] test-cases list error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -213,7 +214,7 @@ router.post("/ai-quality/test-cases", async (req, res) => {
 
     res.status(201).json({ testCase: saved });
   } catch (err) {
-    console.error("[ai-quality] create test case error:", err);
+    logger.error({ err }, "[ai-quality] create test case error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -236,7 +237,7 @@ router.delete("/ai-quality/test-cases/:id", async (req, res) => {
     await db.delete(aiTestCasesTable).where(eq(aiTestCasesTable.id, id));
     res.json({ ok: true });
   } catch (err) {
-    console.error("[ai-quality] delete test case error:", err);
+    logger.error({ err }, "[ai-quality] delete test case error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -318,7 +319,7 @@ router.post("/ai-quality/test-cases/:id/run", async (req, res) => {
           }
         }
       } catch (ragErr) {
-        console.error("[ai-quality] test run RAG error:", ragErr);
+        logger.error({ err: ragErr }, "[ai-quality] test run RAG error");
       }
 
       const result = await callLLM(systemPrompt, testCase.question, {
@@ -364,7 +365,7 @@ router.post("/ai-quality/test-cases/:id/run", async (req, res) => {
       res.json({ run: updated });
     }
   } catch (err) {
-    console.error("[ai-quality] run test case error:", err);
+    logger.error({ err }, "[ai-quality] run test case error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -393,7 +394,7 @@ router.get("/ai-quality/test-cases/:id/runs", async (req, res) => {
 
     res.json({ runs: rows });
   } catch (err) {
-    console.error("[ai-quality] get runs error:", err);
+    logger.error({ err }, "[ai-quality] get runs error");
     apiError(res, 500, "Internal server error");
   }
 });

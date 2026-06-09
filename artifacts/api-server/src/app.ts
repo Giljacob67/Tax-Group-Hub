@@ -12,6 +12,7 @@ import {
 import { requestId } from "./middlewares/request-id.js";
 import { errorHandler } from "./middlewares/error-handler.js";
 import router from "./routes";
+import logger from "./lib/logger.js";
 
 const app: Express = express();
 
@@ -75,7 +76,7 @@ app.use(
         callback(null, true);
       } else {
         // Log blocked origin for debugging
-        console.warn(`CORS blocked origin: ${origin}`);
+        logger.warn(`CORS blocked origin: ${origin}`);
         callback(new Error("Not allowed by CORS"));
       }
     },

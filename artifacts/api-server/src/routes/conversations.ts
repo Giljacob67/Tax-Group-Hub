@@ -21,6 +21,7 @@ import { SendMessageBody } from "@workspace/api-zod";
 import { isRealUser } from "../middlewares/auth.js";
 import { apiError } from "../lib/api-response.js";
 import { validateIdParam } from "../lib/validation.js";
+import logger from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -79,7 +80,7 @@ router.get("/conversations", async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error("Error listing conversations:", err);
+    logger.error({ err }, "Error listing conversations");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -121,7 +122,7 @@ router.post("/conversations", async (req, res) => {
       messageCount: 0,
     });
   } catch (err: any) {
-    console.error("Error creating conversation:", err);
+    logger.error({ err }, "Error creating conversation");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -173,7 +174,7 @@ router.get("/conversations/:conversationId", async (req, res) => {
       })),
     });
   } catch (err: any) {
-    console.error("Error getting conversation:", err);
+    logger.error({ err }, "Error getting conversation");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -216,7 +217,7 @@ router.patch("/conversations/:conversationId", async (req, res) => {
       updatedAt: conv.updatedAt.toISOString(),
     });
   } catch (err: any) {
-    console.error("Error renaming conversation:", err);
+    logger.error({ err }, "Error renaming conversation");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -272,7 +273,7 @@ router.get("/conversations/:conversationId/export", async (req, res) => {
     );
     res.send(md);
   } catch (err: any) {
-    console.error("Error exporting conversation:", err);
+    logger.error({ err }, "Error exporting conversation");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -307,7 +308,7 @@ router.delete("/messages/:messageId", async (req, res) => {
     await db.delete(messagesTable).where(eq(messagesTable.id, messageId));
     res.json({ success: true });
   } catch (err: any) {
-    console.error("Error deleting message:", err);
+    logger.error({ err }, "Error deleting message");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -338,7 +339,7 @@ router.delete("/conversations/:conversationId", async (req, res) => {
       .where(eq(conversationsTable.id, conversationId));
     res.json({ success: true, message: "Conversation deleted" });
   } catch (err: any) {
-    console.error("Error deleting conversation:", err);
+    logger.error({ err }, "Error deleting conversation");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -488,7 +489,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
           confidenceLevel = "none";
         }
       } catch (ragErr) {
-        console.error("Failed to generate vector context:", ragErr);
+        logger.error({ err: ragErr }, "Failed to generate vector context");
       }
     }
 
@@ -640,7 +641,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
                     totalTokens: finish.usage?.totalTokens || 0,
                     platform: "web",
                   })
-                  .catch((e) => console.error("Usage log error:", e));
+                  .catch((e: Error) => logger.error({ err: e }, "Usage log error"));
               },
             });
 
@@ -716,7 +717,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
         }
       }
     } catch (llmErr) {
-      console.error("LLM error:", llmErr);
+      logger.error({ err: llmErr }, "LLM error");
       assistantContent = `Erro ao conectar com a IA. Verifique os logs do servidor.`;
       if (isStream)
         res.write(
@@ -784,7 +785,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       confidenceLevel,
     });
   } catch (err: any) {
-    console.error("Error sending message:", err);
+    logger.error({ err }, "Error sending message");
     apiError(res, 500, "Internal server error");
   }
 });
