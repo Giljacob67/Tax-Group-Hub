@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams, useLocation, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
@@ -178,14 +179,35 @@ export default function AgentChat() {
     query: { refetchInterval: 30000 } as any,
   });
   const isDesignStudioAgent = !!agent?.designStudio;
+  
+  // Buscar provider/modelo ativo em tempo real
+  const { data: activeProviderData } = useQuery({
+    queryKey: ["active-llm-provider"],
+    queryFn: async () => {
+      const token = localStorage.getItem("taxgroup_auth_token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch("/api/settings/active-provider", { headers });
+      if (!res.ok) throw new Error("Failed to fetch active provider");
+      return res.json();
+    },
+  });
+  
   const effectiveModel =
     selectedConnection?.modelId ||
     activeConv?.model ||
-    "google/gemini-flash-1.5";
+    activeProviderData?.model ||
+    "Padrão";
   const displayModel =
-    selectedConnection?.name || activeConv?.model || "Padrão";
+    selectedConnection?.name || 
+    activeConv?.model || 
+    activeProviderData?.model || 
+    "Padrão";
   const provider =
-    selectedConnection?.provider || activeConv?.provider || "auto";
+    selectedConnection?.provider || 
+    activeConv?.provider || 
+    activeProviderData?.provider || 
+    "auto";
   const isApiOnline = !!healthData?.status && !healthError;
 
   const scrollToBottom = useCallback(() => {

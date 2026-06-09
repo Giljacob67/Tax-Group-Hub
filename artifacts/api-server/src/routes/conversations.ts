@@ -100,13 +100,24 @@ router.post("/conversations", async (req, res) => {
     }
     const conversationTitle = title || `Nova conversa`;
     const userId = req.userId;
+    
+    // Se nenhum modelo foi fornecido, buscar o provider/modelo ativo do DB
+    let effectiveModel = model;
+    let effectiveProvider = provider;
+    if (!effectiveModel || !effectiveProvider) {
+      const activeProviderDb = await getConfigValue("ACTIVE_LLM_PROVIDER");
+      const activeLlmModel = await getConfigValue("ACTIVE_LLM_MODEL");
+      if (!effectiveModel) effectiveModel = activeLlmModel || undefined;
+      if (!effectiveProvider) effectiveProvider = activeProviderDb || undefined;
+    }
+    
     const [conv] = await db
       .insert(conversationsTable)
       .values({
         agentId,
         title: conversationTitle,
-        model,
-        provider,
+        model: effectiveModel,
+        provider: effectiveProvider,
         connectionId: connectionId || null,
         userId: userId || null,
       })
@@ -117,6 +128,7 @@ router.post("/conversations", async (req, res) => {
       agentId: conv.agentId,
       title: conv.title,
       model: conv.model,
+      provider: conv.provider,
       createdAt: conv.createdAt.toISOString(),
       updatedAt: conv.updatedAt.toISOString(),
       messageCount: 0,
