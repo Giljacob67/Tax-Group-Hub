@@ -21,9 +21,15 @@ import {
   Sun,
   Moon,
   HelpCircle,
+  Flame,
+  Clock,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useListAgents } from "@workspace/api-client-react";
+import {
+  useListAgents,
+  useListCrmContacts,
+  useListCrmTasks,
+} from "@workspace/api-client-react";
 import { useState, useMemo } from "react";
 import {
   Sidebar,
@@ -157,6 +163,26 @@ export function AppSidebar() {
   const { data: userData } = useGetCrmMe();
   const { logout, user, isAdmin } = useAuth();
 
+  // Notification data
+  const { data: contactsData } = useListCrmContacts({ limit: 1000 }, {
+    query: { staleTime: 60_000 },
+  } as any);
+  const { data: tasksData } = useListCrmTasks({ status: "pending" }, {
+    query: { staleTime: 30_000 },
+  } as any);
+
+  const hotLeadsCount = useMemo(() => {
+    const contacts = contactsData?.contacts ?? [];
+    return contacts.filter((c: any) => (c.aiScore ?? 0) >= 70).length;
+  }, [contactsData]);
+
+  const overdueTasksCount = useMemo(() => {
+    const tasks = tasksData?.tasks ?? [];
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+    return tasks.filter((t: any) => t.dueDate && new Date(t.dueDate) <= now).length;
+  }, [tasksData]);
+
   const logoUrl = branding.logoStorageKey
     ? `/uploads/${branding.logoStorageKey}`
     : `${import.meta.env.BASE_URL}images/logo-x-branco.svg`;
@@ -244,31 +270,55 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV_ITEMS.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <SidebarMenuButton
-                        isActive={
-                          item.path === "/command-center"
-                            ? location === "/command-center"
-                            : location.startsWith(item.path)
-                        }
-                        onClick={() => navigate(item.path)}
-                        className="cursor-pointer"
-                      >
-                        <item.icon
-                          className={`w-4 h-4 flex-shrink-0 ${item.color}`}
-                        />
-                        <span className="font-medium">{item.label}</span>
-                      </SidebarMenuButton>
-                    </TooltipTrigger>
-                    {!open && (
-                      <TooltipContent side="right">{item.label}</TooltipContent>
-                    )}
-                  </Tooltip>
-                </SidebarMenuItem>
-              ))}
+              {NAV_ITEMS.map((item) => {
+                // Calculate badge for specific items
+                let badge = null;
+                if (item.path === "/crm" && hotLeadsCount > 0) {
+                  badge = { count: hotLeadsCount, icon: Flame, color: "text-orange-400" };
+                } else if (item.path === "/automations" && overdueTasksCount > 0) {
+                  badge = { count: overdueTasksCount, icon: Clock, color: "text-amber-400" };
+                }
+
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton
+                          isActive={
+                            item.path === "/command-center"
+                              ? location === "/command-center"
+                              : location.startsWith(item.path)
+                          }
+                          onClick={() => navigate(item.path)}
+                          className="cursor-pointer"
+                        >
+                          <item.icon
+                            className={`w-4 h-4 flex-shrink-0 ${item.color}`}
+                          />
+                          <span className="font-medium flex-1">{item.label}</span>
+                          {badge && open && (
+                            <span className={`flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-muted/80 ${badge.color}`}>
+                              <badge.icon className="w-2.5 h-2.5" />
+                              {badge.count}
+                            </span>
+                          )}
+                          {badge && !open && (
+                            <span className={`absolute -top-1 -right-1 w-4 h-4 rounded-full bg-muted/80 flex items-center justify-center text-[9px] font-bold ${badge.color}`}>
+                              {badge.count}
+                            </span>
+                          )}
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      {!open && (
+                        <TooltipContent side="right">
+                          {item.label}
+                          {badge && ` — ${badge.count} pendente(s)`}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

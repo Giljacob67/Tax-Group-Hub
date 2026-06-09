@@ -14,6 +14,7 @@ import { PageTransition } from "./components/page-transition";
 import { BrandingProvider } from "./contexts/BrandingContext";
 import { OnboardingTour } from "./components/onboarding-tour";
 import { ProtectedRoute } from "./components/protected-route";
+import { CommandPalette } from "./components/command-palette";
 import { useOnboarding, TOUR_STEPS } from "./hooks/use-onboarding";
 
 const Dashboard = lazy(() => import("./pages/dashboard"));
@@ -279,6 +280,7 @@ function App() {
               <TooltipProvider>
                 <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                   <Router />
+                  <CommandPalette />
                 </WouterRouter>
                 <Toaster />
               </TooltipProvider>

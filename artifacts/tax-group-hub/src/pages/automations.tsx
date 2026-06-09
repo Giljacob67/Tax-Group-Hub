@@ -7,6 +7,7 @@ import {
   useDeleteAutomationSequence,
   useEnrollInSequence,
   useBroadcastWhatsApp,
+  useCreateAutomationSequence,
 } from "@workspace/api-client-react";
 import { motion } from "framer-motion";
 import {
@@ -24,6 +25,8 @@ import {
   RefreshCw,
   List,
   Send,
+  X,
+  GripVertical,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -123,6 +126,7 @@ export default function AutomationsPage() {
   const [tab, setTab] = useState("sequences");
   const [showEnrollDialog, setShowEnrollDialog] = useState(false);
   const [showBroadcastDialog, setShowBroadcastDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [enrollSeqId, setEnrollSeqId] = useState("");
   const [enrollContactId, setEnrollContactId] = useState("");
   const [deleteSeqId, setDeleteSeqId] = useState<number | null>(null);
@@ -133,6 +137,12 @@ export default function AutomationsPage() {
     minScore: "",
     maxScore: "",
     status: "",
+  });
+  const [newSequence, setNewSequence] = useState({
+    name: "",
+    trigger: "manual",
+    triggerValue: "",
+    steps: [{ day: 0, channel: "whatsapp" as const, agentId: "", inputTemplate: "" }],
   });
 
   // ── Queries ──
@@ -205,6 +215,75 @@ export default function AutomationsPage() {
     },
   });
 
+  // ── Create sequence ──
+  const createMutation = useCreateAutomationSequence({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/api/automate/sequences"] });
+        setShowCreateDialog(false);
+        setNewSequence({
+          name: "",
+          trigger: "manual",
+          triggerValue: "",
+          steps: [{ day: 0, channel: "whatsapp", agentId: "", inputTemplate: "" }],
+        });
+        toast({ title: "Sequência criada!" });
+      },
+      onError: (e: any) =>
+        toast({
+          title: "Erro ao criar sequência",
+          description: e.message,
+          variant: "destructive",
+        }),
+    },
+  });
+
+  const handleCreateSequence = () => {
+    if (!newSequence.name.trim()) {
+      toast({ title: "Nome é obrigatório", variant: "destructive" });
+      return;
+    }
+    if (newSequence.steps.length === 0) {
+      toast({ title: "Adicione pelo menos uma etapa", variant: "destructive" });
+      return;
+    }
+    createMutation.mutate({
+      data: {
+        name: newSequence.name.trim(),
+        trigger: newSequence.trigger,
+        triggerValue: newSequence.triggerValue || undefined,
+        steps: newSequence.steps,
+        isActive: true,
+      },
+    });
+  };
+
+  const addStep = () => {
+    setNewSequence((prev) => ({
+      ...prev,
+      steps: [
+        ...prev.steps,
+        { day: prev.steps.length * 3, channel: "whatsapp" as const, agentId: "", inputTemplate: "" },
+      ],
+    }));
+  };
+
+  const removeStep = (index: number) => {
+    setNewSequence((prev) => ({
+      ...prev,
+      steps: prev.steps.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateStep = (index: number, field: string, value: string | number) => {
+    setNewSequence((prev) => ({
+      ...prev,
+      steps: prev.steps.map((step, i) =>
+        i === index ? { ...step, [field]: value } : step
+      ),
+    }));
+  };
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
@@ -223,9 +302,16 @@ export default function AutomationsPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowCreateDialog(true)}
+            >
+              <Plus className="w-4 h-4 mr-1" /> Nova Sequência
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowEnrollDialog(true)}
             >
-              <Plus className="w-4 h-4 mr-1" /> Inscrever Contato
+              <Users className="w-4 h-4 mr-1" /> Inscrever Contato
             </Button>
             <Button
               size="sm"
@@ -715,6 +801,176 @@ export default function AutomationsPage() {
                 <Send className="w-4 h-4 mr-1" />
               )}
               Enviar Broadcast
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Sequence Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="bg-card/95 backdrop-blur-lg border-border/50 max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" /> Nova Sequência
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">
+                Nome da Sequência *
+              </Label>
+              <Input
+                placeholder="Ex: Follow-up após qualificação"
+                value={newSequence.name}
+                onChange={(e) =>
+                  setNewSequence((f) => ({ ...f, name: e.target.value }))
+                }
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1.5 block">
+                  Gatilho
+                </Label>
+                <Select
+                  value={newSequence.trigger}
+                  onValueChange={(v) =>
+                    setNewSequence((f) => ({ ...f, trigger: v, triggerValue: "" }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="score_above">Score acima de</SelectItem>
+                    <SelectItem value="deal_stage_changed">Mudança de estágio</SelectItem>
+                    <SelectItem value="contact_created">Novo contato</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {newSequence.trigger !== "manual" && newSequence.trigger !== "contact_created" && (
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">
+                    Valor do Gatilho
+                  </Label>
+                  <Input
+                    placeholder={newSequence.trigger === "score_above" ? "Ex: 70" : "Ex: qualified"}
+                    value={newSequence.triggerValue}
+                    onChange={(e) =>
+                      setNewSequence((f) => ({ ...f, triggerValue: e.target.value }))
+                    }
+                  />
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-xs text-muted-foreground">
+                  Etapas da Sequência
+                </Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addStep}
+                  className="h-7 text-xs"
+                >
+                  <Plus className="w-3 h-3 mr-1" /> Adicionar Etapa
+                </Button>
+              </div>
+              <div className="space-y-3">
+                {newSequence.steps.map((step, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-2 p-3 bg-muted/30 border border-border/50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-2 pt-2">
+                      <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                      <span className="text-xs font-mono text-muted-foreground w-12">
+                        D+{step.day}
+                      </span>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Dia</Label>
+                        <Input
+                          type="number"
+                          value={step.day}
+                          onChange={(e) => updateStep(index, "day", parseInt(e.target.value) || 0)}
+                          className="h-8 text-xs"
+                          min={0}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Canal</Label>
+                        <Select
+                          value={step.channel}
+                          onValueChange={(v) => updateStep(index, "channel", v)}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                            <SelectItem value="email">E-mail</SelectItem>
+                            <SelectItem value="internal_note">Nota Interna</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-2">
+                        <Label className="text-[10px] text-muted-foreground">Agente</Label>
+                        <Input
+                          placeholder="ID do agente"
+                          value={step.agentId}
+                          onChange={(e) => updateStep(index, "agentId", e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Label className="text-[10px] text-muted-foreground">Instrução / Template</Label>
+                        <Textarea
+                          placeholder="Ex: Crie uma mensagem personalizada para {{contact_name}} sobre..."
+                          value={step.inputTemplate}
+                          onChange={(e) => updateStep(index, "inputTemplate", e.target.value)}
+                          className="text-xs min-h-[60px]"
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                    {newSequence.steps.length > 1 && (
+                      <button
+                        onClick={() => removeStep(index)}
+                        className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-colors mt-2"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateSequence}
+              disabled={!newSequence.name.trim() || createMutation.isPending}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {createMutation.isPending ? (
+                <RefreshCw className="w-4 h-4 animate-spin mr-1" />
+              ) : (
+                <Zap className="w-4 h-4 mr-1" />
+              )}
+              Criar Sequência
             </Button>
           </DialogFooter>
         </DialogContent>

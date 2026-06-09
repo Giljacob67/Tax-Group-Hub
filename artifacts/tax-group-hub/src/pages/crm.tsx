@@ -625,6 +625,7 @@ function SortIcon({
 export default function CRMPage() {
   usePageTitle("CRM");
   const [activeTab, setActiveTab] = useState("today");
+  const [headerSearch, setHeaderSearch] = useState("");
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -663,18 +664,31 @@ export default function CRMPage() {
                 <input
                   type="text"
                   placeholder="Buscar CNPJ ou empresa..."
-                  className="w-64 pl-9 pr-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                  value={headerSearch}
+                  onChange={(e) => {
+                    setHeaderSearch(e.target.value);
+                    if (e.target.value.trim().length >= 2 && activeTab !== "contacts") {
+                      setActiveTab("contacts");
+                    }
+                  }}
+                  className="w-64 pl-9 pr-8 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
-                      const value = (e.target as HTMLInputElement).value.trim();
-                      if (value.length === 14 && /^\d{14}$/.test(value)) {
-                        setActiveTab("contacts");
-                      } else if (value.length > 2) {
+                      const value = headerSearch.trim();
+                      if (value.length >= 2) {
                         setActiveTab("contacts");
                       }
                     }
                   }}
                 />
+                {headerSearch && (
+                  <button
+                    onClick={() => setHeaderSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
               <TabsList className="bg-muted/50 border border-border/50 h-auto flex-wrap">
                 <TabsTrigger
@@ -767,6 +781,7 @@ export default function CRMPage() {
             <ContactsView
               onSelect={setSelectedContact}
               selected={selectedContact}
+              initialSearch={headerSearch}
             />
           </TabsContent>
           <TabsContent value="pipeline" className="h-full m-0 p-0">
@@ -886,16 +901,18 @@ export default function CRMPage() {
 function ContactsView({
   onSelect,
   selected,
+  initialSearch = "",
 }: {
   onSelect: (c: Contact) => void;
   selected: Contact | null;
+  initialSearch?: string;
 }) {
   const { isDemo } = useDemoMode();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const confirmDialogState = useConfirmDialog();
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState("");
   const [listFilter, setListFilter] = useState("");
   const [sort, setSort] = useState<{
@@ -928,6 +945,12 @@ function ContactsView({
   const [bulkFollowupOpen, setBulkFollowupOpen] = useState(false);
   const [bulkFollowupDate, setBulkFollowupDate] = useState("");
   const [bulkAssignValue, setBulkAssignValue] = useState("");
+
+  React.useEffect(() => {
+    if (initialSearch) {
+      setSearch(initialSearch);
+    }
+  }, [initialSearch]);
 
   const activeFilterCount =
     Object.values(filters).filter((v) => v !== "").length +
@@ -2839,6 +2862,15 @@ function ContactDetailPanel({
             title="Analisar com IA"
           >
             <Sparkles className="w-3 h-3" /> Analisar com IA
+          </button>
+          <button
+            onClick={() => {
+              navigate(`/deliverables?contactId=${contact.id}`);
+            }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-xs text-emerald-400 hover:text-emerald-300 transition-colors border border-emerald-500/20"
+            title="Gerar proposta ou diagnóstico"
+          >
+            <FileText className="w-3 h-3" /> Gerar proposta
           </button>
         </div>
       </div>

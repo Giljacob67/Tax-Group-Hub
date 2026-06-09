@@ -749,7 +749,7 @@ function DeliverableEditor({
     });
   };
 
-  const handleExport = async () => {
+  const handleExportHtml = async () => {
     try {
       const html = await exportDeliverable(id);
       const blob = new Blob([html], { type: "text/html" });
@@ -760,9 +760,50 @@ function DeliverableEditor({
       a.click();
       URL.revokeObjectURL(url);
       queryClient.invalidateQueries({ queryKey: ["/api/deliverables", id] });
-      toast({
-        title: "HTML exportado! Abra no navegador para imprimir como PDF.",
-      });
+      toast({ title: "HTML exportado!" });
+    } catch {
+      toast({ title: "Erro ao exportar", variant: "destructive" });
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      const html = await exportDeliverable(id);
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.onload = () => {
+          printWindow.focus();
+          printWindow.print();
+        };
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/deliverables", id] });
+    } catch {
+      toast({ title: "Erro ao exportar", variant: "destructive" });
+    }
+  };
+
+  const handleExportDocx = async () => {
+    try {
+      const html = await exportDeliverable(id);
+      // Convert HTML to a simple DOCX-compatible format
+      const docxContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office"
+              xmlns:w="urn:schemas-microsoft-com:office:word"
+              xmlns="http://www.w3.org/TR/REC-html40">
+          <head><meta charset="utf-8"><title>Entregável</title></head>
+          <body style="font-family: Calibri, sans-serif;">${html}</body>
+        </html>`;
+      const blob = new Blob([docxContent], { type: "application/msword" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `entregavel-${id}.doc`;
+      a.click();
+      URL.revokeObjectURL(url);
+      queryClient.invalidateQueries({ queryKey: ["/api/deliverables", id] });
+      toast({ title: "DOCX exportado!" });
     } catch {
       toast({ title: "Erro ao exportar", variant: "destructive" });
     }
@@ -839,13 +880,35 @@ function DeliverableEditor({
                 Aprovar
               </button>
             )}
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Exportar HTML
-          </button>
+          <div className="relative group">
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Exportar
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            <div className="absolute right-0 top-full mt-1 w-40 bg-card border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+              <button
+                onClick={handleExportPdf}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2"
+              >
+                <FileText className="w-3.5 h-3.5" /> PDF (Imprimir)
+              </button>
+              <button
+                onClick={handleExportDocx}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2"
+              >
+                <FileText className="w-3.5 h-3.5" /> Word (.doc)
+              </button>
+              <button
+                onClick={handleExportHtml}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2"
+              >
+                <FileText className="w-3.5 h-3.5" /> HTML
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1078,11 +1141,22 @@ export default function DeliverablesPage() {
   const queryClient = useQueryClient();
 
   const [showWizard, setShowWizard] = useState(false);
+  const [prefillContactId, setPrefillContactId] = useState<number | undefined>(undefined);
   const [editorId, setEditorId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterType, setFilterType] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const contactId = params.get("contactId");
+    if (contactId) {
+      setPrefillContactId(Number(contactId));
+      setShowWizard(true);
+      window.history.replaceState({}, "", "/deliverables");
+    }
+  }, []);
 
   const {
     data: listData,
@@ -1431,12 +1505,17 @@ export default function DeliverablesPage() {
       <AnimatePresence>
         {showWizard && (
           <DeliverableWizard
-            onClose={() => setShowWizard(false)}
+            onClose={() => {
+              setShowWizard(false);
+              setPrefillContactId(undefined);
+            }}
             onCreated={(id) => {
               setShowWizard(false);
+              setPrefillContactId(undefined);
               refetch();
               setEditorId(id);
             }}
+            prefillContactId={prefillContactId}
           />
         )}
       </AnimatePresence>

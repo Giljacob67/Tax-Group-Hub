@@ -504,6 +504,78 @@ function BrandingSection() {
         </div>
       </div>
 
+      {/* Live Preview */}
+      <div className="pt-4 border-t border-border/30">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          Preview ao vivo
+        </p>
+        <div className="rounded-xl border border-border overflow-hidden">
+          {/* Preview Header */}
+          <div
+            className="px-4 py-3 flex items-center gap-3 border-b"
+            style={{
+              backgroundColor: `${displayValues.primaryColor}10`,
+              borderColor: `${displayValues.primaryColor}30`,
+            }}
+          >
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: `${displayValues.primaryColor}20` }}
+            >
+              {displayValues.logoUrl ? (
+                <img
+                  src={displayValues.logoUrl}
+                  className="w-5 h-5 object-contain"
+                  alt="Logo"
+                />
+              ) : (
+                <Crown className="w-4 h-4" style={{ color: displayValues.primaryColor }} />
+              )}
+            </div>
+            <span className="font-bold text-sm" style={{ color: displayValues.primaryColor }}>
+              {displayValues.companyName || "Nome da Empresa"}
+            </span>
+            <span className="text-[10px] text-muted-foreground ml-auto">
+              Centro de Comando
+            </span>
+          </div>
+          {/* Preview Content */}
+          <div className="p-4 bg-background">
+            <div className="flex gap-3">
+              <div
+                className="flex-1 h-20 rounded-lg flex items-center justify-center text-xs font-medium"
+                style={{
+                  backgroundColor: `${displayValues.primaryColor}15`,
+                  color: displayValues.primaryColor,
+                }}
+              >
+                Card com cor primária
+              </div>
+              <div className="flex-1 h-20 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                Card neutro
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                style={{ backgroundColor: displayValues.primaryColor }}
+              >
+                Botão Primário
+              </button>
+              <button
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border"
+                style={{
+                  borderColor: `${displayValues.primaryColor}40`,
+                  color: displayValues.primaryColor,
+                }}
+              >
+                Botão Outline
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="pt-4 border-t border-border/30 flex justify-end">
         <Button onClick={handleSave} disabled={updateBranding.isPending}>
           {updateBranding.isPending ? (
