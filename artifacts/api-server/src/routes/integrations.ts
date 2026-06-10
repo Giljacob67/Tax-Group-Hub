@@ -1266,9 +1266,12 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
 
   try {
     // Prefer authenticated user's ID (browser call), fall back to DB lookup (cron call)
-    let userId = req.userId && req.userId !== "system" ? req.userId : "system";
-    if (userId === "system") {
+    let userId = req.userId && req.userId !== "system" ? req.userId : null;
+    
+    // For cron calls, find a real user to run the sync
+    if (!userId) {
       try {
+        // Find any real user from conversations or contacts
         const tables = [conversationsTable, crmContactsTable];
         for (const table of tables) {
           const [row] = await db
@@ -1284,8 +1287,19 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
           }
         }
       } catch {
-        /* fall through to "system" */
+        /* fall through to error */
       }
+    }
+
+    if (!userId) {
+      res.json({
+        ok: true,
+        durationMs: Date.now() - startTime,
+        users: 0,
+        results: [],
+        message: "No user found. Skipping sync.",
+      });
+      return;
     }
 
     const results: Array<{

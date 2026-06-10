@@ -24,7 +24,7 @@
     },
     {
       "path": "/api/integrations/hubspot/sync",
-      "schedule": "0 8 * * *"
+      "schedule": "*/15 * * * *"
     }
   ],
   "rewrites": [

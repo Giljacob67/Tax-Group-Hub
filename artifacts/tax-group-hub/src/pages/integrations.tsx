@@ -814,6 +814,48 @@ function HubSpotConfigPanel() {
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
+  const syncMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<{
+        ok: boolean;
+        durationMs: number;
+        users: number;
+        results: Array<{
+          userId: string;
+          companies: number;
+          deals: number;
+          notes: number;
+          tasks: number;
+          listsFound: number;
+          contactsTagged: number;
+        }>;
+        errors?: Array<{ userId: string; error: string }>;
+      }>("/api/integrations/hubspot/sync"),
+    onSuccess: (r) => {
+      if (r.ok && r.results.length > 0) {
+        const result = r.results[0];
+        toast({
+          title: "Sincronização concluída",
+          description: `${result.companies} empresas, ${result.deals} deals, ${result.notes} notas importadas em ${(r.durationMs / 1000).toFixed(1)}s`,
+        });
+        qc.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+        qc.invalidateQueries({ queryKey: ["/api/crm/deals"] });
+      } else if (r.errors && r.errors.length > 0) {
+        toast({
+          title: "Erro na sincronização",
+          description: r.errors[0].error,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Sincronização concluída",
+          description: "Nenhum dado novo encontrado",
+        });
+      }
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     const body: Record<string, unknown> = { enabled, syncDirection };
@@ -990,6 +1032,26 @@ function HubSpotConfigPanel() {
               Setup Propriedades
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending || !configured || !enabled}
+            title={
+              !configured
+                ? "Configure o token primeiro"
+                : !enabled
+                  ? "Ative a sincronização primeiro"
+                  : "Importar dados do HubSpot agora"
+            }
+            className="w-full py-2.5 border border-emerald-500/30 rounded-lg text-sm hover:bg-emerald-500/10 disabled:opacity-50 flex items-center justify-center gap-2 transition-all text-emerald-400"
+          >
+            {syncMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Sincronizar Agora
+          </button>
         </div>
       </form>
 
