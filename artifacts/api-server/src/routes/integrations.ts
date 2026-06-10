@@ -1282,7 +1282,7 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
             )
             .limit(1);
           if (row?.userId) {
-            userId = row.userId;
+            userId = String(row.userId);
             break;
           }
         }
@@ -1291,19 +1291,21 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
       }
     }
 
-    if (!userId) {
+    // Normalize userId to integer
+    const userIdInt = userId ? parseInt(userId, 10) : null;
+    if (!userIdInt || isNaN(userIdInt)) {
       res.json({
         ok: true,
         durationMs: Date.now() - startTime,
         users: 0,
         results: [],
-        message: "No user found. Skipping sync.",
+        message: "No valid user found. Skipping sync.",
       });
       return;
     }
 
     const results: Array<{
-      userId: string;
+      userId: number;
       companies: number;
       deals: number;
       notes: number;
@@ -1312,14 +1314,14 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
       contactsTagged: number;
       listSource: string;
     }> = [];
-    const errors: Array<{ userId: string; error: string }> = [];
+    const errors: Array<{ userId: number; error: string }> = [];
 
-    const config = await getHubSpotConfig(userId);
+    const config = await getHubSpotConfig(String(userIdInt));
     if (config?.enabled && config.syncDirection !== "to_hubspot") {
       try {
-        const summary = await runFullInboundSync(userId);
+        const summary = await runFullInboundSync(String(userIdInt));
         results.push({
-          userId,
+          userId: userIdInt,
           companies: summary.companies.created + summary.companies.updated,
           deals: summary.deals.created + summary.deals.updated,
           notes: summary.notes.created + summary.notes.updated,
@@ -1330,7 +1332,7 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
         });
       } catch (err) {
         errors.push({
-          userId,
+          userId: userIdInt,
           error: err instanceof Error ? err.message : String(err),
         });
       }

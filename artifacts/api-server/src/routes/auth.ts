@@ -136,6 +136,50 @@ router.post("/login", async (req: Request, res: Response) => {
   }
 });
 
+// ─── POST /api/auth/demo — Get anonymous demo token (read-only) ───────────────
+router.post("/demo", async (_req: Request, res: Response) => {
+  try {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      apiError(res, 500, "JWT_SECRET não configurado no servidor.");
+      return;
+    }
+
+    // Create anonymous demo user with read-only access
+    const demoUser = {
+      id: 0,
+      email: "demo@taxgroup.com",
+      name: "Demo User",
+      roles: ["demo"],
+    };
+
+    const token = jwt.sign(
+      {
+        sub: "demo",
+        userId: "0",
+        email: "demo@taxgroup.com",
+        roles: ["demo"],
+      },
+      jwtSecret,
+      { expiresIn: "4h" },
+    );
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: 0,
+        email: "demo@taxgroup.com",
+        name: "Demo User",
+        roles: [{ role: "demo", scope: null }],
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[auth/demo]");
+    apiError(res, 500, "Erro ao gerar token demo.");
+  }
+});
+
 // ─── POST /api/auth/register — Create new user (admin only) ────────────────
 router.post("/register", async (req: Request, res: Response) => {
   try {

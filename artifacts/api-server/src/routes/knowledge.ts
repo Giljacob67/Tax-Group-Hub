@@ -298,9 +298,60 @@ router.get("/knowledge", async (req, res) => {
   }
 });
 
-// ── POST /knowledge/upload ───────────────────────────────────────────────────
+// ─── GET /knowledge/:id ────────────────────────────────────────────────────────
+// Get individual document details with chunks
+router.get("/knowledge/:id", async (req, res) => {
+  try {
+    const userId = req.userId;
+    const userFilter =
+      userId && userId !== "default" && userId !== "dev-user"
+        ? eq(knowledgeDocumentsTable.userId, userId)
+        : undefined;
 
-// ── POST /knowledge/upload-token ──────────────────────────────────────────────
+    const [doc] = await db
+      .select()
+      .from(knowledgeDocumentsTable)
+      .where(
+        userFilter
+          ? and(eq(knowledgeDocumentsTable.id, Number(req.params.id)), userFilter)
+          : eq(knowledgeDocumentsTable.id, Number(req.params.id)),
+      )
+      .limit(1);
+
+    if (!doc) {
+      apiError(res, 404, "Document not found");
+      return;
+    }
+
+    // Get chunks for this document
+    const chunks = await db
+      .select({
+        id: knowledgeChunksTable.id,
+        content: knowledgeChunksTable.content,
+        embedding: knowledgeChunksTable.embedding,
+      })
+      .from(knowledgeChunksTable)
+      .where(eq(knowledgeChunksTable.documentId, doc.id))
+      .orderBy(knowledgeChunksTable.id);
+
+    res.json({
+      success: true,
+      document: {
+        ...mapDoc(doc),
+        chunks: chunks.map((c) => ({
+          id: c.id,
+          content: c.content,
+          hasEmbedding: !!c.embedding,
+        })),
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "Knowledge get error");
+    apiError(res, 500, "Failed to get document");
+  }
+});
+
+// ─── POST /knowledge/upload-token ──────────────────────────────────────────────
 // Gera um client token para upload direto ao Vercel Blob.
 // O arquivo vai do browser → Blob, sem passar pelo serverless function.
 

@@ -24,10 +24,11 @@
     },
     {
       "path": "/api/integrations/hubspot/sync",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 8 * * *"
     }
   ],
   "rewrites": [
+    { "source": "/health", "destination": "/api/index.js" },
     { "source": "/api/:path*", "destination": "/api/index.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],

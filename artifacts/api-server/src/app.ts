@@ -13,6 +13,8 @@ import { requestId } from "./middlewares/request-id.js";
 import { errorHandler } from "./middlewares/error-handler.js";
 import router from "./routes";
 import logger from "./lib/logger.js";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 const app: Express = express();
 
@@ -123,6 +125,17 @@ app.use("/api/auth/2fa/verify", authLimiter);
 app.use("/api/setup", authLimiter);
 
 // Routes
+// Health check endpoint (must be before auth middleware for public access)
+app.get("/health", async (_req, res) => {
+  try {
+    await db.execute(sql`SELECT 1`);
+    res.json({ status: "ok", uptime: process.uptime(), version: process.env.npm_package_version || "1.0.0" });
+  } catch (err) {
+    logger.error({ err }, "Health check failed");
+    res.status(503).json({ status: "unhealthy", error: "Database connection failed" });
+  }
+});
+
 app.use("/api", router);
 
 // Global Error Handler
