@@ -1441,7 +1441,7 @@ function SettingsTab() {
           <div className="flex items-center gap-2 p-3 bg-background rounded-lg border border-border/50">
             <Cpu className="w-4 h-4 text-primary shrink-0" />
             <div>
-              <div className="font-medium">Google text-embedding-004</div>
+              <div className="font-medium">Google text-embedding-005</div>
               <div className="text-xs text-muted-foreground">
                 Dimensões: 768 · Recomendado para produção
               </div>

@@ -78,7 +78,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger />
             <span className="text-sm font-medium text-foreground">Menu</span>
           </div>
-          <main id="main-content" className="flex-1 overflow-hidden flex flex-col w-full h-full">
+          <main id="main-content" className="flex-1 overflow-y-auto flex flex-col w-full h-full">
             {children}
           </main>
         </div>

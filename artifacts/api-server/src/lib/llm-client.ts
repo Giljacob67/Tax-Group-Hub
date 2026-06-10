@@ -342,6 +342,11 @@ export const EMBEDDING_MODELS = {
     dimensions: 768,
     modelId: "text-embedding-004",
   },
+  "google/text-embedding-005": {
+    provider: "google" as const,
+    dimensions: 768,
+    modelId: "text-embedding-005",
+  },
   "google/gemini-embedding-001": {
     provider: "google" as const,
     dimensions: 768,
@@ -388,7 +393,7 @@ export const EMBEDDING_MODELS = {
 
 export type EmbeddingModelKey = keyof typeof EMBEDDING_MODELS;
 export const DEFAULT_EMBEDDING_MODEL: EmbeddingModelKey =
-  "google/text-embedding-004";
+  "google/text-embedding-005";
 
 export class EmbeddingDimError extends Error {
   constructor(
