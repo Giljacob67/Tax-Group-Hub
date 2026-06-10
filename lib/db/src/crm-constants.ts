@@ -587,6 +587,14 @@ export const SYSTEM_VIEWS: SystemViewDefinition[] = [
 
   // ── Matriz ──
   {
+    id: "sv_todos_matriz",
+    name: "Todos na Matriz",
+    emoji: "📊",
+    category: "matriz",
+    filters: { statusMatriz: "todos" },
+    description: "Todos os deals em qualquer status da Matriz",
+  },
+  {
     id: "sv_enviado_matriz",
     name: "Enviado p/ Matriz",
     emoji: "📤",

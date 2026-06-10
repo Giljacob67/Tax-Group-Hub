@@ -6680,6 +6680,89 @@ export const useDeleteCrmDeal = <
 };
 
 /**
+ * @summary Send briefing to Matriz
+ */
+export const getSendToMatrizUrl = (id: number) => {
+  return `/api/crm/deals/${id}/send-to-matriz`;
+};
+
+export const sendToMatriz = async (
+  id: number,
+  options?: RequestInit,
+): Promise<{ success: boolean; message: string }> => {
+  return customFetch<{ success: boolean; message: string }>(
+    getSendToMatrizUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getSendToMatrizMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendToMatriz>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendToMatriz>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["sendToMatriz"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? { mutation: options.mutation, request: options.request }
+    : {};
+  const { mutationFn } = mutationOptions || {};
+
+  if (!mutationFn) {
+    const newMutationFn: MutationFunction<
+      Awaited<ReturnType<typeof sendToMatriz>>,
+      { id: number }
+    > = (props) => {
+      const { id } = props ?? {};
+      return sendToMatriz(id, requestOptions);
+    };
+    return { mutationFn: newMutationFn, ...mutationOptions };
+  }
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendToMatrizMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendToMatriz>>
+>;
+
+export type SendToMatrizMutationError = ErrorType<unknown>;
+
+export const useSendToMatriz = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendToMatriz>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendToMatriz>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSendToMatrizMutationOptions(options));
+};
+
+/**
  * @summary List CRM tasks
  */
 export const getListCrmTasksUrl = (params?: ListCrmTasksParams) => {

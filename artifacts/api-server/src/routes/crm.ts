@@ -4662,6 +4662,108 @@ router.get(
   },
 );
 
+// ─── Send Briefing to Matriz ─────────────────────────────────────────────────
+// POST /api/crm/deals/:id/send-to-matriz
+// Sends a briefing to the Matriz team and updates deal status
+router.post("/deals/:id/send-to-matriz", async (req: Request, res: Response) => {
+  try {
+    const userId = requireUserId(req);
+    const dealId = Number(req.params.id);
+    
+    const [deal] = await db
+      .select()
+      .from(crmDealsTable)
+      .where(eq(crmDealsTable.id, dealId));
+    
+    if (!deal) {
+      apiError(res, 404, "Deal not found");
+      return;
+    }
+    
+    // Get contact info
+    const [contact] = await db
+      .select()
+      .from(crmContactsTable)
+      .where(eq(crmContactsTable.id, deal.contactId));
+    
+    if (!contact) {
+      apiError(res, 404, "Contact not found");
+      return;
+    }
+    
+    // Update deal status
+    const now = new Date();
+    const [updatedDeal] = await db
+      .update(crmDealsTable)
+      .set({
+        stage: "enviado_para_matriz",
+        statusMatriz: "enviado",
+        dataEnvioMatriz: now,
+        responsavelEnvioMatriz: userId,
+        updatedAt: now,
+      })
+      .where(eq(crmDealsTable.id, dealId))
+      .returning();
+    
+    // Log activity
+    await db.insert(crmActivitiesTable).values({
+      contactId: deal.contactId,
+      dealId: deal.id,
+      userId,
+      type: "matriz_event",
+      subject: "Briefing enviado para Matriz",
+      content: `Briefing enviado por ${userId}. Aguardando análise da Matriz.`,
+    });
+    
+    // Dispatch webhook notification if configured
+    setImmediate(async () => {
+      try {
+        const rows = await db
+          .select()
+          .from(appConfigTable)
+          .where(sql`${appConfigTable.key} LIKE 'integration:matriz:%'`);
+        const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+        const webhookUrl = map["integration:matriz:webhook_url"];
+        
+        if (webhookUrl) {
+          const secret = map["integration:matriz:secret"]
+            ? decrypt(map["integration:matriz:secret"])
+            : undefined;
+          
+          await dispatchWebhook({
+            targetUrl: webhookUrl,
+            eventType: "briefing.sent_to_matriz",
+            payload: {
+              dealId: deal.id,
+              contactId: deal.contactId,
+              companyName: contact.razaoSocial || contact.nomeFantasia,
+              cnpj: contact.cnpj,
+              briefing: deal.briefingMatriz,
+              sentBy: userId,
+              sentAt: now.toISOString(),
+              documents: deal.documentosEnviados || [],
+            },
+            secret,
+            userId,
+            integrationKey: "matriz",
+            integrationName: "Matriz Tax Group",
+          });
+        }
+      } catch (err) {
+        console.error("[Matriz] Webhook dispatch failed:", err);
+      }
+    });
+    
+    res.json({
+      success: true,
+      deal: updatedDeal,
+      message: "Briefing enviado para Matriz com sucesso.",
+    });
+  } catch (err: any) {
+    logAndApiError(res, err, 500, "Failed to send briefing to Matriz");
+  }
+});
+
 // ─── Priority: Recalculate ──────────────────────────────────────────────────
 // POST /api/crm/contacts/:id/priority/recalculate
 router.post(
