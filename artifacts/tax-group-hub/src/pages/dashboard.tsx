@@ -662,6 +662,138 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
+        {/* ── Funil de Vendas + Últimas Movimentações ── */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22, duration: 0.4 }}
+            className="xl:col-span-2 rounded-xl border border-border bg-card p-6"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Funil de Vendas
+                </h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Distribuição de deals por estágio
+                </p>
+              </div>
+              <Link
+                href="/crm?tab=pipeline"
+                className="text-xs text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+              >
+                Ver pipeline <ChevronRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {kpis?.dealsPorEstagio && Object.keys(kpis.dealsPorEstagio).length > 0 ? (
+                Object.entries(kpis.dealsPorEstagio)
+                  .sort(([, a], [, b]) => (b as number) - (a as number))
+                  .slice(0, 8)
+                  .map(([stage, count]) => {
+                    const total = Object.values(kpis.dealsPorEstagio).reduce((a, b) => a + b, 0);
+                    const pct = total > 0 ? ((count as number) / total) * 100 : 0;
+                    const stageLabels: Record<string, string> = {
+                      lead_novo: "Lead Novo",
+                      qualificacao_comercial: "Qualificação",
+                      reuniao_agendada: "Reunião Agendada",
+                      diagnostico_comercial: "Diagnóstico",
+                      enviado_para_matriz: "Enviado p/ Matriz",
+                      aguardando_matriz: "Aguardando Matriz",
+                      proposta_pronta: "Proposta Pronta",
+                      apresentacao_ao_cliente: "Apresentação",
+                      negociacao: "Negociação",
+                      fechado_ganho: "Fechado Ganho",
+                      perdido_standby: "Perdido/Standby",
+                    };
+                    return (
+                      <div key={stage} className="flex items-center gap-3">
+                        <div className="w-32 text-xs text-muted-foreground truncate">
+                          {stageLabels[stage] || stage}
+                        </div>
+                        <div className="flex-1 h-6 bg-muted/30 rounded overflow-hidden">
+                          <div
+                            className="h-full bg-primary/60 rounded flex items-center px-2 transition-all"
+                            style={{ width: `${Math.max(pct, 2)}%` }}
+                          >
+                            <span className="text-[10px] font-medium text-primary-foreground">
+                              {count}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-12 text-right text-xs font-medium text-foreground">
+                          {pct.toFixed(0)}%
+                        </div>
+                      </div>
+                    );
+                  })
+              ) : (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  <p>Nenhum deal no pipeline ainda.</p>
+                  <Link
+                    href="/crm?tab=pipeline"
+                    className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
+                  >
+                    <Plus className="w-3 h-3" /> Criar primeiro deal
+                  </Link>
+                </div>
+              )}
+            </div>
+            {kpis?.winRate !== undefined && kpis.winRate > 0 && (
+              <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Taxa de conversão</span>
+                <span className="text-sm font-semibold text-primary">{kpis.winRate}%</span>
+              </div>
+            )}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.4 }}
+            className="rounded-xl border border-border bg-card p-6 flex flex-col"
+          >
+            <div className="mb-4">
+              <h2 className="text-sm font-semibold text-foreground">
+                Últimas movimentações
+              </h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Atividades recentes no CRM
+              </p>
+            </div>
+            <div className="space-y-2 flex-1 overflow-y-auto max-h-[300px]">
+              {kpis?.ultimasMovimentacoes && kpis.ultimasMovimentacoes.length > 0 ? (
+                kpis.ultimasMovimentacoes.slice(0, 8).map((mov: any) => (
+                  <div
+                    key={mov.id}
+                    className="flex items-start gap-2 p-2 rounded-lg bg-muted/20 border border-border/30"
+                  >
+                    <Activity className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-foreground truncate">
+                        {mov.subject || mov.type}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {new Date(mov.createdAt).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-xs text-muted-foreground">
+                  <p>Nenhuma atividade recente.</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+
         {/* ── Roteiro da operação ── */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
