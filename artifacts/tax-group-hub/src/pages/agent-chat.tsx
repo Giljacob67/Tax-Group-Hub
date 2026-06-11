@@ -117,6 +117,12 @@ export default function AgentChat() {
   );
   const [editingPrompt, setEditingPrompt] = useState("");
   const [showDesignStudio, setShowDesignStudio] = useState(false);
+  const [crmContext, setCrmContext] = useState<{
+    contactId: number;
+    razaoSocial?: string | null;
+    cnpj?: string | null;
+  } | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
   const [selectedConnection, setSelectedConnection] =
     useState<LlmConnection | null>(() => {
       try {
@@ -245,6 +251,13 @@ export default function AgentChat() {
     if (contextParam && agentId && !activeConvId) {
       try {
         const context = JSON.parse(decodeURIComponent(contextParam));
+        if (context.contactId) {
+          setCrmContext({
+            contactId: context.contactId,
+            razaoSocial: context.razaoSocial,
+            cnpj: context.cnpj,
+          });
+        }
         const message = `Analise o CNPJ ${context.cnpj} (${context.razaoSocial}) do segmento ${context.segmento || "não informado"}. Score atual: ${context.score || "não pontuado"}.`;
         handleCreateAndSend(message);
         window.history.replaceState({}, "", `/agent/${agentId}`);
@@ -257,6 +270,47 @@ export default function AgentChat() {
   const handleNewChat = () => {
     setIsCreatingNewChat(true);
     setActiveConvId(null);
+  };
+
+  const handleSaveNoteToCrm = async () => {
+    if (!crmContext || savingNote) return;
+    const lastAssistant = [...(activeConv?.messages || [])]
+      .reverse()
+      .find((m: any) => m.role === "assistant");
+    if (!lastAssistant?.content) {
+      toast({
+        title: "Nada para salvar",
+        description: "Aguarde uma resposta do agente antes de salvar a nota.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSavingNote(true);
+    try {
+      const res = await fetch(
+        `/api/crm/contacts/${crmContext.contactId}/activities`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "note",
+            subject: `Análise do agente — ${agent?.name || agentId}`,
+            content: lastAssistant.content,
+            agentId,
+            conversationId: activeConvId,
+          }),
+        },
+      );
+      if (!res.ok) throw new Error("Falha ao salvar nota");
+      toast({
+        title: "Nota salva no CRM",
+        description: `Registrada na ficha de ${crmContext.razaoSocial || crmContext.cnpj}.`,
+      });
+    } catch {
+      toast({ title: "Erro ao salvar nota no CRM", variant: "destructive" });
+    } finally {
+      setSavingNote(false);
+    }
   };
 
   const handleCreateAndSend = async (text: string) => {
@@ -1308,13 +1362,26 @@ export default function AgentChat() {
                 <CheckSquare className="w-3.5 h-3.5 text-muted-foreground" />{" "}
                 Criar tarefa
               </button>
-              <Link
-                href="/crm"
-                className="block w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors flex items-center gap-2"
-              >
-                <Building2 className="w-3.5 h-3.5 text-muted-foreground" />{" "}
-                Adicionar nota no CRM
-              </Link>
+              {crmContext ? (
+                <button
+                  onClick={handleSaveNoteToCrm}
+                  disabled={savingNote}
+                  className="w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors flex items-center gap-2 disabled:opacity-60"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-muted-foreground" />{" "}
+                  {savingNote
+                    ? "Salvando nota..."
+                    : `Salvar análise no CRM (${crmContext.razaoSocial || crmContext.cnpj})`}
+                </button>
+              ) : (
+                <Link
+                  href="/crm"
+                  className="block w-full text-left px-3 py-2 rounded-lg text-xs bg-background border border-border hover:border-primary/30 hover:bg-muted transition-colors flex items-center gap-2"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-muted-foreground" />{" "}
+                  Adicionar nota no CRM
+                </Link>
+              )}
             </div>
           </div>
           {isAdmin && (

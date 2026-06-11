@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { getAgentById } from "../lib/agents-data.js";
 import { callLLM } from "../lib/llm-client.js";
 import { apiError } from "../lib/api-response.js";
+import logger from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -77,9 +78,9 @@ async function executeAgentTask(
         errMsg,
       );
       if (!isUnconfigured)
-        console.error(
-          `[Orchestrate] callLLM failed for agent ${task.agentId}:`,
-          err,
+        logger.error(
+          { err, agentId: task.agentId },
+          "Orchestration error for agent",
         );
       assistantContent = isUnconfigured
         ? `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para executar este agente.\n\n**Tarefa recebida:** ${task.task}`
@@ -107,7 +108,7 @@ async function executeAgentTask(
       success: true,
     };
   } catch (err) {
-    console.error(`Orchestration error for agent ${task.agentId}:`, err);
+    logger.error({ err, agentId: task.agentId }, "Orchestration error for agent");
     return {
       agentId: task.agentId,
       agentName: agent?.name || task.agentId,
@@ -193,7 +194,7 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
 
     try {
       const result = await callLLM(supervisorSystemPrompt, reviewPrompt);
-      console.log(
+      logger.info(
         `[Coordinator review] tokens=${result.tokensUsed} duration=${result.executionTimeMs}ms`,
       );
       reviewContent = result.output || "Sem parecer disponível.";
@@ -203,7 +204,7 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
         errMsg,
       );
       if (!isUnconfigured)
-        console.error("[Orchestrate] Coordinator callLLM failed:", err);
+        logger.error({ err }, "[Orchestrate] Coordinator callLLM failed");
       reviewContent = isUnconfigured
         ? `**Modo Demo** — Configure GEMINI_API_KEY ou OLLAMA_URL para ativar a supervisão do Coordenador.`
         : `**Erro na supervisão** — ${errMsg}`;
@@ -222,7 +223,7 @@ Seja específico, cite os agentes pelo nome quando necessário, e foque em orien
 
     return { response: reviewContent, conversationId: String(conv.id) };
   } catch (err) {
-    console.error("Coordinator review error:", err);
+    logger.error({ err }, "Coordinator review error");
     return { response: "", conversationId: "" };
   }
 }
@@ -259,7 +260,7 @@ router.post("/orchestrate", async (req, res) => {
 
     res.json({ results, coordinatorReview });
   } catch (err) {
-    console.error("[Orchestrate] error", { reqId, err });
+    logger.error({ reqId, err }, "[Orchestrate] error");
     apiError(res, 500, "Internal server error");
   }
 });

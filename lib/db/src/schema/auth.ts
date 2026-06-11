@@ -23,6 +23,7 @@ export const appUsersTable = pgTable("app_users", {
   totpSecret: varchar("totp_secret", { length: 255 }),
   totpEnabled: boolean("totp_enabled").notNull().default(false),
   totpVerifiedAt: timestamp("totp_verified_at"),
+  backupCodes: jsonb("backup_codes").$type<string[]>(),
 });
 
 export type AppUser = typeof appUsersTable.$inferSelect;

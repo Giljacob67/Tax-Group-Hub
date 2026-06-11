@@ -11,8 +11,81 @@ import { safeCompare } from "../middlewares/auth.js";
 import { generateClientTokenFromReadWriteToken } from "@vercel/blob/client";
 import { get } from "@vercel/blob";
 import logger from "../lib/logger.js";
+import { getAgentById } from "../lib/agents-data.js";
 
 const router: IRouter = Router();
+
+// Map category/product → agentId for auto-assignment
+const CATEGORY_PRODUCT_AGENT_MAP: Record<string, Record<string, string>> = {
+  operacional: {
+    afp: "analise-tributaria-tax-group",
+    rep: "analise-tributaria-tax-group",
+    rti: "analise-tributaria-tax-group",
+    fds: "analise-tributaria-tax-group",
+    pps: "analise-tributaria-tax-group",
+    psf: "analise-tributaria-tax-group",
+    default: "analise-tributaria-tax-group",
+  },
+  pipeline: {
+    afp: "gestao-pipeline-tax-group",
+    rep: "gestao-pipeline-tax-group",
+    rti: "gestao-pipeline-tax-group",
+    fds: "gestao-pipeline-tax-group",
+    pps: "gestao-pipeline-tax-group",
+    psf: "gestao-pipeline-tax-group",
+    default: "gestao-pipeline-tax-group",
+  },
+  matriz: {
+    afp: "estrategista-deals-tax-group",
+    rep: "estrategista-deals-tax-group",
+    rti: "estrategista-deals-tax-group",
+    fds: "estrategista-deals-tax-group",
+    pps: "estrategista-deals-tax-group",
+    psf: "estrategista-deals-tax-group",
+    default: "estrategista-deals-tax-group",
+  },
+  followup: {
+    afp: "followup-tax-group",
+    rep: "followup-tax-group",
+    rti: "followup-tax-group",
+    fds: "followup-tax-group",
+    pps: "followup-tax-group",
+    psf: "followup-tax-group",
+    default: "followup-tax-group",
+  },
+  segmento: {
+    afp: "diagnostico-cnpj-tax-group",
+    rep: "diagnostico-cnpj-tax-group",
+    rti: "diagnostico-cnpj-tax-group",
+    fds: "diagnostico-cnpj-tax-group",
+    pps: "diagnostico-cnpj-tax-group",
+    psf: "diagnostico-cnpj-tax-group",
+    default: "diagnostico-cnpj-tax-group",
+  },
+};
+
+function resolveAgentId(
+  category: string | null | undefined,
+  product: string | null | undefined,
+): string {
+  const cat = (category || "").toLowerCase().trim();
+  const prod = (product || "").toLowerCase().trim();
+
+  if (cat && CATEGORY_PRODUCT_AGENT_MAP[cat]) {
+    const map = CATEGORY_PRODUCT_AGENT_MAP[cat];
+    if (prod && map[prod]) return map[prod];
+    return map.default || "global";
+  }
+
+  // Try matching product only
+  if (prod) {
+    for (const [catKey, prodMap] of Object.entries(CATEGORY_PRODUCT_AGENT_MAP)) {
+      if (prodMap[prod]) return prodMap[prod];
+    }
+  }
+
+  return "global";
+}
 
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
@@ -519,7 +592,7 @@ router.post("/knowledge/upload", async (req, res) => {
         fileSize,
         extractedContent: null,
         storageKey: `blob-${Date.now()}-${filename}`,
-        agentId: agentId || "global",
+        agentId: agentId || resolveAgentId(category, product),
         userId: userId || null,
         status: isSmall ? "processing" : "pending",
         processed: false,
@@ -902,6 +975,67 @@ router.delete("/knowledge/:id", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "Knowledge delete error");
     apiError(res, 500, "Falha ao excluir documento");
+  }
+});
+
+// ── PATCH /knowledge/:id (Move to agent) ──────────────────────────────────────
+router.patch("/knowledge/:id", async (req, res) => {
+  try {
+    const id = validateIdParam(req.params.id);
+    if (id === null) {
+      apiError(res, 400, "ID inválido");
+      return;
+    }
+
+    const { agentId, category, product } = req.body ?? {};
+
+    const [existing] = await db
+      .select()
+      .from(knowledgeDocumentsTable)
+      .where(eq(knowledgeDocumentsTable.id, id));
+
+    if (!existing) {
+      apiError(res, 404, "Documento não encontrado");
+      return;
+    }
+
+    const newAgentId =
+      agentId ||
+      (category || product
+        ? resolveAgentId(
+            category || existing.category,
+            product || existing.product,
+          )
+        : existing.agentId);
+
+    // Validate agent exists
+    if (newAgentId !== "global" && !getAgentById(newAgentId)) {
+      apiError(res, 400, `Agente inválido: ${newAgentId}`);
+      return;
+    }
+
+    const updates: Record<string, any> = { agentId: newAgentId };
+    if (category !== undefined) updates.category = category;
+    if (product !== undefined) updates.product = product;
+
+    const [updated] = await db
+      .update(knowledgeDocumentsTable)
+      .set(updates)
+      .where(eq(knowledgeDocumentsTable.id, id))
+      .returning();
+
+    logger.info(
+      { docId: id, agentId: newAgentId },
+      "[Knowledge] moved to agent",
+    );
+
+    res.json({
+      success: true,
+      document: mapDoc(updated ?? existing),
+    });
+  } catch (err) {
+    logger.error({ err }, "Knowledge move error");
+    apiError(res, 500, "Falha ao mover documento");
   }
 });
 

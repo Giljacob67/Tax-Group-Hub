@@ -141,21 +141,7 @@ interface TestResult {
 
 // ── API fetch helpers ──────────────────────────────────────────────────────
 
-const apiFetch = async <T,>(url: string, init?: RequestInit): Promise<T> => {
-  const headers = new Headers(init?.headers);
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("taxgroup_auth_token");
-    if (token && !headers.has("authorization")) {
-      headers.set("authorization", `Bearer ${token}`);
-    }
-  }
-  const r = await fetch(url, { ...init, headers });
-  if (!r.ok) {
-    const err = await r.json().catch(() => ({ message: r.statusText }));
-    throw new Error((err as { message?: string }).message ?? r.statusText);
-  }
-  return r.json() as Promise<T>;
-};
+import { customFetch } from "@workspace/api-client-react";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -446,7 +432,7 @@ function MakeConfigPanel({ onSuccess }: { onSuccess?: () => void }) {
   const { data: configData, isLoading } = useQuery<MakeConfigResponse>({
     queryKey: ["make-config"],
     queryFn: () =>
-      apiFetch<MakeConfigResponse>("/api/integrations/make/config"),
+      customFetch<MakeConfigResponse>("/api/integrations/make/config"),
   });
 
   const [webhookUrl, setWebhookUrl] = useState("");
@@ -466,7 +452,7 @@ function MakeConfigPanel({ onSuccess }: { onSuccess?: () => void }) {
 
   const saveMutation = useMutation({
     mutationFn: (body: object) =>
-      apiFetch<{ success: boolean; config: MakeConfig }>(
+      customFetch<{ success: boolean; config: MakeConfig }>(
         "/api/integrations/make/config",
         {
           method: "POST",
@@ -485,7 +471,7 @@ function MakeConfigPanel({ onSuccess }: { onSuccess?: () => void }) {
 
   const testMutation = useMutation({
     mutationFn: () =>
-      apiFetch<TestResult>("/api/integrations/make/test", { method: "POST" }),
+      customFetch<TestResult>("/api/integrations/make/test", { method: "POST" }),
     onSuccess: (r) => {
       setTestResult(r);
       qc.invalidateQueries({ queryKey: ["integration-logs"] });
@@ -732,7 +718,7 @@ function HubSpotConfigPanel() {
   const { data: configData, isLoading } = useQuery<HubSpotConfigResponse>({
     queryKey: ["hubspot-config"],
     queryFn: () =>
-      apiFetch<HubSpotConfigResponse>("/api/integrations/hubspot/config"),
+      customFetch<HubSpotConfigResponse>("/api/integrations/hubspot/config"),
   });
 
   const [accessToken, setAccessToken] = useState("");
@@ -758,7 +744,7 @@ function HubSpotConfigPanel() {
 
   const saveMutation = useMutation({
     mutationFn: (body: object) =>
-      apiFetch<{ success: boolean; config: HubSpotConfig }>(
+      customFetch<{ success: boolean; config: HubSpotConfig }>(
         "/api/integrations/hubspot/config",
         {
           method: "POST",
@@ -776,7 +762,7 @@ function HubSpotConfigPanel() {
 
   const testMutation = useMutation({
     mutationFn: () =>
-      apiFetch<HubSpotTestResponse>("/api/integrations/hubspot/test", {
+      customFetch<HubSpotTestResponse>("/api/integrations/hubspot/test", {
         method: "POST",
       }),
     onSuccess: (r) => {
@@ -794,7 +780,7 @@ function HubSpotConfigPanel() {
 
   const setupMutation = useMutation({
     mutationFn: () =>
-      apiFetch<SetupPropertiesResponse>(
+      customFetch<SetupPropertiesResponse>(
         "/api/integrations/hubspot/setup-custom-properties",
         { method: "POST" },
       ),
@@ -816,7 +802,7 @@ function HubSpotConfigPanel() {
 
   const syncMutation = useMutation({
     mutationFn: () =>
-      apiFetch<{
+      customFetch<{
         ok: boolean;
         durationMs: number;
         users: number;
@@ -1293,7 +1279,7 @@ export default function Integrations() {
 
   const healthQuery = useQuery<HealthResponse>({
     queryKey: ["integration-health"],
-    queryFn: () => apiFetch<HealthResponse>("/api/integrations/health"),
+    queryFn: () => customFetch<HealthResponse>("/api/integrations/health"),
     refetchInterval: 30_000,
   });
 
@@ -1302,7 +1288,7 @@ export default function Integrations() {
     queryFn: () => {
       const params = new URLSearchParams({ limit: "100" });
       if (logFilter !== "all") params.set("status", logFilter);
-      return apiFetch<LogsResponse>(`/api/integrations/logs?${params}`);
+      return customFetch<LogsResponse>(`/api/integrations/logs?${params}`);
     },
     enabled: activeTab === "logs",
     refetchInterval: activeTab === "logs" ? 15_000 : false,
@@ -1416,7 +1402,7 @@ export default function Integrations() {
 
   const handleTestInbound = async () => {
     try {
-      const r = await apiFetch<{ ok: boolean; correlationId: string }>(
+      const r = await customFetch<{ ok: boolean; correlationId: string }>(
         "/api/integrations/inbound/test-manual",
         {
           method: "POST",

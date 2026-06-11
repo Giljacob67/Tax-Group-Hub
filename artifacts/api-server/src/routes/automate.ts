@@ -16,6 +16,7 @@ import { eq, and, gte, lte, inArray } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
 import { enrichContact } from "../lib/cnpj-enrichment.js";
 import { sendWhatsAppMessage } from "../lib/whatsapp.js";
+import logger from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -78,7 +79,7 @@ router.post("/automate/execute", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("Execute error:", err);
+    logger.error({ err }, "Execute error");
     apiError(res, 500, "Execution failed");
   }
 });
@@ -113,7 +114,7 @@ async function handleReformaTributariaTrigger(_req: any, res: any) {
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("Reforma Tributária trigger error:", err);
+    logger.error({ err }, "Reforma Tributária trigger error");
     apiError(res, 500, "Trigger failed");
   }
 }
@@ -223,7 +224,7 @@ router.post("/automate/pipeline", async (req, res) => {
         status: "completed",
       })
       .catch((err: any) =>
-        console.error("[pipeline] Failed to persist execution:", err),
+        logger.error({ err }, "[pipeline] Failed to persist execution"),
       );
 
     res.json({
@@ -235,7 +236,7 @@ router.post("/automate/pipeline", async (req, res) => {
       finalOutput: results[results.length - 1]?.output || "",
     });
   } catch (err) {
-    console.error("Pipeline error:", err);
+    logger.error({ err }, "Pipeline error");
     apiError(res, 500, "Pipeline failed");
   }
 });
@@ -325,7 +326,7 @@ NOVO LEAD RECEBIDO:
       finalOutput: results[results.length - 1]?.output || "",
     });
   } catch (err) {
-    console.error("New lead trigger error:", err);
+    logger.error({ err }, "New lead trigger error");
     apiError(res, 500, "Trigger failed");
   }
 });
@@ -364,7 +365,7 @@ router.post("/automate/trigger/editorial-calendar", async (req, res) => {
       output: result.output,
     });
   } catch (err) {
-    console.error("Editorial calendar trigger error:", err);
+    logger.error({ err }, "Editorial calendar trigger error");
     apiError(res, 500, "Trigger failed");
   }
 });
@@ -434,7 +435,7 @@ Gere uma sequência de follow-up personalizada para este lead.
       results,
     });
   } catch (err) {
-    console.error("Follow-up check trigger error:", err);
+    logger.error({ err }, "Follow-up check trigger error");
     apiError(res, 500, "Trigger failed");
   }
 });
@@ -491,7 +492,7 @@ Gere o conteúdo completo pronto para publicação.
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("Content request trigger error:", err);
+    logger.error({ err }, "Content request trigger error");
     apiError(res, 500, "Trigger failed");
   }
 });
@@ -752,17 +753,17 @@ router.post("/automate/broadcast-whatsapp", async (req, res) => {
             .catch(() => {});
 
           sent++;
-          console.log(`[Broadcast] Sent to contact ${contact.id} (${phone})`);
+          logger.info(`[Broadcast] Sent to contact ${contact.id} (${phone})`);
         } catch (err) {
           failed++;
-          console.error(`[Broadcast] Failed for contact ${contact.id}:`, err);
+          logger.error({ err, contactId: contact.id }, "[Broadcast] Failed for contact");
         }
       }
 
-      console.log(`[Broadcast] Done — sent: ${sent}, failed: ${failed}`);
+      logger.info(`[Broadcast] Done — sent: ${sent}, failed: ${failed}`);
     });
   } catch (err) {
-    console.error("[Broadcast WhatsApp] error:", err);
+    logger.error({ err }, "[Broadcast WhatsApp] error");
     apiError(res, 500, "Broadcast failed");
   }
 });
@@ -804,7 +805,7 @@ router.get("/automate/enrollments", async (req, res) => {
 
     res.json({ success: true, enrollments });
   } catch (err) {
-    console.error("[Enrollments] list error:", err);
+    logger.error({ err }, "[Enrollments] list error");
     apiError(res, 500, "Failed to list enrollments");
   }
 });
@@ -825,7 +826,7 @@ router.get("/automate/sequences", async (req, res) => {
       .orderBy(automationSequencesTable.createdAt);
     res.json({ success: true, sequences });
   } catch (err) {
-    console.error("[Sequences] list error:", err);
+    logger.error({ err }, "[Sequences] list error");
     apiError(res, 500, "Failed to list sequences");
   }
 });
@@ -868,7 +869,7 @@ router.post("/automate/sequences", async (req, res) => {
 
     res.status(201).json({ success: true, sequence: seq });
   } catch (err) {
-    console.error("[Sequences] create error:", err);
+    logger.error({ err }, "[Sequences] create error");
     apiError(res, 500, "Failed to create sequence");
   }
 });
@@ -914,7 +915,7 @@ router.put("/automate/sequences/:id", async (req, res) => {
     }
     res.json({ success: true, sequence: updated });
   } catch (err) {
-    console.error("[Sequences] update error:", err);
+    logger.error({ err }, "[Sequences] update error");
     apiError(res, 500, "Failed to update sequence");
   }
 });
@@ -938,7 +939,7 @@ router.delete("/automate/sequences/:id", async (req, res) => {
       );
     res.json({ success: true });
   } catch (err) {
-    console.error("[Sequences] delete error:", err);
+    logger.error({ err }, "[Sequences] delete error");
     apiError(res, 500, "Failed to delete sequence");
   }
 });
@@ -1005,7 +1006,7 @@ router.post("/automate/sequences/:id/enroll", async (req, res) => {
 
     res.status(201).json({ success: true, enrollment });
   } catch (err) {
-    console.error("[Sequences] enroll error:", err);
+    logger.error({ err }, "[Sequences] enroll error");
     apiError(res, 500, "Failed to enroll contact");
   }
 });
@@ -1085,9 +1086,9 @@ async function handleProcessSequences(req: any, res: any) {
 
         // Build personalized input
         if (!step.inputTemplate || typeof step.inputTemplate !== "string") {
-          console.error(
+          logger.error(
+            { enrollmentId: enrollment.id },
             "[Sequences] step missing inputTemplate for enrollment",
-            enrollment.id,
           );
           failed++;
           continue;
@@ -1172,10 +1173,9 @@ async function handleProcessSequences(req: any, res: any) {
         sent++;
       } catch (stepErr) {
         failed++;
-        console.error(
+        logger.error(
+          { err: stepErr, enrollmentId: enrollment.id },
           "[Sequences] step failed for enrollment",
-          enrollment.id,
-          stepErr,
         );
       }
 
@@ -1190,7 +1190,7 @@ async function handleProcessSequences(req: any, res: any) {
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("[Sequences] process-sequences error:", err);
+    logger.error({ err }, "[Sequences] process-sequences error");
     apiError(res, 500, "Failed to process sequences");
   }
 }
@@ -1230,7 +1230,7 @@ router.post("/automate/trigger/enrich-cnpj", async (req, res) => {
       dealCreated: result.dealCreated,
     });
   } catch (err) {
-    console.error("[Enrich CNPJ] error:", err);
+    logger.error({ err }, "[Enrich CNPJ] error");
     apiError(res, 500, "Enrichment failed");
   }
 });

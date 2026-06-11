@@ -33,6 +33,7 @@ import {
   writeIntegrationLog,
   safePayloadPreview,
 } from "./integration-logger.js";
+import logger from "./logger.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -453,7 +454,7 @@ export async function pullCompaniesFromHubSpot(
         }
       } catch (err) {
         result.errors++;
-        console.error(`[HubSpot] pullCompanies error for ${company.id}:`, err);
+        logger.error({ err, companyId: company.id }, "[HubSpot] pullCompanies error");
       }
     }
 
@@ -536,7 +537,7 @@ export async function pullDealsFromHubSpot(
         }
       } catch (err) {
         result.errors++;
-        console.error(`[HubSpot] pullDeals error for ${deal.id}:`, err);
+        logger.error({ err, dealId: deal.id }, "[HubSpot] pullDeals error");
       }
     }
 
@@ -598,7 +599,7 @@ export async function pullNotesFromHubSpot(
         }
       } catch (err) {
         result.errors++;
-        console.error(`[HubSpot] pullNotes error for ${note.id}:`, err);
+        logger.error({ err, noteId: note.id }, "[HubSpot] pullNotes error");
       }
     }
 
@@ -672,7 +673,7 @@ export async function pullTasksFromHubSpot(
         }
       } catch (err) {
         result.errors++;
-        console.error(`[HubSpot] pullTasks error for ${task.id}:`, err);
+        logger.error({ err, taskId: task.id }, "[HubSpot] pullTasks error");
       }
     }
 
@@ -816,9 +817,9 @@ export async function pullListsFromHubSpot(
           });
       } catch (err) {
         errors++;
-        console.error(
-          `[HubSpot] pullLists error for list ${list.listId}:`,
-          err,
+        logger.error(
+          { err, listId: list.listId },
+          "[HubSpot] pullLists error",
         );
       }
     }
@@ -1032,7 +1033,7 @@ export async function runFullInboundSync(userId: string): Promise<{
         .set({ userId })
         .where(eq(hubspotSyncStateTable.userId, "system"));
     } catch (err) {
-      console.error("[HubSpot] Failed to reassign system contacts:", err);
+      logger.error({ err }, "[HubSpot] Failed to reassign system contacts");
     }
   }
 

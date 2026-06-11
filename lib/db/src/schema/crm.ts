@@ -7,6 +7,7 @@ import {
   jsonb,
   boolean,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -139,7 +140,10 @@ export const crmDealsTable = pgTable("crm_deals", {
   ),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("idx_crm_deals_contact_id").on(t.contactId),
+  index("idx_crm_deals_assigned_to").on(t.assignedTo),
+]);
 
 export const insertCrmDealSchema = createInsertSchema(crmDealsTable).omit({
   id: true,
@@ -171,7 +175,10 @@ export const crmActivitiesTable = pgTable("crm_activities", {
   ),
   hubspotId: text("hubspot_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("idx_crm_activities_contact_id").on(t.contactId),
+  index("idx_crm_activities_deal_id").on(t.dealId),
+]);
 
 export const insertCrmActivitySchema = createInsertSchema(
   crmActivitiesTable,
@@ -249,7 +256,10 @@ export const crmTasksTable = pgTable("crm_tasks", {
   hubspotId: text("hubspot_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("idx_crm_tasks_contact_id").on(t.contactId),
+  index("idx_crm_tasks_deal_id").on(t.dealId),
+]);
 
 export const insertCrmTaskSchema = createInsertSchema(crmTasksTable).omit({
   id: true,

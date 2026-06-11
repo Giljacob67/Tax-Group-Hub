@@ -20,6 +20,7 @@ import { isRealUser } from "../middlewares/auth.js";
 import { callLLM } from "../lib/llm-client.js";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import { getConfigValue } from "./settings.js";
+import logger from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -261,7 +262,7 @@ router.get("/deliverables", async (req, res) => {
 
     res.json({ deliverables: rows, total: Number(total), limit, offset });
   } catch (err) {
-    console.error("[deliverables] list error:", err);
+    logger.error({ err }, "[deliverables] list error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -480,7 +481,7 @@ router.post("/deliverables/generate", async (req, res) => {
 
     res.status(201).json({ deliverable, sections: insertedSections });
   } catch (err) {
-    console.error("[deliverables] generate error:", err);
+    logger.error({ err }, "[deliverables] generate error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -548,7 +549,7 @@ router.get("/deliverables/:id", async (req, res) => {
       versions,
     });
   } catch (err) {
-    console.error("[deliverables] get error:", err);
+    logger.error({ err }, "[deliverables] get error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -582,7 +583,7 @@ router.patch("/deliverables/:id", async (req, res) => {
 
     res.json({ deliverable: updated });
   } catch (err) {
-    console.error("[deliverables] patch error:", err);
+    logger.error({ err }, "[deliverables] patch error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -626,7 +627,7 @@ router.patch("/deliverables/:id/sections/:sectionId", async (req, res) => {
 
     res.json({ section: updated });
   } catch (err) {
-    console.error("[deliverables] section patch error:", err);
+    logger.error({ err }, "[deliverables] section patch error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -724,7 +725,7 @@ Retorne APENAS o conteúdo Markdown da seção, sem título, sem JSON.`;
 
       res.json({ section: updated, ragSources: chunks.map((c) => c.filename) });
     } catch (err) {
-      console.error("[deliverables] regenerate section error:", err);
+      logger.error({ err }, "[deliverables] regenerate section error");
       apiError(res, 500, "Internal server error");
     }
   },
@@ -780,7 +781,7 @@ router.post("/deliverables/:id/approve", async (req, res) => {
 
     res.json({ deliverable: updated, version: nextVersion });
   } catch (err) {
-    console.error("[deliverables] approve error:", err);
+    logger.error({ err }, "[deliverables] approve error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -799,7 +800,7 @@ router.get("/deliverables/:id/versions", async (req, res) => {
 
     res.json({ versions });
   } catch (err) {
-    console.error("[deliverables] versions error:", err);
+    logger.error({ err }, "[deliverables] versions error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -967,7 +968,7 @@ router.get("/deliverables/:id/export", async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(html);
   } catch (err) {
-    console.error("[deliverables] export error:", err);
+    logger.error({ err }, "[deliverables] export error");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -987,10 +988,17 @@ router.delete("/deliverables/:id", async (req, res) => {
     if (isRealUser(userId) && existing.userId && existing.userId !== userId)
       return apiError(res, 403, "Access denied");
 
-    await db.delete(deliverablesTable).where(eq(deliverablesTable.id, id));
+    const [deleted] = await db
+      .delete(deliverablesTable)
+      .where(eq(deliverablesTable.id, id))
+      .returning();
+    if (!deleted) {
+      apiError(res, 404, "Deliverable not found");
+      return;
+    }
     res.json({ ok: true });
   } catch (err) {
-    console.error("[deliverables] delete error:", err);
+    logger.error({ err }, "[deliverables] delete error");
     apiError(res, 500, "Internal server error");
   }
 });

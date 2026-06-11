@@ -8,6 +8,7 @@ import { eq, inArray, lt, and } from "drizzle-orm";
 import fs from "node:fs";
 import path from "node:path";
 import { processDocumentAsync } from "./knowledge.js";
+import logger from "../lib/logger.js";
 import { apiError } from "../lib/api-response.js";
 import { safeNumber } from "../lib/validation.js";
 
@@ -90,10 +91,9 @@ router.post("/system/jobs/retry", async (req, res) => {
             doc.fileType,
             doc.filename,
           ).catch((err: Error) => {
-            console.error(
+            logger.error(
+              { err, docId: doc.id },
               "[Knowledge] processDocumentAsync failed for doc",
-              doc.id,
-              err,
             );
           });
         });
@@ -111,7 +111,7 @@ router.post("/system/jobs/retry", async (req, res) => {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err) {
-    console.error("Jobs retry error:", err);
+    logger.error({ err }, "Jobs retry error");
     apiError(res, 500, "Failed to trigger job retries");
   }
 });
@@ -137,7 +137,7 @@ router.delete("/system/cache/embeddings", async (req, res) => {
       cutoffDate: cutoff.toISOString(),
     });
   } catch (err) {
-    console.error("Embedding cache purge error:", err);
+    logger.error({ err }, "Embedding cache purge error");
     apiError(res, 500, "Failed to purge embedding cache");
   }
 });

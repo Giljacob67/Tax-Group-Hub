@@ -87,60 +87,72 @@ const BLOCKS = [
   },
 ];
 
-const NAV_ITEMS = [
+const NAV_GROUPS = [
   {
-    path: "/command-center",
-    label: "Command Center",
-    icon: LayoutDashboard,
-    color: "text-primary",
+    id: "comercial",
+    label: "Comercial",
+    items: [
+      {
+        path: "/command-center",
+        label: "Command Center",
+        icon: LayoutDashboard,
+        color: "text-primary",
+      },
+      {
+        path: "/crm",
+        label: "CRM & Pipeline",
+        icon: Users,
+        color: "text-muted-foreground",
+      },
+      {
+        path: "/agent/coordenador-geral-tax-group",
+        label: "Agentes",
+        icon: Bot,
+        color: "text-muted-foreground",
+      },
+      {
+        path: "/automations",
+        label: "Campanhas",
+        icon: Zap,
+        color: "text-muted-foreground",
+      },
+      {
+        path: "/deliverables",
+        label: "Entregáveis",
+        icon: FileText,
+        color: "text-muted-foreground",
+      },
+    ],
   },
   {
-    path: "/crm",
-    label: "CRM & Pipeline",
-    icon: Users,
-    color: "text-muted-foreground",
-  },
-  {
-    path: "/agent/coordenador-geral-tax-group",
-    label: "Agentes",
-    icon: Bot,
-    color: "text-muted-foreground",
-  },
-  {
-    path: "/automations",
-    label: "Campanhas",
-    icon: Zap,
-    color: "text-muted-foreground",
-  },
-  {
-    path: "/knowledge",
-    label: "Base de Conhecimento",
-    icon: BookOpen,
-    color: "text-muted-foreground",
-  },
-  {
-    path: "/analytics",
-    label: "Analytics",
-    icon: BarChart3,
-    color: "text-muted-foreground",
-  },
-  {
-    path: "/ai-quality",
-    label: "Qualidade IA",
-    icon: ShieldCheck,
-    color: "text-muted-foreground",
-  },
-  {
-    path: "/deliverables",
-    label: "Entregáveis",
-    icon: FileText,
-    color: "text-muted-foreground",
-  },
-  {
-    path: "/integrations",
-    label: "Integrações",
-    icon: Settings2,
-    color: "text-muted-foreground",
+    id: "administracao",
+    label: "Administração",
+    items: [
+      {
+        path: "/knowledge",
+        label: "Base de Conhecimento",
+        icon: BookOpen,
+        color: "text-muted-foreground",
+      },
+      {
+        path: "/analytics",
+        label: "Métricas de IA",
+        icon: BarChart3,
+        color: "text-muted-foreground",
+      },
+      {
+        path: "/ai-quality",
+        label: "Qualidade IA",
+        icon: ShieldCheck,
+        color: "text-muted-foreground",
+      },
+      {
+        path: "/integrations",
+        label: "Integrações",
+        icon: Settings2,
+        color: "text-muted-foreground",
+      },
+    ],
   },
 ];
 
@@ -266,11 +278,17 @@ export function AppSidebar() {
 
       {/* ── Content ───────────────────────── */}
       <SidebarContent className="px-2 py-2">
-        {/* Main nav */}
-        <SidebarGroup>
+        {/* Main nav — grouped by role */}
+        {NAV_GROUPS.map((group) => (
+        <SidebarGroup key={group.id}>
+          {open && (
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+              {group.label}
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV_ITEMS.map((item) => {
+              {group.items.map((item) => {
                 // Calculate badge for specific items
                 let badge = null;
                 if (item.path === "/crm" && hotLeadsCount > 0) {
@@ -322,6 +340,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        ))}
 
         {/* Agent list — only when expanded */}
         {open && (
@@ -349,31 +368,31 @@ export function AppSidebar() {
                         <div className="p-2 bg-muted/50 rounded-lg">
                           <strong className="text-foreground">Acabei de receber um lead</strong>
                           <div className="text-muted-foreground mt-0.5">
-                            → <button onClick={() => navigate("/agent/diagnostico-cnpj")} className="text-primary hover:underline">Diagnóstico CNPJ</button>
+                            → <button onClick={() => navigate("/agent/diagnostico-cnpj-tax-group")} className="text-primary hover:underline">Diagnóstico CNPJ</button>
                           </div>
                         </div>
                         <div className="p-2 bg-muted/50 rounded-lg">
                           <strong className="text-foreground">Vou fazer o primeiro contato</strong>
                           <div className="text-muted-foreground mt-0.5">
-                            → <button onClick={() => navigate("/agent/prospeccao-comercial")} className="text-primary hover:underline">Prospecção Comercial</button>
+                            → <button onClick={() => navigate("/agent/prospeccao-tax-group")} className="text-primary hover:underline">Prospecção Comercial</button>
                           </div>
                         </div>
                         <div className="p-2 bg-muted/50 rounded-lg">
                           <strong className="text-foreground">Cliente fez uma objeção</strong>
                           <div className="text-muted-foreground mt-0.5">
-                            → <button onClick={() => navigate("/agent/reversao-objecoes")} className="text-primary hover:underline">Reversão de Objeções</button>
+                            → <button onClick={() => navigate("/agent/objecoes-tax-group")} className="text-primary hover:underline">Reversão de Objeções</button>
                           </div>
                         </div>
                         <div className="p-2 bg-muted/50 rounded-lg">
                           <strong className="text-foreground">Cliente não respondeu</strong>
                           <div className="text-muted-foreground mt-0.5">
-                            → <button onClick={() => navigate("/agent/follow-up")} className="text-primary hover:underline">Follow-Up</button>
+                            → <button onClick={() => navigate("/agent/followup-tax-group")} className="text-primary hover:underline">Follow-Up</button>
                           </div>
                         </div>
                         <div className="p-2 bg-muted/50 rounded-lg">
                           <strong className="text-foreground">Preciso preparar uma reunião</strong>
                           <div className="text-muted-foreground mt-0.5">
-                            → <button onClick={() => navigate("/agent/roteiro-reuniao")} className="text-primary hover:underline">Roteiro de Reunião</button>
+                            → <button onClick={() => navigate("/agent/roteiro-reuniao-tax-group")} className="text-primary hover:underline">Roteiro de Reunião</button>
                           </div>
                         </div>
                       </div>

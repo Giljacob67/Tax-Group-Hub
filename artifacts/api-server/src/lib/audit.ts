@@ -2,6 +2,7 @@ import { db } from "@workspace/db";
 import { auditLogsTable, appUsersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { Request } from "express";
+import logger from "./logger.js";
 
 export type AuditAction =
   | "user.created"
@@ -98,7 +99,7 @@ export async function logAudit(
       userAgent,
     });
   } catch (err) {
-    console.error("Failed to write audit log:", err);
+    logger.error({ err }, "Failed to write audit log");
   }
 }
 
@@ -136,6 +137,6 @@ export async function logSensitiveChanges(
       userAgent,
     });
   } catch (err) {
-    console.error("Failed to write sensitive changes audit log:", err);
+    logger.error({ err }, "Failed to write sensitive changes audit log");
   }
 }

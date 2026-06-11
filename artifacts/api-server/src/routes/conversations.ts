@@ -317,7 +317,14 @@ router.delete("/messages/:messageId", async (req, res) => {
         return;
       }
     }
-    await db.delete(messagesTable).where(eq(messagesTable.id, messageId));
+    const [deleted] = await db
+      .delete(messagesTable)
+      .where(eq(messagesTable.id, messageId))
+      .returning();
+    if (!deleted) {
+      apiError(res, 404, "Message not found");
+      return;
+    }
     res.json({ success: true });
   } catch (err: any) {
     logger.error({ err }, "Error deleting message");

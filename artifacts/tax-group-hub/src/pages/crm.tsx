@@ -621,11 +621,39 @@ function SortIcon({
   );
 }
 
+// ─── URL params (deep-links do dashboard / TodayView) ───────────────────────
+const VALID_CRM_TABS = new Set([
+  "today",
+  "pipeline",
+  "contacts",
+  "timeline",
+  "alerts",
+  "automations",
+  "queues",
+  "quality",
+  "audit",
+  "roles",
+  "dashboard",
+]);
+
+function readCrmUrlParams() {
+  if (typeof window === "undefined") return { tab: null, filter: null, search: null };
+  const p = new URLSearchParams(window.location.search);
+  return {
+    tab: p.get("tab"),
+    filter: p.get("filter"),
+    search: p.get("search"),
+  };
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CRMPage() {
   usePageTitle("CRM");
-  const [activeTab, setActiveTab] = useState("today");
-  const [headerSearch, setHeaderSearch] = useState("");
+  const [urlParams] = useState(readCrmUrlParams);
+  const [activeTab, setActiveTab] = useState(
+    urlParams.tab && VALID_CRM_TABS.has(urlParams.tab) ? urlParams.tab : "today",
+  );
+  const [headerSearch, setHeaderSearch] = useState(urlParams.search || "");
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -782,10 +810,17 @@ export default function CRMPage() {
               onSelect={setSelectedContact}
               selected={selectedContact}
               initialSearch={headerSearch}
+              initialFilter={urlParams.filter}
             />
           </TabsContent>
           <TabsContent value="pipeline" className="h-full m-0 p-0">
-            <PipelineKanbanView />
+            <PipelineKanbanView
+              initialFilter={urlParams.filter}
+              onOpenContact={(term) => {
+                setHeaderSearch(term);
+                setActiveTab("contacts");
+              }}
+            />
           </TabsContent>
           <TabsContent value="today" className="h-full m-0 p-0">
             <TodayView />
@@ -902,10 +937,12 @@ function ContactsView({
   onSelect,
   selected,
   initialSearch = "",
+  initialFilter = null,
 }: {
   onSelect: (c: Contact) => void;
   selected: Contact | null;
   initialSearch?: string;
+  initialFilter?: string | null;
 }) {
   const { isDemo } = useDemoMode();
   const { toast } = useToast();
@@ -919,24 +956,38 @@ function ContactsView({
     field: string;
     dir: "asc" | "desc";
   } | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<Filters>({
-    regime: "",
-    porte: "",
-    uf: "",
-    cidade: "",
-    scoreMin: "",
-    scoreMax: "",
-    setor: "",
-    segmento: "",
-    origemLead: "",
-    loteProspeccao: "",
-    produtoInteresse: "",
-    responsavelUnidade: "",
-    temperatura: "",
-    statusMatriz: "",
-    followupVencido: "",
-    semAtividadeDias: "",
+  const [showFilters, setShowFilters] = useState(() => !!initialFilter);
+  const [filters, setFilters] = useState<Filters>(() => {
+    const base: Filters = {
+      regime: "",
+      porte: "",
+      uf: "",
+      cidade: "",
+      scoreMin: "",
+      scoreMax: "",
+      setor: "",
+      segmento: "",
+      origemLead: "",
+      loteProspeccao: "",
+      produtoInteresse: "",
+      responsavelUnidade: "",
+      temperatura: "",
+      statusMatriz: "",
+      followupVencido: "",
+      semAtividadeDias: "",
+    };
+    // Deep-link: ?filter=temperature:quente | semAtividadeDias:7 | followupVencido
+    if (initialFilter) {
+      const [key, value] = initialFilter.split(":");
+      if ((key === "temperature" || key === "temperatura") && value) {
+        base.temperatura = value;
+      } else if (key === "semAtividadeDias" && value) {
+        base.semAtividadeDias = value;
+      } else if (key === "followupVencido") {
+        base.followupVencido = "true";
+      }
+    }
+    return base;
   });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
@@ -945,6 +996,38 @@ function ContactsView({
   const [bulkFollowupOpen, setBulkFollowupOpen] = useState(false);
   const [bulkFollowupDate, setBulkFollowupDate] = useState("");
   const [bulkAssignValue, setBulkAssignValue] = useState("");
+  const [bulkQualifying, setBulkQualifying] = useState(false);
+  const [bulkQualifyProgress, setBulkQualifyProgress] = useState(0);
+
+  async function handleBulkQualify() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0 || bulkQualifying) return;
+    setBulkQualifying(true);
+    setBulkQualifyProgress(0);
+    let ok = 0;
+    let failed = 0;
+    for (let i = 0; i < ids.length; i++) {
+      try {
+        const req = await fetch(`/api/crm/contacts/${ids[i]}/qualify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (req.ok) ok++;
+        else failed++;
+      } catch {
+        failed++;
+      }
+      setBulkQualifyProgress(i + 1);
+    }
+    setBulkQualifying(false);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/crm/deals/pipeline"] });
+    toast({
+      title: "Qualificação concluída",
+      description: `${ok} contato(s) qualificados pela IA${failed ? `, ${failed} falharam` : ""}.`,
+    });
+  }
 
   React.useEffect(() => {
     if (initialSearch) {
@@ -1797,6 +1880,25 @@ function ContactsView({
               {selectedIds.size} selecionado(s)
             </span>
             <div className="flex items-center gap-1.5 ml-auto">
+              {/* Bulk qualify IA */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-7 gap-1"
+                disabled={bulkQualifying}
+                onClick={handleBulkQualify}
+              >
+                {bulkQualifying ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Qualificando {bulkQualifyProgress}/{selectedIds.size}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" /> Qualificar IA
+                  </>
+                )}
+              </Button>
               {/* Bulk status */}
               <Can permission="canEditStatus">
                 <Dialog open={bulkStatusOpen} onOpenChange={setBulkStatusOpen}>
@@ -2508,6 +2610,9 @@ function ContactDetailPanel({
         });
         toast({
           title: `Pontuação IA: ${data.qualification?.score}/100 — Nível ${data.qualification?.tier}`,
+          description: (data as { dealCreated?: boolean }).dealCreated
+            ? "Oportunidade criada no pipeline — defina o valor estimado no Kanban."
+            : undefined,
         });
       },
       onError: (e: any) =>
@@ -2855,7 +2960,7 @@ function ContactDetailPanel({
                 score: contact.aiScore,
               };
               navigate(
-                `/agent/diagnostico-cnpj?context=${encodeURIComponent(JSON.stringify(context))}`,
+                `/agent/diagnostico-cnpj-tax-group?context=${encodeURIComponent(JSON.stringify(context))}`,
               );
             }}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-xs text-primary hover:text-primary/80 transition-colors border border-primary/20"
@@ -3891,11 +3996,13 @@ function DealEditModal({
   onClose,
   onSaved,
   onDeleted,
+  onOpenContact,
 }: {
   deal: Deal;
   onClose: () => void;
   onSaved: () => void;
   onDeleted: () => void;
+  onOpenContact?: (term: string) => void;
 }) {
   const { toast } = useToast();
   const [title, setTitle] = useState(deal.title);
@@ -3993,7 +4100,21 @@ function DealEditModal({
         {(deal.razaoSocial || deal.cnpj) && (
           <DialogDescription className="flex items-center gap-1">
             <Building2 className="w-3.5 h-3.5" />
-            {deal.razaoSocial || deal.cnpj}
+            {onOpenContact ? (
+              <button
+                type="button"
+                className="text-primary hover:underline text-left"
+                title="Abrir ficha do contato"
+                onClick={() => {
+                  onClose();
+                  onOpenContact(deal.cnpj || deal.razaoSocial || "");
+                }}
+              >
+                {deal.razaoSocial || deal.cnpj}
+              </button>
+            ) : (
+              deal.razaoSocial || deal.cnpj
+            )}
           </DialogDescription>
         )}
       </DialogHeader>
@@ -4521,7 +4642,13 @@ function QuickAddDealForm({
 }
 
 // ─── Pipeline Kanban ──────────────────────────────────────────────────────────
-function PipelineKanbanView() {
+function PipelineKanbanView({
+  initialFilter = null,
+  onOpenContact,
+}: {
+  initialFilter?: string | null;
+  onOpenContact?: (term: string) => void;
+}) {
   const { isDemo } = useDemoMode();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -4532,9 +4659,33 @@ function PipelineKanbanView() {
   const [addingInStage, setAddingInStage] = useState<string | null>(null);
   const [activePipelineId, setActivePipelineId] = useState("default");
   const [showPipelineMgr, setShowPipelineMgr] = useState(false);
+  // Deep-link: ?filter=<stageId> (ex.: aguardando_matriz, negociacao) ou
+  // ?filter=pendencia_documental (status matriz)
+  const [dealFilter, setDealFilter] = useState<string | null>(initialFilter);
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(
-    () => new Set(PIPELINE_PHASES.filter((p) => p.collapsible).map((p) => p.name))
+    () =>
+      new Set(
+        PIPELINE_PHASES.filter(
+          (p) =>
+            p.collapsible &&
+            !(initialFilter && p.stages.includes(initialFilter)),
+        ).map((p) => p.name),
+      ),
   );
+
+  const dealMatchesFilter = (d: Deal) => {
+    if (!dealFilter) return true;
+    if (dealFilter === "pendencia_documental")
+      return d.statusMatriz === "pendencia_documental";
+    return d.stage === dealFilter;
+  };
+  const dealFilterLabel = dealFilter
+    ? dealFilter === "pendencia_documental"
+      ? MATRIX_STATUS_LABELS[
+          "pendencia_documental" as keyof typeof MATRIX_STATUS_LABELS
+        ] || "Pendência documental"
+      : STAGE_DICT[dealFilter]?.label || dealFilter
+    : null;
 
   const togglePhase = (phaseName: string) => {
     setCollapsedPhases((prev) => {
@@ -4855,6 +5006,22 @@ function PipelineKanbanView() {
         ))}
       </div>
 
+      {dealFilter && (
+        <div className="flex items-center gap-2 flex-none">
+          <span className="text-xs text-muted-foreground">Filtrando por:</span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary border border-primary/20 rounded-full px-2.5 py-1">
+            {dealFilterLabel}
+            <button
+              onClick={() => setDealFilter(null)}
+              className="hover:text-primary/70"
+              title="Limpar filtro"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        </div>
+      )}
+
       {allDeals.length === 0 && (
         <div className="text-center py-10 text-sm text-muted-foreground border border-dashed border-border/40 rounded-xl bg-card/30">
           <Trophy className="w-10 h-10 mx-auto mb-3 text-muted-foreground/20" />
@@ -4921,7 +5088,9 @@ function PipelineKanbanView() {
                 
                 {/* Phase columns */}
                 {!isCollapsed && phaseStages.map((stageId: string) => {
-            const deals = (pipeline[stageId] || []) as Deal[];
+            const deals = ((pipeline[stageId] || []) as Deal[]).filter(
+              dealMatchesFilter,
+            );
             const dict = STAGE_DICT[stageId] || {
               label: stageId.toUpperCase(),
               accent: "border-t-slate-400",
@@ -5040,6 +5209,7 @@ function PipelineKanbanView() {
         >
           <DealEditModal
             deal={editingDeal}
+            onOpenContact={onOpenContact}
             onClose={() => setEditingDeal(null)}
             onSaved={() => {
               setEditingDeal(null);

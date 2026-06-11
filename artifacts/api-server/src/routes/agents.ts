@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { AGENTS, getAgentById } from "../lib/agents-data.js";
 import { apiError } from "../lib/api-response.js";
+import { safeCompare } from "../middlewares/auth.js";
 
 const router: IRouter = Router();
 
@@ -54,7 +55,7 @@ router.get("/agents/:agentId", (req, res) => {
     const token = authHeader?.startsWith("Bearer ")
       ? authHeader.slice(7)
       : null;
-    if (token !== apiKey && headerKey !== apiKey) {
+    if ((token && !safeCompare(token, apiKey)) || (headerKey && !safeCompare(headerKey, apiKey))) {
       // Return agent without systemPrompt if not authenticated
       const agent = getAgentById(req.params.agentId);
       if (!agent) {

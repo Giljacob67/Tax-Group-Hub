@@ -75,3 +75,4 @@ docs/PULL_REQUEST_fix-audit-producao-vercel.md
 # Local context saves (work-in-progress notes, not source)
 .context/
 .vercel
+.pnpm-store/

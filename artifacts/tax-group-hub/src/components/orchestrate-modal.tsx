@@ -37,6 +37,20 @@ interface CoordinatorReview {
 
 // Lookup for display names when API hasn't resolved yet
 const AGENT_NAMES: Record<string, { name: string; icon: string }> = {
+  "coordenador-geral-tax-group": { name: "Coordenador Geral", icon: "🧭" },
+  "analise-tributaria-tax-group": { name: "Análise Tributária", icon: "⚖️" },
+  "inteligencia-competitiva-tax-group": {
+    name: "Inteligência Competitiva",
+    icon: "🕵️",
+  },
+  "diagnostico-cnpj-tax-group": { name: "Diagnóstico CNPJ", icon: "🔬" },
+  "entrega-projeto-tax-group": { name: "Entrega de Projeto", icon: "📦" },
+  "customer-success-tax-group": { name: "Customer Success", icon: "🤝" },
+  "compliance-conteudo-tax-group": {
+    name: "Compliance de Conteúdo",
+    icon: "✅",
+  },
+  "pricing-roi-tax-group": { name: "Pricing & ROI", icon: "🧮" },
   "prospeccao-tax-group": { name: "Prospecção", icon: "🎯" },
   "coach-descoberta-tax-group": { name: "Coach de Descoberta", icon: "🔍" },
   "qualificacao-leads-tax-group": { name: "Qualificação de Leads", icon: "📊" },

@@ -115,6 +115,15 @@ router.post("/2fa/verify", async (req: Request, res: Response) => {
       randomBytes(4).toString("hex").toUpperCase()
     );
 
+    // Save backup codes to database
+    await db
+      .update(appUsersTable)
+      .set({
+        backupCodes,
+        updatedAt: new Date(),
+      })
+      .where(eq(appUsersTable.id, Number(userId)));
+
     res.json({
       success: true,
       message: "2FA ativado com sucesso!",

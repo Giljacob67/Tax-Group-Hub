@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { db, integrationLogsTable } from "@workspace/db";
 import { eq, desc, and, type SQL } from "drizzle-orm";
+import logger from "./logger.js";
 
 export type LogDirection = "inbound" | "outbound";
 export type LogStatus = "success" | "error" | "pending" | "ignored";
@@ -87,7 +88,7 @@ export async function writeIntegrationLog(
       correlationId,
     });
   } catch (err) {
-    console.error("[IntegrationLogger] Failed to write log:", err);
+    logger.error({ err }, "[IntegrationLogger] Failed to write log");
   }
   return correlationId;
 }

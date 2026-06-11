@@ -7,6 +7,7 @@ import { transcribeAudio, callLLM, getLanguageModel } from "./llm-client.js";
 import { extractTextContent } from "../routes/knowledge.js";
 import { generateText } from "ai";
 import { validateHttpUrl } from "./validation.js";
+import logger from "./logger.js";
 
 const ALLOWED_MEDIA_DOMAINS = [
   "api.telegram.org",
@@ -53,7 +54,7 @@ export async function processExternalMedia(
 
   // 1. AUDIO (WhatsApp/Telegram Voice notes)
   if (mimeType.startsWith("audio/")) {
-    console.log(
+    logger.info(
       `[MediaProcessor] Transcribing audio: ${fileName} (${mimeType})...`,
     );
     const text = await transcribeAudio(buffer, fileName);
@@ -62,7 +63,7 @@ export async function processExternalMedia(
 
   // 2. IMAGE (OCR / Vision)
   if (mimeType.startsWith("image/")) {
-    console.log(
+    logger.info(
       `[MediaProcessor] Analyzing image: ${fileName} (${mimeType})...`,
     );
     // Use Vision via LLM
@@ -94,7 +95,7 @@ export async function processExternalMedia(
     mimeType.includes("officedocument") ||
     mimeType.includes("text/")
   ) {
-    console.log(
+    logger.info(
       `[MediaProcessor] Extracting text from document: ${fileName} (${mimeType})...`,
     );
     const text = await extractTextContent(buffer, mimeType, fileName);

@@ -15,13 +15,13 @@ export const TOUR_STEPS: TourStep[] = [
     id: "welcome",
     title: "Bem-vindo ao Tax Group AI Hub",
     description:
-      "Seu centro de comando inteligente para prospecção, CRM e automação tributária. Vamos fazer um tour rápido.",
+      "Aqui você transforma listas de CNPJs em oportunidades tributárias qualificadas. O fluxo é simples: importar → qualificar com IA → trabalhar o pipeline.",
   },
   {
     id: "nav",
     title: "Navegação",
     description:
-      "Acesse todas as áreas do hub: Command Center, CRM, Agentes, Automações, Base de Conhecimento e Configurações.",
+      "Tudo está na barra lateral: Command Center (visão geral), CRM (contatos e pipeline), Agentes IA e Automações. Use Cmd+K para navegar rápido.",
     target: '[data-tour="sidebar"]',
     placement: "right",
   },
@@ -29,33 +29,27 @@ export const TOUR_STEPS: TourStep[] = [
     id: "dashboard",
     title: "Command Center",
     description:
-      "Visualize métricas em tempo real, atividade semanal e acesse seus agentes de IA com um clique.",
+      "Sua visão geral: empresas no CRM, leads quentes, propostas e ações do dia. Cada cartão é clicável e leva direto à lista filtrada.",
     target: '[data-tour="dashboard"]',
     placement: "bottom",
   },
   {
-    id: "crm",
-    title: "CRM Inteligente",
+    id: "step-import",
+    title: "Passo 1 — Importar empresas",
     description:
-      "Gerencie leads, deals, tarefas e pipelines. Qualificação automática por IA e enriquecimento de dados.",
-    target: '[data-tour="crm"]',
-    placement: "bottom",
+      "No CRM, clique em “Importar” e suba sua lista de CNPJs (CSV ou Excel). O sistema enriquece os dados automaticamente.",
   },
   {
-    id: "chat",
-    title: "Chat com Agentes",
+    id: "step-qualify",
+    title: "Passo 2 — Qualificar com IA",
     description:
-      "Converse com agentes especializados em prospecção, marketing e gestão. Eles têm acesso à sua base de conhecimento.",
-    target: '[data-tour="chat"]',
-    placement: "bottom",
+      "Selecione os contatos importados e clique em “Qualificar IA”. A IA pontua cada empresa (0-100) e cria oportunidades no pipeline para os níveis A, B e C.",
   },
   {
-    id: "settings",
-    title: "Configurações",
+    id: "step-pipeline",
+    title: "Passo 3 — Trabalhar o pipeline",
     description:
-      "Conecte modelos LLM (OpenAI, Anthropic, Google, Ollama), configure WhatsApp e personalize sua marca.",
-    target: '[data-tour="settings"]',
-    placement: "top",
+      "Na aba Pipeline do CRM, arraste as oportunidades pelas etapas. Use os agentes IA para diagnóstico, abordagem, objeções e follow-up. A aba “Hoje” mostra suas prioridades diárias.",
   },
 ];
 

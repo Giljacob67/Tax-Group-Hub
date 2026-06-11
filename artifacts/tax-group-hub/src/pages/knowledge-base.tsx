@@ -56,16 +56,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-
-// ─── Authenticated fetch helper ─────────────────────────────────────────────
-const authFetch = async (url: string, init?: RequestInit): Promise<Response> => {
-  const headers = new Headers(init?.headers);
-  const token = localStorage.getItem("taxgroup_auth_token");
-  if (token && !headers.has("authorization")) {
-    headers.set("authorization", `Bearer ${token}`);
-  }
-  return fetch(url, { ...init, headers });
-};
+import { customFetch } from "@workspace/api-client-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -368,7 +359,7 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
-          const r = await authFetch("/api/knowledge/upload", {
+          const r = await customFetch<{ success?: boolean; error?: string }>("/api/knowledge/upload", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             signal: controller.signal,
@@ -384,9 +375,8 @@ function UploadPanel({ onUploadDone }: { onUploadDone: () => void }) {
           });
           clearTimeout(timeoutId);
 
-          if (!r.ok) {
-            const err = await r.json().catch(() => ({}));
-            throw new Error((err as any).error || `HTTP ${r.status}`);
+          if (!r.success) {
+            throw new Error(r.error || "Upload failed");
           }
           setUploadProgress((prev) => ({ ...prev, [file.name]: "Enviado ✓" }));
           success++;
@@ -1128,15 +1118,13 @@ function SemanticSearchTab() {
       if (category) body.category = category;
       if (product) body.product = product;
 
-      const r = await authFetch("/api/knowledge/search", {
+      const data = await customFetch<{ results?: any[]; fallback?: boolean; error?: string }>("/api/knowledge/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error((data as any).error ?? "Falha na busca");
-      setResults((data as any).results ?? []);
-      setFallback(!!(data as any).fallback);
+      setResults(data.results ?? []);
+      setFallback(!!data.fallback);
     } catch (e: any) {
       toast({
         title: "Erro na busca",
@@ -1515,6 +1503,7 @@ function ChunksModal({
   doc: KnowledgeDoc;
   onClose: () => void;
 }) {
+  const { toast } = useToast();
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -1523,13 +1512,14 @@ function ChunksModal({
 
   useEffect(() => {
     setLoading(true);
-    authFetch(`/api/knowledge/${doc.id}/chunks?page=${page}&pageSize=${pageSize}`)
-      .then((r) => r.json())
-      .then((d: any) => {
+    customFetch<{ chunks?: any[]; total?: number }>(`/api/knowledge/${doc.id}/chunks?page=${page}&pageSize=${pageSize}`)
+      .then((d) => {
         setChunks(d.chunks ?? []);
         setTotal(d.total ?? 0);
       })
-      .catch(() => {})
+      .catch(() => {
+        toast({ title: "Erro ao carregar chunks", variant: "destructive" });
+      })
       .finally(() => setLoading(false));
   }, [doc.id, page]);
 
@@ -1642,10 +1632,11 @@ export default function KnowledgeBase() {
   const docsSummaryKey = docs.map((d) => `${d.id}:${d.status}`).join(",");
 
   useEffect(() => {
-    authFetch("/api/knowledge/health")
-      .then((r) => r.json())
-      .then((d: any) => setHealth(d))
-      .catch(() => {});
+    customFetch<any>("/api/knowledge/health")
+      .then((d) => setHealth(d))
+      .catch(() => {
+        toast({ title: "Erro ao carregar status da KB", variant: "destructive" });
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docsSummaryKey]);
 
@@ -1655,10 +1646,11 @@ export default function KnowledgeBase() {
   useEffect(() => {
     if (activeTab !== "sources") return;
     setSourcesLoading(true);
-    authFetch("/api/knowledge/sources")
-      .then((r) => r.json())
-      .then((d: any) => setSources(d.sources ?? []))
-      .catch(() => {})
+    customFetch<{ sources?: any[] }>("/api/knowledge/sources")
+      .then((d) => setSources(d.sources ?? []))
+      .catch(() => {
+        toast({ title: "Erro ao carregar fontes", variant: "destructive" });
+      })
       .finally(() => setSourcesLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, docsCountKey]);
@@ -1680,10 +1672,8 @@ export default function KnowledgeBase() {
   const handleReindex = async (id: string) => {
     setReindexing((prev) => new Set(prev).add(id));
     try {
-      const r = await authFetch(`/api/knowledge/${id}/reindex`, { method: "POST" });
-      const d = await r.json();
-      if (!r.ok) throw new Error((d as any).error ?? "Falha ao reindexar");
-      toast({ title: "Reindexação iniciada", description: (d as any).message });
+      const d = await customFetch<{ message?: string; error?: string }>(`/api/knowledge/${id}/reindex`, { method: "POST" });
+      toast({ title: "Reindexação iniciada", description: d.message });
       setTimeout(
         () =>
           queryClient.invalidateQueries({

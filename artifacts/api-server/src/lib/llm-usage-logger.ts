@@ -6,6 +6,7 @@
 import { db, usageLogsTable, llmConnectionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { LLMResult } from "./llm-client.js";
+import logger from "./logger.js";
 
 export interface LogUsageOptions {
   userId?: string;
@@ -83,6 +84,6 @@ export async function logLLMUsage(
     });
   } catch (err) {
     // Never fail the main operation because of logging
-    console.error("[LLM Usage Logger] Failed to log usage:", err);
+    logger.error({ err }, "[LLM Usage Logger] Failed to log usage");
   }
 }

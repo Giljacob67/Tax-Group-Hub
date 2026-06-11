@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import { eq, sql, gte, and, desc, lte } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
+import logger from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -70,7 +71,7 @@ router.get("/analytics/overview", async (req, res) => {
       period: req.query.period || "30d",
     });
   } catch (err) {
-    console.error("[Analytics] Error:", err);
+    logger.error({ err }, "[Analytics] Error");
     apiError(res, 500, "Failed to fetch analytics");
   }
 });

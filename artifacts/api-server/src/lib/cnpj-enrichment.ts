@@ -7,6 +7,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import { callLLM } from "./llm-client.js";
 import { getAgentById } from "./agents-data.js";
+import logger from "./logger.js";
 
 interface EnrichmentResult {
   score: number;
@@ -65,7 +66,7 @@ export async function enrichContact(
 ): Promise<EnrichmentResult | null> {
   const agent = getAgentById("diagnostico-cnpj-tax-group");
   if (!agent) {
-    console.error("[Enrichment] diagnostico-cnpj-tax-group agent not found");
+    logger.error("[Enrichment] diagnostico-cnpj-tax-group agent not found");
     return null;
   }
 
@@ -147,7 +148,7 @@ Realize o diagnóstico completo e ao final inclua obrigatoriamente um bloco JSON
       ],
     })
     .catch((err: Error) =>
-      console.error("[Enrichment] Log insert failed:", err),
+      logger.error({ err }, "[Enrichment] Log insert failed"),
     );
 
   // Auto-create deal if score >= 60 and no active deal exists
@@ -175,13 +176,13 @@ Realize o diagnóstico completo e ao final inclua obrigatoriamente um bloco JSON
         value: "0",
       });
       dealCreated = true;
-      console.log(
+      logger.info(
         `[Enrichment] Auto-created deal for contact ${contactId} (score: ${parsed.score})`,
       );
     }
   }
 
-  console.log(
+  logger.info(
     `[Enrichment] Contact ${contactId} scored ${parsed.score} (${parsed.classificacao}), product: ${parsed.produtoRecomendado}`,
   );
   return { ...parsed, dealCreated };

@@ -8,6 +8,7 @@ import {
   boolean,
   bigint,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { dimAgnosticVector } from "../vector.js";
 import { createInsertSchema } from "drizzle-zod";
@@ -36,7 +37,9 @@ export const messagesTable = pgTable("messages", {
   content: text("content").notNull(),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("idx_messages_conversation_id").on(t.conversationId),
+]);
 
 export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   id: serial("id").primaryKey(),
@@ -121,7 +124,9 @@ export const knowledgeChunksTable = pgTable("knowledge_chunks", {
   embeddingModel: text("embedding_model"),
   embeddingDim: integer("embedding_dim"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("idx_knowledge_chunks_document_id").on(t.documentId),
+]);
 
 export const insertKnowledgeChunkSchema = createInsertSchema(
   knowledgeChunksTable,

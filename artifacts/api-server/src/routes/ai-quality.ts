@@ -234,7 +234,14 @@ router.delete("/ai-quality/test-cases/:id", async (req, res) => {
       if (!tc) return apiError(res, 404, "Test case not found");
     }
 
-    await db.delete(aiTestCasesTable).where(eq(aiTestCasesTable.id, id));
+    const [deleted] = await db
+      .delete(aiTestCasesTable)
+      .where(eq(aiTestCasesTable.id, id))
+      .returning();
+    if (!deleted) {
+      apiError(res, 404, "Test case not found");
+      return;
+    }
     res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, "[ai-quality] delete test case error");

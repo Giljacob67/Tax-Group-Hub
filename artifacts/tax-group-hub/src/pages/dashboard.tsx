@@ -189,32 +189,6 @@ const itemVariants = {
   },
 };
 
-function MiniSpark({ data, color }: { data: number[]; color: string }) {
-  const chartData = data.map((v, i) => ({ i, v }));
-  return (
-    <div className="w-16 h-8">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData}>
-          <defs>
-            <linearGradient id={`grad-${color}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-              <stop offset="100%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <Area
-            type="monotone"
-            dataKey="v"
-            stroke={color}
-            strokeWidth={1.5}
-            fill={`url(#grad-${color})`}
-            isAnimationActive={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
 export default function Dashboard() {
   usePageTitle("Command Center");
   const { isDemo } = useDemoMode();
@@ -331,7 +305,7 @@ export default function Dashboard() {
       if (weekData[convDate]) {
         weekData[convDate].convs++;
         // Estimate messages from conversation (if available)
-        const msgCount = conv.messages?.length ?? Math.floor(Math.random() * 10) + 2;
+        const msgCount = conv.messages?.length ?? 0;
         weekData[convDate].msgs += msgCount;
       }
     });
@@ -351,7 +325,6 @@ export default function Dashboard() {
       label: "Empresas no CRM",
       value: totalContacts,
       icon: Building2,
-      spark: [2, 4, 3, 5, 6, 7, 8, 9, 8, 10],
       color: CHART_GREEN,
       href: "/crm?tab=contacts",
     },
@@ -359,7 +332,6 @@ export default function Dashboard() {
       label: "Leads quentes",
       value: hotLeads,
       icon: Flame,
-      spark: [0, 1, 2, 3, 5, 7, 8, 10, 12, 15],
       color: CHART_GOLD,
       href: "/crm?filter=temperature:quente",
     },
@@ -367,7 +339,6 @@ export default function Dashboard() {
       label: "Propostas abertas",
       value: openDeals,
       icon: FileText,
-      spark: [1, 2, 3, 5, 4, 6, 8, 7, 9, 10],
       color: CHART_GREEN,
       href: "/crm?tab=pipeline",
     },
@@ -378,7 +349,6 @@ export default function Dashboard() {
           ? `R$ ${(potentialRevenue / 1_000_000).toFixed(1)}M`
           : "R$ 0",
       icon: DollarSign,
-      spark: [10, 12, 15, 14, 18, 20, 22, 25, 28, 30],
       color: CHART_GREEN,
       href: "/crm?tab=pipeline",
     },
@@ -386,7 +356,6 @@ export default function Dashboard() {
       label: "Ações hoje",
       value: pendingTasks,
       icon: Clock,
-      spark: [0, 2, 4, 3, 5, 7, 6, 8, 10, 9],
       color: CHART_GOLD,
       href: "/crm?tab=today",
     },
@@ -394,7 +363,6 @@ export default function Dashboard() {
       label: "Campanhas ativas",
       value: activeSeqs,
       icon: Zap,
-      spark: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
       color: CHART_GREEN,
       href: "/automations",
     },
@@ -447,9 +415,17 @@ export default function Dashboard() {
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="max-w-xl lg:max-w-2xl">
               <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex h-2 w-2 rounded-full bg-primary" />
-                <span className="text-[11px] font-semibold uppercase tracking-widest text-primary/80">
-                  Operação ativa
+                <span
+                  className={`inline-flex h-2 w-2 rounded-full ${
+                    healthError ? "bg-destructive" : "bg-primary"
+                  }`}
+                />
+                <span
+                  className={`text-[11px] font-semibold uppercase tracking-widest ${
+                    healthError ? "text-destructive/80" : "text-primary/80"
+                  }`}
+                >
+                  {healthError ? "Sistema instável" : "Operação ativa"}
                 </span>
               </div>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
@@ -464,13 +440,25 @@ export default function Dashboard() {
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-shrink-0">
               <Link href="/crm">
-                <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted transition-colors">
+                <button
+                  className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    totalContacts === 0
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "border border-border bg-background hover:bg-muted"
+                  }`}
+                >
                   <Plus className="w-4 h-4" />
                   <span>Importar empresas-alvo</span>
                 </button>
               </Link>
               <Link href="/agent/coordenador-geral-tax-group">
-                <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+                <button
+                  className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    totalContacts === 0
+                      ? "border border-border bg-background hover:bg-muted"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
+                  }`}
+                >
                   <Target className="w-4 h-4" />
                   <span>Iniciar diagnóstico</span>
                 </button>
@@ -478,6 +466,67 @@ export default function Dashboard() {
             </div>
           </div>
         </motion.div>
+
+        {/* ── Checklist de primeiros passos ── */}
+        {!isLoading && !isDemo && (totalContacts === 0 || openDeals === 0) && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-primary/20 bg-primary/5 p-5"
+          >
+            <div className="text-sm font-semibold text-foreground mb-3">
+              Primeiros passos para ativar sua operação
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                {
+                  label: "1. Importar empresas-alvo",
+                  desc: "Suba sua lista de CNPJs (CSV ou Excel) no CRM.",
+                  done: totalContacts > 0,
+                  href: "/crm?tab=contacts",
+                },
+                {
+                  label: "2. Qualificar com IA",
+                  desc: "Selecione os contatos e clique em “Qualificar IA” — oportunidades são criadas automaticamente.",
+                  done: openDeals > 0,
+                  href: "/crm?tab=contacts",
+                },
+                {
+                  label: "3. Trabalhar o pipeline",
+                  desc: "Acompanhe e mova as oportunidades pelas etapas no Kanban.",
+                  done: openDeals > 0 && potentialRevenue > 0,
+                  href: "/crm?tab=pipeline",
+                },
+              ].map((step) => (
+                <Link key={step.label} href={step.href}>
+                  <div
+                    className={`h-full rounded-lg border p-3 cursor-pointer transition-colors ${
+                      step.done
+                        ? "border-primary/30 bg-primary/10"
+                        : "border-border bg-background hover:border-primary/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <CheckCircle2
+                        className={`w-4 h-4 ${
+                          step.done
+                            ? "text-primary"
+                            : "text-muted-foreground/40"
+                        }`}
+                      />
+                      <span className="text-xs font-medium text-foreground">
+                        {step.label}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed pl-6">
+                      {step.desc}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* ── Metrics ── */}
         {isLoading ? (
@@ -499,7 +548,6 @@ export default function Dashboard() {
                     <div className="w-8 h-8 rounded-lg bg-background flex items-center justify-center ring-1 ring-border group-hover:ring-primary/30 transition-colors">
                       <m.icon className="w-4 h-4" style={{ color: m.color }} />
                     </div>
-                    <MiniSpark data={m.spark} color={m.color} />
                   </div>
                   <div>
                     <div className="text-2xl font-bold tracking-tight">
@@ -1160,10 +1208,18 @@ export default function Dashboard() {
                           <Link
                             key={agent.id}
                             href={`/agent/${agent.id}`}
+                            title={agent.description || agent.name}
                             className="flex items-center justify-between px-3 py-2 rounded-lg bg-background/40 hover:bg-background/70 border border-border/20 hover:border-primary/20 transition-colors group/link"
                           >
-                            <span className="text-xs text-foreground/80 group-hover/link:text-foreground truncate pr-2">
-                              {agent.name}
+                            <span className="min-w-0 pr-2">
+                              <span className="block text-xs text-foreground/80 group-hover/link:text-foreground truncate">
+                                {agent.name}
+                              </span>
+                              {agent.description && (
+                                <span className="block text-[10px] text-muted-foreground/60 truncate">
+                                  {agent.description}
+                                </span>
+                              )}
                             </span>
                             <ArrowRight className="w-3 h-3 text-muted-foreground/40 group-hover/link:text-primary flex-shrink-0 transform group-hover/link:translate-x-0.5 transition-transform" />
                           </Link>
@@ -1215,8 +1271,8 @@ export default function Dashboard() {
                 },
                 {
                   icon: BarChart3,
-                  label: "Relatórios",
-                  href: "/integrations",
+                  label: "Métricas de IA",
+                  href: "/analytics",
                   color: "bg-muted text-muted-foreground",
                 },
               ].map((action) => (

@@ -8,6 +8,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import { encrypt, decrypt } from "../lib/crypto.js";
 import { validateWhitelist, validateSafeUrl } from "../lib/validation.js";
+import logger from "../lib/logger.js";
 
 const router: IRouter = Router();
 
@@ -254,7 +255,7 @@ router.get("/settings/integrations", async (req, res) => {
       geminiModel,
     });
   } catch (err: any) {
-    console.error("Error fetching integrations:", err);
+    logger.error({ err }, "Error fetching integrations");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -334,7 +335,7 @@ router.post("/settings/keys", async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
-    console.error("Failed to set API key:", err);
+    logger.error({ err }, "Failed to set API key");
     apiError(res, 500, "Failed to set API key");
   }
 });
@@ -501,7 +502,7 @@ router.post("/settings/active-provider/test", async (req, res) => {
       executionTimeMs: result.executionTimeMs,
     });
   } catch (err: any) {
-    console.error("[Settings] active-provider/test failed:", err);
+    logger.error({ err }, "[Settings] active-provider/test failed");
     apiError(res, 502, "Provider connection failed");
   }
 });
@@ -518,7 +519,7 @@ router.get("/settings/channels", async (req, res) => {
 
     res.json({ channels });
   } catch (err) {
-    console.error("Error listing channels:", err);
+    logger.error({ err }, "Error listing channels");
     apiError(res, 500, "Failed to list channels");
   }
 });
@@ -570,7 +571,7 @@ router.post("/settings/channels", async (req, res) => {
       res.json({ success: true, channel: newChan });
     }
   } catch (err) {
-    console.error("Error saving channel config:", err);
+    logger.error({ err }, "Error saving channel config");
     apiError(res, 500, "Failed to save channel config");
   }
 });
@@ -601,7 +602,7 @@ router.delete("/settings/channels/:id", async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
-    console.error("Error deleting channel:", err);
+    logger.error({ err }, "Error deleting channel");
     apiError(res, 500, "Failed to delete channel");
   }
 });
@@ -730,7 +731,7 @@ router.get("/settings/models", async (_req, res) => {
           : null,
     });
   } catch (err) {
-    console.error("Error fetching models:", err);
+    logger.error({ err }, "Error fetching models");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -741,7 +742,7 @@ router.get("/settings/ollama", async (_req, res) => {
     const model = await getEffectiveOllamaModel();
     res.json({ url, source, model });
   } catch (err) {
-    console.error("Error fetching ollama settings:", err);
+    logger.error({ err }, "Error fetching ollama settings");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -829,7 +830,7 @@ router.put("/settings/ollama", async (req, res) => {
     const newModel = await getEffectiveOllamaModel();
     res.json({ url: newUrl, source, model: newModel, saved: true });
   } catch (err) {
-    console.error("Error saving ollama settings:", err);
+    logger.error({ err }, "Error saving ollama settings");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -903,7 +904,7 @@ router.post("/settings/ollama/test", async (req, res) => {
       }
     }
   } catch (err) {
-    console.error("Error testing ollama connection:", err);
+    logger.error({ err }, "Error testing ollama connection");
     apiError(res, 500, "Internal server error");
   }
 });

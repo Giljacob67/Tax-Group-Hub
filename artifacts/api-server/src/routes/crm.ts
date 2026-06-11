@@ -96,6 +96,7 @@ import {
   getOperationalDashboard,
   getPosVendaDashboard,
 } from "../lib/dashboards.js";
+import logger from "../lib/logger.js";
 
 const router = Router();
 
@@ -130,9 +131,9 @@ function fireIntegrationEvent(
         });
       }
     } catch (err) {
-      console.error(
-        `[Integration] fireIntegrationEvent(${eventType}) failed:`,
-        err,
+      logger.error(
+        { err, eventType },
+        "[Integration] fireIntegrationEvent failed",
       );
     }
 
@@ -155,9 +156,9 @@ function fireIntegrationEvent(
         await dispatchToHubSpot(client, eventType, payload, userId);
       }
     } catch (err) {
-      console.error(
-        `[Integration] HubSpot dispatch(${eventType}) failed:`,
-        err,
+      logger.error(
+        { err, eventType },
+        "[Integration] HubSpot dispatch failed",
       );
     }
   });
@@ -277,7 +278,7 @@ async function dispatchToHubSpot(
       }
     }
   } catch (err) {
-    console.error(`[Integration] dispatchToHubSpot(${eventType}) error:`, err);
+    logger.error({ err, eventType }, "[Integration] dispatchToHubSpot error");
   }
 }
 
@@ -414,7 +415,7 @@ async function evaluateAutomations(
           content: `Automação '${auto.name}' enrolou este contato na sequência "${seq.name}" (${seq.steps.length} etapas).`,
         });
 
-        console.log(
+        logger.info(
           `[Automations] Contact ${contactId} enrolled in sequence ${seqId} by automation ${auto.id}`,
         );
       } else if (auto.actionType === "send_whatsapp" && auto.actionPayload) {
@@ -489,7 +490,7 @@ async function evaluateAutomations(
       }
     }
   } catch (error) {
-    console.error("[Automations] evaluateAutomations error:", error);
+    logger.error({ error }, "[Automations] evaluateAutomations error");
   }
 }
 
@@ -577,7 +578,7 @@ async function evaluateEventAutomations(
     }
     return fired;
   } catch (err) {
-    console.error("[Automations] evaluateEventAutomations error:", err);
+    logger.error({ err }, "[Automations] evaluateEventAutomations error");
     return 0;
   }
 }
@@ -1185,10 +1186,9 @@ router.post("/contacts", async (req: Request, res: Response) => {
     // Background: enrich + integration event
     setImmediate(() => {
       enrichContact(newContact.id, userId).catch((err: Error) =>
-        console.error(
+        logger.error(
+          { err, contactId: newContact.id },
           "[Enrichment] Background enrich failed for contact",
-          newContact.id,
-          err,
         ),
       );
     });
@@ -1586,6 +1586,7 @@ router.post("/contacts/import", async (req: Request, res: Response) => {
     res.json({
       success: true,
       results,
+      enrichment: token ? "empresaqui" : "disabled",
       summary: {
         created: results.filter((r) => r.status === "created").length,
         duplicates: results.filter((r) => r.status === "duplicate").length,
@@ -1740,7 +1741,7 @@ router.post("/contacts/:id/qualify", async (req: Request, res: Response) => {
             contactId: contact.id,
             userId,
             title: `Oportunidade - ${contact.razaoSocial || contact.cnpj}`,
-            value: "50000",
+            // Valor não estimado pela qualificação — preenchido manualmente pelo closer
             stage,
             probability,
             expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -1772,7 +1773,7 @@ router.post("/contacts/:id/qualify", async (req: Request, res: Response) => {
       );
     }
   } catch (err: any) {
-    console.error("[crm] qualify failed:", err);
+    logger.error({ err }, "[crm] qualify failed");
     logAndApiError(res, err, 500, "Qualification failed");
   }
 });
@@ -2076,11 +2077,13 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
           .where(eq(crmContactsTable.id, deal.contactId))
           .limit(1);
 
-        // When "fechado_ganho" → always set to "cliente"
-        // When "perdido" → set to "perdido" only if not already "cliente"
+        // Sincroniza status do contato em toda mudança de etapa do deal,
+        // exceto: nunca rebaixar um contato que já é "cliente" (a menos que
+        // a nova etapa também mapeie para "cliente").
         const shouldUpdate =
-          body.stage === "fechado_ganho" ||
-          (body.stage === "perdido" && currentContact?.status !== "cliente");
+          currentContact?.status !== newContactStatus &&
+          (currentContact?.status !== "cliente" ||
+            newContactStatus === "cliente");
 
         if (shouldUpdate) {
           await db
@@ -2129,7 +2132,7 @@ router.put("/deals/:id", async (req: Request, res: Response) => {
             body.stage,
             deal.id,
           ).catch((err) =>
-            console.error("[Automations] deal_stage_changed error:", err),
+            logger.error({ err }, "[Automations] deal_stage_changed error"),
           );
         });
 
@@ -2339,7 +2342,14 @@ router.delete("/deals/:id", async (req: Request, res: Response) => {
       apiError(res, 404, "Deal not found");
       return;
     }
-    await db.delete(crmDealsTable).where(eq(crmDealsTable.id, existing.id));
+    const [deleted] = await db
+      .delete(crmDealsTable)
+      .where(eq(crmDealsTable.id, existing.id))
+      .returning();
+    if (!deleted) {
+      apiError(res, 404, "Deal not found");
+      return;
+    }
     res.json({ success: true });
   } catch (err: any) {
     logAndApiError(res, err, 500, "Failed to delete deal");
@@ -2660,7 +2670,14 @@ router.delete("/tasks/:id", async (req: Request, res: Response) => {
       apiError(res, 404, "Task not found");
       return;
     }
-    await db.delete(crmTasksTable).where(eq(crmTasksTable.id, existing.id));
+    const [deleted] = await db
+      .delete(crmTasksTable)
+      .where(eq(crmTasksTable.id, existing.id))
+      .returning();
+    if (!deleted) {
+      apiError(res, 404, "Task not found");
+      return;
+    }
     res.json({ success: true });
   } catch (err: any) {
     logAndApiError(res, err, 500, "Failed to delete task");
@@ -3569,19 +3586,15 @@ router.get("/dashboards/:persona", async (req: Request, res: Response) => {
     }
     res.json({ success: true, persona, period, data });
   } catch (err: any) {
-    console.error(
+    logger.error(
+      { persona: req.params.persona, errMessage: err?.message },
       "[dashboards] error for persona",
-      req.params.persona,
-      ":",
-      err?.message,
     );
-    console.error(
-      "[dashboards] cause:",
-      err?.cause?.message,
-      err?.cause?.code,
-      err?.cause?.detail,
+    logger.error(
+      { causeMessage: err?.cause?.message, causeCode: err?.cause?.code, causeDetail: err?.cause?.detail },
+      "[dashboards] cause",
     );
-    console.error("[dashboards] stack:", err?.stack?.slice(0, 800));
+    logger.error({ stack: err?.stack?.slice(0, 800) }, "[dashboards] stack");
     if (err.statusCode) {
       apiError(res, err.statusCode, err.message);
       return;
@@ -3737,7 +3750,7 @@ router.get("/quality/health", async (req: Request, res: Response) => {
     const health = await computeHealth(userId);
     res.json({ success: true, ...health });
   } catch (err: any) {
-    console.error("[crm/quality/health]", err);
+    logger.error({ err }, "[crm/quality/health]");
     if (err.statusCode) {
       apiError(res, err.statusCode, err.message);
       return;
@@ -3753,7 +3766,7 @@ router.get("/quality/issues", async (req: Request, res: Response) => {
     const issues = await evaluateDataQuality(userId);
     res.json({ success: true, issues, total: issues.length });
   } catch (err: any) {
-    console.error("[crm/quality/issues]", err);
+    logger.error({ err }, "[crm/quality/issues]");
     logAndApiError(res, err, 500, "Failed to get quality issues");
   }
 });
@@ -4045,7 +4058,7 @@ router.get("/governance/recent", async (req: Request, res: Response) => {
 
     res.json({ success: true, entries: combined, total: combined.length });
   } catch (err: any) {
-    console.error("[crm/governance/recent]", err);
+    logger.error({ err }, "[crm/governance/recent]");
     if (err.statusCode) {
       apiError(res, err.statusCode, err.message);
       return;
@@ -4750,7 +4763,7 @@ router.post("/deals/:id/send-to-matriz", async (req: Request, res: Response) => 
           });
         }
       } catch (err) {
-        console.error("[Matriz] Webhook dispatch failed:", err);
+        logger.error({ err }, "[Matriz] Webhook dispatch failed");
       }
     });
     
@@ -4944,7 +4957,7 @@ async function evaluateNextStepsForContact(userId: string, contactId: number) {
       .set({ proximoPassoRecomendado: rec as any, updatedAt: new Date() })
       .where(eq(crmContactsTable.id, contactId));
   } catch (err) {
-    console.error("[next-step] re-evaluate failed:", err);
+    logger.error({ err }, "[next-step] re-evaluate failed");
   }
 }
 
@@ -5061,7 +5074,7 @@ router.get("/segments", async (req: Request, res: Response) => {
         .filter((s) => s.contacts > 0),
     });
   } catch (err: any) {
-    console.error("[CRM] segments error:", err);
+    logger.error({ err }, "[CRM] segments error");
     logAndApiError(res, err, 500, "Failed to compute segments");
   }
 });

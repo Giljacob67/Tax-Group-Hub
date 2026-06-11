@@ -197,7 +197,7 @@ export const DEAL_STAGE_COLORS: Record<DealStage, string> = {
   onboarding_cliente: "#14B8A6",
   execucao_pela_matriz: "#A855F7",
   acompanhamento_pendencias: "#F59E0B",
-  pos_venda_expansao: "#3B82F4",
+  pos_venda_expansao: "#3B82F6",
   encerrado: "#6B7280",
 };
 

@@ -24,6 +24,7 @@ import {
 import { dispatchWebhook } from "../lib/webhook-dispatcher.js";
 import { validateSafeUrl } from "../lib/validation.js";
 import { safeNumber } from "../lib/validation.js";
+import logger from "../lib/logger.js";
 import { HubSpotClient, ensureCustomProperties } from "@workspace/hubspot";
 import {
   getHubSpotConfig,
@@ -175,7 +176,7 @@ router.post("/integrations/generate-image", async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error("Error generating image:", err);
+    logger.error({ err }, "Error generating image");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -206,7 +207,7 @@ router.get("/integrations/image-gallery/:agentId", async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error("Error fetching image gallery:", err);
+    logger.error({ err }, "Error fetching image gallery");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -246,7 +247,7 @@ router.post("/integrations/canva-link", async (req, res) => {
     const url = `https://www.canva.com/design/new?designType=${design.type}&title=${encodedTitle}`;
     res.json({ url, contentType, label: design.label });
   } catch (err) {
-    console.error("Error generating Canva link:", err);
+    logger.error({ err }, "Error generating Canva link");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -297,11 +298,11 @@ router.post("/integrations/search-knowledge", async (req, res) => {
         results: results.filter((r) => r.score > 0.3), // Vector similarity threshold
       });
     } catch (embErr) {
-      console.error("Vector search error:", embErr);
+      logger.error({ err: embErr }, "Vector search error");
       apiError(res, 500, "Failed to perform vector search");
     }
   } catch (err) {
-    console.error("Error searching knowledge:", err);
+    logger.error({ err }, "Error searching knowledge");
     apiError(res, 500, "Internal server error");
   }
 });
@@ -497,7 +498,7 @@ router.get("/integrations/health", async (req, res) => {
 
     res.json({ integrations, summary: { connected, errors, lastRun } });
   } catch (err) {
-    console.error("[Integrations] health error:", err);
+    logger.error({ err }, "[Integrations] health error");
     apiError(res, 500, "Failed to load integration health");
   }
 });
@@ -526,7 +527,7 @@ router.get("/integrations/logs", async (req, res) => {
 
     res.json({ logs, total: logs.length });
   } catch (err) {
-    console.error("[Integrations] logs list error:", err);
+    logger.error({ err }, "[Integrations] logs list error");
     apiError(res, 500, "Failed to load logs");
   }
 });
@@ -562,7 +563,7 @@ router.get("/integrations/logs/:id", async (req, res) => {
 
     res.json({ log });
   } catch (err) {
-    console.error("[Integrations] log detail error:", err);
+    logger.error({ err }, "[Integrations] log detail error");
     apiError(res, 500, "Failed to load log");
   }
 });
@@ -624,7 +625,7 @@ router.get("/integrations/make/config", async (_req, res) => {
     const config = await getMakeConfig();
     res.json({ config });
   } catch (err) {
-    console.error("[Integrations] make config get error:", err);
+    logger.error({ err }, "[Integrations] make config get error");
     apiError(res, 500, "Failed to load Make config");
   }
 });
@@ -671,7 +672,7 @@ router.post("/integrations/make/config", async (req, res) => {
     const config = await getMakeConfig();
     res.json({ success: true, config });
   } catch (err) {
-    console.error("[Integrations] make config save error:", err);
+    logger.error({ err }, "[Integrations] make config save error");
     apiError(res, 500, "Failed to save Make config");
   }
 });
@@ -728,7 +729,7 @@ router.post("/integrations/make/test", async (req, res) => {
       errorCode: result.errorCode,
     });
   } catch (err) {
-    console.error("[Integrations] make test error:", err);
+    logger.error({ err }, "[Integrations] make test error");
     apiError(res, 500, "Erro ao enviar teste para Make.com");
   }
 });
@@ -772,7 +773,7 @@ router.post("/integrations/inbound/:source", async (req, res) => {
       receivedAt: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("[Integrations] inbound webhook error:", err);
+    logger.error({ err }, "[Integrations] inbound webhook error");
     // Still ACK — don't make external senders retry on our internal errors
     res.json({ ok: true, correlationId, message: "Webhook recebido" });
   }
@@ -827,7 +828,7 @@ router.post("/integrations/events/dispatch", async (req, res) => {
 
     res.json({ ok: true, dispatched: results.length, results });
   } catch (err) {
-    console.error("[Integrations] dispatch error:", err);
+    logger.error({ err }, "[Integrations] dispatch error");
     apiError(res, 500, "Dispatch failed");
   }
 });
@@ -892,7 +893,7 @@ router.get("/integrations/hubspot/config", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("[Integrations] hubspot config get error:", err);
+    logger.error({ err }, "[Integrations] hubspot config get error");
     apiError(res, 500, "Failed to load HubSpot config");
   }
 });
@@ -984,7 +985,7 @@ router.post("/integrations/hubspot/config", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("[Integrations] hubspot config save error:", err);
+    logger.error({ err }, "[Integrations] hubspot config save error");
     apiError(res, 500, "Failed to save HubSpot config");
   }
 });
@@ -1072,7 +1073,7 @@ router.post("/integrations/hubspot/test", async (req, res) => {
           },
     });
   } catch (err) {
-    console.error("[Integrations] hubspot test error:", err);
+    logger.error({ err }, "[Integrations] hubspot test error");
     apiError(res, 500, "Erro ao testar conexão com HubSpot");
   }
 });
@@ -1109,7 +1110,7 @@ router.post(
         ...result,
       });
     } catch (err) {
-      console.error("[Integrations] hubspot setup-properties error:", err);
+      logger.error({ err }, "[Integrations] hubspot setup-properties error");
       apiError(res, 500, "Erro ao configurar propriedades no HubSpot");
     }
   },
@@ -1135,7 +1136,7 @@ router.get("/integrations/hubspot/lists", async (req, res) => {
 
     res.json({ mappings });
   } catch (err) {
-    console.error("[Integrations] hubspot lists get error:", err);
+    logger.error({ err }, "[Integrations] hubspot lists get error");
     apiError(res, 500, "Failed to load list mappings");
   }
 });
@@ -1192,7 +1193,7 @@ router.post("/integrations/hubspot/lists", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("[Integrations] hubspot list save error:", err);
+    logger.error({ err }, "[Integrations] hubspot list save error");
     apiError(res, 500, "Failed to save list mapping");
   }
 });
@@ -1221,7 +1222,7 @@ router.delete("/integrations/hubspot/lists/:tagName", async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    console.error("[Integrations] hubspot list delete error:", err);
+    logger.error({ err }, "[Integrations] hubspot list delete error");
     apiError(res, 500, "Failed to delete list mapping");
   }
 });
@@ -1249,7 +1250,7 @@ router.post("/integrations/hubspot/sync-lists", async (req, res) => {
 
     res.json({ ok: true, ...result });
   } catch (err) {
-    console.error("[Integrations] hubspot sync-lists error:", err);
+    logger.error({ err }, "[Integrations] hubspot sync-lists error");
     apiError(res, 500, "Erro ao sincronizar listas");
   }
 });
@@ -1346,7 +1347,7 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err) {
-    console.error("[Integrations] hubspot sync cron error:", err);
+    logger.error({ err }, "[Integrations] hubspot sync cron error");
     apiError(res, 500, "HubSpot sync failed");
   }
 });

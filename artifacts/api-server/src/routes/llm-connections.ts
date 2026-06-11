@@ -8,6 +8,7 @@ import {
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { encrypt, decrypt } from "../lib/crypto.js";
 import { apiError } from "../lib/api-response.js";
+import logger from "../lib/logger.js";
 import { isRealUser } from "../middlewares/auth.js";
 import { discoverModels } from "../lib/model-discovery.js";
 import { callLLM } from "../lib/llm-client.js";
@@ -330,7 +331,7 @@ router.post("/llm/validate", async (req, res) => {
     const ok = results.every((r) => r.ok);
     res.json({ success: true, ok, provider, results });
   } catch (err: any) {
-    console.error("[LLM] validate error:", err);
+    logger.error({ err }, "[LLM] validate error");
     apiError(res, 500, err?.message || "Falha ao validar credenciais.");
   }
 });
@@ -364,7 +365,7 @@ router.post("/llm/discover", async (req, res) => {
     const result = await discoverModels(provider, body.apiKey, baseUrl);
     res.json(result);
   } catch (err: any) {
-    console.error("[LLM] discover error:", err);
+    logger.error({ err }, "[LLM] discover error");
     apiError(res, 500, "Discovery failed");
   }
 });
@@ -390,7 +391,7 @@ router.get("/llm/connections", async (req, res) => {
 
     res.json({ success: true, connections: safe });
   } catch (err) {
-    console.error("[LLM] list connections error:", err);
+    logger.error({ err }, "[LLM] list connections error");
     apiError(res, 500, "Failed to list connections");
   }
 });
@@ -490,7 +491,7 @@ router.post("/llm/connections", async (req, res) => {
       .status(201)
       .json({ success: true, connection: { ...safe, hasKey: true } });
   } catch (err) {
-    console.error("[LLM] create connection error:", err);
+    logger.error({ err }, "[LLM] create connection error");
     apiError(res, 500, "Failed to create connection");
   }
 });
@@ -586,7 +587,7 @@ router.put("/llm/connections/:id", async (req, res) => {
     const { apiKey: _, ...safe } = updated;
     res.json({ success: true, connection: { ...safe, hasKey: true } });
   } catch (err) {
-    console.error("[LLM] update connection error:", err);
+    logger.error({ err }, "[LLM] update connection error");
     apiError(res, 500, "Failed to update connection");
   }
 });
@@ -605,10 +606,17 @@ router.delete("/llm/connections/:id", async (req, res) => {
     const userScope = scopeByUser(userId);
     if (userScope) conditions.push(userScope);
 
-    await db.delete(llmConnectionsTable).where(and(...conditions));
+    const [deleted] = await db
+      .delete(llmConnectionsTable)
+      .where(and(...conditions))
+      .returning();
+    if (!deleted) {
+      apiError(res, 404, "Connection not found");
+      return;
+    }
     res.json({ success: true });
   } catch (err) {
-    console.error("[LLM] delete connection error:", err);
+    logger.error({ err }, "[LLM] delete connection error");
     apiError(res, 500, "Failed to delete connection");
   }
 });
@@ -709,7 +717,7 @@ router.post("/llm/connections/:id/test", async (req, res) => {
       });
     }
   } catch (err) {
-    console.error("[LLM] test connection error:", err);
+    logger.error({ err }, "[LLM] test connection error");
     apiError(res, 500, "Failed to test connection");
   }
 });
@@ -759,7 +767,7 @@ router.post("/llm/connections/:id/activate", async (req, res) => {
 
     res.json({ success: true, connectionId: id, usageType: conn.usageType });
   } catch (err) {
-    console.error("[LLM] activate connection error:", err);
+    logger.error({ err }, "[LLM] activate connection error");
     apiError(res, 500, "Failed to activate connection");
   }
 });
@@ -778,7 +786,7 @@ router.get("/llm/profiles", async (req, res) => {
 
     res.json({ success: true, profiles });
   } catch (err) {
-    console.error("[LLM] list profiles error:", err);
+    logger.error({ err }, "[LLM] list profiles error");
     apiError(res, 500, "Failed to list profiles");
   }
 });
@@ -863,7 +871,7 @@ router.post("/llm/profiles", async (req, res) => {
 
     res.status(201).json({ success: true, profile });
   } catch (err) {
-    console.error("[LLM] create profile error:", err);
+    logger.error({ err }, "[LLM] create profile error");
     apiError(res, 500, "Failed to create profile");
   }
 });
@@ -970,7 +978,7 @@ router.put("/llm/profiles/:id", async (req, res) => {
 
     res.json({ success: true, profile: updated });
   } catch (err) {
-    console.error("[LLM] update profile error:", err);
+    logger.error({ err }, "[LLM] update profile error");
     apiError(res, 500, "Failed to update profile");
   }
 });
@@ -989,10 +997,17 @@ router.delete("/llm/profiles/:id", async (req, res) => {
     if (isRealUser(userId))
       conditions.push(eq(llmProfilesTable.userId, userId));
 
-    await db.delete(llmProfilesTable).where(and(...conditions));
+    const [deleted] = await db
+      .delete(llmProfilesTable)
+      .where(and(...conditions))
+      .returning();
+    if (!deleted) {
+      apiError(res, 404, "Profile not found");
+      return;
+    }
     res.json({ success: true });
   } catch (err) {
-    console.error("[LLM] delete profile error:", err);
+    logger.error({ err }, "[LLM] delete profile error");
     apiError(res, 500, "Failed to delete profile");
   }
 });
@@ -1034,7 +1049,7 @@ router.post("/llm/profiles/:id/activate", async (req, res) => {
 
     res.json({ success: true, profileId: id });
   } catch (err) {
-    console.error("[LLM] activate profile error:", err);
+    logger.error({ err }, "[LLM] activate profile error");
     apiError(res, 500, "Failed to activate profile");
   }
 });
@@ -1122,7 +1137,7 @@ router.get("/llm/active-profile", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("[LLM] active profile error:", err);
+    logger.error({ err }, "[LLM] active profile error");
     apiError(res, 500, "Failed to get active profile");
   }
 });
@@ -1176,7 +1191,7 @@ async function handleHealthCheck(req: any, res: any) {
 
     res.json({ success: true, results });
   } catch (err) {
-    console.error("[LLM] health-check error:", err);
+    logger.error({ err }, "[LLM] health-check error");
     apiError(res, 500, "Health check failed");
   }
 }
