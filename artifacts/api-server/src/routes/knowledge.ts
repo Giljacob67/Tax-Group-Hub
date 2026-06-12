@@ -329,14 +329,11 @@ export async function processDocumentFromContent(
 
 // ── GET /knowledge/health ────────────────────────────────────────────────────
 
-router.get("/knowledge/health", async (req, res) => {
+router.get("/knowledge/health", async (_req, res) => {
   try {
-    const userId = req.userId;
-    const userFilter =
-      userId && userId !== "default" && userId !== "dev-user"
-        ? eq(knowledgeDocumentsTable.userId, userId)
-        : undefined;
-
+    // KB organizacional: documentos são compartilhados entre todos os usuários
+    // autenticados. O userId do upload é mantido apenas como metadado de
+    // auditoria — RAG, listagens e estatísticas enxergam a base inteira.
     const [stats] = await db
       .select({
         total: count(),
@@ -345,13 +342,11 @@ router.get("/knowledge/health", async (req, res) => {
         errors: sql<number>`count(*) filter (where ${knowledgeDocumentsTable.status} = 'error')`,
         totalChunks: sql<number>`coalesce(sum(${knowledgeDocumentsTable.chunkCount}), 0)`,
       })
-      .from(knowledgeDocumentsTable)
-      .where(userFilter);
+      .from(knowledgeDocumentsTable);
 
     const [lastDoc] = await db
       .select({ createdAt: knowledgeDocumentsTable.createdAt })
       .from(knowledgeDocumentsTable)
-      .where(userFilter)
       .orderBy(desc(knowledgeDocumentsTable.createdAt))
       .limit(1);
 
@@ -361,7 +356,6 @@ router.get("/knowledge/health", async (req, res) => {
         cnt: count(),
       })
       .from(knowledgeDocumentsTable)
-      .where(userFilter)
       .groupBy(knowledgeDocumentsTable.origin);
 
     res.json({
@@ -390,28 +384,19 @@ router.get("/knowledge/health", async (req, res) => {
 router.get("/knowledge", async (req, res) => {
   try {
     const { agentId } = req.query;
-    const userId = req.userId;
-    const userFilter =
-      userId && userId !== "default" && userId !== "dev-user"
-        ? eq(knowledgeDocumentsTable.userId, userId)
-        : undefined;
 
+    // KB organizacional: sem filtro por userId (ver comentário em /knowledge/health).
     let documents;
     if (agentId && typeof agentId === "string") {
       documents = await db
         .select()
         .from(knowledgeDocumentsTable)
-        .where(
-          userFilter
-            ? and(eq(knowledgeDocumentsTable.agentId, agentId), userFilter)
-            : eq(knowledgeDocumentsTable.agentId, agentId),
-        )
+        .where(eq(knowledgeDocumentsTable.agentId, agentId))
         .orderBy(desc(knowledgeDocumentsTable.createdAt));
     } else {
       documents = await db
         .select()
         .from(knowledgeDocumentsTable)
-        .where(userFilter)
         .orderBy(desc(knowledgeDocumentsTable.createdAt));
     }
 
@@ -434,20 +419,10 @@ router.get("/knowledge/:id", async (req, res, next) => {
     return;
   }
   try {
-    const userId = req.userId;
-    const userFilter =
-      userId && userId !== "default" && userId !== "dev-user"
-        ? eq(knowledgeDocumentsTable.userId, userId)
-        : undefined;
-
     const [doc] = await db
       .select()
       .from(knowledgeDocumentsTable)
-      .where(
-        userFilter
-          ? and(eq(knowledgeDocumentsTable.id, Number(req.params.id)), userFilter)
-          : eq(knowledgeDocumentsTable.id, Number(req.params.id)),
-      )
+      .where(eq(knowledgeDocumentsTable.id, Number(req.params.id)))
       .limit(1);
 
     if (!doc) {
@@ -714,14 +689,8 @@ router.post("/knowledge/upload", async (req, res) => {
 
 // ── GET /knowledge/sources ───────────────────────────────────────────────────
 
-router.get("/knowledge/sources", async (req, res) => {
+router.get("/knowledge/sources", async (_req, res) => {
   try {
-    const userId = req.userId;
-    const userFilter =
-      userId && userId !== "default" && userId !== "dev-user"
-        ? eq(knowledgeDocumentsTable.userId, userId)
-        : undefined;
-
     const origins = await db
       .select({
         origin: knowledgeDocumentsTable.origin,
@@ -730,7 +699,6 @@ router.get("/knowledge/sources", async (req, res) => {
         errors: sql<number>`count(*) filter (where ${knowledgeDocumentsTable.status} = 'error')`,
       })
       .from(knowledgeDocumentsTable)
-      .where(userFilter)
       .groupBy(knowledgeDocumentsTable.origin);
 
     const sources = [
@@ -786,15 +754,11 @@ router.post("/knowledge/search", async (req, res) => {
       const {
         embeddings: [queryEmbedding],
       } = await generateEmbeddings([query]);
-      const userId = req.userId;
 
       const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
 
       const filters = [
         agentId ? eq(knowledgeDocumentsTable.agentId, agentId) : sql`TRUE`,
-        userId && userId !== "default" && userId !== "dev-user"
-          ? eq(knowledgeDocumentsTable.userId, userId)
-          : sql`TRUE`,
         category ? eq(knowledgeDocumentsTable.category, category) : sql`TRUE`,
         product ? eq(knowledgeDocumentsTable.product, product) : sql`TRUE`,
       ];
@@ -838,19 +802,11 @@ router.post("/knowledge/search", async (req, res) => {
     } catch (embErr) {
       logger.error({ err: embErr }, "Vector search error");
       // Fallback: text search if embeddings unavailable
-      const userFilter =
-        req.userId && req.userId !== "default" && req.userId !== "dev-user"
-          ? eq(knowledgeDocumentsTable.userId, req.userId)
-          : undefined;
-
       const docs = await db
         .select()
         .from(knowledgeDocumentsTable)
         .where(
-          and(
-            userFilter,
-            sql`${knowledgeDocumentsTable.extractedContent} ilike ${"%" + query + "%"}`,
-          ),
+          sql`${knowledgeDocumentsTable.extractedContent} ilike ${"%" + query + "%"}`,
         )
         .limit(limit || 5);
 
@@ -898,19 +854,13 @@ router.get("/knowledge/:id/chunks", async (req, res) => {
     );
     const offset = (page - 1) * pageSize;
 
-    const userId = req.userId;
-
     const [doc] = await db
       .select({
         id: knowledgeDocumentsTable.id,
         filename: knowledgeDocumentsTable.filename,
       })
       .from(knowledgeDocumentsTable)
-      .where(
-        userId && userId !== "default" && userId !== "dev-user" && userId !== "service"
-          ? and(eq(knowledgeDocumentsTable.id, id), eq(knowledgeDocumentsTable.userId, userId))
-          : eq(knowledgeDocumentsTable.id, id),
-      );
+      .where(eq(knowledgeDocumentsTable.id, id));
 
     if (!doc) {
       apiError(res, 404, "Documento não encontrado");
@@ -966,16 +916,10 @@ router.post("/knowledge/:id/reindex", async (req, res) => {
       return;
     }
 
-    const userId = req.userId;
-
     const [doc] = await db
       .select()
       .from(knowledgeDocumentsTable)
-      .where(
-        userId && userId !== "default" && userId !== "dev-user" && userId !== "service"
-          ? and(eq(knowledgeDocumentsTable.id, id), eq(knowledgeDocumentsTable.userId, userId))
-          : eq(knowledgeDocumentsTable.id, id),
-      );
+      .where(eq(knowledgeDocumentsTable.id, id));
 
     if (!doc) {
       apiError(res, 404, "Documento não encontrado");
@@ -1018,21 +962,13 @@ router.delete("/knowledge/:id", async (req, res) => {
       return;
     }
 
-    const userId = req.userId;
-    if (userId && userId !== "default" && userId !== "dev-user") {
-      const [doc] = await db
-        .select()
-        .from(knowledgeDocumentsTable)
-        .where(
-          and(
-            eq(knowledgeDocumentsTable.id, id),
-            eq(knowledgeDocumentsTable.userId, userId),
-          ),
-        );
-      if (!doc) {
-        apiError(res, 404, "Documento não encontrado ou acesso negado");
-        return;
-      }
+    const [doc] = await db
+      .select({ id: knowledgeDocumentsTable.id })
+      .from(knowledgeDocumentsTable)
+      .where(eq(knowledgeDocumentsTable.id, id));
+    if (!doc) {
+      apiError(res, 404, "Documento não encontrado");
+      return;
     }
 
     await db

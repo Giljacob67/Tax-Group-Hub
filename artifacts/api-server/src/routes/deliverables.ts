@@ -131,7 +131,7 @@ function buildCompanyContext(
 
 async function fetchRAGContext(
   query: string,
-  userId?: string,
+  _userId?: string,
 ): Promise<{
   chunks: Array<{ filename: string; content: string; score: number }>;
 }> {
@@ -140,6 +140,7 @@ async function fetchRAGContext(
       embeddings: [queryEmbedding],
     } = await generateEmbeddings([query]);
     const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
+    // KB organizacional: sem filtro por userId (base compartilhada do time).
     const results = await db
       .select({
         content: knowledgeChunksTable.content,
@@ -150,11 +151,6 @@ async function fetchRAGContext(
       .innerJoin(
         knowledgeDocumentsTable,
         eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id),
-      )
-      .where(
-        isRealUser(userId)
-          ? eq(knowledgeDocumentsTable.userId, userId)
-          : sql`TRUE`,
       )
       .orderBy(desc(similarity))
       .limit(6);

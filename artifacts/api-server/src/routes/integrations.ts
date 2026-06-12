@@ -268,7 +268,6 @@ router.post("/integrations/search-knowledge", async (req, res) => {
       const {
         embeddings: [queryEmbedding],
       } = await generateEmbeddings([query]);
-      const userId = req.userId;
 
       const similarity = sql<number>`1 - (${knowledgeChunksTable.embedding} <=> ${JSON.stringify(queryEmbedding)})`;
 
@@ -284,11 +283,9 @@ router.post("/integrations/search-knowledge", async (req, res) => {
           knowledgeDocumentsTable,
           eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id),
         )
+        // KB organizacional: sem filtro por userId (base compartilhada do time).
         .where(
-          and(
-            agentId ? eq(knowledgeDocumentsTable.agentId, agentId) : sql`TRUE`,
-            userId ? eq(knowledgeDocumentsTable.userId, userId) : sql`TRUE`,
-          ),
+          agentId ? eq(knowledgeDocumentsTable.agentId, agentId) : sql`TRUE`,
         )
         .orderBy((t: any) => desc(t.score))
         .limit(limit || 5);

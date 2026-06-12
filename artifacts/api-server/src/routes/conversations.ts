@@ -471,13 +471,13 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
             knowledgeDocumentsTable,
             eq(knowledgeChunksTable.documentId, knowledgeDocumentsTable.id),
           )
+          // KB organizacional: sem filtro por userId — agentes fundamentam
+          // respostas na base inteira (docs do agente + globais), independente
+          // de quem fez o upload. Causa do bug "agente alucina apesar do doc
+          // estar na KB": docs subidos via token demo (userId="demo") ficavam
+          // invisíveis para conversas de usuários reais.
           .where(
-            and(
-              sql`${knowledgeDocumentsTable.agentId} = ${conv.agentId} OR ${knowledgeDocumentsTable.agentId} = 'global'`,
-              isRealUser(userId)
-                ? eq(knowledgeDocumentsTable.userId, userId)
-                : sql`TRUE`,
-            ),
+            sql`${knowledgeDocumentsTable.agentId} = ${conv.agentId} OR ${knowledgeDocumentsTable.agentId} = 'global'`,
           )
           .orderBy((t: any) => desc(t.score))
           .limit(5);
@@ -487,7 +487,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
           const contextText = relevantChunks
             .map((c) => `[Doc: ${c.filename}]\n${c.content}`)
             .join("\n\n");
-          systemPrompt += `\n\n--- CONTEXTO REFERÊNCIA ---\n${contextText}`;
+          systemPrompt += `\n\n--- CONTEXTO REFERÊNCIA (base de conhecimento Tax Group) ---\n${contextText}\n--- FIM DO CONTEXTO ---\n\nInstruções de uso do contexto: trate os documentos acima como fonte primária quando relevantes à pergunta. Ao usar informação deles, cite a fonte no formato [Fonte: nome-do-arquivo]. NUNCA invente produtos, percentuais, CNPJs ou dados específicos da Tax Group que não constem do contexto acima ou das suas instruções.`;
 
           // Deduplicate sources by filename, keep highest score per file
           const sourceMap = new Map<string, number>();
