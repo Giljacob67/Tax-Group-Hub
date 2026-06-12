@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
-import { eq, and, or, sql, count, desc, lt, inArray } from "drizzle-orm";
+import { eq, and, or, sql, count, desc, lt, inArray, isNotNull } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import PDFParser from "pdf2json";
 import mammoth from "mammoth";
@@ -274,6 +274,57 @@ export async function processDocumentAsync(
       .where(eq(knowledgeDocumentsTable.id, docId))
       .catch(() => {});
   }
+}
+
+// Reconstrói chunks + embeddings a partir do extractedContent já salvo no
+// banco — fallback para docs sem arquivo-fonte (sem blobUrl nem fileData),
+// cujo texto foi extraído antes da falha de embedding. Retorna true em caso
+// de sucesso; lança erro para o chamador contabilizar a falha.
+export async function processDocumentFromContent(
+  docId: number,
+  content: string,
+): Promise<void> {
+  await db
+    .update(knowledgeDocumentsTable)
+    .set({
+      status: "processing",
+      retries: sql`${knowledgeDocumentsTable.retries} + 1`,
+    })
+    .where(eq(knowledgeDocumentsTable.id, docId));
+
+  const chunks = chunkText(content);
+  let embeddingModel: string | null = null;
+  let embeddingDim: number | null = null;
+
+  if (chunks.length > 0) {
+    const { embeddings, model, dim } = await generateEmbeddings(chunks);
+    await db.insert(knowledgeChunksTable).values(
+      chunks.map((chunk, i) => ({
+        documentId: docId,
+        content: chunk,
+        embedding: embeddings[i],
+        embeddingModel: model,
+        embeddingDim: dim,
+      })),
+    );
+    embeddingModel = model;
+    embeddingDim = dim;
+  }
+
+  await db
+    .update(knowledgeDocumentsTable)
+    .set({
+      status: "processed",
+      processed: true,
+      errorLog: null,
+      chunkCount: chunks.length,
+      embeddingModel,
+    })
+    .where(eq(knowledgeDocumentsTable.id, docId));
+
+  logger.info(
+    `[Knowledge] Doc ${docId} reprocessado do extractedContent — ${chunks.length} chunks`,
+  );
 }
 
 // ── GET /knowledge/health ────────────────────────────────────────────────────
@@ -601,6 +652,14 @@ router.post("/knowledge/upload", async (req, res) => {
         origin: origin || "upload",
         tags: parsedTags.length > 0 ? parsedTags : null,
         blobUrl: effectiveBlobUrl,
+        // Persistir o base64 quando não há Blob URL — sem isso, docs cujo
+        // processamento inline falha ficam órfãos irrecuperáveis (causa dos
+        // 47 órfãos da era text-embedding-005). Limite de 4 MB para não
+        // inflar a tabela; acima disso o cliente deve usar Vercel Blob.
+        fileData:
+          !effectiveBlobUrl && fileData && fileSize < 4 * 1024 * 1024
+            ? fileData
+            : null,
       })
       .returning();
 
@@ -1109,13 +1168,37 @@ async function handleProcessQueue(req: any, res: any) {
       }
 
       if (!buffer) {
+        // Fallback: reconstruir do extractedContent salvo antes da falha.
+        if (doc.extractedContent) {
+          try {
+            await db
+              .delete(knowledgeChunksTable)
+              .where(eq(knowledgeChunksTable.documentId, doc.id));
+            await processDocumentFromContent(doc.id, doc.extractedContent);
+            processed++;
+          } catch (err: any) {
+            logger.error(
+              `[Cron KB] Doc ${doc.id} falha no reprocesso por conteúdo: ${err.message}`,
+            );
+            await db
+              .update(knowledgeDocumentsTable)
+              .set({ status: "error", errorLog: err.message })
+              .where(eq(knowledgeDocumentsTable.id, doc.id))
+              .catch(() => {});
+            failed++;
+          }
+          continue;
+        }
         logger.info(`[Cron KB] Doc ${doc.id} sem arquivo disponível — pulando`);
         await db
           .update(knowledgeDocumentsTable)
           .set({
             status: "error",
+            // retries+1: sem isso, docs irrecuperáveis (retries=0 < 3) ocupam
+            // o lote de 5 do cron indefinidamente e travam a fila.
+            retries: sql`${knowledgeDocumentsTable.retries} + 1`,
             errorLog:
-              "Arquivo original não encontrado (sem Blob URL nem base64).",
+              "Arquivo original não encontrado (sem Blob URL, base64 nem conteúdo extraído). Reenvie o documento.",
           })
           .where(eq(knowledgeDocumentsTable.id, doc.id));
         failed++;
@@ -1167,9 +1250,20 @@ router.post("/knowledge/reprocess-all", async (req, res) => {
           .filter((n: number) => Number.isInteger(n) && n > 0)
       : undefined;
 
-    const orphanFilter = or(
-      eq(knowledgeDocumentsTable.status, "error"),
-      eq(knowledgeDocumentsTable.processed, false),
+    // Só reseta docs RECUPERÁVEIS (com alguma fonte: Blob, base64 ou texto
+    // extraído). Irrecuperáveis permanecem em error e exigem reenvio —
+    // ressuscitá-los travaria o lote de 5 com os mesmos docs mortos.
+    const recoverable = or(
+      isNotNull(knowledgeDocumentsTable.blobUrl),
+      isNotNull(knowledgeDocumentsTable.fileData),
+      isNotNull(knowledgeDocumentsTable.extractedContent),
+    );
+    const orphanFilter = and(
+      or(
+        eq(knowledgeDocumentsTable.status, "error"),
+        eq(knowledgeDocumentsTable.processed, false),
+      ),
+      recoverable,
     );
     const where =
       ids && ids.length > 0
@@ -1217,12 +1311,34 @@ router.post("/knowledge/reprocess-all", async (req, res) => {
       }
 
       if (!buffer) {
+        // Fallback: reconstruir do extractedContent salvo antes da falha.
+        if (doc.extractedContent) {
+          try {
+            await db
+              .delete(knowledgeChunksTable)
+              .where(eq(knowledgeChunksTable.documentId, doc.id));
+            await processDocumentFromContent(doc.id, doc.extractedContent);
+            processed++;
+          } catch (err: any) {
+            logger.error(
+              `[Reprocess KB] Doc ${doc.id} falha no reprocesso por conteúdo: ${err.message}`,
+            );
+            await db
+              .update(knowledgeDocumentsTable)
+              .set({ status: "error", errorLog: err.message })
+              .where(eq(knowledgeDocumentsTable.id, doc.id))
+              .catch(() => {});
+            failed++;
+          }
+          continue;
+        }
         await db
           .update(knowledgeDocumentsTable)
           .set({
             status: "error",
+            retries: sql`${knowledgeDocumentsTable.retries} + 1`,
             errorLog:
-              "Arquivo original não encontrado (sem Blob URL nem base64).",
+              "Arquivo original não encontrado (sem Blob URL, base64 nem conteúdo extraído). Reenvie o documento.",
           })
           .where(eq(knowledgeDocumentsTable.id, doc.id));
         failed++;
