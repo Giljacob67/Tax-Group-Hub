@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { db } from "@workspace/db";
 import { appUsersTable, appUserRolesTable, passwordResetTokensTable, auditLogsTable } from "@workspace/db";
 import { eq, and, gt, desc, count } from "drizzle-orm";
@@ -136,9 +136,35 @@ router.post("/login", async (req: Request, res: Response) => {
   }
 });
 
-// ─── POST /api/auth/demo — Get anonymous demo token (read-only) ───────────────
-router.post("/demo", async (_req: Request, res: Response) => {
+// ─── POST /api/auth/demo — Get demo token (restrito) ───────────────────────
+// Endpoint exposto publicamente na internet. Para evitar que qualquer pessoa
+// obtenha um token com acesso à plataforma (incl. KB organizacional e chat),
+// exige a chave compartilhada DEMO_ACCESS_KEY via header "x-demo-key".
+// Sem a env var configurada, o endpoint fica desabilitado.
+router.post("/demo", async (req: Request, res: Response) => {
   try {
+    const demoKey = process.env.DEMO_ACCESS_KEY;
+    if (!demoKey) {
+      apiError(res, 403, "Endpoint demo desabilitado.");
+      return;
+    }
+    const provided = req.headers["x-demo-key"];
+    const providedBuf = Buffer.from(
+      typeof provided === "string" ? provided : "",
+    );
+    const expectedBuf = Buffer.from(demoKey);
+    const keyOk =
+      providedBuf.length === expectedBuf.length &&
+      timingSafeEqual(providedBuf, expectedBuf);
+    if (!keyOk) {
+      logger.warn(
+        { ip: req.ip },
+        "[auth/demo] tentativa com chave ausente ou inválida",
+      );
+      apiError(res, 403, "Chave de acesso demo inválida.");
+      return;
+    }
+
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       apiError(res, 500, "JWT_SECRET não configurado no servidor.");
