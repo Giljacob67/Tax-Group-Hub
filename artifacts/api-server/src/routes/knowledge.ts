@@ -1256,7 +1256,9 @@ router.post("/knowledge/reprocess-all", async (req, res) => {
     const recoverable = or(
       isNotNull(knowledgeDocumentsTable.blobUrl),
       isNotNull(knowledgeDocumentsTable.fileData),
-      isNotNull(knowledgeDocumentsTable.extractedContent),
+      // extractedContent vazio ('') não é recuperável — em produção, 27 docs
+      // com '' passavam no isNotNull e queimavam o lote em loop.
+      sql`coalesce(length(${knowledgeDocumentsTable.extractedContent}), 0) > 0`,
     );
     const orphanFilter = and(
       or(
