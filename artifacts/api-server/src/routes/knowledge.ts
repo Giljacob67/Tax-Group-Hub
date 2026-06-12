@@ -424,7 +424,15 @@ router.get("/knowledge", async (req, res) => {
 
 // ─── GET /knowledge/:id ────────────────────────────────────────────────────────
 // Get individual document details with chunks
-router.get("/knowledge/:id", async (req, res) => {
+router.get("/knowledge/:id", async (req, res, next) => {
+  // Guard: esta rota é registrada antes de GET /knowledge/sources e
+  // GET /knowledge/process-queue — sem o fall-through, "sources" e
+  // "process-queue" casavam como :id, Number(...) virava NaN e o handler
+  // devolvia 500 (a aba Fontes quebrava e o cron da Vercel nunca rodava).
+  if (!/^\d+$/.test(req.params.id)) {
+    next();
+    return;
+  }
   try {
     const userId = req.userId;
     const userFilter =
