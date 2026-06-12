@@ -145,7 +145,7 @@ export const embeddingCacheTable = pgTable(
   {
     id: serial("id").primaryKey(),
     textHash: text("text_hash").notNull(),
-    model: text("model").notNull().default("google/text-embedding-005"),
+    model: text("model").notNull().default("google/gemini-embedding-001"),
     // Same dim-agnostic column as knowledge_chunks.embedding — see comment there.
     embedding: dimAgnosticVector("embedding").notNull(),
     dim: integer("dim").notNull(),

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { knowledgeDocumentsTable, knowledgeChunksTable } from "@workspace/db";
-import { eq, and, or, sql, count, desc, lt } from "drizzle-orm";
+import { eq, and, or, sql, count, desc, lt, inArray } from "drizzle-orm";
 import { generateEmbeddings } from "../lib/llm-client.js";
 import PDFParser from "pdf2json";
 import mammoth from "mammoth";
@@ -1145,5 +1145,116 @@ async function handleProcessQueue(req: any, res: any) {
 
 router.get("/knowledge/process-queue", handleProcessQueue);
 router.post("/knowledge/process-queue", handleProcessQueue);
+
+// ── POST /knowledge/reprocess-all ────────────────────────────────────────────
+// Reseta documentos órfãos (status=error ou nunca processados) para "pending"
+// com retries=0, e processa um lote inline. Body opcional: { ids: number[] }
+// para restringir a documentos específicos. Chamar repetidamente até
+// remaining=0 (cada chamada processa até 5 docs para caber no timeout da
+// Vercel). Os demais são drenados pelo cron de process-queue.
+
+router.post("/knowledge/reprocess-all", async (req, res) => {
+  const userId = req.userId;
+  if (!userId || userId === "system") {
+    apiError(res, 403, "Authentication required");
+    return;
+  }
+
+  try {
+    const ids: number[] | undefined = Array.isArray(req.body?.ids)
+      ? req.body.ids
+          .map((n: unknown) => Number(n))
+          .filter((n: number) => Number.isInteger(n) && n > 0)
+      : undefined;
+
+    const orphanFilter = or(
+      eq(knowledgeDocumentsTable.status, "error"),
+      eq(knowledgeDocumentsTable.processed, false),
+    );
+    const where =
+      ids && ids.length > 0
+        ? and(inArray(knowledgeDocumentsTable.id, ids), orphanFilter)
+        : orphanFilter;
+
+    // 1. Reset: volta para a fila com contador de retries zerado.
+    const resetDocs = await db
+      .update(knowledgeDocumentsTable)
+      .set({ status: "pending", retries: 0, errorLog: null })
+      .where(where)
+      .returning({ id: knowledgeDocumentsTable.id });
+
+    // 2. Processa um lote inline (mesma lógica do process-queue).
+    const batch = await db
+      .select()
+      .from(knowledgeDocumentsTable)
+      .where(eq(knowledgeDocumentsTable.status, "pending"))
+      .orderBy(knowledgeDocumentsTable.createdAt)
+      .limit(5);
+
+    let processed = 0;
+    let failed = 0;
+
+    for (const doc of batch) {
+      let buffer: Buffer | null = null;
+      if (doc.blobUrl) {
+        try {
+          buffer = await withTimeout(
+            downloadBlob(doc.blobUrl),
+            15000,
+            `Download Blob doc ${doc.id}`,
+          );
+        } catch (e: any) {
+          logger.error(
+            `[Reprocess KB] Doc ${doc.id} falha ao baixar do Blob: ${e.message}`,
+          );
+        }
+      } else if (doc.fileData) {
+        try {
+          buffer = Buffer.from(doc.fileData, "base64");
+        } catch {
+          /* fileData inválido — tratado abaixo */
+        }
+      }
+
+      if (!buffer) {
+        await db
+          .update(knowledgeDocumentsTable)
+          .set({
+            status: "error",
+            errorLog:
+              "Arquivo original não encontrado (sem Blob URL nem base64).",
+          })
+          .where(eq(knowledgeDocumentsTable.id, doc.id));
+        failed++;
+        continue;
+      }
+
+      try {
+        // Remove chunks antigos antes de re-embeddar (evita duplicação).
+        await db
+          .delete(knowledgeChunksTable)
+          .where(eq(knowledgeChunksTable.documentId, doc.id));
+        await processDocumentAsync(doc.id, buffer, doc.fileType, doc.filename);
+        processed++;
+      } catch (err: any) {
+        logger.error(
+          `[Reprocess KB] Doc ${doc.id} falha no processamento: ${err.message}`,
+        );
+        failed++;
+      }
+    }
+
+    res.json({
+      success: true,
+      reset: resetDocs.length,
+      processed,
+      failed,
+      remaining: Math.max(0, resetDocs.length - processed - failed),
+    });
+  } catch (err) {
+    logger.error({ err }, "[Reprocess KB] Erro no reprocess-all");
+    apiError(res, 500, "Falha ao reprocessar documentos");
+  }
+});
 
 export default router;

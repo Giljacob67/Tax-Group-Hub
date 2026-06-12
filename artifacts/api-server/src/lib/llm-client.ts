@@ -336,7 +336,11 @@ export async function callLLM(
  * `dimensions` floats came from `key`.
  */
 export const EMBEDDING_MODELS = {
-  // Google AI Studio / Vertex AI — Gemini Embedding
+  // Google AI Studio — Gemini Embedding.
+  // ⚠️ text-embedding-004 foi DESLIGADO pela Google em 14/01/2026 e
+  // text-embedding-005 nunca existiu na Gemini API (apenas no Vertex AI).
+  // As entradas permanecem SOMENTE como chaves de cache/validação de vetores
+  // antigos — NÃO usar para gerar novos embeddings.
   "google/text-embedding-004": {
     provider: "google" as const,
     dimensions: 768,
@@ -347,6 +351,9 @@ export const EMBEDDING_MODELS = {
     dimensions: 768,
     modelId: "text-embedding-005",
   },
+  // Modelo estável atual com suporte a embedContent na v1beta.
+  // outputDimensionality=768 é enviado em providerOptions (MRL) para manter
+  // compatibilidade dimensional com o restante do sistema.
   "google/gemini-embedding-001": {
     provider: "google" as const,
     dimensions: 768,
@@ -393,7 +400,7 @@ export const EMBEDDING_MODELS = {
 
 export type EmbeddingModelKey = keyof typeof EMBEDDING_MODELS;
 export const DEFAULT_EMBEDDING_MODEL: EmbeddingModelKey =
-  "google/text-embedding-005";
+  "google/gemini-embedding-001";
 
 export class EmbeddingDimError extends Error {
   constructor(
@@ -427,9 +434,8 @@ export function validateEmbeddingDim(
  * Generate embeddings for a given array of texts.
  * Uses a DB cache (keyed by MD5(text) + model) to avoid redundant API calls.
  *
- * Default model is Google text-embedding-004 (768 dims) for backwards
- * compatibility. Callers that need a different provider/dim must pass
- * `opts.model`.
+ * Default model is Google gemini-embedding-001 (768 dims via MRL). Callers
+ * that need a different provider/dim must pass `opts.model`.
  */
 export async function generateEmbeddings(
   texts: string[],
