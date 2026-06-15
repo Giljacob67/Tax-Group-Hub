@@ -4802,6 +4802,21 @@ function PipelineKanbanView({
     pipeline = demoPipeline;
   }
 
+  // Stages podem vir como string[] (funil default) ou object[] {key,name,...}
+  // (funis customizados, ex.: "Lote 1 — 30 Contas Piloto"). Derivamos sempre a
+  // CHAVE em string + um mapa de rótulos custom, para todo o render do Kanban
+  // operar com strings (e não quebrar em `pipeline[obj]` ou `obj.toUpperCase()`).
+  const stageKeys: string[] = (stages as any[]).map((s: any) =>
+    typeof s === "string" ? s : (s?.key ?? s?.id ?? s?.name ?? String(s)),
+  );
+  const customStageLabels: Record<string, string> = {};
+  for (const s of stages as any[]) {
+    if (s && typeof s === "object") {
+      const k = s.key ?? s.id ?? s.name ?? String(s);
+      if (k && s.name) customStageLabels[k] = s.name;
+    }
+  }
+
   // Robustez: stages do pipeline que não pertencem a nenhuma fase canônica
   // (ex.: pipelines custom como "Lote 1 — 30 Contas Piloto") seriam descartados
   // pelo filtro de PIPELINE_PHASES e nunca renderizariam coluna. Agrupamos esses
@@ -4809,9 +4824,7 @@ function PipelineKanbanView({
   const coveredStageKeys = new Set(
     PIPELINE_PHASES.flatMap((p) => p.stages),
   );
-  const orphanStages = (stages as string[]).filter(
-    (s) => !coveredStageKeys.has(s),
-  );
+  const orphanStages = stageKeys.filter((s) => !coveredStageKeys.has(s));
   const kanbanPhases =
     orphanStages.length > 0
       ? [
@@ -5057,7 +5070,7 @@ function PipelineKanbanView({
           style={{ minWidth: "max-content" }}
         >
           {kanbanPhases.map((phase) => {
-            const phaseStages = stages.filter((s: string) => phase.stages.includes(s));
+            const phaseStages = stageKeys.filter((s: string) => phase.stages.includes(s));
             if (phaseStages.length === 0) return null;
             
             const isCollapsed = collapsedPhases.has(phase.name);
@@ -5110,7 +5123,7 @@ function PipelineKanbanView({
               dealMatchesFilter,
             );
             const dict = STAGE_DICT[stageId] || {
-              label: stageId.toUpperCase(),
+              label: customStageLabels[stageId] || stageId.toUpperCase(),
               accent: "border-t-slate-400",
               header: "text-slate-300",
             };

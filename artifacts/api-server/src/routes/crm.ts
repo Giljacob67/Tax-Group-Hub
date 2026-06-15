@@ -100,6 +100,71 @@ import logger from "../lib/logger.js";
 
 const router = Router();
 
+// ─── Pipeline grouping (pura, testável) ───────────────────────────────────────
+// Agrupa deals nas colunas do Kanban. Lida com os dois formatos de `stages`:
+//  - string[]                          → funil default ("Tax Group", 16 etapas)
+//  - object[] {key,name,color,order}   → funis customizados ("Lote 1", 7 etapas)
+// A CHAVE de agrupamento é sempre `key` (NUNCA `name`): os deals carregam a key
+// (ex.: "em_abordagem"), não o rótulo de exibição ("Em Abordagem").
+//
+// Estratégia raw-first: o stage cru do deal é usado quando já pertence ao
+// vocabulário do funil (funis customizados cujas keys batem com os deals).
+// `resolve` (ponte de legado da Fase 1.5) é aplicado SÓ como fallback — antes
+// ele era cego e reescrevia "em_abordagem" → "lead_novo", chave inexistente no
+// funil custom, esvaziando o Kanban. Deals sem casamento viram bucket próprio
+// (anexado a `stages`) para nunca sumirem silenciosamente.
+export function groupDealsByStage(
+  stages: any[],
+  deals: any[],
+  resolve: (raw: string | null | undefined) => string | null,
+): {
+  pipeline: Record<string, any[]>;
+  normalizedDeals: any[];
+  stagesOut: any[];
+} {
+  const stageKeys: string[] = (stages as any[]).map((s: any) =>
+    typeof s === "string" ? s : (s?.key ?? s?.id ?? s?.name ?? String(s)),
+  );
+  const stageKeySet = new Set(stageKeys);
+
+  const pipeline: Record<string, any[]> = {};
+  for (const k of stageKeys) pipeline[k] = [];
+  const orphanStageKeys: string[] = [];
+
+  const normalizedDeals = deals.map((d) => {
+    let key: string;
+    if (d.stage && stageKeySet.has(d.stage)) {
+      key = d.stage;
+    } else {
+      const resolved = resolve(d.stage);
+      if (resolved && stageKeySet.has(resolved)) {
+        key = resolved;
+      } else {
+        key = (d.stage as string) || "sem_etapa";
+        if (!pipeline[key]) {
+          pipeline[key] = [];
+          orphanStageKeys.push(key);
+          stageKeySet.add(key);
+        }
+      }
+    }
+    const out = {
+      ...d,
+      stageOriginal: key === d.stage ? null : d.stage,
+      stage: key,
+    };
+    pipeline[key].push(out);
+    return out;
+  });
+
+  const stagesOut =
+    orphanStageKeys.length > 0
+      ? [...(stages as any[]), ...orphanStageKeys]
+      : stages;
+
+  return { pipeline, normalizedDeals, stagesOut };
+}
+
 // ─── Integration Event Dispatcher ────────────────────────────────────────────
 // Fire-and-forget: never blocks the API response, never throws to caller.
 function fireIntegrationEvent(
@@ -1838,6 +1903,30 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
 
     const stages = pipelineMeta?.stages || [...PIPELINE_TAX_GROUP_STAGES];
 
+    // ── Resolução de identidade do funil ────────────────────────────────────
+    // BUG estrutural: crm_pipelines.id é serial (inteiro) e o seletor envia
+    // String(id) (ex.: "3"), mas crm_deals.pipeline_id é TEXT preenchido de
+    // forma inconsistente — deals criados pela UI gravam DEFAULT_PIPELINE_ID
+    // ("tax-group"), deals via API/import caem no default da coluna ("default"),
+    // e nenhum deal jamais carrega o id serial do funil. Resultado: o filtro
+    // pipeline_id = "3" (ou "default") nunca casava com os deals reais → Kanban
+    // vazio enquanto /deals (sem filtro de funil) funcionava.
+    //
+    // O funil "default" sintético engloba a família de tags equivalentes:
+    // "default", DEFAULT_PIPELINE_ID ("tax-group"), "" e NULL. Funis numéricos
+    // casam pelo id exato (String(id)).
+    const isDefaultView = pipelineIdParam === "default";
+    const dealPipelineCondition = isDefaultView
+      ? or(
+          isNull(crmDealsTable.pipelineId),
+          inArray(crmDealsTable.pipelineId, [
+            "default",
+            DEFAULT_PIPELINE_ID,
+            "",
+          ]),
+        )
+      : eq(crmDealsTable.pipelineId, pipelineIdParam);
+
     // LEFT JOIN com contacts para ter razaoSocial e cnpj em cada deal
     const deals = await db
       .select({
@@ -1864,35 +1953,14 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
         crmContactsTable,
         eq(crmDealsTable.contactId, crmContactsTable.id),
       )
-      .where(
-        and(
-          eq(crmDealsTable.userId, userId),
-          eq(crmDealsTable.pipelineId, pipelineIdParam),
-        ),
-      )
+      .where(and(eq(crmDealsTable.userId, userId), dealPipelineCondition))
       .orderBy(desc(crmDealsTable.updatedAt));
 
-    // Fase 1.5 — Migração de stage legado: aplica LEGACY_DEAL_STAGE_MAP
-    // em runtime. O stage original é preservado em `stageOriginal` para auditoria.
-    const normalizedDeals = deals.map((d) => {
-      const normalized = resolveDealStage(d.stage);
-      return {
-        ...d,
-        stageOriginal: normalized ? null : d.stage,
-        stage: normalized || d.stage,
-      };
-    });
-
-    // Normalize stages: handle both string[] and object[] (e.g. [{name: "Novo Lead", order: 1}])
-    const normalizedStages: string[] = stages.map((s: any) =>
-      typeof s === "string" ? s : s?.name || String(s),
+    const { pipeline, normalizedDeals, stagesOut } = groupDealsByStage(
+      stages,
+      deals,
+      resolveDealStage,
     );
-
-    const pipeline: Record<string, any[]> = {};
-    for (const s of normalizedStages)
-      pipeline[s] = normalizedDeals.filter(
-        (d: (typeof normalizedDeals)[number]) => d.stage === s,
-      );
 
     const totalValue = normalizedDeals
       .filter(
@@ -1908,7 +1976,7 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
     res.json({
       success: true,
       pipeline,
-      stages,
+      stages: stagesOut,
       meta: pipelineMeta,
       stats: { total: normalizedDeals.length, totalValue },
     });
