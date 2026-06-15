@@ -118,6 +118,7 @@ import { Separator } from "@/components/ui/separator";
 import { BulkImportDialog } from "@/components/crm/BulkImportDialog";
 import { UploadCloud } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Select,
   SelectContent,
@@ -657,6 +658,7 @@ export default function CRMPage() {
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
   // Pending tasks count for badge
@@ -894,32 +896,32 @@ export default function CRMPage() {
           />
         </div>
       )}
-      {/* Mobile: sheet drawer */}
-      <Sheet
-        open={!!selectedContact}
-        onOpenChange={(open) => {
-          if (!open) setSelectedContact(null);
-        }}
-      >
-        <SheetContent
-          side="right"
-          className="w-full sm:w-[480px] p-0 md:hidden"
+      {/* Mobile: sheet drawer — só monta no mobile para não renderizar o
+          overlay (bg-black/80) por cima do painel lateral no desktop */}
+      {isMobile && (
+        <Sheet
+          open={!!selectedContact}
+          onOpenChange={(open) => {
+            if (!open) setSelectedContact(null);
+          }}
         >
-          {selectedContact && (
-            <ContactDetailPanel
-              contact={selectedContact}
-              onClose={() => setSelectedContact(null)}
-              onUpdate={(c) => setSelectedContact(c)}
-              onDelete={() => {
-                setSelectedContact(null);
-                queryClient.invalidateQueries({
-                  queryKey: ["/api/crm/contacts"],
-                });
-              }}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+          <SheetContent side="right" className="w-full sm:w-[480px] p-0">
+            {selectedContact && (
+              <ContactDetailPanel
+                contact={selectedContact}
+                onClose={() => setSelectedContact(null)}
+                onUpdate={(c) => setSelectedContact(c)}
+                onDelete={() => {
+                  setSelectedContact(null);
+                  queryClient.invalidateQueries({
+                    queryKey: ["/api/crm/contacts"],
+                  });
+                }}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
+      )}
 
       <BulkImportDialog
         open={isImportOpen}
