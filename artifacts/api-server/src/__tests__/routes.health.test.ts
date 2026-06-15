@@ -12,6 +12,15 @@ vi.mock("@workspace/api-zod", () => ({
   },
 }));
 
+// @workspace/db lança no carregamento do módulo se DATABASE_URL não existir
+// (lib/db/src/index.ts). Mockamos aqui — como o resto da suíte — para isolar o
+// teste do banco. db.execute resolve, simulando conexão saudável (SELECT 1).
+vi.mock("@workspace/db", () => ({
+  db: {
+    execute: vi.fn(() => Promise.resolve({ rows: [] })),
+  },
+}));
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════════════
