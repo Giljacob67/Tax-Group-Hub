@@ -5138,7 +5138,7 @@ function PipelineKanbanView({
             return (
               <div
                 key={stageId}
-                className={`w-[268px] flex-shrink-0 rounded-xl border border-border/50 border-t-2 transition-colors ${dict.accent} ${
+                className={`w-[268px] flex-shrink-0 flex flex-col overflow-hidden rounded-xl border border-border/50 border-t-2 transition-colors ${dict.accent} ${
                   isDropTarget ? "bg-primary/5 border-primary/30" : "bg-card/40"
                 }`}
                 onDragOver={(e) => handleDragOver(e, stageId)}
@@ -5146,7 +5146,7 @@ function PipelineKanbanView({
                 onDrop={(e) => handleDrop(e, stageId)}
               >
                 {/* Column header */}
-                <div className="p-3 border-b border-border/50 flex items-center justify-between gap-2">
+                <div className="flex-none p-3 border-b border-border/50 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span
                       className={`text-xs font-semibold truncate ${dict.header}`}
@@ -5194,7 +5194,7 @@ function PipelineKanbanView({
 
                 {/* Deal cards */}
                 <div
-                  className={`p-2 space-y-2 min-h-[140px] ${isDropTarget ? "bg-primary/3" : ""}`}
+                  className={`flex-1 min-h-0 overflow-y-auto p-2 space-y-2 ${isDropTarget ? "bg-primary/3" : ""}`}
                 >
                   {deals.length === 0 && !isAdding ? (
                     <div
