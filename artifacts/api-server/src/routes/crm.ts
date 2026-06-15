@@ -73,7 +73,7 @@ import {
 } from "@workspace/db/crm-constants";
 import {
   normalizeContactStatus,
-  normalizeDealStage,
+  resolveDealStage,
 } from "@workspace/db/legacy-migration";
 import { recommendNextStep } from "../lib/next-step-engine.js";
 import { evaluateAlerts, getAlertMeta } from "../lib/alerts-engine.js";
@@ -1875,7 +1875,7 @@ router.get("/deals/pipeline", async (req: Request, res: Response) => {
     // Fase 1.5 — Migração de stage legado: aplica LEGACY_DEAL_STAGE_MAP
     // em runtime. O stage original é preservado em `stageOriginal` para auditoria.
     const normalizedDeals = deals.map((d) => {
-      const normalized = normalizeDealStage(d.stage);
+      const normalized = resolveDealStage(d.stage);
       return {
         ...d,
         stageOriginal: normalized ? null : d.stage,
@@ -1934,7 +1934,7 @@ router.get("/deals", async (req: Request, res: Response) => {
       .limit(200);
     // Fase 1.5 — normalização de stage legado em runtime
     const normalizedDeals = deals.map((d) => {
-      const normalized = normalizeDealStage(d.stage);
+      const normalized = resolveDealStage(d.stage);
       return {
         ...d,
         stageOriginal: normalized ? null : d.stage,

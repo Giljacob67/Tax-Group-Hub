@@ -4802,6 +4802,24 @@ function PipelineKanbanView({
     pipeline = demoPipeline;
   }
 
+  // Robustez: stages do pipeline que não pertencem a nenhuma fase canônica
+  // (ex.: pipelines custom como "Lote 1 — 30 Contas Piloto") seriam descartados
+  // pelo filtro de PIPELINE_PHASES e nunca renderizariam coluna. Agrupamos esses
+  // stages órfãos numa fase "Outros" para que sempre apareçam no Kanban.
+  const coveredStageKeys = new Set(
+    PIPELINE_PHASES.flatMap((p) => p.stages),
+  );
+  const orphanStages = (stages as string[]).filter(
+    (s) => !coveredStageKeys.has(s),
+  );
+  const kanbanPhases =
+    orphanStages.length > 0
+      ? [
+          ...PIPELINE_PHASES,
+          { name: "Outros", stages: orphanStages, color: "gray" },
+        ]
+      : PIPELINE_PHASES;
+
   const allDeals = Object.values(pipeline).flat() as Deal[];
   const activeDeals = allDeals.filter(
     (d) => !["perdido", "perdido_standby", "encerrado"].includes(d.stage),
@@ -5038,7 +5056,7 @@ function PipelineKanbanView({
           className="flex gap-3 pb-4 h-full"
           style={{ minWidth: "max-content" }}
         >
-          {PIPELINE_PHASES.map((phase) => {
+          {kanbanPhases.map((phase) => {
             const phaseStages = stages.filter((s: string) => phase.stages.includes(s));
             if (phaseStages.length === 0) return null;
             

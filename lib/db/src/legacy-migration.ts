@@ -16,6 +16,7 @@
 import {
   LEGACY_CONTACT_STATUS_MAP,
   LEGACY_DEAL_STAGE_MAP,
+  CONTACT_STATUS_TO_DEAL_STAGE,
   type ContactStatus,
   type DealStage,
 } from "./crm-constants.js";
@@ -49,6 +50,31 @@ export function normalizeDealStage(
   }
   const mapped = LEGACY_DEAL_STAGE_MAP[raw.toLowerCase?.() ?? raw];
   return mapped || null;
+}
+
+/**
+ * Resolve um valor bruto do campo `stage` de um deal para um DealStage canônico,
+ * cobrindo o caso em que o `stage` foi gravado com um valor do vocabulário de
+ * STATUS DE CONTATO (ex.: "nao_iniciado", "em_abordagem", "qualificado") — algo
+ * que acontece em deals importados/criados a partir do status do contato.
+ *
+ * Ordem de resolução:
+ *   1. normalizeDealStage  → deal-stage canônico ou legado mapeado (DL EN/PT).
+ *   2. CONTACT_STATUS_TO_DEAL_STAGE → ponte status-de-contato → deal-stage.
+ *   3. null (valor genuinamente desconhecido; o chamador preserva o original).
+ *
+ * É idempotente para valores que pertencem aos dois vocabulários
+ * (reuniao_agendada, aguardando_matriz, em_negociacao, stand_by, perdido):
+ * o passo 1 já os resolve, então a ponte nunca os altera.
+ */
+export function resolveDealStage(
+  raw: string | null | undefined,
+): DealStage | null {
+  if (!raw) return null;
+  const canonical = normalizeDealStage(raw);
+  if (canonical) return canonical;
+  const bridged = CONTACT_STATUS_TO_DEAL_STAGE[raw as ContactStatus];
+  return bridged ?? null;
 }
 
 /**
