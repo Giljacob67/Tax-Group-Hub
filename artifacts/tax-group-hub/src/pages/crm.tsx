@@ -4092,7 +4092,7 @@ function DealEditModal({
   });
 
   return (
-    <DialogContent className="sm:max-w-[500px]">
+    <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <Layers className="w-5 h-5 text-primary" /> Editar Oportunidade
