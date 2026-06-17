@@ -22,6 +22,10 @@ declare global {
   namespace Express {
     interface Request {
       userId?: string;
+      // Organization (tenant) the request operates within. Resolved from the
+      // JWT `orgId` claim; defaults to DEFAULT_ORG_ID while the single-org
+      // model holds. This is the org-scoped tenancy boundary replacing userId.
+      orgId?: number;
       isCron?: boolean;
       authMethod?:
         | "jwt"
@@ -33,6 +37,15 @@ declare global {
     }
   }
 }
+
+/**
+ * Default organization id. While the platform runs as a single shared
+ * organization (Tax Group — Maringá, id=1), every request that does not
+ * carry an explicit org claim falls back to this. When real multi-org
+ * support lands, only the resolution logic changes — callers using
+ * requireOrgId() keep working.
+ */
+export const DEFAULT_ORG_ID = 1;
 
 /**
  * Checks if the given userId belongs to a real human user.
@@ -158,6 +171,7 @@ export function authMiddleware(
       typeof headerSecret === "string" ? headerSecret : (authToken ?? null);
     if (provided && safeCompare(provided, cronSecret)) {
       req.userId = "service";
+      req.orgId = DEFAULT_ORG_ID;
       req.isCron = true;
       req.authMethod = "cron";
       next();
@@ -186,10 +200,13 @@ export function authMiddleware(
       const decoded = jwt.verify(token, jwtSecret) as {
         sub?: string;
         userId?: string;
+        orgId?: number;
       };
       const uid = decoded.userId || decoded.sub;
       if (uid && isRealUser(uid)) {
         req.userId = uid;
+        req.orgId =
+          typeof decoded.orgId === "number" ? decoded.orgId : DEFAULT_ORG_ID;
         req.authMethod = "jwt";
         next();
         return;
@@ -202,6 +219,7 @@ export function authMiddleware(
   // 3. Bearer system API key → service identity (never client-supplied).
   if (token && systemApiKey && safeCompare(token, systemApiKey)) {
     req.userId = serviceUserId;
+    req.orgId = DEFAULT_ORG_ID;
     req.authMethod = "api-key";
     next();
     return;
@@ -215,6 +233,7 @@ export function authMiddleware(
     safeCompare(headerKey, systemApiKey)
   ) {
     req.userId = serviceUserId;
+    req.orgId = DEFAULT_ORG_ID;
     req.authMethod = "api-key";
     next();
     return;
@@ -228,6 +247,7 @@ export function authMiddleware(
     safeCompare(webhookProvided, webhookSecret)
   ) {
     req.userId = "service";
+    req.orgId = DEFAULT_ORG_ID;
     req.authMethod = "webhook";
     next();
     return;
@@ -236,6 +256,7 @@ export function authMiddleware(
   // 6. Dev fallback — only when no auth env is configured and not in production.
   if (!systemApiKey && !jwtSecret && process.env.NODE_ENV !== "production") {
     req.userId = "dev-user";
+    req.orgId = DEFAULT_ORG_ID;
     req.authMethod = "dev-fallback";
     next();
     return;
@@ -264,6 +285,18 @@ export function requireUserId(req: Request): string {
     throw err;
   }
   return uid;
+}
+
+/**
+ * Resolve the organization (tenant) id for a request. This is the org-scoped
+ * replacement for requireUserId() as data ownership moves from user to org.
+ *
+ * Always succeeds: the authMiddleware sets req.orgId on every authenticated
+ * branch, and while the single-org model holds, an absent claim falls back to
+ * DEFAULT_ORG_ID. Use this to scope reads/writes by org_id in route handlers.
+ */
+export function requireOrgId(req: Request): number {
+  return typeof req.orgId === "number" ? req.orgId : DEFAULT_ORG_ID;
 }
 
 /**

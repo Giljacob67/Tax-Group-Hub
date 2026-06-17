@@ -3,10 +3,35 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { db } from "@workspace/db";
-import { appUsersTable, appUserRolesTable, passwordResetTokensTable, auditLogsTable } from "@workspace/db";
+import { appUsersTable, appUserRolesTable, passwordResetTokensTable, auditLogsTable, organizationMembersTable } from "@workspace/db";
 import { eq, and, gt, desc, count } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
-import { requireUserId, isRealUser } from "../middlewares/auth.js";
+import { requireUserId, isRealUser, DEFAULT_ORG_ID } from "../middlewares/auth.js";
+
+/**
+ * Resolve the active organization id for a user. While the platform runs as a
+ * single shared organization, this returns the member's org_id or falls back
+ * to DEFAULT_ORG_ID when no membership row exists yet (e.g. before the
+ * multiusuário migration has seeded organization_members).
+ */
+async function resolveOrgId(userId: number): Promise<number> {
+  try {
+    const [member] = await db
+      .select({ orgId: organizationMembersTable.orgId })
+      .from(organizationMembersTable)
+      .where(
+        and(
+          eq(organizationMembersTable.userId, userId),
+          eq(organizationMembersTable.isActive, true),
+        ),
+      )
+      .limit(1);
+    return member?.orgId ?? DEFAULT_ORG_ID;
+  } catch {
+    // Table may not exist yet (migration not run) — default org keeps login working.
+    return DEFAULT_ORG_ID;
+  }
+}
 import { logAudit } from "../lib/audit.js";
 import logger from "../lib/logger.js";
 
@@ -76,6 +101,9 @@ router.post("/login", async (req: Request, res: Response) => {
       return;
     }
 
+    // Resolve the user's organization (tenant) for the token claim.
+    const orgId = await resolveOrgId(user.id);
+
     // Check if 2FA is enabled
     if (user.totpEnabled && user.totpSecret) {
       // Return 2FA required status with temporary token
@@ -84,6 +112,7 @@ router.post("/login", async (req: Request, res: Response) => {
           sub: String(user.id),
           userId: String(user.id),
           email: user.email,
+          orgId,
           pending2FA: true,
         },
         jwtSecret,
@@ -106,6 +135,7 @@ router.post("/login", async (req: Request, res: Response) => {
         sub: String(user.id),
         userId: String(user.id),
         email: user.email,
+        orgId,
         roles: roles.map((r) => r.role),
       },
       jwtSecret,

@@ -7,7 +7,7 @@ import { db } from "@workspace/db";
 import { appUsersTable, appUserRolesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { apiError } from "../lib/api-response.js";
-import { requireUserId } from "../middlewares/auth.js";
+import { requireUserId, DEFAULT_ORG_ID } from "../middlewares/auth.js";
 import { logAudit } from "../lib/audit.js";
 
 const router = Router();
@@ -367,12 +367,17 @@ router.post("/2fa/complete-login", async (req: Request, res: Response) => {
         ),
       );
 
+    // Carry the organization claim through from the verified temp token.
+    const orgId =
+      typeof decoded.orgId === "number" ? decoded.orgId : DEFAULT_ORG_ID;
+
     // Generate final JWT
     const finalToken = jwt.sign(
       {
         sub: String(user.id),
         userId: String(user.id),
         email: user.email,
+        orgId,
         roles: roles.map((r) => r.role),
       },
       jwtSecret,
