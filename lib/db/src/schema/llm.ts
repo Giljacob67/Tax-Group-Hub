@@ -17,6 +17,7 @@ import { z } from "zod/v4";
 export const llmConnectionsTable = pgTable("llm_connections", {
   id: serial("id").primaryKey(),
   userId: text("user_id"), // null = global/system key
+  orgId: integer("org_id"), // Org-scoped: conexões LLM compartilhadas
   name: text("name").notNull(), // e.g. "OpenRouter — GPT-4o"
   provider: text("provider").notNull(), // "openrouter" | "openai" | "anthropic" | "google" | "ollama" | "custom_openai"
   baseUrl: text("base_url"), // for OpenRouter, Ollama, or custom OpenAI-compatible
@@ -71,6 +72,7 @@ export type InsertLlmConnection = z.infer<typeof insertLlmConnectionSchema>;
 export const llmProfilesTable = pgTable("llm_profiles", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"), // Org-scoped: perfis LLM compartilhados
   name: text("name").notNull(), // "Padrão", "Econômico", "Máxima Qualidade"
   description: text("description"),
 

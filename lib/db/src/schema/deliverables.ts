@@ -13,6 +13,7 @@ import { crmContactsTable } from "./crm.js";
 export const deliverablesTable = pgTable("deliverables", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
+  orgId: integer("org_id"),
   title: text("title").notNull(),
   // 'diagnostico' | 'proposta' | 'resumo_oportunidade' | 'followup' | 'roteiro_reuniao'
   type: text("type").notNull(),

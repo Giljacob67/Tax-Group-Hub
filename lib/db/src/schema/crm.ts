@@ -18,6 +18,7 @@ export const crmContactsTable = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: text("user_id").notNull(),
+    orgId: integer("org_id"),
     cnpj: text("cnpj").notNull(),
     razaoSocial: text("razao_social"),
     nomeFantasia: text("nome_fantasia"),
@@ -87,6 +88,7 @@ export type InsertCrmContact = z.infer<typeof insertCrmContactSchema>;
 export const crmPipelinesTable = pgTable("crm_pipelines", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   name: text("name").notNull(),
   stages: jsonb("stages").$type<string[]>().notNull(), // ex: ["prospecting", "discovery", "proposal", "won"]
   isDefault: boolean("is_default").default(false),
@@ -106,6 +108,7 @@ export const crmDealsTable = pgTable("crm_deals", {
     .notNull()
     .references(() => crmContactsTable.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   pipelineId: text("pipeline_id").notNull().default("default"),
   title: text("title").notNull(),
   produto: text("produto"),
@@ -162,6 +165,7 @@ export const crmActivitiesTable = pgTable("crm_activities", {
     onDelete: "set null",
   }),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   type: text("type").notNull(), // 'call' | 'email' | 'whatsapp' | 'linkedin' | 'meeting' | 'note' | 'ai_generated' | 'stage_change' | 'matriz_event'
   direction: text("direction"), // 'inbound' | 'outbound' | null
   subject: text("subject"),
@@ -208,6 +212,7 @@ export type InsertCrmEnrichmentLog = z.infer<
 export const crmAttachmentsTable = pgTable("crm_attachments", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   contactId: integer("contact_id")
     .notNull()
     .references(() => crmContactsTable.id, { onDelete: "cascade" }),
@@ -232,6 +237,7 @@ export type InsertCrmAttachment = z.infer<typeof insertCrmAttachmentSchema>;
 export const crmTasksTable = pgTable("crm_tasks", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   contactId: integer("contact_id").references(() => crmContactsTable.id, {
     onDelete: "cascade",
   }),
@@ -277,6 +283,7 @@ export const crmQualificationHistoryTable = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: text("user_id").notNull(),
+    orgId: integer("org_id"),
     contactId: integer("contact_id")
       .notNull()
       .references(() => crmContactsTable.id, { onDelete: "cascade" }),
@@ -303,6 +310,7 @@ export type InsertCrmQualificationHistory = z.infer<
 export const crmAlertsTable = pgTable("crm_alerts", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   contactId: integer("contact_id").references(() => crmContactsTable.id, {
     onDelete: "cascade",
   }),
@@ -333,6 +341,7 @@ export type InsertCrmAlert = z.infer<typeof insertCrmAlertSchema>;
 export const crmNextStepHistoryTable = pgTable("crm_next_step_history", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   contactId: integer("contact_id")
     .notNull()
     .references(() => crmContactsTable.id, { onDelete: "cascade" }),
@@ -358,6 +367,7 @@ export type InsertCrmNextStepHistory = z.infer<
 export const crmSavedViewsTable = pgTable("crm_saved_views", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   name: text("name").notNull(),
   emoji: text("emoji").default("📋"),
   filters: jsonb("filters").$type<Record<string, any>>().notNull().default({}),
@@ -373,6 +383,7 @@ export const crmSavedViewsTable = pgTable("crm_saved_views", {
 export const crmAutomationsTable = pgTable("crm_automations", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   name: text("name").notNull(),
   triggerType: text("trigger_type").notNull(), // 'status_changed', 'score_above', 'score_below'
   triggerValue: text("trigger_value").notNull(), // e.g. 'lost', '80'
@@ -401,6 +412,7 @@ export type SequenceStep = {
 export const automationSequencesTable = pgTable("automation_sequences", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   name: text("name").notNull(),
   trigger: text("trigger").notNull(), // 'contact_created' | 'deal_stage_changed' | 'score_above' | 'manual'
   triggerValue: text("trigger_value"), // ex: 'prospecting' | '60'
@@ -427,6 +439,7 @@ export const sequenceEnrollmentsTable = pgTable("sequence_enrollments", {
     .notNull()
     .references(() => crmContactsTable.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull(),
+  orgId: integer("org_id"),
   currentStep: integer("current_step").notNull().default(0),
   nextSendAt: timestamp("next_send_at").notNull(),
   status: text("status").notNull().default("active"), // 'active' | 'paused' | 'completed' | 'cancelled'
@@ -449,6 +462,7 @@ export const hubspotSyncStateTable = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: text("user_id").notNull(),
+    orgId: integer("org_id"),
     objectType: text("object_type").notNull(), // 'companies' | 'contacts' | 'deals' | 'notes' | 'tasks'
     lastPolledAt: timestamp("last_polled_at").notNull().defaultNow(),
     lastUpdatedId: text("last_updated_id"),
@@ -465,6 +479,7 @@ export const hubspotListMappingTable = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: text("user_id").notNull(),
+    orgId: integer("org_id"),
     tagName: text("tag_name").notNull(),
     hubspotListId: text("hubspot_list_id").notNull(),
     direction: text("direction").notNull().default("bidirectional"), // 'to_hubspot' | 'from_hubspot' | 'bidirectional'
@@ -482,6 +497,7 @@ export const crmAuditLogTable = pgTable(
   {
     id: serial("id").primaryKey(),
     userId: text("user_id").notNull(),
+    orgId: integer("org_id"),
     actorId: text("actor_id"), // quem fez (pode ser diferente de userId em cron/automation)
     actorType: text("actor_type").notNull().default("user"), // 'user' | 'ia' | 'automation' | 'integration' | 'service'
     entityType: text("entity_type").notNull(), // 'contact' | 'deal' | 'task' | 'view' | 'automation' | 'sequence'

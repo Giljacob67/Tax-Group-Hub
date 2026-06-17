@@ -45,6 +45,7 @@ export const knowledgeDocumentsTable = pgTable("knowledge_documents", {
   id: serial("id").primaryKey(),
   agentId: text("agent_id").notNull(),
   userId: text("user_id"), // Added for future tenancy
+  orgId: integer("org_id"), // Org-scoped: base de conhecimento compartilhada
   filename: text("filename").notNull(),
   fileType: text("file_type").notNull(),
   fileSize: integer("file_size").notNull(),
@@ -72,6 +73,7 @@ export const designGalleryTable = pgTable("design_gallery", {
   id: serial("id").primaryKey(),
   agentId: text("agent_id").notNull().default("global"),
   userId: text("user_id"), // Added for strict tenancy
+  orgId: integer("org_id"),
   imageUrl: text("image_url").notNull(),
   prompt: text("prompt").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -167,6 +169,7 @@ export const apiKeysTable = pgTable("api_keys", {
   provider: text("provider").notNull(), // 'openai', 'anthropic', 'resend', 'tavily', 'whatsapp', etc
   key: text("key").notNull(),
   userId: text("user_id"), // Added for future tenancy (Bring Your Own Key)
+  orgId: integer("org_id"), // Org-scoped: BYOK compartilhado, edição restrita a admin
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -182,6 +185,7 @@ export const channelConfigsTable = pgTable("channel_configs", {
   externalId: text("external_id").notNull(), // bot token or phone number
   agentId: text("agent_id").notNull(),
   userId: text("user_id"),
+  orgId: integer("org_id"),
   config: jsonb("config"), // extra secrets or settings
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -199,6 +203,7 @@ export const insertChannelConfigSchema = createInsertSchema(
 export const usageLogsTable = pgTable("usage_logs", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
+  orgId: integer("org_id"),
   conversationId: integer("conversation_id"),
   agentId: text("agent_id"),
   connectionId: integer("connection_id"),
@@ -228,6 +233,7 @@ export const insertUsageLogSchema = createInsertSchema(usageLogsTable).omit({
 export const tenantBrandingTable = pgTable("tenant_branding", {
   id: serial("id").primaryKey(),
   userId: text("user_id").unique(), // One branding config per user/owner
+  orgId: integer("org_id"), // Org-scoped: identidade visual compartilhada
   companyName: text("company_name").notNull().default("Tax Group Hub"),
   logoStorageKey: text("logo_storage_key"), // Internal path in /uploads
   primaryColor: text("primary_color").notNull().default("#3b82f6"), // Default tailwind blue-500
@@ -248,6 +254,7 @@ export const insertTenantBrandingSchema = createInsertSchema(
 export const integrationLogsTable = pgTable("integration_logs", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
+  orgId: integer("org_id"),
   integrationKey: text("integration_key").notNull(), // 'make' | 'webhooks' | 'whatsapp' | 'canva' | etc
   integrationName: text("integration_name").notNull(),
   eventType: text("event_type").notNull(), // 'lead.created' | 'webhook.received' | 'integration.tested' etc
@@ -276,6 +283,7 @@ export const insertIntegrationLogSchema = createInsertSchema(
 export const pipelineExecutionsTable = pgTable("pipeline_executions", {
   id: serial("id").primaryKey(),
   userId: text("user_id"),
+  orgId: integer("org_id"),
   steps: jsonb("steps").notNull().$type<
     Array<{
       agentId: string;
@@ -308,6 +316,7 @@ export const contentPerformanceTable = pgTable("content_performance", {
   id: serial("id").primaryKey(),
   agentId: text("agent_id").notNull(),
   userId: text("user_id"),
+  orgId: integer("org_id"),
   channel: text("channel").notNull(), // 'linkedin' | 'email' | 'whatsapp' | 'video' | 'seo'
   contentType: text("content_type").notNull(), // 'post' | 'email' | 'script' | 'one-pager' | 'article'
   generatedContent: text("generated_content").notNull(),
@@ -338,6 +347,7 @@ export const aiResponseFeedbackTable = pgTable("ai_response_feedback", {
   conversationId: integer("conversation_id").notNull(),
   agentId: text("agent_id").notNull(),
   userId: text("user_id"),
+  orgId: integer("org_id"),
   rating: integer("rating").notNull(), // 1 = thumbs up, -1 = thumbs down
   reason: text("reason"), // 'wrong_info' | 'incomplete' | 'hallucination' | 'off_topic' | 'great'
   comment: text("comment"),
@@ -361,6 +371,7 @@ export const aiTestCasesTable = pgTable("ai_test_cases", {
   name: text("name").notNull(),
   agentId: text("agent_id").notNull(),
   userId: text("user_id"),
+  orgId: integer("org_id"),
   question: text("question").notNull(),
   expectedAnswer: text("expected_answer"),
   expectedSources: jsonb("expected_sources").$type<string[]>(),
