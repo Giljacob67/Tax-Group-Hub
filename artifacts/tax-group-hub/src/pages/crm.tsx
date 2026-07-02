@@ -67,7 +67,6 @@ import {
   useListCrmViews,
   useGetCrmPipeline,
   useListSequenceEnrollments,
-  useCreateCrmContact,
   useUpdateCrmContact,
   useDeleteCrmContact,
   useBulkDeleteCrmContacts,
@@ -135,6 +134,7 @@ const TodayView = lazy(() => import("@/components/crm/TodayView"));
 const PipelineManager = lazy(() => import("@/components/crm/PipelineManager"));
 const AlertsPanel = lazy(() => import("@/components/crm/AlertsPanel"));
 const NextStepCard = lazy(() => import("@/components/crm/NextStepCard"));
+const AddLeadDialog = lazy(() => import("@/components/crm/AddLeadDialog"));
 const BriefingChecklist = lazy(
   () => import("@/components/crm/BriefingChecklist"),
 );
@@ -809,7 +809,16 @@ export default function CRMPage() {
                     <UploadCloud className="w-4 h-4 mr-2" />
                     Importar
                   </Button>
-                  <AddLeadDialog />
+                  <Suspense
+                    fallback={
+                      <Button disabled>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Carregando...
+                      </Button>
+                    }
+                  >
+                    <AddLeadDialog />
+                  </Suspense>
                 </div>
               </Can>
             )}
@@ -2306,7 +2315,16 @@ function ContactsView({
             </p>
             {activeFilterCount === 0 && (
               <div className="flex items-center justify-center gap-2 mt-4">
-                <AddLeadDialog />
+                <Suspense
+                  fallback={
+                    <Button disabled>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Carregando...
+                    </Button>
+                  }
+                >
+                  <AddLeadDialog />
+                </Suspense>
               </div>
             )}
           </div>
@@ -3729,308 +3747,6 @@ function ContactDetailPanel({
 }
 
 // ─── Add Lead Dialog ──────────────────────────────────────────────────────────
-function AddLeadDialog() {
-  const [open, setOpen] = useState(false);
-  const [cnpj, setCnpj] = useState("");
-  const [setor, setSetor] = useState("");
-  const [segmento, setSegmento] = useState("");
-  const [temperatura, setTemperatura] = useState("");
-  const [produtoInteresse, setProdutoInteresse] = useState("");
-  const [origemLead, setOrigemLead] = useState("");
-  const [decisor, setDecisor] = useState("");
-  const [contatoDecisor, setContatoDecisor] = useState("");
-  const [observacoes, setObservacoes] = useState("");
-  // Fase 1.5 — campos opcionais adicionais
-  const [valorPotencial, setValorPotencial] = useState("");
-  const [responsavelUnidade, setResponsavelUnidade] = useState("");
-  const [proximoFollowup, setProximoFollowup] = useState("");
-  const [pendenciasCliente, setPendenciasCliente] = useState("");
-  const [pendenciasUnidade, setPendenciasUnidade] = useState("");
-  const [pendenciasMatriz, setPendenciasMatriz] = useState("");
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const formatCnpj = (v: string) => {
-    const d = v.replace(/\D/g, "").slice(0, 14);
-    return d
-      .replace(/^(\d{2})(\d)/, "$1.$2")
-      .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
-      .replace(/\.(\d{3})(\d)/, ".$1/$2")
-      .replace(/(\d{4})(\d)/, "$1-$2");
-  };
-
-  function resetForm() {
-    setCnpj("");
-    setSetor("");
-    setSegmento("");
-    setTemperatura("");
-    setProdutoInteresse("");
-    setOrigemLead("");
-    setDecisor("");
-    setContatoDecisor("");
-    setObservacoes("");
-    setValorPotencial("");
-    setResponsavelUnidade("");
-    setProximoFollowup("");
-    setPendenciasCliente("");
-    setPendenciasUnidade("");
-    setPendenciasMatriz("");
-  }
-
-  const mutation = useCreateCrmContact({
-    mutation: {
-      onSuccess: (data) => {
-        queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-        toast({
-          title: "Lead criado." + (data.contact ? " Dados enriquecidos." : ""),
-        });
-        setOpen(false);
-        resetForm();
-      },
-      onError: (e: any) =>
-        toast({
-          title: "Erro",
-          description: e.message,
-          variant: "destructive",
-        }),
-    },
-  });
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        if (!v) resetForm();
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus className="w-4 h-4 mr-2" /> Novo Lead
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Adicionar Lead via CNPJ</DialogTitle>
-          <DialogDescription>
-            Busca automaticamente os dados no EmpresAqui (se configurado).
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4 space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="cnpj">CNPJ *</Label>
-            <Input
-              id="cnpj"
-              placeholder="00.000.000/0001-00"
-              value={cnpj}
-              onChange={(e) => setCnpj(formatCnpj(e.target.value))}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Setor</Label>
-              <Input
-                value={setor}
-                onChange={(e) => setSetor(e.target.value)}
-                placeholder="Ex: Agronegócio"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Segmento</Label>
-              <Input
-                value={segmento}
-                onChange={(e) => setSegmento(e.target.value)}
-                placeholder="Ex: Cooperativas"
-                className="text-sm"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Temperatura</Label>
-              <Select value={temperatura} onValueChange={setTemperatura}>
-                <SelectTrigger className="text-sm h-9">
-                  <SelectValue placeholder="Selecionar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {TEMPERATURA_OPTIONS.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Produto de Interesse</Label>
-              <Select
-                value={produtoInteresse}
-                onValueChange={setProdutoInteresse}
-              >
-                <SelectTrigger className="text-sm h-9">
-                  <SelectValue placeholder="Selecionar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRODUTO_INTERESSE_OPTIONS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Origem do Lead</Label>
-            <Select value={origemLead} onValueChange={setOrigemLead}>
-              <SelectTrigger className="text-sm h-9">
-                <SelectValue placeholder="Selecionar..." />
-              </SelectTrigger>
-              <SelectContent>
-                {ORIGEM_LEAD_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Decisor</Label>
-              <Input
-                value={decisor}
-                onChange={(e) => setDecisor(e.target.value)}
-                placeholder="Nome do decisor"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Contato do Decisor</Label>
-              <Input
-                value={contatoDecisor}
-                onChange={(e) => setContatoDecisor(e.target.value)}
-                placeholder="E-mail ou telefone"
-                className="text-sm"
-              />
-            </div>
-          </div>
-
-          {/* ─── Fase 1.5: campos adicionais opcionais ─────────────── */}
-          <div className="space-y-3 pt-2 border-t border-border/40">
-            <p className="text-[11px] text-muted-foreground/80 uppercase tracking-wider font-semibold pt-1">
-              Operação · Pendências & Acompanhamento
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Valor Potencial (R$)</Label>
-                <Input
-                  type="number"
-                  value={valorPotencial}
-                  onChange={(e) => setValorPotencial(e.target.value)}
-                  placeholder="0"
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Responsável Unidade</Label>
-                <Input
-                  value={responsavelUnidade}
-                  onChange={(e) => setResponsavelUnidade(e.target.value)}
-                  placeholder="Nome do responsável"
-                  className="text-sm"
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Próximo Follow-up</Label>
-              <Input
-                type="date"
-                value={proximoFollowup}
-                onChange={(e) => setProximoFollowup(e.target.value)}
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Pendências do Cliente</Label>
-              <Textarea
-                value={pendenciasCliente}
-                onChange={(e) => setPendenciasCliente(e.target.value)}
-                placeholder="O que o cliente precisa enviar/fornecer..."
-                className="text-sm min-h-[50px] resize-none"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Pendências da Unidade</Label>
-              <Textarea
-                value={pendenciasUnidade}
-                onChange={(e) => setPendenciasUnidade(e.target.value)}
-                placeholder="Pendências internas da unidade..."
-                className="text-sm min-h-[50px] resize-none"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Pendências da Matriz</Label>
-              <Textarea
-                value={pendenciasMatriz}
-                onChange={(e) => setPendenciasMatriz(e.target.value)}
-                placeholder="Pendências com a Matriz..."
-                className="text-sm min-h-[50px] resize-none"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Observações</Label>
-            <Textarea
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value)}
-              placeholder="Anotações sobre o lead..."
-              className="text-sm min-h-[60px] resize-none"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button
-            onClick={() =>
-              mutation.mutate({
-                data: {
-                  cnpj: cnpj.replace(/\D/g, ""),
-                  setor: setor || undefined,
-                  segmento: segmento || undefined,
-                  temperatura: temperatura || undefined,
-                  produtoInteresse: produtoInteresse || undefined,
-                  origemLead: origemLead || undefined,
-                  nomeDecissor: decisor || undefined,
-                  contatoDecisor: contatoDecisor || undefined,
-                  observacoes: observacoes || undefined,
-                  // Fase 1.5
-                  valorPotencial: valorPotencial || undefined,
-                  responsavelUnidade: responsavelUnidade || undefined,
-                  proximoFollowup: proximoFollowup
-                    ? new Date(proximoFollowup).toISOString()
-                    : undefined,
-                  pendenciasCliente: pendenciasCliente || undefined,
-                  pendenciasUnidade: pendenciasUnidade || undefined,
-                  pendenciasMatriz: pendenciasMatriz || undefined,
-                } as any,
-              })
-            }
-            disabled={mutation.isPending || cnpj.replace(/\D/g, "").length < 14}
-            className="w-full"
-          >
-            {mutation.isPending && (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            )}
-            {mutation.isPending ? "Buscando..." : "Criar e Enriquecer"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 // ─── Deal Edit Modal ──────────────────────────────────────────────────────────
 function DealEditModal({
   deal,
