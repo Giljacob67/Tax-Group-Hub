@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { hexToHslTriplet } from "@/lib/utils";
 
 interface BrandingData {
   companyName: string;
@@ -42,15 +43,11 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({
 
           // Inject CSS Variable for Tailwind (Phase 10)
           if (data.primaryColor) {
-            document.documentElement.style.setProperty(
-              "--primary-color",
-              data.primaryColor,
-            );
-            // Optionally set absolute primary for older tailwind plugins if needed
-            document.documentElement.style.setProperty(
-              "--primary",
-              data.primaryColor,
-            );
+            document.documentElement.style.setProperty("--primary-color", data.primaryColor);
+            const primaryHsl = hexToHslTriplet(data.primaryColor);
+            if (primaryHsl) {
+              document.documentElement.style.setProperty("--primary", primaryHsl);
+            }
           }
         }
       } catch (err) {

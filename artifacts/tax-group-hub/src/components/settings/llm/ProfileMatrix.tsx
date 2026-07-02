@@ -52,6 +52,13 @@ const PROFILE_TEMPLATES = [
     color: "text-emerald-400",
   },
   {
+    id: "embedding",
+    name: "Embeddings",
+    description: "Vetorização e busca semântica da base documental",
+    icon: BookOpen,
+    color: "text-emerald-400",
+  },
+  {
     id: "json_auto",
     name: "Automações JSON",
     description: "Saída estruturada para integrações e workflows",

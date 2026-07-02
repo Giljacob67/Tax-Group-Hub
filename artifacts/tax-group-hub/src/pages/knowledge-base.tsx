@@ -3,6 +3,7 @@ import { useDropzone } from "react-dropzone";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "wouter";
 import {
   FileText,
   UploadCloud,
@@ -266,10 +267,7 @@ function friendlyError(log: string | null): { cause: string; action: string } {
       action: "Converta para PDF ou TXT e tente novamente.",
     };
   if (l.includes("size") || l.includes("limit"))
-    return {
-      cause: "Arquivo grande demais.",
-      action: "Limite: 50MB. Divida o documento.",
-    };
+    return { cause: "Arquivo grande demais.", action: "Limite: 6MB. Divida o documento." };
   if (l.includes("not found") || l.includes("enoent"))
     return {
       cause: "Arquivo não encontrado no servidor.",
@@ -846,14 +844,40 @@ function SourcesTab({
             </div>
             <div>
               <div className="font-semibold">Upload Manual</div>
-              <div className="text-xs text-muted-foreground">
-                PDF, DOCX, TXT, MD — até 50MB
+              <div className="text-xs text-muted-foreground">PDF, DOCX, TXT, MD — até 6MB</div>
+            </div>
+          </div>
+          <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-400/10 text-emerald-400 border border-emerald-400/20 font-medium">Ativo</span>
+        </div>
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div><div className="text-2xl font-bold tabular-nums">{uploadSource?.total ?? 0}</div><div className="text-xs text-muted-foreground">Total</div></div>
+          <div><div className="text-2xl font-bold tabular-nums text-emerald-400">{uploadSource?.indexed ?? 0}</div><div className="text-xs text-muted-foreground">Indexados</div></div>
+          <div><div className="text-2xl font-bold tabular-nums text-red-400">{uploadSource?.errors ?? 0}</div><div className="text-xs text-muted-foreground">Erros</div></div>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border/50 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-background border border-border/50 rounded-lg"><HardDrive className="w-5 h-5 text-muted-foreground" /></div>
+            <div>
+              <div className="font-semibold">Google Drive</div>
+              <div className="text-xs text-muted-foreground">Docs, Sheets, PDFs — sincronização automática</div>
+            </div>
+          </div>
+          <span className="text-xs px-2.5 py-1 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20 font-medium">Em preparação</span>
+        </div>
+        <div className="bg-amber-400/5 border border-amber-400/20 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-sm space-y-1">
+              <div className="font-medium text-amber-400">Integração em desenvolvimento</div>
+              <div className="text-muted-foreground text-xs">
+                Integração com Google Drive preparada para OAuth server-side seguro.
+                Nenhum token será exposto no frontend. Sincronização via API server com mesma pipeline de embeddings.
               </div>
             </div>
           </div>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-400/10 text-emerald-400 border border-emerald-400/20 font-medium">
-            Ativo
-          </span>
         </div>
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
@@ -1377,22 +1401,19 @@ function SettingsTab() {
             </div>
           </div>
         </div>
-        <a
-          href="/settings"
-          className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-3"
-        >
+        <Link href="/settings" className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-3">
           <ExternalLink className="w-3 h-3" /> Gerenciar chaves de API
-        </a>
+        </Link>
       </div>
 
       <div className="bg-card border border-border/50 rounded-xl p-5">
-        <h3 className="font-semibold mb-3">Parâmetros de Indexação</h3>
+        <h3 className="font-semibold mb-3">Parâmetros Recomendados de Indexação</h3>
         <div className="grid grid-cols-2 gap-3 text-sm">
           {[
-            ["Tamanho do fragmento", "800 palavras"],
-            ["Sobreposição (overlap)", "200 palavras"],
-            ["Similaridade mínima", "0.25 (cosine)"],
-            ["Resultados por busca", "8 fragmentos"],
+            ["Tamanho do chunk", "300-450 palavras"],
+            ["Sobreposição (overlap)", "40-80 palavras"],
+            ["Similaridade mínima", "0.35-0.45 (cosine)"],
+            ["Resultados por busca", "8 chunks"],
           ].map(([k, v]) => (
             <div
               key={k}
@@ -1410,7 +1431,7 @@ function SettingsTab() {
         <div className="space-y-2 text-sm text-muted-foreground">
           {[
             "Uploads validados por tipo e extensão",
-            "Limite de 50MB por arquivo",
+            "Limite de 6MB por arquivo",
             "Chaves de API não expostas no frontend",
             "Documentos escopados por usuário",
             "Logs sem exposição de conteúdo sensível",
