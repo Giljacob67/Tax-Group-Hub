@@ -128,19 +128,21 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 const CRMDashboard = lazy(() => import("@/components/crm/PersonaDashboard"));
-import TasksPanel from "@/components/crm/TasksPanel";
-import GlobalTimeline from "@/components/crm/GlobalTimeline";
-import AutomationsPanel from "@/components/crm/AutomationsPanel";
-import TodayView from "@/components/crm/TodayView";
-import PipelineManager from "@/components/crm/PipelineManager";
-import AlertsPanel from "@/components/crm/AlertsPanel";
-import NextStepCard from "@/components/crm/NextStepCard";
-import BriefingChecklist from "@/components/crm/BriefingChecklist";
+const TasksPanel = lazy(() => import("@/components/crm/TasksPanel"));
+const GlobalTimeline = lazy(() => import("@/components/crm/GlobalTimeline"));
+const AutomationsPanel = lazy(() => import("@/components/crm/AutomationsPanel"));
+const TodayView = lazy(() => import("@/components/crm/TodayView"));
+const PipelineManager = lazy(() => import("@/components/crm/PipelineManager"));
+const AlertsPanel = lazy(() => import("@/components/crm/AlertsPanel"));
+const NextStepCard = lazy(() => import("@/components/crm/NextStepCard"));
+const BriefingChecklist = lazy(
+  () => import("@/components/crm/BriefingChecklist"),
+);
 import { CompanyAvatar } from "@/components/crm/CompanyAvatar";
-import DataQualityPanel from "@/components/crm/DataQualityPanel";
-import AuditLogPanel from "@/components/crm/AuditLogPanel";
-import RolesAdminPanel from "@/components/crm/RolesAdminPanel";
-import QueuesPanel from "@/components/crm/QueuesPanel";
+const DataQualityPanel = lazy(() => import("@/components/crm/DataQualityPanel"));
+const AuditLogPanel = lazy(() => import("@/components/crm/AuditLogPanel"));
+const RolesAdminPanel = lazy(() => import("@/components/crm/RolesAdminPanel"));
+const QueuesPanel = lazy(() => import("@/components/crm/QueuesPanel"));
 import { Can } from "@/components/can";
 import {
   CONTACT_STATUSES,
@@ -193,6 +195,17 @@ const PIPELINE_PHASES = [
     collapsible: true,
   },
 ];
+
+function PanelLoader({ label = "Carregando painel..." }: { label?: string }) {
+  return (
+    <div className="flex h-full min-h-48 items-center justify-center text-sm text-muted-foreground">
+      <div className="flex items-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>{label}</span>
+      </div>
+    </div>
+  );
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type CrmSavedView = {
@@ -825,43 +838,63 @@ export default function CRMPage() {
             />
           </TabsContent>
           <TabsContent value="today" className="h-full m-0 p-0">
-            <TodayView />
+            <Suspense fallback={<PanelLoader label="Carregando agenda..." />}>
+              <TodayView />
+            </Suspense>
           </TabsContent>
           <TabsContent
             value="timeline"
             className="h-full m-0 p-6 overflow-y-auto max-w-4xl mx-auto"
           >
-            <GlobalTimeline />
+            <Suspense fallback={<PanelLoader label="Carregando timeline..." />}>
+              <GlobalTimeline />
+            </Suspense>
           </TabsContent>
           <TabsContent
             value="alerts"
             className="h-full m-0 p-6 overflow-hidden"
           >
-            <AlertsPanel />
+            <Suspense fallback={<PanelLoader label="Carregando alertas..." />}>
+              <AlertsPanel />
+            </Suspense>
           </TabsContent>
           <TabsContent
             value="automations"
             className="h-full m-0 p-6 overflow-y-auto max-w-4xl mx-auto"
           >
-            <AutomationsPanel />
+            <Suspense
+              fallback={<PanelLoader label="Carregando automacoes..." />}
+            >
+              <AutomationsPanel />
+            </Suspense>
           </TabsContent>
           <TabsContent
             value="queues"
             className="h-full m-0 p-6 overflow-hidden"
           >
-            <QueuesPanel />
+            <Suspense fallback={<PanelLoader label="Carregando filas..." />}>
+              <QueuesPanel />
+            </Suspense>
           </TabsContent>
           <TabsContent
             value="quality"
             className="h-full m-0 p-6 overflow-hidden"
           >
-            <DataQualityPanel />
+            <Suspense
+              fallback={<PanelLoader label="Carregando qualidade..." />}
+            >
+              <DataQualityPanel />
+            </Suspense>
           </TabsContent>
           <TabsContent value="audit" className="h-full m-0 p-6 overflow-hidden">
-            <AuditLogPanel />
+            <Suspense fallback={<PanelLoader label="Carregando auditoria..." />}>
+              <AuditLogPanel />
+            </Suspense>
           </TabsContent>
           <TabsContent value="roles" className="h-full m-0 p-6 overflow-hidden">
-            <RolesAdminPanel />
+            <Suspense fallback={<PanelLoader label="Carregando usuarios..." />}>
+              <RolesAdminPanel />
+            </Suspense>
           </TabsContent>
           <TabsContent
             value="dashboard"
@@ -3142,8 +3175,12 @@ function ContactDetailPanel({
           {/* ── Info Tab ── */}
           <TabsContent value="info" className="m-0">
             <div className="p-4 space-y-4">
-              <NextStepCard contactId={contact.id} />
-              <BriefingChecklist contactId={contact.id} />
+              <Suspense
+                fallback={<PanelLoader label="Carregando proximos passos..." />}
+              >
+                <NextStepCard contactId={contact.id} />
+                <BriefingChecklist contactId={contact.id} />
+              </Suspense>
               {scoreDetails?.reasoning && (
                 <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
                   <div className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-2">
@@ -3272,7 +3309,9 @@ function ContactDetailPanel({
 
           {/* ── Tasks Tab ── */}
           <TabsContent value="tasks" className="m-0">
-            <TasksPanel contactId={contact.id} />
+            <Suspense fallback={<PanelLoader label="Carregando tarefas..." />}>
+              <TasksPanel contactId={contact.id} />
+            </Suspense>
           </TabsContent>
 
           {/* ── Deals Tab ── */}
@@ -4893,16 +4932,20 @@ function PipelineKanbanView({
               </button>
               {showPipelineMgr && (
                 <div className="absolute top-full right-0 mt-2 z-50">
-                  <PipelineManager
-                    activePipelineId={activePipelineId}
-                    onSelect={(id) => {
-                      setActivePipelineId(id);
-                      setShowPipelineMgr(false);
-                      queryClient.invalidateQueries({
-                        queryKey: ["/api/crm/deals/pipeline", id],
-                      });
-                    }}
-                  />
+                  <Suspense
+                    fallback={<PanelLoader label="Carregando funis..." />}
+                  >
+                    <PipelineManager
+                      activePipelineId={activePipelineId}
+                      onSelect={(id) => {
+                        setActivePipelineId(id);
+                        setShowPipelineMgr(false);
+                        queryClient.invalidateQueries({
+                          queryKey: ["/api/crm/deals/pipeline", id],
+                        });
+                      }}
+                    />
+                  </Suspense>
                 </div>
               )}
             </div>
