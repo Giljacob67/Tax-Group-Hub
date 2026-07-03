@@ -138,6 +138,9 @@ const AddLeadDialog = lazy(() => import("@/components/crm/AddLeadDialog"));
 const DealEditModalLazy = lazy(
   () => import("@/components/crm/DealEditModal"),
 );
+const QuickAddDealFormLazy = lazy(
+  () => import("@/components/crm/QuickAddDealForm"),
+);
 const BriefingChecklist = lazy(
   () => import("@/components/crm/BriefingChecklist"),
 );
@@ -4945,10 +4948,15 @@ function PipelineKanbanView({
 
                 {/* Quick add form */}
                 {isAdding && (
-                  <QuickAddDealForm
-                    stage={stageId}
-                    onDone={() => setAddingInStage(null)}
-                  />
+                  <Suspense
+                    fallback={<PanelLoader label="Carregando criacao..." />}
+                  >
+                    <QuickAddDealFormLazy
+                      stage={stageId}
+                      stageLabel={dict.label}
+                      onDone={() => setAddingInStage(null)}
+                    />
+                  </Suspense>
                 )}
 
                 {/* Drop indicator */}
