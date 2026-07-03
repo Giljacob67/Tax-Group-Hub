@@ -135,6 +135,9 @@ const PipelineManager = lazy(() => import("@/components/crm/PipelineManager"));
 const AlertsPanel = lazy(() => import("@/components/crm/AlertsPanel"));
 const NextStepCard = lazy(() => import("@/components/crm/NextStepCard"));
 const AddLeadDialog = lazy(() => import("@/components/crm/AddLeadDialog"));
+const DealEditModalLazy = lazy(
+  () => import("@/components/crm/DealEditModal"),
+);
 const BriefingChecklist = lazy(
   () => import("@/components/crm/BriefingChecklist"),
 );
@@ -4999,23 +5002,33 @@ function PipelineKanbanView({
             if (!open) setEditingDeal(null);
           }}
         >
-          <DealEditModal
-            deal={editingDeal}
-            onOpenContact={onOpenContact}
-            onClose={() => setEditingDeal(null)}
-            onSaved={() => {
-              setEditingDeal(null);
-              queryClient.invalidateQueries({
-                queryKey: ["/api/crm/deals/pipeline"],
-              });
-            }}
-            onDeleted={() => {
-              setEditingDeal(null);
-              queryClient.invalidateQueries({
-                queryKey: ["/api/crm/deals/pipeline"],
-              });
-            }}
-          />
+          <Suspense
+            fallback={
+              <DialogContent className="sm:max-w-[500px]">
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                </div>
+              </DialogContent>
+            }
+          >
+            <DealEditModalLazy
+              deal={editingDeal}
+              onOpenContact={onOpenContact}
+              onClose={() => setEditingDeal(null)}
+              onSaved={() => {
+                setEditingDeal(null);
+                queryClient.invalidateQueries({
+                  queryKey: ["/api/crm/deals/pipeline"],
+                });
+              }}
+              onDeleted={() => {
+                setEditingDeal(null);
+                queryClient.invalidateQueries({
+                  queryKey: ["/api/crm/deals/pipeline"],
+                });
+              }}
+            />
+          </Suspense>
         </Dialog>
       )}
     </div>
