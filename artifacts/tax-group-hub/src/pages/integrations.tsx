@@ -715,10 +715,15 @@ function HubSpotConfigPanel() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: configData, isLoading } = useQuery<HubSpotConfigResponse>({
+  const {
+    data: configData,
+    isLoading,
+    error: configError,
+  } = useQuery<HubSpotConfigResponse>({
     queryKey: ["hubspot-config"],
     queryFn: () =>
       customFetch<HubSpotConfigResponse>("/api/integrations/hubspot/config"),
+    retry: false,
   });
 
   const [accessToken, setAccessToken] = useState("");
@@ -855,6 +860,14 @@ function HubSpotConfigPanel() {
       <div className="text-center py-8 text-muted-foreground text-sm">
         <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
         Carregando...
+      </div>
+    );
+
+  if (configError)
+    return (
+      <div className="bg-amber-500/8 border border-amber-500/20 rounded-lg p-3 text-xs text-amber-400">
+        {(configError as Error).message ||
+          "Apenas administradores podem gerenciar a integração HubSpot."}
       </div>
     );
 

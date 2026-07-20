@@ -32,8 +32,33 @@ import {
   syncAllListsToHubSpot,
   autoSegmentContacts,
 } from "../lib/hubspot-sync.js";
+import { loadUserRoles } from "../lib/rbac.js";
+import { isRealUser } from "../middlewares/auth.js";
+import type { Request, Response } from "express";
 
 const router: IRouter = Router();
+
+// HubSpot is a single, company-wide integration (one portal shared by the
+// whole org) stored in appConfigTable with no per-user scoping. Any
+// authenticated user could otherwise view/rotate/disable the shared
+// credential or trigger a real sync against it — gate it to admins.
+async function requireHubSpotAdmin(req: Request, res: Response): Promise<boolean> {
+  const userId = req.userId;
+  if (!isRealUser(userId)) {
+    apiError(res, 401, "Autenticação obrigatória.");
+    return false;
+  }
+  const roles = await loadUserRoles(userId);
+  if (!roles.includes("admin")) {
+    apiError(
+      res,
+      403,
+      "Apenas administradores podem gerenciar a integração HubSpot.",
+    );
+    return false;
+  }
+  return true;
+}
 
 // Root GET - list available integration endpoints
 router.get("/integrations", (_req, res) => {
@@ -843,11 +868,8 @@ function maskToken(token: string): string {
  */
 router.get("/integrations/hubspot/config", async (req, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) {
-      apiError(res, 401, "Unauthorized");
-      return;
-    }
+    if (!(await requireHubSpotAdmin(req, res))) return;
+    const userId = req.userId!;
 
     const config = await getHubSpotConfig(userId);
     if (!config) {
@@ -901,11 +923,8 @@ router.get("/integrations/hubspot/config", async (req, res) => {
  */
 router.post("/integrations/hubspot/config", async (req, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) {
-      apiError(res, 401, "Unauthorized");
-      return;
-    }
+    if (!(await requireHubSpotAdmin(req, res))) return;
+    const userId = req.userId!;
 
     const { accessToken, portalId, enabled, syncDirection } = req.body as {
       accessToken?: string;
@@ -993,11 +1012,8 @@ router.post("/integrations/hubspot/config", async (req, res) => {
  */
 router.post("/integrations/hubspot/test", async (req, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) {
-      apiError(res, 401, "Unauthorized");
-      return;
-    }
+    if (!(await requireHubSpotAdmin(req, res))) return;
+    const userId = req.userId!;
 
     const config = await getHubSpotConfig(userId);
     if (!config || !config.accessToken) {
@@ -1230,11 +1246,8 @@ router.delete("/integrations/hubspot/lists/:tagName", async (req, res) => {
  */
 router.post("/integrations/hubspot/sync-lists", async (req, res) => {
   try {
-    const userId = req.userId;
-    if (!userId) {
-      apiError(res, 401, "Unauthorized");
-      return;
-    }
+    if (!(await requireHubSpotAdmin(req, res))) return;
+    const userId = req.userId!;
 
     const config = await getHubSpotConfig(userId);
     if (!config || !config.accessToken) {
@@ -1263,9 +1276,15 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
   const startTime = Date.now();
 
   try {
+    // Manual (browser) calls require admin; the cron path (req.isCron, set by
+    // authMiddleware for a valid CRON_SECRET) bypasses this — it's a trusted
+    // server-to-server call, not a client acting on someone's behalf.
+    if (!req.isCron && !(await requireHubSpotAdmin(req, res))) return;
+
     // Prefer authenticated user's ID (browser call), fall back to DB lookup (cron call)
-    let userId = req.userId && req.userId !== "system" ? req.userId : null;
-    
+    let userId =
+      req.userId && !req.isCron && isRealUser(req.userId) ? req.userId : null;
+
     // For cron calls, find a real user to run the sync
     if (!userId) {
       try {
@@ -1355,8 +1374,8 @@ router.get("/integrations/hubspot/sync", async (req, res) => {
  */
 router.get("/integrations/hubspot/lists-debug", async (req, res) => {
   try {
-    const userId =
-      req.userId && req.userId !== "system" ? req.userId : "system";
+    if (!(await requireHubSpotAdmin(req, res))) return;
+    const userId = req.userId!;
     const config = await getHubSpotConfig(userId);
     if (!config?.accessToken) {
       apiError(res, 400, "HubSpot not configured");
@@ -1463,12 +1482,15 @@ router.get("/integrations/hubspot/lists-debug", async (req, res) => {
  */
 router.post("/integrations/hubspot/auto-segment", async (req, res) => {
   try {
-    const userId =
-      req.userId && req.userId !== "system" ? req.userId : "system";
-    if (userId === "system") {
+    if (!isRealUser(req.userId)) {
       apiError(res, 401, "Login required");
       return;
     }
+    // Tagging the caller's own contacts is a normal per-user CRM action; only
+    // pushing those tags to the shared HubSpot portal (sync=1) needs admin.
+    if (req.query.sync === "1" && !(await requireHubSpotAdmin(req, res)))
+      return;
+    const userId = req.userId!;
 
     const config = await getHubSpotConfig(userId);
     const result = await autoSegmentContacts(userId);

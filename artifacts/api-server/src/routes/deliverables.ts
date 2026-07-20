@@ -804,6 +804,7 @@ router.get("/deliverables/:id/versions", async (req, res) => {
 // GET /api/deliverables/:id/export — HTML download
 router.get("/deliverables/:id/export", async (req, res) => {
   try {
+    const userId = req.userId;
     const id = validateIdParam(req.params.id);
     if (!id) return apiError(res, 400, "Invalid id");
 
@@ -834,6 +835,8 @@ router.get("/deliverables/:id/export", async (req, res) => {
 
     if (!deliverableRow) return apiError(res, 404, "Deliverable not found");
     const d = deliverableRow.d;
+    if (isRealUser(userId) && d.userId && d.userId !== userId)
+      return apiError(res, 403, "Access denied");
 
     // Convert markdown-like content to HTML (basic)
     const mdToHtml = (text: string) =>
