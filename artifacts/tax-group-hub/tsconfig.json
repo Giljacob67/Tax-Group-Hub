@@ -4,6 +4,7 @@
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
   "compilerOptions": {
     "noEmit": true,
+    "baseUrl": ".",
     "jsx": "preserve",
     "lib": ["esnext", "dom", "dom.iterable"],
     "resolveJsonModule": true,
@@ -11,12 +12,13 @@
     "moduleResolution": "bundler",
     "types": ["node", "vite/client"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@workspace/api-client-react": ["../../lib/api-client-react/src/index.ts"],
+      "@workspace/api-client-react/custom-fetch": [
+        "../../lib/api-client-react/src/custom-fetch.ts"
+      ],
+      "@workspace/db": ["../../lib/db/src/index.ts"],
+      "@workspace/db/crm-constants": ["../../lib/db/src/crm-constants.ts"]
     }
-  },
-  "references": [
-    {
-      "path": "../../lib/api-client-react"
-    }
-  ]
+  }
 }

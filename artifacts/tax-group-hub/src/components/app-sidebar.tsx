@@ -59,6 +59,7 @@ import { useBranding } from "../contexts/BrandingContext";
 import { useGetCrmMe } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut, UserCog, Shield } from "lucide-react";
+import { withBasePath } from "@/lib/utils";
 
 const BLOCKS = [
   {
@@ -196,8 +197,8 @@ export function AppSidebar() {
   }, [tasksData]);
 
   const logoUrl = branding.logoStorageKey
-    ? `/uploads/${branding.logoStorageKey}`
-    : `${import.meta.env.BASE_URL}images/logo-x-branco.svg`;
+    ? withBasePath(`/uploads/${branding.logoStorageKey}`)
+    : withBasePath("/images/logo-x-branco.svg");
 
   const filteredAgents = useMemo(() => {
     if (!search.trim() || !data?.agents) return null;

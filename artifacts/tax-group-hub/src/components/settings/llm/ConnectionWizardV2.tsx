@@ -88,9 +88,9 @@ const USAGE_OPTIONS = [
   },
   {
     id: "embedding",
-    label: "Fallback Geral",
+    label: "Embeddings",
     icon: ShieldAlert,
-    desc: "Backup quando o principal falha",
+    desc: "Vetorização e recuperação semântica documental",
   },
 ];
 

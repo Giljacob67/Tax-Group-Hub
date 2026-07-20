@@ -6,6 +6,7 @@ import path from "path";
 
 const port = Number(process.env.PORT) || 3011;
 const basePath = process.env.BASE_PATH || "/";
+const workspaceRoot = path.resolve(import.meta.dirname, "..", "..");
 
 export default defineConfig({
   base: basePath,
@@ -13,6 +14,27 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
+      "@workspace/api-client-react": path.resolve(
+        workspaceRoot,
+        "lib",
+        "api-client-react",
+        "src",
+        "index.ts",
+      ),
+      "@workspace/api-client-react/custom-fetch": path.resolve(
+        workspaceRoot,
+        "lib",
+        "api-client-react",
+        "src",
+        "custom-fetch.ts",
+      ),
+      "@workspace/db/crm-constants": path.resolve(
+        workspaceRoot,
+        "lib",
+        "db",
+        "src",
+        "crm-constants.ts",
+      ),
       "@assets": path.resolve(
         import.meta.dirname,
         "..",
@@ -49,6 +71,7 @@ export default defineConfig({
     allowedHosts: true,
     fs: {
       strict: true,
+      allow: [workspaceRoot],
       deny: ["**/.*"],
     },
   },

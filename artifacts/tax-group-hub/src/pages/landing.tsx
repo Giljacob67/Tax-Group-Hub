@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { motion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight,
@@ -34,6 +34,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { useBranding } from "@/contexts/BrandingContext";
+import { Button } from "@/components/ui/button";
+import { withBasePath } from "@/lib/utils";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -193,8 +195,8 @@ export default function LandingPage() {
   const heroY = useTransform(scrollY, [0, 500], [0, 80]);
   const { branding } = useBranding();
   const logoUrl = branding.logoStorageKey
-    ? `/uploads/${branding.logoStorageKey}`
-    : `${import.meta.env.BASE_URL}images/logo-x-branco.svg`;
+    ? withBasePath(`/uploads/${branding.logoStorageKey}`)
+    : withBasePath("/images/logo-x-branco.svg");
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -214,17 +216,17 @@ export default function LandingPage() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/command-center?demo=1">
-              <button className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background text-xs font-medium hover:bg-muted transition-colors">
+            <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex rounded-lg">
+              <Link href="/command-center?demo=1">
                 <Sparkles className="w-3.5 h-3.5" />
                 Modo demo
-              </button>
-            </Link>
-            <Link href="/command-center">
-              <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+              </Link>
+            </Button>
+            <Button asChild size="sm" className="rounded-lg">
+              <Link href="/command-center">
                 Entrar no Command Center <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </header>
@@ -269,22 +271,19 @@ export default function LandingPage() {
               especialistas e conduzir o pipeline comercial com método.
             </motion.p>
 
-            <motion.div
-              variants={itemVariants}
-              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-8"
-            >
-              <Link href="/command-center">
-                <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/10">
+            <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-8">
+              <Button asChild className="w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold shadow-lg shadow-primary/10">
+                <Link href="/command-center">
                   <Target className="w-4 h-4" />
                   Entrar no Command Center
-                </button>
-              </Link>
-              <Link href="/command-center?demo=1">
-                <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-border bg-background text-sm font-medium hover:bg-muted transition-colors">
-                    <Sparkles className="w-4 h-4" />
-                    Iniciar modo demo
-                    </button>
-              </Link>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-medium">
+                <Link href="/command-center?demo=1">
+                  <Sparkles className="w-4 h-4" />
+                  Iniciar modo demo
+                </Link>
+              </Button>
             </motion.div>
           </motion.div>
         </div>
@@ -526,18 +525,18 @@ export default function LandingPage() {
               agentes e acompanhar o pipeline comercial da Tax Group.
             </p>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 mt-8">
-              <Link href="/command-center">
-                <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/10">
+              <Button asChild className="w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold shadow-lg shadow-primary/10">
+                <Link href="/command-center">
                   <Target className="w-4 h-4" />
                   Entrar no Command Center
-                </button>
-              </Link>
-              <Link href="/command-center?demo=1">
-                <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-border bg-background text-sm font-medium hover:bg-muted transition-colors">
-                    <Sparkles className="w-4 h-4" />
-                    Iniciar modo demo
-                    </button>
-              </Link>
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-medium">
+                <Link href="/command-center?demo=1">
+                  <Sparkles className="w-4 h-4" />
+                  Iniciar modo demo
+                </Link>
+              </Button>
             </div>
           </motion.div>
         </div>
