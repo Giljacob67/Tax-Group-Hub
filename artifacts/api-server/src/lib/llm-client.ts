@@ -81,6 +81,7 @@ export async function getLanguageModel(
   requestedModel?: string,
   userId?: string,
   requestedCustomUrl?: string,
+  requestedApiKey?: string,
 ): Promise<{ model: LanguageModel; providerName: string; modelId: string }> {
   // Normalize provider names
   let provider = (requestedProvider || "auto").toLowerCase();
@@ -102,7 +103,8 @@ export async function getLanguageModel(
 
   // OPENROUTER (OpenAI-compatible API with many models)
   if (provider === "openrouter") {
-    const openrouterKey = await getApiKey("openrouter", userId);
+    const openrouterKey =
+      requestedApiKey || (await getApiKey("openrouter", userId));
     if (!openrouterKey) throw new Error("OpenRouter API Key não configurada.");
     const customOpenAI = createOpenAI({
       baseURL: "https://openrouter.ai/api/v1",
@@ -138,8 +140,13 @@ export async function getLanguageModel(
 
   // 2. ANTHROPIC
   const anthropicKey = await getApiKey("anthropic", userId);
-  if ((provider === "anthropic" || provider === "claude") && anthropicKey) {
-    const customAnthropic = createAnthropic({ apiKey: anthropicKey });
+  if (
+    (provider === "anthropic" || provider === "claude") &&
+    (requestedApiKey || anthropicKey)
+  ) {
+    const customAnthropic = createAnthropic({
+      apiKey: requestedApiKey || anthropicKey!,
+    });
     const modelId = requestedModel || "claude-sonnet-4-5-20250929";
     return {
       model: customAnthropic(modelId),
@@ -150,8 +157,13 @@ export async function getLanguageModel(
 
   // 3. OPENAI
   const openaiKey = await getApiKey("openai", userId);
-  if ((provider === "openai" || provider === "gpt") && openaiKey) {
-    const customOpenAI = createOpenAI({ apiKey: openaiKey });
+  if (
+    (provider === "openai" || provider === "gpt") &&
+    (requestedApiKey || openaiKey)
+  ) {
+    const customOpenAI = createOpenAI({
+      apiKey: requestedApiKey || openaiKey!,
+    });
     const modelId = requestedModel || "gpt-4o";
     return { model: customOpenAI(modelId), providerName: "OpenAI", modelId };
   }
@@ -160,9 +172,11 @@ export async function getLanguageModel(
   const googleKey = await getApiKey("google", userId);
   if (
     (provider === "google" || provider === "gemini" || provider === "auto") &&
-    googleKey
+    (requestedApiKey || googleKey)
   ) {
-    const customGoogle = createGoogleGenerativeAI({ apiKey: googleKey });
+    const customGoogle = createGoogleGenerativeAI({
+      apiKey: requestedApiKey || googleKey!,
+    });
     const modelId =
       requestedModel ||
       activeLlmModel ||
@@ -176,7 +190,10 @@ export async function getLanguageModel(
     const cleanUrl = requestedCustomUrl.replace(/\/+$/, "");
     const customOpenAI = createOpenAI({
       baseURL: cleanUrl.endsWith("/v1") ? cleanUrl : `${cleanUrl}/v1`,
-      apiKey: (await getApiKey("custom_openai", userId)) || "custom",
+      apiKey:
+        requestedApiKey ||
+        (await getApiKey("custom_openai", userId)) ||
+        "custom",
     });
     const modelId = requestedModel || "custom-model";
     return { model: customOpenAI(modelId), providerName: "Custom", modelId };
@@ -198,6 +215,7 @@ export async function callLLM(
     provider?: string;
     model?: string;
     customUrl?: string;
+    apiKey?: string;
     jsonMode?: boolean;
     toolIds?: string[];
     userId?: string;
@@ -233,7 +251,9 @@ export async function callLLM(
           { role: "user", content: userMessage },
         ];
 
-    const ollamaKey = await getApiKey("ollama_cloud", options?.userId);
+    const ollamaKey =
+      options?.apiKey ||
+      (await getApiKey("ollama_cloud", options?.userId));
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -272,6 +292,7 @@ export async function callLLM(
     options?.model,
     options?.userId,
     options?.customUrl,
+    options?.apiKey,
   );
 
   // Prepare tools if requested

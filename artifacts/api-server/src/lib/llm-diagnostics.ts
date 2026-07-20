@@ -312,7 +312,7 @@ async function runStageChat(
     const result = await callLLM(
       "You are a connectivity test assistant. Reply with exactly: 'OK · <model-name>'",
       "Reply with exactly: 'OK · <your model name>'",
-      { provider: resolvedProvider, model: modelId, customUrl, userId },
+      { provider: resolvedProvider, model: modelId, customUrl, apiKey, userId },
     );
 
     const latencyMs = Date.now() - start;
@@ -375,7 +375,7 @@ async function runStageJson(
     // We use generateObject to test structured output capability
     const { model } = await (
       await import("./llm-client.js")
-    ).getLanguageModel(resolvedProvider, modelId, userId, customUrl);
+    ).getLanguageModel(resolvedProvider, modelId, userId, customUrl, apiKey);
     const { object } = await generateObject({
       model: model as any,
       schema: {
@@ -446,7 +446,7 @@ async function runStageTools(
 
     const { model } = await (
       await import("./llm-client.js")
-    ).getLanguageModel(resolvedProvider, modelId, userId, customUrl);
+    ).getLanguageModel(resolvedProvider, modelId, userId, customUrl, apiKey);
 
     const result = await generateText({
       model,

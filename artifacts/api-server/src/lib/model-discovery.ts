@@ -77,8 +77,13 @@ export async function discoverOpenRouter(
 }
 
 // ─── Ollama ───────────────────────────────────────────────────────────────────
+// apiKey is optional and ignored for local Ollama (no auth), but required for
+// Ollama Cloud — without it, /api/tags still returns 200 (public catalog), so
+// omitting the header makes the "auth" diagnostic stage pass regardless of
+// whether the key is actually valid.
 export async function discoverOllama(
   baseUrl: string,
+  apiKey?: string,
 ): Promise<DiscoveryResult> {
   try {
     const url = baseUrl.replace(/\/+$/, "");
@@ -87,6 +92,7 @@ export async function discoverOllama(
       ? `${url}/tags`
       : `${url}/api/tags`;
     const res = await fetch(tagsEndpoint, {
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
@@ -416,9 +422,9 @@ export async function discoverModels(
     case "google":
       return discoverGoogle(apiKey);
     case "ollama":
-      return discoverOllama(baseUrl || "http://localhost:11434");
+      return discoverOllama(baseUrl || "http://localhost:11434", apiKey);
     case "ollama_cloud":
-      return discoverOllama(baseUrl || "https://ollama.com/api");
+      return discoverOllama(baseUrl || "https://ollama.com/api", apiKey);
     case "custom_openai":
       return discoverCustomOpenAI(baseUrl || "", apiKey);
     default:

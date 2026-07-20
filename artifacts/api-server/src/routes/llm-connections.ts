@@ -4,6 +4,7 @@ import {
   llmConnectionsTable,
   llmProfilesTable,
   appConfigTable,
+  apiKeysTable,
 } from "@workspace/db";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { encrypt, decrypt } from "../lib/crypto.js";
@@ -42,6 +43,92 @@ function scopeByUser(userId: string | undefined) {
   return isRealUser(userId)
     ? eq(llmConnectionsTable.userId, userId)
     : undefined;
+}
+
+// ─── Helper: bridge a Connection into the systems real usage reads ────────────
+// conversations.ts resolves the LLM for real agent chat from two separate,
+// legacy stores: appConfigTable (ACTIVE_LLM_PROVIDER/URL/MODEL) and, via
+// getApiKey(), apiKeysTable (BYOK). Neither is touched by saving/activating a
+// Connection, so a connection configured here previously never took effect
+// for real usage even though tests against it (correctly) passed. Only the
+// "chat" usage type drives the single global active-provider config.
+async function syncActiveLlmConfig(
+  conn: {
+    provider: string;
+    baseUrl: string | null;
+    modelId: string;
+    apiKey: string;
+    usageType: string;
+  },
+  userId: string | undefined,
+): Promise<void> {
+  if (conn.usageType !== "chat") return;
+
+  const [existingKey] = await db
+    .select({ id: apiKeysTable.id })
+    .from(apiKeysTable)
+    .where(
+      and(
+        eq(apiKeysTable.provider, conn.provider),
+        isRealUser(userId) ? eq(apiKeysTable.userId, userId) : undefined,
+      ),
+    )
+    .limit(1);
+
+  if (existingKey) {
+    await db
+      .update(apiKeysTable)
+      .set({ key: conn.apiKey, updatedAt: new Date() })
+      .where(eq(apiKeysTable.id, existingKey.id));
+  } else {
+    await db.insert(apiKeysTable).values({
+      userId: isRealUser(userId) ? userId : null,
+      provider: conn.provider,
+      key: conn.apiKey,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  await db
+    .insert(appConfigTable)
+    .values({
+      key: "ACTIVE_LLM_PROVIDER",
+      value: conn.provider,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: appConfigTable.key,
+      set: { value: conn.provider, updatedAt: new Date() },
+    });
+
+  if (conn.baseUrl) {
+    await db
+      .insert(appConfigTable)
+      .values({
+        key: "ACTIVE_LLM_URL",
+        value: conn.baseUrl,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: appConfigTable.key,
+        set: { value: conn.baseUrl, updatedAt: new Date() },
+      });
+  } else {
+    await db.delete(appConfigTable).where(eq(appConfigTable.key, "ACTIVE_LLM_URL"));
+  }
+
+  await db
+    .insert(appConfigTable)
+    .values({
+      key: "ACTIVE_LLM_MODEL",
+      value: conn.modelId,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: appConfigTable.key,
+      set: { value: conn.modelId, updatedAt: new Date() },
+    });
 }
 
 // ─── GET /api/llm/providers — List supported providers with metadata ──────────
@@ -486,6 +573,8 @@ router.post("/llm/connections", async (req, res) => {
       })
       .returning();
 
+    await syncActiveLlmConfig(conn, userId);
+
     const { apiKey: _, ...safe } = conn;
     res
       .status(201)
@@ -673,6 +762,7 @@ router.post("/llm/connections/:id/test", async (req, res) => {
           provider,
           model: conn.modelId,
           customUrl,
+          apiKey,
           userId,
         },
       );
@@ -764,6 +854,8 @@ router.post("/llm/connections/:id/activate", async (req, res) => {
       .update(llmConnectionsTable)
       .set({ isDefault: true, updatedAt: new Date() })
       .where(eq(llmConnectionsTable.id, id));
+
+    await syncActiveLlmConfig(conn, userId);
 
     res.json({ success: true, connectionId: id, usageType: conn.usageType });
   } catch (err) {
