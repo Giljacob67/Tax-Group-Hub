@@ -34,6 +34,7 @@ async function resolveOrgId(userId: number): Promise<number> {
 }
 import { logAudit } from "../lib/audit.js";
 import logger from "../lib/logger.js";
+import { sendEmail } from "../lib/email.js";
 
 const router = Router();
 
@@ -619,9 +620,18 @@ router.post("/forgot-password", async (req: Request, res: Response) => {
       expiresAt,
     });
 
-    // TODO: In production, send email with reset link
-    // const resetLink = `${process.env.APP_URL || "https://tax-group-hub.vercel.app"}/reset-password?token=${token}`;
-    // await sendEmail(user.email, "Reset de senha", `Clique aqui: ${resetLink}`);
+    const resetLink = `${process.env.APP_URL || "https://tax-group-hub.vercel.app"}/reset-password?token=${token}`;
+    const emailResult = await sendEmail(
+      user.email,
+      "Reset de senha — Tax Group Hub",
+      `<p>Olá, ${user.name}.</p><p>Recebemos uma solicitação para redefinir sua senha. Clique no link abaixo para continuar (válido por 1 hora):</p><p><a href="${resetLink}">${resetLink}</a></p><p>Se você não solicitou isso, ignore este e-mail.</p>`,
+    );
+    if (!emailResult.success) {
+      logger.error(
+        { userId: user.id, error: emailResult.error },
+        "[auth/forgot-password] falha ao enviar e-mail de reset",
+      );
+    }
 
     // Never return the token in the response — it should only be delivered via email
     res.json({

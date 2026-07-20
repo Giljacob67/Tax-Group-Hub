@@ -7,7 +7,11 @@ import logger from "./logger.js";
  * the error shape consistent across all routes.
  */
 export function apiError(res: Response, status: number, message: string): void {
-  res.status(status).json({ error: message });
+  // Send both keys: `error` is the historical shape some callers still read;
+  // `message` is what the auth pages (login, 2FA, forgot/reset-password) read.
+  // Without both, frontend error handling silently falls back to a generic
+  // string and the real reason (invalid credentials, misconfig, etc) is lost.
+  res.status(status).json({ error: message, message });
 }
 
 /**

@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { sendEmail } from "../email.js";
 
 export const emailSenderTool = tool({
   description:
@@ -15,38 +16,13 @@ export const emailSenderTool = tool({
     { to, subject, body }: { to: string; subject: string; body: string },
     _options,
   ) => {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.warn(
-        "[Email Tool] Simulação ativada. Nenhuma RESEND_API_KEY configurada.",
-      );
+    const result = await sendEmail(to, subject, body);
+    if (!result.success) {
       return {
         success: false,
-        result: `Modo Simulação. A ferramenta de e-mail está sem chave configurada. O e-mail para "${to}" com assunto "${subject}" SIMULOU sucesso mas NÃO FOI REALMENTE ENVIADO.`,
+        result: `A ferramenta de e-mail não conseguiu enviar para "${to}" com assunto "${subject}": ${result.error}`,
       };
     }
-
-    try {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          from: process.env.EMAIL_SENDER || "agent@taxgroup-hub.ai",
-          to,
-          subject,
-          html: body,
-        }),
-      });
-      const data = (await response.json()) as Record<string, any>;
-      if (!response.ok) {
-        throw new Error(data.message || JSON.stringify(data));
-      }
-      return { success: true, deliveryId: data.id };
-    } catch (e) {
-      return { success: false, error: (e as Error).message };
-    }
+    return result;
   },
 });
